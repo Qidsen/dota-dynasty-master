@@ -20,6 +20,8 @@ namespace Dynasty.MatchSimulation.Rules
             new CreepType("swarmling", Stats(hp: 220, armor: 0, speed: 350, dmgMin: 14, dmgMax: 16, range: 100, intervalMs: 1000, pointMs: 400, acquisition: 600, radius: 12), new Bounty(18, 22, 20)),
             new CreepType("hive_guard", Stats(hp: 650, armor: 3, speed: 330, dmgMin: 34, dmgMax: 40, range: 120, intervalMs: 1200, pointMs: 400, acquisition: 600, radius: 20), new Bounty(30, 36, 40)),
             new CreepType("golem", Stats(hp: 700, armor: 4, speed: 300, dmgMin: 30, dmgMax: 36, range: 120, intervalMs: 1300, pointMs: 400, acquisition: 600, radius: 24), new Bounty(30, 36, 40)),
+            new CreepType("colossus", Stats(hp: 6000, armor: 15, speed: 270, dmgMin: 75, dmgMax: 85, range: 150, intervalMs: 1200, pointMs: 300, acquisition: 400, radius: 60,
+                magicResist: 50, vision: 600)),
             new CreepType("observer_ward", Stats(hp: 4, armor: 0, speed: 0, dmgMin: 0, dmgMax: 0, range: 0, intervalMs: 1000, pointMs: 0, acquisition: 0, radius: 8,
                 vision: 1600, innate: ModifierFlags.Invisible), new Bounty(30, 30, 0)),
             new CreepType("sentry_ward", Stats(hp: 4, armor: 0, speed: 0, dmgMin: 0, dmgMax: 0, range: 0, intervalMs: 1000, pointMs: 0, acquisition: 0, radius: 8,
@@ -31,6 +33,15 @@ namespace Dynasty.MatchSimulation.Rules
         public static IReadOnlyList<ItemDefinition> Items { get; } = BuildItems();
 
         public static IReadOnlyList<HeroDefinition> Heroes { get; } = BuildHeroes();
+
+        /// <summary>
+        /// The Colossus pit sits on the anti-diagonal (x + y = 10000), the same distance from both
+        /// fountains; the map's only point-symmetric spot, the center, is on the mid lane.
+        /// </summary>
+        public static BossDefinition Boss { get; } = new BossDefinition(
+            "colossus", "colossus", FixedVector2.FromInts(3800, 6200), leashRadius: 700, firstSpawnMs: 0,
+            respawnMinMs: 480000, respawnMaxMs: 660000, teamGold: 200,
+            reward: new ModifierSpec("colossus.blessing", 180000, damageBonus: 30, armorBonus: Fixed.FromInt(5), hpRegenBonus: Fixed.FromInt(10)));
 
         public static HeroRules Rules { get; } = new HeroRules(
             xpForLevel: new[] { 0, 230, 600, 1080, 1660, 2260, 2980, 3730, 4510, 5320, 6160, 7030, 7930, 9000, 10200 },

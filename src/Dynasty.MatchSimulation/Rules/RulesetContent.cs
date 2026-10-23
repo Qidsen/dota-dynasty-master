@@ -13,6 +13,9 @@ namespace Dynasty.MatchSimulation.Rules
     {
         Dawn = 0,
         Dusk = 1,
+
+        /// <summary>Neutral objectives; hostile to both sides.</summary>
+        Neutral = 2,
     }
 
     public static class TeamExtensions
@@ -363,8 +366,10 @@ namespace Dynasty.MatchSimulation.Rules
             IReadOnlyList<HeroDefinition>? heroes = null,
             HeroRules? heroRules = null,
             IReadOnlyList<AbilityDefinition>? abilities = null,
-            IReadOnlyList<ItemDefinition>? items = null)
+            IReadOnlyList<ItemDefinition>? items = null,
+            BossDefinition? boss = null)
         {
+            Boss = boss;
             Abilities = (abilities ?? Array.Empty<AbilityDefinition>()).ToArray();
             Items = (items ?? Array.Empty<ItemDefinition>()).ToArray();
             Id = id;
@@ -393,6 +398,9 @@ namespace Dynasty.MatchSimulation.Rules
         public IReadOnlyList<ItemDefinition> Items { get; }
 
         public ItemDefinition? FindItem(string id) => Items.FirstOrDefault(i => i.Id == id);
+
+        /// <summary>Optional neutral boss objective.</summary>
+        public BossDefinition? Boss { get; }
 
         public string Id { get; }
         public int Version { get; }
@@ -438,6 +446,16 @@ namespace Dynasty.MatchSimulation.Rules
             ValidateHeroes(errors);
             ValidateAbilities(errors);
             ValidateItems(errors);
+            if (Boss != null)
+            {
+                if (FindCreepType(Boss.CreepTypeId) == null)
+                    errors.Add("Boss '" + Boss.Id + "' uses unknown creep type '" + Boss.CreepTypeId + "'.");
+                if (!IsInsideMap(Boss.Position) || Boss.LeashRadius <= 0)
+                    errors.Add("Boss '" + Boss.Id + "' needs a pit inside the map and a positive leash radius.");
+                if (Boss.FirstSpawnMs < 0 || Boss.RespawnMinMs <= 0 || Boss.RespawnMinMs > Boss.RespawnMaxMs)
+                    errors.Add("Boss '" + Boss.Id + "' has invalid spawn timings.");
+            }
+
             return errors;
         }
 
@@ -645,6 +663,8 @@ namespace Dynasty.MatchSimulation.Rules
             writer.WriteInt64(Items.Count);
             foreach (ItemDefinition item in Items)
                 item.WriteCanonical(writer);
+            writer.WriteBool(Boss != null);
+            Boss?.WriteCanonical(writer);
 
             writer.WriteInt64(Waves.FirstSpawnMs);
             writer.WriteInt64(Waves.IntervalMs);

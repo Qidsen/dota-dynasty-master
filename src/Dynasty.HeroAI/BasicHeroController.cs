@@ -22,6 +22,9 @@ namespace Dynasty.HeroAI
         Lane = 0,
         Push = 1,
         Defend = 2,
+
+        /// <summary>Kill the neutral boss (its being alive is public knowledge, like a kill feed).</summary>
+        Boss = 3,
     }
 
     /// <summary>
@@ -55,6 +58,13 @@ namespace Dynasty.HeroAI
             int ownAlive = state.Heroes.Count(h => h.Team == Team && h.IsAlive);
             int enemyAlive = state.Heroes.Count(h => h.Team != Team && !h.Hero!.IsDead);
             long minute = now / ticksPerMinute;
+
+            if (state.Boss != null && ownAlive >= 3 && ownAlive - enemyAlive >= 2)
+            {
+                Plan = TeamPlanKind.Boss;
+                Objective = state.Boss;
+                return;
+            }
             bool advantage = ownAlive - enemyAlive >= 2 || (ownAlive >= enemyAlive && ownAlive >= 3 && minute >= 20);
             if (advantage)
             {
@@ -417,6 +427,17 @@ namespace Dynasty.HeroAI
                 if (Math.HpPercent(_hero) < 50 || !Math.Within(_hero.Position, objective.Position, 7000))
                     return false;
                 Issue(HeroOrder.Move(FixedVector2.MoveTowards(objective.Position, Home, Fixed.FromInt(250))));
+                return true;
+            }
+
+            if (_brain.Plan == TeamPlanKind.Boss)
+            {
+                if (Math.HpPercent(_hero) < 50)
+                    return false;
+                if (Sees(objective) && Math.Within(_hero.Position, objective.Position, 1500))
+                    Issue(HeroOrder.Attack(objective.Id));
+                else
+                    Issue(HeroOrder.Move(objective.Position));
                 return true;
             }
 

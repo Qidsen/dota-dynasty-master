@@ -15,6 +15,9 @@ namespace Dynasty.MatchSimulation
         Structure = 1,
         Hero = 2,
         Summon = 3,
+
+        /// <summary>Neutral objective (see <see cref="BossDefinition"/>).</summary>
+        Boss = 4,
     }
 
     /// <summary>
@@ -247,6 +250,8 @@ namespace Dynasty.MatchSimulation
             Nav = Navigation.NavGrid.FromMap(ruleset.Map);
             Pathfinder = new Navigation.Pathfinder(Nav);
             SightGrid = Navigation.NavGrid.Build(ruleset.Map.Width, ruleset.Map.Height, ruleset.Map.NavCellSize, ruleset.Map.Obstacles, clearance: 0);
+            if (ruleset.Boss != null)
+                NextBossSpawnTick = rate.TicksFor(ruleset.Boss.FirstSpawnMs);
         }
 
         internal Navigation.NavGrid Nav { get; }
@@ -268,8 +273,17 @@ namespace Dynasty.MatchSimulation
         internal TickRate Rate { get; }
         internal long NextWaveTick { get; set; }
 
-        /// <summary>Whether the team currently sees the unit (own units: always). Recomputed every few ticks.</summary>
-        public bool IsVisibleTo(Team team, MatchUnit unit) => KnowledgeOf(team).Sees(unit);
+        /// <summary>
+        /// Whether the team currently sees the unit (own units: always). Recomputed every few ticks.
+        /// Neutral units act on proximity alone and are treated as seeing everything they react to.
+        /// </summary>
+        public bool IsVisibleTo(Team team, MatchUnit unit) => team == Team.Neutral || KnowledgeOf(team).Sees(unit);
+
+        /// <summary>The living boss, if the ruleset has one and it is up.</summary>
+        public MatchUnit? Boss { get; internal set; }
+
+        /// <summary>Tick the boss (re)spawns; -1 when it is alive or the ruleset has none.</summary>
+        public long NextBossSpawnTick { get; internal set; } = -1;
 
         public Vision.TeamKnowledge KnowledgeOf(Team team) => team == Team.Dawn ? _dawnKnowledge : _duskKnowledge;
 
@@ -357,8 +371,20 @@ namespace Dynasty.MatchSimulation
             return unit;
         }
 
+        internal MatchUnit SpawnBoss(EntityId id, BossDefinition boss)
+        {
+            CreepType type = Ruleset.FindCreepType(boss.CreepTypeId)!;
+            var unit = new MatchUnit(id, Team.Neutral, UnitKind.Boss, type.Id, type.Stats, boss.Position, Rate);
+            Add(unit);
+            Boss = unit;
+            NextBossSpawnTick = -1;
+            return unit;
+        }
+
         internal void Remove(MatchUnit unit)
         {
+            if (unit == Boss)
+                Boss = null;
             _units.Remove(unit);
             _byId.Remove(unit.Id);
             if (unit.Placement != null)

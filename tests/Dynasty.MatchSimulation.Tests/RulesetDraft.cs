@@ -66,6 +66,8 @@ public sealed class RulesetDraft
 
     public List<ItemDefinition> Items { get; } = new();
 
+    public BossDefinition? Boss { get; set; }
+
     public List<int> XpTable { get; } = new() { 0, 200, 500, 900, 1400, 2000 };
     public int XpShareRadius { get; set; } = 1200;
     public int GoldPerMinute { get; set; } = 90;
@@ -117,7 +119,8 @@ public sealed class RulesetDraft
         Heroes,
         BuildHeroRules(),
         Abilities,
-        Items);
+        Items,
+        Boss);
 
     /// <summary>Starts a match with the given heroes; each pick is (heroId, laneId).</summary>
     public Dynasty.Core.Kernel.SimulationKernel<MatchState> StartWithHeroes(
