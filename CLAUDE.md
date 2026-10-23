@@ -14,7 +14,8 @@
 ```
 dotnet build              # сборка всего решения (DotaDynasty.slnx)
 dotnet test               # все тесты
-dotnet run --project tools/Dynasty.MatchLab -c Release -- [base|lab] [firstSeed] [count] [maxMinutes]
+dotnet run --project tools/Dynasty.MatchLab -c Release -- [heroes|swapped|mirror|base|lab] [firstSeed] [count] [maxMinutes]
+# MATCHLAB_DEATHS=1 — печатать причины смертей героев по командам
 ```
 Требуется .NET SDK 10. Unity 6.3 LTS (6000.3.x) понадобится с этапа 04.
 
@@ -24,12 +25,15 @@ dotnet run --project tools/Dynasty.MatchLab -c Release -- [base|lab] [firstSeed]
 - Случайность — только через `SimulationContext.Random("<поток>")`.
 - Состояние меняют только системы и обработчики команд через `SimulationContext`. Внешний код (AI, UI, менеджер) отправляет `ISimCommand`.
 - Каждое доменное событие: стабильный `Type`, `SchemaVersion`, все поля пишутся в `WritePayload` в фиксированном порядке.
+- **Честность порядка обработки (D-014):** внутри тика ни одно решение не должно зависеть от того, какой юнит обработан раньше (Dawn всегда первым). Погоня — по `StartPosition`, ограничения действий — по `StartFlags`; удары и касты, чей момент наступил, срабатывают. Новую механику проверяй зеркальным тестом.
+- ИИ (`Dynasty.HeroAI`) работает только через публичный API и приказы; видит только то, что видит команда.
 - TDD: сначала падающий тест, потом код. Не выдавать непроверенное за работающее; не создавать пустые классы/экраны как «прогресс».
 - Предупреждения компилятора = ошибки.
 
 ## Структура
 - `src/Dynasty.Core` — ID, тики, RNG, хеши, fixed-point, события, команды, ruleset-идентичность, ядро симуляции.
-- `src/Dynasty.MatchSimulation` — ruleset-схема, базовые правила, состояние и системы матча (`docs/MATCH_SIMULATION.md`).
+- `src/Dynasty.MatchSimulation` — ruleset-схема, базовые правила и контент, навигация, бой, герои, способности, предметы, системы матча (`docs/MATCH_SIMULATION.md`).
+- `src/Dynasty.HeroAI` — базовый контроллер героев (этап 02), будет заменён слоями этапа 03.
 - `tools/Dynasty.MatchLab` — консольный прогон матчей (net10.0, не для Unity).
 - `tests/*` — xUnit, net10.0. Тестовые ruleset'ы собираются через `RulesetDraft`.
 - `docs/` — архитектура, решения, статус, журнал.

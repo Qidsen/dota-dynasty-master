@@ -1,6 +1,7 @@
 <Solution>
   <Folder Name="/src/">
     <Project Path="src/Dynasty.Core/Dynasty.Core.csproj" />
+    <Project Path="src/Dynasty.HeroAI/Dynasty.HeroAI.csproj" />
     <Project Path="src/Dynasty.MatchSimulation/Dynasty.MatchSimulation.csproj" />
   </Folder>
   <Folder Name="/tests/">

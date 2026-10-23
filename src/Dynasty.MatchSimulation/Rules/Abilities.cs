@@ -1,0 +1,231 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using Dynasty.Core.Hashing;
+using Dynasty.MatchSimulation.Combat;
+
+namespace Dynasty.MatchSimulation.Rules
+{
+    public enum AbilityTargeting
+    {
+        /// <summary>Instant, centered on the caster.</summary>
+        NoTarget = 0,
+        Unit = 1,
+        Point = 2,
+
+        /// <summary>Never cast; grants its level's modifier permanently once learned.</summary>
+        Passive = 3,
+    }
+
+    /// <summary>Which units a targeted ability or an area effect may affect, relative to the caster.</summary>
+    public enum TargetTeam
+    {
+        Enemy = 0,
+
+        /// <summary>Allies including the caster.</summary>
+        Ally = 1,
+        Any = 2,
+    }
+
+    public enum EffectKind
+    {
+        Damage = 0,
+        Heal = 1,
+        ApplyModifier = 2,
+
+        /// <summary>Applies inner effects to every matching unit in a radius.</summary>
+        Area = 3,
+
+        /// <summary>Moves the caster next to the target unit (or to the target point).</summary>
+        Dash = 4,
+
+        /// <summary>Pushes the target directly away from the caster.</summary>
+        Knockback = 5,
+
+        /// <summary>Spawns temporary units of a creep type that fight for the caster's team.</summary>
+        Summon = 6,
+    }
+
+    public enum AreaCenter
+    {
+        Caster = 0,
+        Target = 1,
+        Point = 2,
+    }
+
+    /// <summary>
+    /// One composable effect primitive. Per-level arrays are indexed by ability level; a shorter
+    /// array repeats its last value.
+    /// </summary>
+    public sealed class EffectDefinition
+    {
+        private EffectDefinition(
+            EffectKind kind,
+            int[]? amounts = null,
+            DamageType damageType = DamageType.Magical,
+            ModifierSpec[]? modifiers = null,
+            int radius = 0,
+            AreaCenter center = AreaCenter.Caster,
+            TargetTeam team = TargetTeam.Enemy,
+            EffectDefinition[]? inner = null,
+            string? summonTypeId = null,
+            int durationMs = 0)
+        {
+            Kind = kind;
+            Amounts = amounts ?? Array.Empty<int>();
+            DamageType = damageType;
+            Modifiers = modifiers ?? Array.Empty<ModifierSpec>();
+            Radius = radius;
+            Center = center;
+            Team = team;
+            Inner = inner ?? Array.Empty<EffectDefinition>();
+            SummonTypeId = summonTypeId;
+            DurationMs = durationMs;
+        }
+
+        public EffectKind Kind { get; }
+
+        /// <summary>Damage, heal, knockback distance or summon count per level.</summary>
+        public IReadOnlyList<int> Amounts { get; }
+
+        public DamageType DamageType { get; }
+        public IReadOnlyList<ModifierSpec> Modifiers { get; }
+        public int Radius { get; }
+        public AreaCenter Center { get; }
+        public TargetTeam Team { get; }
+        public IReadOnlyList<EffectDefinition> Inner { get; }
+        public string? SummonTypeId { get; }
+
+        /// <summary>Summon lifetime.</summary>
+        public int DurationMs { get; }
+
+        public static EffectDefinition Damage(DamageType type, params int[] perLevel) =>
+            new EffectDefinition(EffectKind.Damage, perLevel, type);
+
+        public static EffectDefinition Heal(params int[] perLevel) => new EffectDefinition(EffectKind.Heal, perLevel);
+
+        public static EffectDefinition Modifier(params ModifierSpec[] perLevel) =>
+            new EffectDefinition(EffectKind.ApplyModifier, modifiers: perLevel);
+
+        public static EffectDefinition Area(int radius, AreaCenter center, TargetTeam team, params EffectDefinition[] inner) =>
+            new EffectDefinition(EffectKind.Area, radius: radius, center: center, team: team, inner: inner);
+
+        public static EffectDefinition Dash() => new EffectDefinition(EffectKind.Dash);
+
+        public static EffectDefinition Knockback(params int[] distancePerLevel) =>
+            new EffectDefinition(EffectKind.Knockback, distancePerLevel);
+
+        public static EffectDefinition Summon(string creepTypeId, int durationMs, params int[] countPerLevel) =>
+            new EffectDefinition(EffectKind.Summon, countPerLevel, summonTypeId: creepTypeId, durationMs: durationMs);
+
+        public int AmountAt(int level) => ValueAt(Amounts, level);
+
+        public ModifierSpec ModifierAt(int level) => ValueAt(Modifiers, level);
+
+        internal static T ValueAt<T>(IReadOnlyList<T> values, int level) => values[Math.Min(Math.Max(level, 1), values.Count) - 1];
+
+        internal IEnumerable<EffectDefinition> SelfAndDescendants()
+        {
+            yield return this;
+            foreach (EffectDefinition child in Inner)
+            {
+                foreach (EffectDefinition nested in child.SelfAndDescendants())
+                    yield return nested;
+            }
+        }
+
+        internal void WriteCanonical(CanonicalWriter w)
+        {
+            w.WriteInt64((int)Kind);
+            w.WriteInt64(Amounts.Count);
+            foreach (int amount in Amounts)
+                w.WriteInt64(amount);
+            w.WriteInt64((int)DamageType);
+            w.WriteInt64(Modifiers.Count);
+            foreach (ModifierSpec modifier in Modifiers)
+                modifier.WriteCanonical(w);
+            w.WriteInt64(Radius);
+            w.WriteInt64((int)Center);
+            w.WriteInt64((int)Team);
+            w.WriteString(SummonTypeId ?? "");
+            w.WriteInt64(DurationMs);
+            w.WriteInt64(Inner.Count);
+            foreach (EffectDefinition child in Inner)
+                child.WriteCanonical(w);
+        }
+    }
+
+    public sealed class AbilityDefinition
+    {
+        public AbilityDefinition(
+            string id,
+            string name,
+            AbilityTargeting targeting,
+            TargetTeam targetTeam,
+            int castRange,
+            int castPointMs,
+            IReadOnlyList<int> cooldownMs,
+            IReadOnlyList<int> manaCost,
+            IReadOnlyList<int> requiredHeroLevel,
+            IReadOnlyList<EffectDefinition> effects,
+            IReadOnlyList<ModifierSpec>? passiveModifiers = null)
+        {
+            Id = id;
+            Name = name;
+            Targeting = targeting;
+            TargetTeam = targetTeam;
+            CastRange = castRange;
+            CastPointMs = castPointMs;
+            CooldownMs = cooldownMs.ToArray();
+            ManaCost = manaCost.ToArray();
+            RequiredHeroLevel = requiredHeroLevel.ToArray();
+            Effects = effects.ToArray();
+            PassiveModifiers = (passiveModifiers ?? Array.Empty<ModifierSpec>()).ToArray();
+        }
+
+        public string Id { get; }
+        public string Name { get; }
+        public AbilityTargeting Targeting { get; }
+        public TargetTeam TargetTeam { get; }
+        public int CastRange { get; }
+        public int CastPointMs { get; }
+        public IReadOnlyList<int> CooldownMs { get; }
+        public IReadOnlyList<int> ManaCost { get; }
+
+        /// <summary>Hero level needed for each ability level; its length is the ability's max level.</summary>
+        public IReadOnlyList<int> RequiredHeroLevel { get; }
+
+        public int MaxLevel => RequiredHeroLevel.Count;
+        public IReadOnlyList<EffectDefinition> Effects { get; }
+
+        /// <summary>Permanent modifier per level for passive abilities.</summary>
+        public IReadOnlyList<ModifierSpec> PassiveModifiers { get; }
+
+        public int CooldownAt(int level) => EffectDefinition.ValueAt(CooldownMs, level);
+
+        public int ManaCostAt(int level) => EffectDefinition.ValueAt(ManaCost, level);
+
+        internal void WriteCanonical(CanonicalWriter w)
+        {
+            w.WriteString(Id);
+            w.WriteString(Name);
+            w.WriteInt64((int)Targeting);
+            w.WriteInt64((int)TargetTeam);
+            w.WriteInt64(CastRange);
+            w.WriteInt64(CastPointMs);
+            foreach (IReadOnlyList<int> list in new[] { CooldownMs, ManaCost, RequiredHeroLevel })
+            {
+                w.WriteInt64(list.Count);
+                foreach (int value in list)
+                    w.WriteInt64(value);
+            }
+
+            w.WriteInt64(Effects.Count);
+            foreach (EffectDefinition effect in Effects)
+                effect.WriteCanonical(w);
+            w.WriteInt64(PassiveModifiers.Count);
+            foreach (ModifierSpec modifier in PassiveModifiers)
+                modifier.WriteCanonical(w);
+        }
+    }
+}

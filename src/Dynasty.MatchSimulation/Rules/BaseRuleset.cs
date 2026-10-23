@@ -40,10 +40,10 @@ namespace Dynasty.MatchSimulation.Rules
         {
             var creeps = new[]
             {
-                new CreepType("melee", Stats(hp: 550, armor: 2, speed: 325, dmgMin: 19, dmgMax: 23, range: 100, intervalMs: 1000, pointMs: 500, acquisition: 500, radius: 16)),
-                new CreepType("ranged", Stats(hp: 300, armor: 0, speed: 325, dmgMin: 21, dmgMax: 26, range: 500, intervalMs: 1000, pointMs: 300, acquisition: 500, radius: 16)),
-                new CreepType("siege", Stats(hp: 900, armor: 0, speed: 325, dmgMin: 140, dmgMax: 170, range: 690, intervalMs: 2700, pointMs: 700, acquisition: 800, radius: 24)),
-            };
+                new CreepType("melee", Stats(hp: 550, armor: 2, speed: 325, dmgMin: 19, dmgMax: 23, range: 100, intervalMs: 1000, pointMs: 500, acquisition: 500, radius: 16), new Bounty(38, 46, 57)),
+                new CreepType("ranged", Stats(hp: 300, armor: 0, speed: 325, dmgMin: 21, dmgMax: 26, range: 500, intervalMs: 1000, pointMs: 300, acquisition: 500, radius: 16), new Bounty(45, 52, 69)),
+                new CreepType("siege", Stats(hp: 900, armor: 0, speed: 325, dmgMin: 140, dmgMax: 170, range: 690, intervalMs: 2700, pointMs: 700, acquisition: 800, radius: 24), new Bounty(70, 80, 88)),
+            }.Concat(BaseContent.SummonTypes).ToArray();
 
             var structureTypes = new[]
             {
@@ -82,6 +82,20 @@ namespace Dynasty.MatchSimulation.Rules
 
             var structures = dawnStructures.Concat(dawnStructures.Select(MirrorToDusk)).ToList();
 
+            // Tree clumps in the jungle between lanes; mirrored so both halves are identical.
+            var dawnObstacles = new[]
+            {
+                Obstacle("jungle.dawn.1", 3500, 2000, 300),
+                Obstacle("jungle.dawn.2", 5500, 2600, 400),
+                Obstacle("jungle.dawn.3", 2000, 3500, 300),
+                Obstacle("jungle.dawn.4", 2600, 5500, 400),
+                Obstacle("jungle.dawn.5", 4000, 3000, 250),
+                Obstacle("jungle.dawn.6", 3000, 4000, 250),
+            };
+            var obstacles = dawnObstacles
+                .Concat(dawnObstacles.Select(o => ObstacleDefinition.Circle(o.Id.Replace(".dawn.", ".dusk."), o.Center.ReflectThrough(Center), o.Radius)))
+                .ToList();
+
             return new RulesetContent(
                 id,
                 version,
@@ -89,8 +103,16 @@ namespace Dynasty.MatchSimulation.Rules
                 combat: new CombatRules(Fixed.FromRatio(6, 100)),
                 creepTypes: creeps,
                 structureTypes: structureTypes,
-                map: new MapDefinition(10000, 10000, lanes, structures),
-                waves: new WaveRules(firstSpawnMs: 0, intervalMs: 30000, dawnWave, duskWave));
+                map: new MapDefinition(10000, 10000, lanes, structures, obstacles, fountains: new[]
+                {
+                    new FountainPlacement(Team.Dawn, FixedVector2.FromInts(600, 600), 500),
+                    new FountainPlacement(Team.Dusk, FixedVector2.FromInts(9400, 9400), 500),
+                }),
+                waves: new WaveRules(firstSpawnMs: 0, intervalMs: 30000, dawnWave, duskWave),
+                heroes: BaseContent.Heroes,
+                heroRules: BaseContent.Rules,
+                abilities: BaseContent.Abilities,
+                items: BaseContent.Items);
         }
 
         private static StructurePlacement MirrorToDusk(StructurePlacement dawn) => new StructurePlacement(
@@ -102,10 +124,25 @@ namespace Dynasty.MatchSimulation.Rules
             dawn.ProtectedBy.Select(ToDusk).ToArray(),
             dawn.Vulnerability);
 
-        private static string ToDusk(string dawnId) => "dusk" + dawnId.Substring("dawn".Length);
+        /// <summary>
+        /// Dusk ID of a mirrored Dawn placement. Point reflection maps the Dawn top lane onto the
+        /// bot lane (and vice versa), so the lane token must swap to keep IDs truthful.
+        /// </summary>
+        private static string ToDusk(string dawnId)
+        {
+            string rest = dawnId.Substring("dawn".Length);
+            if (rest.StartsWith(".top."))
+                rest = ".bot." + rest.Substring(".top.".Length);
+            else if (rest.StartsWith(".bot."))
+                rest = ".top." + rest.Substring(".bot.".Length);
+            return "dusk" + rest;
+        }
 
         private static StructurePlacement Placement(string id, string type, int x, int y, bool isAncient, string[] protectedBy, VulnerabilityRule rule) =>
             new StructurePlacement(id, Team.Dawn, type, FixedVector2.FromInts(x, y), isAncient, protectedBy, rule);
+
+        private static ObstacleDefinition Obstacle(string id, int x, int y, int radius) =>
+            ObstacleDefinition.Circle(id, FixedVector2.FromInts(x, y), radius);
 
         private static FixedVector2[] Points(params (int X, int Y)[] points) =>
             points.Select(p => FixedVector2.FromInts(p.X, p.Y)).ToArray();

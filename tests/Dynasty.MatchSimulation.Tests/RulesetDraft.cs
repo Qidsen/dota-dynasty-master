@@ -29,7 +29,7 @@ public sealed class RulesetDraft
     public int Width { get; set; } = 10000;
     public int Height { get; set; } = 10000;
 
-    public List<CreepType> Creeps { get; } = new() { new CreepType("melee", MeleeStats()) };
+    public List<CreepType> Creeps { get; } = new() { new CreepType("melee", MeleeStats(), new Bounty(40, 40, 60)) };
 
     public List<StructureType> StructureTypes { get; } = new()
     {
@@ -49,6 +49,43 @@ public sealed class RulesetDraft
         new StructurePlacement("dusk.mid.t1", Team.Dusk, "tower", P(7000, 5000), false, Array.Empty<string>(), VulnerabilityRule.AnyProtectorDestroyed),
         new StructurePlacement("dusk.ancient", Team.Dusk, "ancient", P(9500, 5000), true, new[] { "dusk.mid.t1" }, VulnerabilityRule.AllProtectorsDestroyed),
     };
+
+    public List<ObstacleDefinition> Obstacles { get; } = new();
+
+    public static UnitStats HeroStats(int hp = 600, int dmg = 50, int range = 150, int speed = 300, int intervalMs = 1500, int pointMs = 300) =>
+        new(hp, Fixed.FromInt(2), speed, dmg, dmg + 4, range, intervalMs, pointMs, 800, 24, 25);
+
+    public static HeroDefinition Hero(string id, UnitStats? stats = null, IReadOnlyList<string>? abilities = null) =>
+        new(id, id, new[] { "carry" }, stats ?? HeroStats(), hpPerLevel: 80, armorPerLevel: Fixed.FromRatio(3, 10),
+            damagePerLevel: 3, baseMana: 300, manaPerLevel: 40, hpRegenPerSecond: Fixed.FromInt(2), manaRegenPerSecond: Fixed.One,
+            abilityIds: abilities);
+
+    public List<HeroDefinition> Heroes { get; } = new() { Hero("alpha"), Hero("beta"), Hero("gamma") };
+
+    public List<AbilityDefinition> Abilities { get; } = new();
+
+    public List<ItemDefinition> Items { get; } = new();
+
+    public List<int> XpTable { get; } = new() { 0, 200, 500, 900, 1400, 2000 };
+    public int XpShareRadius { get; set; } = 1200;
+    public int GoldPerMinute { get; set; } = 90;
+    public int StartingGold { get; set; } = 600;
+    public int RespawnBaseMs { get; set; } = 4000;
+    public int RespawnPerLevelMs { get; set; } = 2000;
+
+    public List<FountainPlacement> Fountains { get; } = new()
+    {
+        new FountainPlacement(Team.Dawn, P(200, 5000), 400),
+        new FountainPlacement(Team.Dusk, P(9800, 5000), 400),
+    };
+
+    public HeroRules BuildHeroRules() => new(
+        XpTable, XpShareRadius,
+        heroKillXpBase: 100, heroKillXpPerLevel: 20,
+        heroKillGoldBase: 200, heroKillGoldPerLevel: 10,
+        assistWindowMs: 10000, GoldPerMinute, StartingGold,
+        RespawnBaseMs, RespawnPerLevelMs,
+        goldLossPerLevel: 30, structureTeamGold: 100, fountainHealPercentPerSecond: 5);
 
     public int FirstSpawnMs { get; set; } = 0;
     public int IntervalMs { get; set; } = 30000;
@@ -75,6 +112,19 @@ public sealed class RulesetDraft
         new CombatRules(ArmorFactor),
         Creeps,
         StructureTypes,
-        new MapDefinition(Width, Height, Lanes, Placements),
-        new WaveRules(FirstSpawnMs, IntervalMs, DawnWave, DuskWave));
+        new MapDefinition(Width, Height, Lanes, Placements, Obstacles, fountains: Fountains),
+        new WaveRules(FirstSpawnMs, IntervalMs, DawnWave, DuskWave),
+        Heroes,
+        BuildHeroRules(),
+        Abilities,
+        Items);
+
+    /// <summary>Starts a match with the given heroes; each pick is (heroId, laneId).</summary>
+    public Dynasty.Core.Kernel.SimulationKernel<MatchState> StartWithHeroes(
+        IEnumerable<(string Hero, string Lane)> dawn,
+        IEnumerable<(string Hero, string Lane)> dusk,
+        ulong seed = 1) =>
+        Match.Create(Build(), seed, new MatchLineup(
+            dawn.Select(p => new HeroPick(p.Hero, p.Lane)).ToList(),
+            dusk.Select(p => new HeroPick(p.Hero, p.Lane)).ToList()));
 }

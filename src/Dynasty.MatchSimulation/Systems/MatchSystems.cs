@@ -3,6 +3,7 @@ using System.Linq;
 using Dynasty.Core.Ids;
 using Dynasty.Core.Kernel;
 using Dynasty.Core.Mathematics;
+using Dynasty.MatchSimulation.Combat;
 using Dynasty.MatchSimulation.Events;
 using Dynasty.MatchSimulation.Rules;
 
@@ -42,6 +43,64 @@ namespace Dynasty.MatchSimulation.Systems
     }
 
     /// <summary>
+    /// Periodic damage/heal of modifiers, then expiry. Runs before targeting so expired
+    /// stuns and slows no longer affect this tick's actions.
+    /// </summary>
+    internal sealed class ModifierSystem : ISimulationSystem<MatchState>
+    {
+        private readonly List<ActiveModifier> _scratch = new List<ActiveModifier>();
+
+        public string Name => "modifiers";
+
+        public void Tick(SimulationContext<MatchState> context)
+        {
+            long now = context.Tick.Value;
+            foreach (MatchUnit unit in context.State.Units)
+            {
+                if (unit.Modifiers.Count == 0)
+                    continue;
+
+                _scratch.Clear();
+                _scratch.AddRange(unit.Modifiers);
+                foreach (ActiveModifier modifier in _scratch)
+                {
+                    ModifierSpec spec = modifier.Spec;
+                    if (spec.IsPeriodic && now >= modifier.NextPeriodTick)
+                    {
+                        Fixed periodFraction = Fixed.FromRatio(spec.PeriodMs, 1000);
+                        if (spec.DamagePerSecond > Fixed.Zero)
+                            Damage.Deal(context, modifier.Source, unit, spec.DamagePerSecond * periodFraction, spec.DamageType);
+                        if (spec.HealPerSecond > Fixed.Zero)
+                            Damage.Heal(context, modifier.Source, unit, spec.HealPerSecond * periodFraction);
+                        modifier.NextPeriodTick += context.TickRate.TicksFor(spec.PeriodMs);
+                    }
+
+                    if (modifier.ExpiresTick >= 0 && now >= modifier.ExpiresTick)
+                        Modifiers.Remove(context, unit, modifier, "expired");
+                }
+            }
+        }
+    }
+
+    /// <summary>
+    /// Records every unit's position and status flags. Runs after the tick-start updates
+    /// (modifier expiry, respawns, shopping) and before anything acts.
+    /// </summary>
+    internal sealed class TickSnapshotSystem : ISimulationSystem<MatchState>
+    {
+        public string Name => "tick-snapshot";
+
+        public void Tick(SimulationContext<MatchState> context)
+        {
+            foreach (MatchUnit unit in context.State.Units)
+            {
+                unit.StartPosition = unit.Position;
+                unit.StartFlags = unit.Flags;
+            }
+        }
+    }
+
+    /// <summary>
     /// Keeps a valid target or acquires the nearest attackable enemy (edge distance, ties by lower ID).
     /// Creeps search within acquisition range; towers within attack range and only hit units.
     /// </summary>
@@ -54,10 +113,10 @@ namespace Dynasty.MatchSimulation.Systems
             MatchState state = context.State;
             foreach (MatchUnit unit in state.Units)
             {
-                if (!unit.Stats.CanAttack || !unit.IsAlive)
+                if (!unit.CanAttackAtAll || !unit.IsAlive || unit.Kind == UnitKind.Hero)
                     continue;
 
-                int searchRange = unit.Kind == UnitKind.Structure ? unit.Stats.AttackRange : unit.Stats.AcquisitionRange;
+                int searchRange = unit.Kind == UnitKind.Structure ? unit.AttackRange : unit.AcquisitionRange;
                 MatchUnit? current = state.Find(unit.TargetId);
                 if (current != null && state.CanAttack(unit, current) && Geometry.WithinEdgeRange(unit, current, searchRange))
                     continue;
@@ -66,7 +125,7 @@ namespace Dynasty.MatchSimulation.Systems
             }
         }
 
-        private static EntityId FindNearest(MatchState state, MatchUnit unit, int range)
+        internal static EntityId FindNearest(MatchState state, MatchUnit unit, int range)
         {
             EntityId best = EntityId.None;
             Fixed bestDistance = Fixed.Zero;
@@ -101,38 +160,60 @@ namespace Dynasty.MatchSimulation.Systems
             long now = context.Tick.Value;
             foreach (MatchUnit unit in state.Units)
             {
-                if (unit.Kind != UnitKind.Creep || unit.StepPerTick <= Fixed.Zero)
+                if ((unit.Kind != UnitKind.Creep && unit.Kind != UnitKind.Summon) || !unit.CanMove)
                     continue;
 
                 MatchUnit? target = state.Find(unit.TargetId);
                 if (target == null || !state.CanAttack(unit, target))
-                    target = unit.NextWaypoint >= unit.Lane!.Waypoints.Count ? NearestVulnerableStructure(state, unit) : null;
+                    target = unit.Lane != null && unit.NextWaypoint >= unit.Lane.Waypoints.Count ? NearestVulnerableStructure(state, unit) : null;
 
                 if (target != null)
                 {
-                    if (Approach(unit, target))
+                    if (Approach(unit, target, unit.AttackRange))
                         unit.LastActiveTick = now;
                     continue;
                 }
 
-                if (FollowLane(unit))
+                if (unit.Lane != null)
+                {
+                    if (FollowLane(unit))
+                        unit.LastActiveTick = now;
+                }
+                else if (unit.Kind == UnitKind.Summon && FollowOwner(state, unit))
+                {
                     unit.LastActiveTick = now;
+                }
             }
         }
 
-        /// <summary>Moves toward the target until it is within attack range. Returns true if it moved.</summary>
-        private static bool Approach(MatchUnit unit, MatchUnit target)
+        /// <summary>Summons without a target stay near their owner.</summary>
+        private static bool FollowOwner(MatchState state, MatchUnit unit)
         {
-            // Same predicate as the attack check; a separate sqrt-based test could disagree at the
-            // boundary (floored sqrt) and leave the unit neither moving nor attacking.
-            if (Geometry.WithinEdgeRange(unit, target, unit.Stats.AttackRange))
+            MatchUnit? owner = state.Find(unit.Owner);
+            if (owner == null || !owner.IsAlive || Geometry.WithinRange(unit.Position, owner.Position, 300))
                 return false;
 
-            Fixed reach = Fixed.FromInt(unit.Stats.AttackRange + unit.Stats.BoundingRadius + target.Stats.BoundingRadius);
-            Fixed distance = FixedVector2.Distance(unit.Position, target.Position);
+            unit.Position = FixedVector2.MoveTowards(unit.Position, owner.Position, unit.StepPerTick);
+            return true;
+        }
+
+        /// <summary>
+        /// Moves toward the target until it is within <paramref name="range"/> (edge to edge). Returns
+        /// true if it moved. Aims at the target's tick-start position, so pursuit does not depend on
+        /// whether the target was processed earlier or later in this tick.
+        /// </summary>
+        internal static bool Approach(MatchUnit unit, MatchUnit target, int range)
+        {
+            // Squared-distance predicate, consistent with the attack/cast checks; a separate sqrt-based
+            // test could disagree at the boundary (floored sqrt) and leave the unit neither moving nor acting.
+            if (Geometry.WithinEdgeRangeOfStart(unit, target, range))
+                return false;
+
+            Fixed reach = Fixed.FromInt(range + unit.BoundingRadius + target.BoundingRadius);
+            Fixed distance = FixedVector2.Distance(unit.Position, target.StartPosition);
             // +1 unit guarantees progress into range even when the floored distance equals reach.
             Fixed step = Fixed.Min(unit.StepPerTick, distance - reach + Fixed.One);
-            unit.Position = FixedVector2.MoveTowards(unit.Position, target.Position, step);
+            unit.Position = FixedVector2.MoveTowards(unit.Position, target.StartPosition, step);
             return true;
         }
 
@@ -172,7 +253,7 @@ namespace Dynasty.MatchSimulation.Systems
     /// <summary>
     /// Starts attacks (wind-up = attack point) and lands them. Attacks due this tick land even if
     /// the attacker itself died earlier in the same tick, so simultaneous hits do not favour
-    /// whichever unit happens to be processed first.
+    /// whichever unit happens to be processed first. Stun and disarm interrupt the wind-up.
     /// </summary>
     internal sealed class AttackSystem : ISimulationSystem<MatchState>
     {
@@ -184,10 +265,13 @@ namespace Dynasty.MatchSimulation.Systems
             long now = context.Tick.Value;
             foreach (MatchUnit unit in state.Units)
             {
-                if (!unit.Stats.CanAttack)
+                if (!unit.CanAttackAtAll)
                     continue;
 
-                if (unit.PendingAttackTick < 0 && unit.IsAlive && now >= unit.NextAttackTick)
+                if (unit.PendingAttackTick >= 0 && !unit.CanStartAttack && unit.IsAlive)
+                    unit.PendingAttackTick = -1;
+
+                if (unit.PendingAttackTick < 0 && unit.IsAlive && unit.CanStartAttack && now >= unit.NextAttackTick)
                     TryStartAttack(context, unit, now);
 
                 if (unit.PendingAttackTick >= 0 && now >= unit.PendingAttackTick)
@@ -198,7 +282,7 @@ namespace Dynasty.MatchSimulation.Systems
         private static void TryStartAttack(SimulationContext<MatchState> context, MatchUnit unit, long now)
         {
             MatchUnit? target = context.State.Find(unit.TargetId);
-            if (target == null || !context.State.CanAttack(unit, target) || !Geometry.WithinEdgeRange(unit, target, unit.Stats.AttackRange))
+            if (target == null || !context.State.CanAttack(unit, target) || !Geometry.WithinEdgeRange(unit, target, unit.AttackRange))
                 return;
 
             unit.PendingTargetId = target.Id;
@@ -212,15 +296,21 @@ namespace Dynasty.MatchSimulation.Systems
         {
             unit.PendingAttackTick = -1;
             MatchUnit? target = context.State.Find(unit.PendingTargetId);
-            if (target == null || !target.IsAlive || target.Team == unit.Team || !context.State.IsVulnerable(target))
+            if (target == null || !context.State.CanAttack(unit, target))
                 return;
 
-            int roll = context.Random("combat").NextInt(unit.Stats.AttackDamageMin, unit.Stats.AttackDamageMax + 1);
-            Fixed damage = Fixed.FromInt(roll) * CombatMath.ArmorMultiplier(target.Stats.Armor, context.State.Ruleset.Combat.ArmorFactor);
+            int roll = context.Random("combat").NextInt(unit.AttackDamageMin, unit.AttackDamageMax + 1);
+            Fixed damage = Fixed.FromInt(roll);
 
-            target.Hp = Fixed.Max(Fixed.Zero, target.Hp - damage);
-            target.LastAttackerId = unit.Id;
-            context.Emit(new DamageDealt(unit.Id, target.Id, damage, target.Hp));
+            bool critical = unit.CritChancePercent > 0 && context.Random("combat").NextInt(0, 100) < unit.CritChancePercent;
+            if (critical)
+                damage = damage * Fixed.FromInt(unit.CritMultiplierPercent) / Fixed.FromInt(100);
+            if (target.Kind == UnitKind.Structure && unit.StructureDamagePercent != 0)
+                damage = damage * Fixed.FromInt(100 + unit.StructureDamagePercent) / Fixed.FromInt(100);
+
+            Fixed dealt = Damage.Deal(context, unit.Id, target, damage, DamageType.Physical, critical);
+            if (unit.LifestealPercent > 0 && unit.IsAlive)
+                Damage.Heal(context, unit.Id, unit, dealt * Fixed.FromInt(unit.LifestealPercent) / Fixed.FromInt(100));
         }
     }
 
@@ -232,19 +322,36 @@ namespace Dynasty.MatchSimulation.Systems
         public void Tick(SimulationContext<MatchState> context)
         {
             MatchState state = context.State;
-            List<MatchUnit> dead = state.Units.Where(u => !u.IsAlive).ToList();
+            long now = context.Tick.Value;
+            foreach (MatchUnit expired in state.Units.Where(u => u.ExpiresTick >= 0 && now >= u.ExpiresTick && u.IsAlive).ToList())
+            {
+                state.Remove(expired);
+                context.Emit(new UnitExpired(expired.Id));
+            }
+
+            List<MatchUnit> dead = state.Units.Where(u => !u.IsAlive && !(u.Hero?.IsDead ?? false)).ToList();
             StructurePlacement? fallenAncient = null;
 
             foreach (MatchUnit unit in dead)
             {
+                if (unit.Hero != null)
+                {
+                    // Heroes stay in the match and respawn.
+                    Rewards.HeroDied(context, unit);
+                    continue;
+                }
+
                 state.Remove(unit);
                 if (unit.Placement == null)
                 {
                     context.Emit(new UnitKilled(unit.Id, unit.Team, unit.TypeId, unit.LastAttackerId));
+                    if (unit.Kind == UnitKind.Creep || unit.Kind == UnitKind.Summon)
+                        Rewards.CreepDied(context, unit, state.Ruleset.FindCreepType(unit.TypeId));
                     continue;
                 }
 
                 context.Emit(new StructureDestroyed(unit.Id, unit.Placement.Id, unit.Team, unit.LastAttackerId));
+                Rewards.StructureDestroyed(context, unit);
                 if (unit.Placement.IsAncient && fallenAncient == null)
                     fallenAncient = unit.Placement;
             }

@@ -32,8 +32,10 @@ namespace Dynasty.MatchSimulation.Rules
             int attackIntervalMs,
             int attackPointMs,
             int acquisitionRange,
-            int boundingRadius)
+            int boundingRadius,
+            int magicResistPercent = 0)
         {
+            MagicResistPercent = magicResistPercent;
             MaxHp = maxHp;
             Armor = armor;
             MoveSpeed = moveSpeed;
@@ -68,8 +70,12 @@ namespace Dynasty.MatchSimulation.Rules
         public int AcquisitionRange { get; }
         public int BoundingRadius { get; }
 
+        /// <summary>Percent reduction of magical damage.</summary>
+        public int MagicResistPercent { get; }
+
         internal void WriteCanonical(CanonicalWriter w)
         {
+            w.WriteInt64(MagicResistPercent);
             w.WriteInt64(MaxHp);
             w.WriteFixed(Armor);
             w.WriteInt64(MoveSpeed);
@@ -85,14 +91,18 @@ namespace Dynasty.MatchSimulation.Rules
 
     public sealed class CreepType
     {
-        public CreepType(string id, UnitStats stats)
+        public CreepType(string id, UnitStats stats, Bounty? bounty = null)
         {
             Id = id;
             Stats = stats;
+            Bounty = bounty ?? Bounty.None;
         }
 
         public string Id { get; }
         public UnitStats Stats { get; }
+
+        /// <summary>Gold to the hero landing the last hit; XP shared by nearby enemy heroes.</summary>
+        public Bounty Bounty { get; }
     }
 
     public sealed class StructureType
@@ -167,20 +177,111 @@ namespace Dynasty.MatchSimulation.Rules
         public IReadOnlyList<FixedVector2> Waypoints { get; }
     }
 
+    public enum ObstacleShape
+    {
+        Circle = 0,
+        Rectangle = 1,
+    }
+
+    /// <summary>Impassable terrain (cliffs, tree clumps). Structures do not block movement yet.</summary>
+    public sealed class ObstacleDefinition
+    {
+        private ObstacleDefinition(string id, ObstacleShape shape, FixedVector2 min, FixedVector2 max, FixedVector2 center, int radius)
+        {
+            Id = id;
+            Shape = shape;
+            Min = min;
+            Max = max;
+            Center = center;
+            Radius = radius;
+        }
+
+        public string Id { get; }
+        public ObstacleShape Shape { get; }
+
+        /// <summary>Rectangle corners; for circles, the bounding box.</summary>
+        public FixedVector2 Min { get; }
+        public FixedVector2 Max { get; }
+
+        public FixedVector2 Center { get; }
+
+        /// <summary>Circle radius; 0 for rectangles.</summary>
+        public int Radius { get; }
+
+        public static ObstacleDefinition Circle(string id, FixedVector2 center, int radius)
+        {
+            var extent = new FixedVector2(Fixed.FromInt(radius), Fixed.FromInt(radius));
+            return new ObstacleDefinition(id, ObstacleShape.Circle, center - extent, center + extent, center, radius);
+        }
+
+        public static ObstacleDefinition Rectangle(string id, FixedVector2 min, FixedVector2 max)
+        {
+            var center = new FixedVector2((min.X + max.X) / Fixed.FromInt(2), (min.Y + max.Y) / Fixed.FromInt(2));
+            return new ObstacleDefinition(id, ObstacleShape.Rectangle, min, max, center, 0);
+        }
+
+        /// <summary>Whether the point lies inside the obstacle grown by <paramref name="clearance"/> units.</summary>
+        public bool Contains(FixedVector2 point, int clearance)
+        {
+            Fixed pad = Fixed.FromInt(clearance);
+            if (Shape == ObstacleShape.Circle)
+            {
+                Fixed reach = Fixed.FromInt(Radius) + pad;
+                return FixedVector2.DistanceSquared(point, Center) <= reach * reach;
+            }
+
+            return point.X >= Min.X - pad && point.X <= Max.X + pad &&
+                   point.Y >= Min.Y - pad && point.Y <= Max.Y + pad;
+        }
+
+        internal void WriteCanonical(CanonicalWriter w)
+        {
+            w.WriteString(Id);
+            w.WriteInt64((int)Shape);
+            w.WriteVector(Min);
+            w.WriteVector(Max);
+            w.WriteInt64(Radius);
+        }
+    }
+
     public sealed class MapDefinition
     {
-        public MapDefinition(int width, int height, IReadOnlyList<LaneDefinition> lanes, IReadOnlyList<StructurePlacement> structures)
+        public MapDefinition(
+            int width,
+            int height,
+            IReadOnlyList<LaneDefinition> lanes,
+            IReadOnlyList<StructurePlacement> structures,
+            IReadOnlyList<ObstacleDefinition>? obstacles = null,
+            int navCellSize = 100,
+            int navClearance = 24,
+            IReadOnlyList<FountainPlacement>? fountains = null)
         {
             Width = width;
             Height = height;
             Lanes = lanes.ToArray();
             Structures = structures.ToArray();
+            Obstacles = (obstacles ?? Array.Empty<ObstacleDefinition>()).ToArray();
+            Fountains = (fountains ?? Array.Empty<FountainPlacement>()).ToArray();
+            NavCellSize = navCellSize;
+            NavClearance = navClearance;
         }
 
         public int Width { get; }
         public int Height { get; }
         public IReadOnlyList<LaneDefinition> Lanes { get; }
         public IReadOnlyList<StructurePlacement> Structures { get; }
+        public IReadOnlyList<ObstacleDefinition> Obstacles { get; }
+
+        /// <summary>Hero spawn and heal areas, one per team when heroes are used.</summary>
+        public IReadOnlyList<FountainPlacement> Fountains { get; }
+
+        public FountainPlacement? FountainOf(Team team) => Fountains.FirstOrDefault(f => f.Team == team);
+
+        /// <summary>Side of a navigation grid cell in map units.</summary>
+        public int NavCellSize { get; }
+
+        /// <summary>Obstacles are grown by this many units when building the navigation grid.</summary>
+        public int NavClearance { get; }
     }
 
     public sealed class WaveEntry
@@ -239,8 +340,14 @@ namespace Dynasty.MatchSimulation.Rules
             IReadOnlyList<CreepType> creepTypes,
             IReadOnlyList<StructureType> structureTypes,
             MapDefinition map,
-            WaveRules waves)
+            WaveRules waves,
+            IReadOnlyList<HeroDefinition>? heroes = null,
+            HeroRules? heroRules = null,
+            IReadOnlyList<AbilityDefinition>? abilities = null,
+            IReadOnlyList<ItemDefinition>? items = null)
         {
+            Abilities = (abilities ?? Array.Empty<AbilityDefinition>()).ToArray();
+            Items = (items ?? Array.Empty<ItemDefinition>()).ToArray();
             Id = id;
             Version = version;
             TicksPerSecond = ticksPerSecond;
@@ -249,7 +356,24 @@ namespace Dynasty.MatchSimulation.Rules
             StructureTypes = structureTypes.ToArray();
             Map = map;
             Waves = waves;
+            Heroes = (heroes ?? Array.Empty<HeroDefinition>()).ToArray();
+            HeroRules = heroRules;
         }
+
+        public IReadOnlyList<HeroDefinition> Heroes { get; }
+
+        /// <summary>Required when <see cref="Heroes"/> is not empty.</summary>
+        public HeroRules? HeroRules { get; }
+
+        public HeroDefinition? FindHero(string id) => Heroes.FirstOrDefault(h => h.Id == id);
+
+        public IReadOnlyList<AbilityDefinition> Abilities { get; }
+
+        public AbilityDefinition? FindAbility(string id) => Abilities.FirstOrDefault(a => a.Id == id);
+
+        public IReadOnlyList<ItemDefinition> Items { get; }
+
+        public ItemDefinition? FindItem(string id) => Items.FirstOrDefault(i => i.Id == id);
 
         public string Id { get; }
         public int Version { get; }
@@ -290,7 +414,138 @@ namespace Dynasty.MatchSimulation.Rules
 
             ValidateMap(errors);
             ValidateWaves(errors);
+            ValidateHeroes(errors);
+            ValidateAbilities(errors);
+            ValidateItems(errors);
             return errors;
+        }
+
+        private void ValidateItems(List<string> errors)
+        {
+            ReportDuplicates(errors, "item", Items.Select(i => i.Id));
+            foreach (ItemDefinition item in Items)
+            {
+                string owner = "Item '" + item.Id + "'";
+                if (item.Cost <= 0)
+                    errors.Add(owner + " must have a positive cost.");
+                int componentCost = 0;
+                foreach (string componentId in item.Components)
+                {
+                    ItemDefinition? component = FindItem(componentId);
+                    if (component == null || componentId == item.Id)
+                        errors.Add(owner + " uses unknown component '" + componentId + "'.");
+                    else
+                        componentCost += component.Cost;
+                }
+
+                if (componentCost > item.Cost)
+                    errors.Add(owner + " costs less than its components.");
+                if (item.ActiveAbilityId != null)
+                {
+                    AbilityDefinition? active = FindAbility(item.ActiveAbilityId);
+                    if (active == null)
+                        errors.Add(owner + " uses unknown active ability '" + item.ActiveAbilityId + "'.");
+                    else if (active.Targeting == AbilityTargeting.Passive)
+                        errors.Add(owner + " active ability cannot be passive.");
+                }
+            }
+        }
+
+        private void ValidateAbilities(List<string> errors)
+        {
+            ReportDuplicates(errors, "ability", Abilities.Select(a => a.Id));
+            foreach (AbilityDefinition ability in Abilities)
+            {
+                string owner = "Ability '" + ability.Id + "'";
+                if (ability.MaxLevel == 0)
+                    errors.Add(owner + " needs at least one level.");
+                if (ability.Targeting == AbilityTargeting.Passive)
+                {
+                    if (ability.PassiveModifiers.Count != ability.MaxLevel)
+                        errors.Add(owner + " must define one passive modifier per level.");
+                    continue;
+                }
+
+                if (ability.CooldownMs.Count != ability.MaxLevel || ability.ManaCost.Count != ability.MaxLevel)
+                    errors.Add(owner + " must define cooldown and mana cost per level.");
+                if (ability.CastRange < 0 || ability.CastPointMs < 0)
+                    errors.Add(owner + " has a negative cast range or cast point.");
+                if (ability.Effects.Count == 0)
+                    errors.Add(owner + " has no effects.");
+
+                foreach (EffectDefinition effect in ability.Effects.SelectMany(e => e.SelfAndDescendants()))
+                {
+                    bool needsAmounts = effect.Kind == EffectKind.Damage || effect.Kind == EffectKind.Heal ||
+                                        effect.Kind == EffectKind.Knockback || effect.Kind == EffectKind.Summon;
+                    if (needsAmounts && effect.Amounts.Count == 0)
+                        errors.Add(owner + " has a " + effect.Kind + " effect without amounts.");
+                    if (effect.Kind == EffectKind.ApplyModifier && effect.Modifiers.Count == 0)
+                        errors.Add(owner + " has a modifier effect without modifiers.");
+                    if (effect.Kind == EffectKind.Summon && (effect.SummonTypeId == null || FindCreepType(effect.SummonTypeId) == null))
+                        errors.Add(owner + " summons unknown creep type '" + effect.SummonTypeId + "'.");
+                    if (effect.Kind == EffectKind.Area && effect.Radius <= 0)
+                        errors.Add(owner + " has an area effect without a radius.");
+                }
+            }
+
+            foreach (HeroDefinition hero in Heroes)
+            {
+                foreach (string abilityId in hero.AbilityIds.Concat(hero.SkillPriority).Distinct())
+                {
+                    if (FindAbility(abilityId) == null)
+                        errors.Add("Hero '" + hero.Id + "' references unknown ability '" + abilityId + "'.");
+                }
+
+                foreach (string itemId in hero.ItemBuild.Distinct())
+                {
+                    if (FindItem(itemId) == null)
+                        errors.Add("Hero '" + hero.Id + "' item build references unknown item '" + itemId + "'.");
+                }
+            }
+        }
+
+        private void ValidateHeroes(List<string> errors)
+        {
+            foreach (CreepType creep in CreepTypes)
+            {
+                if (creep.Bounty.GoldMin < 0 || creep.Bounty.GoldMin > creep.Bounty.GoldMax || creep.Bounty.Xp < 0)
+                    errors.Add("Creep type '" + creep.Id + "' has an invalid bounty.");
+            }
+
+            if (Heroes.Count == 0)
+                return;
+
+            ReportDuplicates(errors, "hero", Heroes.Select(h => h.Id));
+            foreach (HeroDefinition hero in Heroes)
+            {
+                ValidateStats(errors, "Hero '" + hero.Id + "'", hero.BaseStats);
+                if (hero.BaseStats.MoveSpeed <= 0)
+                    errors.Add("Hero '" + hero.Id + "' must have positive move speed.");
+            }
+
+            if (HeroRules == null)
+            {
+                errors.Add("Hero rules are required when heroes are defined.");
+                return;
+            }
+
+            IReadOnlyList<int> xp = HeroRules.XpForLevel;
+            if (xp.Count == 0 || xp[0] != 0)
+                errors.Add("XP table must start at 0 for level 1.");
+            for (int i = 1; i < xp.Count; i++)
+            {
+                if (xp[i] <= xp[i - 1])
+                    errors.Add("XP table must be strictly increasing (level " + (i + 1) + ").");
+            }
+
+            foreach (Team team in new[] { Team.Dawn, Team.Dusk })
+            {
+                FountainPlacement? fountain = Map.FountainOf(team);
+                if (fountain == null)
+                    errors.Add("Team " + team + " needs a fountain for heroes.");
+                else if (!IsInsideMap(fountain.Position))
+                    errors.Add("Team " + team + " fountain is outside the map.");
+            }
         }
 
         public void WriteCanonical(CanonicalWriter writer)
@@ -306,6 +561,9 @@ namespace Dynasty.MatchSimulation.Rules
             {
                 writer.WriteString(creep.Id);
                 creep.Stats.WriteCanonical(writer);
+                writer.WriteInt64(creep.Bounty.GoldMin);
+                writer.WriteInt64(creep.Bounty.GoldMax);
+                writer.WriteInt64(creep.Bounty.Xp);
             }
 
             writer.WriteInt64(StructureTypes.Count);
@@ -339,6 +597,31 @@ namespace Dynasty.MatchSimulation.Rules
                     writer.WriteString(protector);
                 writer.WriteInt64((int)placement.Vulnerability);
             }
+
+            writer.WriteInt64(Map.Obstacles.Count);
+            foreach (ObstacleDefinition obstacle in Map.Obstacles)
+                obstacle.WriteCanonical(writer);
+            writer.WriteInt64(Map.NavCellSize);
+            writer.WriteInt64(Map.NavClearance);
+            writer.WriteInt64(Map.Fountains.Count);
+            foreach (FountainPlacement fountain in Map.Fountains)
+            {
+                writer.WriteInt64((int)fountain.Team);
+                writer.WriteVector(fountain.Position);
+                writer.WriteInt64(fountain.Radius);
+            }
+
+            writer.WriteInt64(Heroes.Count);
+            foreach (HeroDefinition hero in Heroes)
+                hero.WriteCanonical(writer);
+            writer.WriteBool(HeroRules != null);
+            HeroRules?.WriteCanonical(writer);
+            writer.WriteInt64(Abilities.Count);
+            foreach (AbilityDefinition ability in Abilities)
+                ability.WriteCanonical(writer);
+            writer.WriteInt64(Items.Count);
+            foreach (ItemDefinition item in Items)
+                item.WriteCanonical(writer);
 
             writer.WriteInt64(Waves.FirstSpawnMs);
             writer.WriteInt64(Waves.IntervalMs);
@@ -398,6 +681,22 @@ namespace Dynasty.MatchSimulation.Rules
                 }
             }
 
+            if (Map.NavCellSize <= 0 || Map.NavClearance < 0)
+                errors.Add("Navigation cell size must be positive and clearance non-negative.");
+            ReportDuplicates(errors, "obstacle", Map.Obstacles.Select(o => o.Id));
+            foreach (ObstacleDefinition obstacle in Map.Obstacles)
+            {
+                if (!IsInsideMap(obstacle.Center))
+                    errors.Add("Obstacle '" + obstacle.Id + "' is outside the map.");
+            }
+
+            foreach (LaneDefinition lane in Map.Lanes)
+            {
+                ObstacleDefinition? blocker = FindLaneBlocker(lane);
+                if (blocker != null)
+                    errors.Add("Lane '" + lane.Id + "' passes through obstacle '" + blocker.Id + "'.");
+            }
+
             foreach (Team team in new[] { Team.Dawn, Team.Dusk })
             {
                 int ancients = Map.Structures.Count(s => s.Team == team && s.IsAncient);
@@ -440,6 +739,31 @@ namespace Dynasty.MatchSimulation.Rules
         {
             foreach (IGrouping<string, string> group in ids.GroupBy(id => id).Where(g => g.Count() > 1))
                 errors.Add("Duplicate " + kind + " ID '" + group.Key + "'.");
+        }
+
+        /// <summary>Samples each lane segment every 50 units against every obstacle.</summary>
+        private ObstacleDefinition? FindLaneBlocker(LaneDefinition lane)
+        {
+            Fixed sampleStep = Fixed.FromInt(50);
+            for (int i = 0; i + 1 < lane.Waypoints.Count; i++)
+            {
+                FixedVector2 point = lane.Waypoints[i];
+                FixedVector2 end = lane.Waypoints[i + 1];
+                while (true)
+                {
+                    foreach (ObstacleDefinition obstacle in Map.Obstacles)
+                    {
+                        if (obstacle.Contains(point, 0))
+                            return obstacle;
+                    }
+
+                    if (point == end)
+                        break;
+                    point = FixedVector2.MoveTowards(point, end, sampleStep);
+                }
+            }
+
+            return null;
         }
 
         private bool IsInsideMap(FixedVector2 point) =>

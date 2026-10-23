@@ -1,6 +1,8 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using Dynasty.Core.Ids;
+using Dynasty.MatchSimulation.Combat;
 using Dynasty.Core.Mathematics;
 using Dynasty.Core.Time;
 using Dynasty.MatchSimulation.Rules;
@@ -11,6 +13,8 @@ namespace Dynasty.MatchSimulation
     {
         Creep = 0,
         Structure = 1,
+        Hero = 2,
+        Summon = 3,
     }
 
     /// <summary>
@@ -19,6 +23,9 @@ namespace Dynasty.MatchSimulation
     /// </summary>
     public sealed class MatchUnit
     {
+        private readonly List<ActiveModifier> _modifiers = new List<ActiveModifier>();
+        private readonly TickRate _rate;
+
         internal MatchUnit(EntityId id, Team team, UnitKind kind, string typeId, UnitStats stats, FixedVector2 position, TickRate rate)
         {
             Id = id;
@@ -27,21 +34,70 @@ namespace Dynasty.MatchSimulation
             TypeId = typeId;
             Stats = stats;
             Position = position;
-            Hp = Fixed.FromInt(stats.MaxHp);
-            StepPerTick = Fixed.FromRatio(stats.MoveSpeed, rate.TicksPerSecond);
-            AttackIntervalTicks = rate.TicksFor(stats.AttackIntervalMs);
-            AttackPointTicks = rate.TicksFor(stats.AttackPointMs);
+            StartPosition = position;
+            _rate = rate;
             PendingAttackTick = -1;
+            Recalculate();
+            Hp = Fixed.FromInt(MaxHp);
         }
 
         public EntityId Id { get; }
         public Team Team { get; }
         public UnitKind Kind { get; }
         public string TypeId { get; }
-        public UnitStats Stats { get; }
+
+        /// <summary>Base stats before modifiers.</summary>
+        public UnitStats Stats { get; internal set; }
+
         public FixedVector2 Position { get; internal set; }
         public Fixed Hp { get; internal set; }
         public bool IsAlive => Hp > Fixed.Zero;
+
+        // Effective values: base stats plus active modifiers. Refreshed by Recalculate().
+        public int MaxHp { get; private set; }
+        public Fixed Armor { get; private set; }
+        public int MagicResistPercent { get; private set; }
+        public int AttackDamageMin { get; private set; }
+        public int AttackDamageMax { get; private set; }
+        public int AttackSpeedBonus { get; private set; }
+        public int MoveSpeed { get; private set; }
+        public ModifierFlags Flags { get; private set; }
+        public int AttackRange => Stats.AttackRange;
+        public int AcquisitionRange => Stats.AcquisitionRange;
+        public int BoundingRadius => Stats.BoundingRadius;
+        public bool CanAttackAtAll => Stats.CanAttack;
+
+        public bool IsStunned => (Flags & ModifierFlags.Stunned) != 0;
+
+        // Action gates use the tick-start snapshot: a status applied during a tick takes effect
+        // from the next tick, so the order units are processed in cannot decide who acts first.
+        public bool CanMove => (StartFlags & (ModifierFlags.Stunned | ModifierFlags.Rooted)) == 0 && StepPerTick > Fixed.Zero;
+        public bool CanStartAttack => (StartFlags & (ModifierFlags.Stunned | ModifierFlags.Disarmed)) == 0 && CanAttackAtAll;
+
+        /// <summary>Position at the start of the current tick; pursuit within a tick aims here.</summary>
+        public FixedVector2 StartPosition { get; internal set; }
+
+        /// <summary>Status flags at the start of the current tick.</summary>
+        public ModifierFlags StartFlags { get; internal set; }
+
+        public IReadOnlyList<ActiveModifier> Modifiers => _modifiers;
+
+        /// <summary>Hero progression and economy; null for non-hero units.</summary>
+        public Heroes.HeroState? Hero { get; internal set; }
+
+        /// <summary>Hero that summoned this unit; None otherwise.</summary>
+        public EntityId Owner { get; internal set; }
+
+        /// <summary>Tick a temporary unit disappears; -1 for permanent units.</summary>
+        public long ExpiresTick { get; internal set; } = -1;
+
+        /// <summary>Extra HP regeneration per second from modifiers and items.</summary>
+        public Fixed HpRegenBonus { get; private set; }
+
+        public int CritChancePercent { get; private set; }
+        public int CritMultiplierPercent { get; private set; }
+        public int StructureDamagePercent { get; private set; }
+        public int LifestealPercent { get; private set; }
 
         /// <summary>Lane a creep belongs to; null for structures.</summary>
         public string? LaneId => Lane?.Id;
@@ -57,13 +113,114 @@ namespace Dynasty.MatchSimulation
 
         internal LaneDefinition? Lane { get; set; }
         internal int NextWaypoint { get; set; }
-        internal Fixed StepPerTick { get; }
-        internal long AttackIntervalTicks { get; }
-        internal long AttackPointTicks { get; }
+        internal Fixed StepPerTick { get; private set; }
+        internal long AttackIntervalTicks { get; private set; }
+        internal long AttackPointTicks { get; private set; }
         internal long NextAttackTick { get; set; }
         internal long PendingAttackTick { get; set; }
         internal EntityId PendingTargetId { get; set; }
         internal EntityId LastAttackerId { get; set; }
+
+        internal ActiveModifier? FindModifier(string key, EntityId source)
+        {
+            foreach (ActiveModifier modifier in _modifiers)
+            {
+                if (modifier.Spec.Key == key && modifier.Source == source)
+                    return modifier;
+            }
+
+            return null;
+        }
+
+        internal void AddModifier(ActiveModifier modifier)
+        {
+            _modifiers.Add(modifier);
+            Recalculate();
+        }
+
+        internal void RemoveModifier(ActiveModifier modifier)
+        {
+            _modifiers.Remove(modifier);
+            Recalculate();
+        }
+
+        /// <summary>Drops timed modifiers (on death); permanent ones such as passives remain.</summary>
+        internal void ClearTemporaryModifiers()
+        {
+            _modifiers.RemoveAll(m => !m.Spec.IsPermanent);
+            Recalculate();
+        }
+
+        /// <summary>
+        /// Recomputes effective stats from base stats and modifiers. Attack speed scales both the
+        /// attack interval and the attack point; move speed has a floor of 100 while slowed.
+        /// </summary>
+        internal void Recalculate()
+        {
+            Fixed armor = Stats.Armor;
+            int magicResist = Stats.MagicResistPercent;
+            int damageBonus = 0;
+            int attackSpeed = 0;
+            int movePercent = 0;
+            int critChance = 0;
+            int critMultiplier = 0;
+            int structurePercent = 0;
+            int lifesteal = 0;
+            int maxHpBonus = 0;
+            int maxManaBonus = 0;
+            Fixed hpRegenBonus = Fixed.Zero;
+            ModifierFlags flags = ModifierFlags.None;
+            foreach (ActiveModifier modifier in _modifiers)
+            {
+                ModifierSpec spec = modifier.Spec;
+                // Critical strikes do not stack: the highest chance (with its multiplier) wins.
+                if (spec.CritChancePercent > critChance)
+                {
+                    critChance = spec.CritChancePercent;
+                    critMultiplier = spec.CritMultiplierPercent;
+                }
+
+                structurePercent += spec.StructureDamagePercent;
+                lifesteal += spec.LifestealPercent;
+                maxHpBonus += spec.MaxHpBonus;
+                maxManaBonus += spec.MaxManaBonus;
+                hpRegenBonus += spec.HpRegenBonus;
+                armor += spec.ArmorBonus;
+                magicResist += spec.MagicResistBonus;
+                damageBonus += spec.DamageBonus;
+                attackSpeed += spec.AttackSpeedBonus;
+                movePercent += spec.MoveSpeedPercent;
+                flags |= spec.Flags;
+            }
+
+            MaxHp = Stats.MaxHp + maxHpBonus;
+            HpRegenBonus = hpRegenBonus;
+            if (Hp > Fixed.FromInt(MaxHp))
+                Hp = Fixed.FromInt(MaxHp);
+            if (Hero != null)
+            {
+                Hero.MaxMana = Hero.Definition.MaxManaAtLevel(Hero.Level) + maxManaBonus;
+                if (Hero.Mana > Fixed.FromInt(Hero.MaxMana))
+                    Hero.Mana = Fixed.FromInt(Hero.MaxMana);
+            }
+
+            Armor = armor;
+            MagicResistPercent = Math.Min(magicResist, 100);
+            AttackDamageMin = Stats.AttackDamageMin + damageBonus;
+            AttackDamageMax = Stats.AttackDamageMax + damageBonus;
+            AttackSpeedBonus = Math.Max(attackSpeed, -80);
+            Flags = flags;
+            CritChancePercent = Math.Min(critChance, 100);
+            CritMultiplierPercent = critMultiplier;
+            StructureDamagePercent = structurePercent;
+            LifestealPercent = lifesteal;
+
+            int speed = Stats.MoveSpeed * (100 + movePercent) / 100;
+            MoveSpeed = Stats.MoveSpeed == 0 ? 0 : Math.Max(speed, Math.Min(100, Stats.MoveSpeed));
+            StepPerTick = Fixed.FromRatio(MoveSpeed, _rate.TicksPerSecond);
+            AttackIntervalTicks = Math.Max(1, _rate.TicksFor(Stats.AttackIntervalMs * 100 / (100 + AttackSpeedBonus)));
+            AttackPointTicks = _rate.TicksFor(Stats.AttackPointMs * 100 / (100 + AttackSpeedBonus));
+        }
 
         /// <summary>Waypoint by walking order: Dawn walks the lane forward, Dusk in reverse.</summary>
         internal FixedVector2 WaypointAt(int index)
@@ -87,7 +244,15 @@ namespace Dynasty.MatchSimulation
             Ruleset = ruleset;
             Rate = rate;
             NextWaveTick = rate.TicksFor(ruleset.Waves.FirstSpawnMs);
+            Nav = Navigation.NavGrid.FromMap(ruleset.Map);
+            Pathfinder = new Navigation.Pathfinder(Nav);
         }
+
+        internal Navigation.NavGrid Nav { get; }
+        internal Navigation.Pathfinder Pathfinder { get; }
+
+        /// <summary>All heroes (alive or waiting to respawn) in spawn order.</summary>
+        public IEnumerable<MatchUnit> Heroes => _units.Where(u => u.Hero != null);
 
         public RulesetContent Ruleset { get; }
 
@@ -118,12 +283,30 @@ namespace Dynasty.MatchSimulation
                 : placement.ProtectedBy.All(_destroyed.Contains);
         }
 
-        /// <summary>Whether <paramref name="attacker"/> may attack <paramref name="target"/> right now.</summary>
-        internal bool CanAttack(MatchUnit attacker, MatchUnit target) =>
-            target.Team != attacker.Team &&
-            target.IsAlive &&
-            IsVulnerable(target) &&
-            !(attacker.Kind == UnitKind.Structure && target.Kind == UnitKind.Structure);
+        /// <summary>
+        /// Whether <paramref name="attacker"/> may attack <paramref name="target"/> right now. Heroes
+        /// may also attack allied creeps below half HP (deny).
+        /// </summary>
+        internal bool CanAttack(MatchUnit attacker, MatchUnit target)
+        {
+            if (!target.IsAlive || target == attacker)
+                return false;
+            if (target.Team == attacker.Team)
+                return attacker.Kind == UnitKind.Hero && target.Kind == UnitKind.Creep && target.Hp * Fixed.FromInt(2) < Fixed.FromInt(target.MaxHp);
+
+            return IsVulnerable(target) && !(attacker.Kind == UnitKind.Structure && target.Kind == UnitKind.Structure);
+        }
+
+        internal MatchUnit SpawnHero(EntityId id, Team team, HeroDefinition definition, string laneId, FixedVector2 position, int startingGold)
+        {
+            var abilities = definition.AbilityIds.Select(a => Ruleset.FindAbility(a)!).ToList();
+            var unit = new MatchUnit(id, team, UnitKind.Hero, definition.Id, definition.StatsAtLevel(1), position, Rate)
+            {
+                Hero = new Heroes.HeroState(definition, laneId, startingGold, abilities),
+            };
+            Add(unit);
+            return unit;
+        }
 
         internal MatchUnit SpawnStructure(EntityId id, StructurePlacement placement, StructureType type)
         {
@@ -144,7 +327,20 @@ namespace Dynasty.MatchSimulation
                 LastActiveTick = tick,
             };
             unit.Position = unit.WaypointAt(0);
+            unit.StartPosition = unit.Position;
             unit.NextWaypoint = 1;
+            Add(unit);
+            return unit;
+        }
+
+        internal MatchUnit SpawnSummon(EntityId id, MatchUnit owner, CreepType type, long tick, long expiresTick)
+        {
+            var unit = new MatchUnit(id, owner.Team, UnitKind.Summon, type.Id, type.Stats, owner.Position, Rate)
+            {
+                Owner = owner.Id,
+                ExpiresTick = expiresTick,
+                LastActiveTick = tick,
+            };
             Add(unit);
             return unit;
         }

@@ -7,11 +7,24 @@ namespace Dynasty.MatchSimulation.Systems
     {
         public static bool WithinEdgeRange(MatchUnit a, MatchUnit b, int range)
         {
-            Fixed reach = Fixed.FromInt(range + a.Stats.BoundingRadius + b.Stats.BoundingRadius);
+            Fixed reach = Fixed.FromInt(range + a.BoundingRadius + b.BoundingRadius);
             return FixedVector2.DistanceSquared(a.Position, b.Position) <= reach * reach;
         }
 
+        /// <summary>Like <see cref="WithinEdgeRange(MatchUnit, MatchUnit, int)"/>, against the target's tick-start position.</summary>
+        public static bool WithinEdgeRangeOfStart(MatchUnit unit, MatchUnit target, int range)
+        {
+            Fixed reach = Fixed.FromInt(range + unit.BoundingRadius + target.BoundingRadius);
+            return FixedVector2.DistanceSquared(unit.Position, target.StartPosition) <= reach * reach;
+        }
+
+        public static bool WithinRange(FixedVector2 a, FixedVector2 b, int range)
+        {
+            Fixed reach = Fixed.FromInt(range);
+            return FixedVector2.DistanceSquared(a, b) <= reach * reach;
+        }
+
         public static Fixed EdgeDistance(MatchUnit a, MatchUnit b) =>
-            FixedVector2.Distance(a.Position, b.Position) - Fixed.FromInt(a.Stats.BoundingRadius + b.Stats.BoundingRadius);
+            FixedVector2.Distance(a.Position, b.Position) - Fixed.FromInt(a.BoundingRadius + b.BoundingRadius);
     }
 }

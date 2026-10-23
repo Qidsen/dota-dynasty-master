@@ -2,6 +2,7 @@ using Dynasty.Core.Events;
 using Dynasty.Core.Hashing;
 using Dynasty.Core.Ids;
 using Dynasty.Core.Mathematics;
+using Dynasty.MatchSimulation.Combat;
 using Dynasty.MatchSimulation.Rules;
 
 namespace Dynasty.MatchSimulation.Events
@@ -56,12 +57,14 @@ namespace Dynasty.MatchSimulation.Events
 
     public sealed class DamageDealt : IDomainEvent
     {
-        public DamageDealt(EntityId attacker, EntityId target, Fixed amount, Fixed targetHpAfter)
+        public DamageDealt(EntityId attacker, EntityId target, Fixed amount, Fixed targetHpAfter, DamageType damageType, bool isCritical = false)
         {
             Attacker = attacker;
             Target = target;
             Amount = amount;
             TargetHpAfter = targetHpAfter;
+            DamageType = damageType;
+            IsCritical = isCritical;
         }
 
         public EntityId Attacker { get; }
@@ -72,8 +75,12 @@ namespace Dynasty.MatchSimulation.Events
 
         public Fixed TargetHpAfter { get; }
 
+        public DamageType DamageType { get; }
+
+        public bool IsCritical { get; }
+
         public string Type => "match.damage_dealt";
-        public int SchemaVersion => 1;
+        public int SchemaVersion => 3;
 
         public void WritePayload(ref Fnv1a64 hash)
         {
@@ -81,6 +88,35 @@ namespace Dynasty.MatchSimulation.Events
             hash.AddInt64(Target.Value);
             hash.AddInt64(Amount.Raw);
             hash.AddInt64(TargetHpAfter.Raw);
+            hash.AddInt64((int)DamageType);
+            hash.AddInt64(IsCritical ? 1 : 0);
+        }
+    }
+
+    /// <summary>HP restored by an ability, item, modifier or lifesteal (passive regeneration is not reported).</summary>
+    public sealed class HealApplied : IDomainEvent
+    {
+        public HealApplied(EntityId source, EntityId target, Fixed amount)
+        {
+            Source = source;
+            Target = target;
+            Amount = amount;
+        }
+
+        public EntityId Source { get; }
+        public EntityId Target { get; }
+
+        /// <summary>HP actually restored (after the max-HP cap).</summary>
+        public Fixed Amount { get; }
+
+        public string Type => "match.heal_applied";
+        public int SchemaVersion => 1;
+
+        public void WritePayload(ref Fnv1a64 hash)
+        {
+            hash.AddInt64(Source.Value);
+            hash.AddInt64(Target.Value);
+            hash.AddInt64(Amount.Raw);
         }
     }
 
@@ -135,6 +171,368 @@ namespace Dynasty.MatchSimulation.Events
             hash.AddString(PlacementId);
             hash.AddInt64((int)Team);
             hash.AddInt64(Killer.Value);
+        }
+    }
+
+    public sealed class ModifierApplied : IDomainEvent
+    {
+        public ModifierApplied(EntityId target, EntityId source, string key, long expiresTick)
+        {
+            Target = target;
+            Source = source;
+            Key = key;
+            ExpiresTick = expiresTick;
+        }
+
+        public EntityId Target { get; }
+        public EntityId Source { get; }
+        public string Key { get; }
+
+        /// <summary>-1 for permanent modifiers.</summary>
+        public long ExpiresTick { get; }
+
+        public string Type => "match.modifier_applied";
+        public int SchemaVersion => 1;
+
+        public void WritePayload(ref Fnv1a64 hash)
+        {
+            hash.AddInt64(Target.Value);
+            hash.AddInt64(Source.Value);
+            hash.AddString(Key);
+            hash.AddInt64(ExpiresTick);
+        }
+    }
+
+    public sealed class ModifierRemoved : IDomainEvent
+    {
+        public ModifierRemoved(EntityId target, string key, string reason)
+        {
+            Target = target;
+            Key = key;
+            Reason = reason;
+        }
+
+        public EntityId Target { get; }
+        public string Key { get; }
+
+        /// <summary>"expired", "dispelled", ...</summary>
+        public string Reason { get; }
+
+        public string Type => "match.modifier_removed";
+        public int SchemaVersion => 1;
+
+        public void WritePayload(ref Fnv1a64 hash)
+        {
+            hash.AddInt64(Target.Value);
+            hash.AddString(Key);
+            hash.AddString(Reason);
+        }
+    }
+
+    /// <summary>Bounty gold (passive income is a rule, not an event). Reasons: last_hit, hero_kill, structure.</summary>
+    public sealed class GoldEarned : IDomainEvent
+    {
+        public GoldEarned(EntityId hero, int amount, string reason)
+        {
+            Hero = hero;
+            Amount = amount;
+            Reason = reason;
+        }
+
+        public EntityId Hero { get; }
+        public int Amount { get; }
+        public string Reason { get; }
+
+        public string Type => "match.gold_earned";
+        public int SchemaVersion => 1;
+
+        public void WritePayload(ref Fnv1a64 hash)
+        {
+            hash.AddInt64(Hero.Value);
+            hash.AddInt64(Amount);
+            hash.AddString(Reason);
+        }
+    }
+
+    public sealed class HeroLeveledUp : IDomainEvent
+    {
+        public HeroLeveledUp(EntityId hero, int level)
+        {
+            Hero = hero;
+            Level = level;
+        }
+
+        public EntityId Hero { get; }
+        public int Level { get; }
+
+        public string Type => "match.hero_leveled_up";
+        public int SchemaVersion => 1;
+
+        public void WritePayload(ref Fnv1a64 hash)
+        {
+            hash.AddInt64(Hero.Value);
+            hash.AddInt64(Level);
+        }
+    }
+
+    public sealed class HeroKilled : IDomainEvent
+    {
+        public HeroKilled(EntityId victim, EntityId killer, System.Collections.Generic.IReadOnlyList<EntityId> assists, int bountyGold, long respawnTick)
+        {
+            Victim = victim;
+            Killer = killer;
+            Assists = assists;
+            BountyGold = bountyGold;
+            RespawnTick = respawnTick;
+        }
+
+        public EntityId Victim { get; }
+
+        /// <summary>Last unit to damage the victim (may be a creep or tower).</summary>
+        public EntityId Killer { get; }
+
+        /// <summary>Enemy heroes (other than the killer) who damaged the victim within the assist window, by ID.</summary>
+        public System.Collections.Generic.IReadOnlyList<EntityId> Assists { get; }
+
+        /// <summary>Gold paid to the killer; 0 when the killer was not an enemy hero.</summary>
+        public int BountyGold { get; }
+
+        public long RespawnTick { get; }
+
+        public string Type => "match.hero_killed";
+        public int SchemaVersion => 1;
+
+        public void WritePayload(ref Fnv1a64 hash)
+        {
+            hash.AddInt64(Victim.Value);
+            hash.AddInt64(Killer.Value);
+            hash.AddInt64(Assists.Count);
+            foreach (EntityId assist in Assists)
+                hash.AddInt64(assist.Value);
+            hash.AddInt64(BountyGold);
+            hash.AddInt64(RespawnTick);
+        }
+    }
+
+    public sealed class HeroRespawned : IDomainEvent
+    {
+        public HeroRespawned(EntityId hero)
+        {
+            Hero = hero;
+        }
+
+        public EntityId Hero { get; }
+
+        public string Type => "match.hero_respawned";
+        public int SchemaVersion => 1;
+
+        public void WritePayload(ref Fnv1a64 hash) => hash.AddInt64(Hero.Value);
+    }
+
+    public sealed class AbilityCast : IDomainEvent
+    {
+        public AbilityCast(EntityId caster, string abilityId, int level, EntityId target, FixedVector2 point)
+        {
+            Caster = caster;
+            AbilityId = abilityId;
+            Level = level;
+            Target = target;
+            Point = point;
+        }
+
+        public EntityId Caster { get; }
+        public string AbilityId { get; }
+        public int Level { get; }
+
+        /// <summary>Unit target; None for point and no-target abilities.</summary>
+        public EntityId Target { get; }
+
+        public FixedVector2 Point { get; }
+
+        public string Type => "match.ability_cast";
+        public int SchemaVersion => 1;
+
+        public void WritePayload(ref Fnv1a64 hash)
+        {
+            hash.AddInt64(Caster.Value);
+            hash.AddString(AbilityId);
+            hash.AddInt64(Level);
+            hash.AddInt64(Target.Value);
+            hash.AddInt64(Point.X.Raw);
+            hash.AddInt64(Point.Y.Raw);
+        }
+    }
+
+    /// <summary>An ordered cast that could not happen. Reasons: not_learned, cooldown, mana, silenced, invalid_target, interrupted.</summary>
+    public sealed class AbilityCastFailed : IDomainEvent
+    {
+        public AbilityCastFailed(EntityId caster, string abilityId, string reason)
+        {
+            Caster = caster;
+            AbilityId = abilityId;
+            Reason = reason;
+        }
+
+        public EntityId Caster { get; }
+        public string AbilityId { get; }
+        public string Reason { get; }
+
+        public string Type => "match.ability_cast_failed";
+        public int SchemaVersion => 1;
+
+        public void WritePayload(ref Fnv1a64 hash)
+        {
+            hash.AddInt64(Caster.Value);
+            hash.AddString(AbilityId);
+            hash.AddString(Reason);
+        }
+    }
+
+    public sealed class AbilityLearned : IDomainEvent
+    {
+        public AbilityLearned(EntityId hero, string abilityId, int level)
+        {
+            Hero = hero;
+            AbilityId = abilityId;
+            Level = level;
+        }
+
+        public EntityId Hero { get; }
+        public string AbilityId { get; }
+        public int Level { get; }
+
+        public string Type => "match.ability_learned";
+        public int SchemaVersion => 1;
+
+        public void WritePayload(ref Fnv1a64 hash)
+        {
+            hash.AddInt64(Hero.Value);
+            hash.AddString(AbilityId);
+            hash.AddInt64(Level);
+        }
+    }
+
+    public sealed class UnitSummoned : IDomainEvent
+    {
+        public UnitSummoned(EntityId unit, EntityId owner, string creepTypeId, long expiresTick)
+        {
+            Unit = unit;
+            Owner = owner;
+            CreepTypeId = creepTypeId;
+            ExpiresTick = expiresTick;
+        }
+
+        public EntityId Unit { get; }
+        public EntityId Owner { get; }
+        public string CreepTypeId { get; }
+        public long ExpiresTick { get; }
+
+        public string Type => "match.unit_summoned";
+        public int SchemaVersion => 1;
+
+        public void WritePayload(ref Fnv1a64 hash)
+        {
+            hash.AddInt64(Unit.Value);
+            hash.AddInt64(Owner.Value);
+            hash.AddString(CreepTypeId);
+            hash.AddInt64(ExpiresTick);
+        }
+    }
+
+    /// <summary>A temporary unit reached the end of its lifetime (no bounty).</summary>
+    public sealed class UnitExpired : IDomainEvent
+    {
+        public UnitExpired(EntityId unit)
+        {
+            Unit = unit;
+        }
+
+        public EntityId Unit { get; }
+
+        public string Type => "match.unit_expired";
+        public int SchemaVersion => 1;
+
+        public void WritePayload(ref Fnv1a64 hash) => hash.AddInt64(Unit.Value);
+    }
+
+    public sealed class ItemPurchased : IDomainEvent
+    {
+        public ItemPurchased(EntityId hero, string itemId, int cost, System.Collections.Generic.IReadOnlyList<string> consumedComponents)
+        {
+            Hero = hero;
+            ItemId = itemId;
+            Cost = cost;
+            ConsumedComponents = consumedComponents;
+        }
+
+        public EntityId Hero { get; }
+        public string ItemId { get; }
+
+        /// <summary>Gold actually paid (full price minus consumed components).</summary>
+        public int Cost { get; }
+
+        public System.Collections.Generic.IReadOnlyList<string> ConsumedComponents { get; }
+
+        public string Type => "match.item_purchased";
+        public int SchemaVersion => 1;
+
+        public void WritePayload(ref Fnv1a64 hash)
+        {
+            hash.AddInt64(Hero.Value);
+            hash.AddString(ItemId);
+            hash.AddInt64(Cost);
+            hash.AddInt64(ConsumedComponents.Count);
+            foreach (string component in ConsumedComponents)
+                hash.AddString(component);
+        }
+    }
+
+    /// <summary>Reasons: unknown_item, not_in_shop, gold, inventory_full, not_owned.</summary>
+    public sealed class ItemPurchaseFailed : IDomainEvent
+    {
+        public ItemPurchaseFailed(EntityId hero, string itemId, string reason)
+        {
+            Hero = hero;
+            ItemId = itemId;
+            Reason = reason;
+        }
+
+        public EntityId Hero { get; }
+        public string ItemId { get; }
+        public string Reason { get; }
+
+        public string Type => "match.item_purchase_failed";
+        public int SchemaVersion => 1;
+
+        public void WritePayload(ref Fnv1a64 hash)
+        {
+            hash.AddInt64(Hero.Value);
+            hash.AddString(ItemId);
+            hash.AddString(Reason);
+        }
+    }
+
+    public sealed class ItemSold : IDomainEvent
+    {
+        public ItemSold(EntityId hero, string itemId, int refund)
+        {
+            Hero = hero;
+            ItemId = itemId;
+            Refund = refund;
+        }
+
+        public EntityId Hero { get; }
+        public string ItemId { get; }
+        public int Refund { get; }
+
+        public string Type => "match.item_sold";
+        public int SchemaVersion => 1;
+
+        public void WritePayload(ref Fnv1a64 hash)
+        {
+            hash.AddInt64(Hero.Value);
+            hash.AddString(ItemId);
+            hash.AddInt64(Refund);
         }
     }
 
