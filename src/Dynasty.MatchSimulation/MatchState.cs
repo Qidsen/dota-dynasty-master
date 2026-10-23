@@ -81,6 +81,9 @@ namespace Dynasty.MatchSimulation
         /// <summary>Tick a temporary unit disappears; -1 for permanent units.</summary>
         public long ExpiresTick { get; internal set; } = -1;
 
+        /// <summary>Extra HP regeneration per second from modifiers and items.</summary>
+        public Fixed HpRegenBonus { get; private set; }
+
         public int CritChancePercent { get; private set; }
         public int CritMultiplierPercent { get; private set; }
         public int StructureDamagePercent { get; private set; }
@@ -153,6 +156,9 @@ namespace Dynasty.MatchSimulation
             int critMultiplier = 0;
             int structurePercent = 0;
             int lifesteal = 0;
+            int maxHpBonus = 0;
+            int maxManaBonus = 0;
+            Fixed hpRegenBonus = Fixed.Zero;
             ModifierFlags flags = ModifierFlags.None;
             foreach (ActiveModifier modifier in _modifiers)
             {
@@ -166,6 +172,9 @@ namespace Dynasty.MatchSimulation
 
                 structurePercent += spec.StructureDamagePercent;
                 lifesteal += spec.LifestealPercent;
+                maxHpBonus += spec.MaxHpBonus;
+                maxManaBonus += spec.MaxManaBonus;
+                hpRegenBonus += spec.HpRegenBonus;
                 armor += spec.ArmorBonus;
                 magicResist += spec.MagicResistBonus;
                 damageBonus += spec.DamageBonus;
@@ -174,7 +183,17 @@ namespace Dynasty.MatchSimulation
                 flags |= spec.Flags;
             }
 
-            MaxHp = Stats.MaxHp;
+            MaxHp = Stats.MaxHp + maxHpBonus;
+            HpRegenBonus = hpRegenBonus;
+            if (Hp > Fixed.FromInt(MaxHp))
+                Hp = Fixed.FromInt(MaxHp);
+            if (Hero != null)
+            {
+                Hero.MaxMana = Hero.Definition.MaxManaAtLevel(Hero.Level) + maxManaBonus;
+                if (Hero.Mana > Fixed.FromInt(Hero.MaxMana))
+                    Hero.Mana = Fixed.FromInt(Hero.MaxMana);
+            }
+
             Armor = armor;
             MagicResistPercent = Math.Min(magicResist, 100);
             AttackDamageMin = Stats.AttackDamageMin + damageBonus;

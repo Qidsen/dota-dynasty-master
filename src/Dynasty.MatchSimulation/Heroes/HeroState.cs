@@ -48,9 +48,16 @@ namespace Dynasty.MatchSimulation.Heroes
 
         public HeroOrder Order { get; internal set; }
 
+        public IReadOnlyList<ItemSlot> Inventory => InventorySlots;
+
+        internal List<ItemSlot> InventorySlots { get; } = new List<ItemSlot>();
+
+        internal List<ShopRequest> ShopRequests { get; } = new List<ShopRequest>();
+
         /// <summary>The hero's abilities in definition order.</summary>
         public IReadOnlyList<AbilityState> Abilities => _abilities;
 
+        /// <summary>A hero ability or the active of a carried item.</summary>
         public AbilityState? Ability(string abilityId)
         {
             foreach (AbilityState ability in _abilities)
@@ -59,12 +66,18 @@ namespace Dynasty.MatchSimulation.Heroes
                     return ability;
             }
 
+            foreach (ItemSlot slot in InventorySlots)
+            {
+                if (slot.Active != null && slot.Active.Definition.Id == abilityId)
+                    return slot.Active;
+            }
+
             return null;
         }
 
         public int AbilityLevel(string abilityId) => Ability(abilityId)?.Level ?? 0;
 
-        /// <summary>Hero level minus ability levels already learned.</summary>
+        /// <summary>Hero level minus hero-ability levels already learned (item actives do not count).</summary>
         public int UnspentSkillPoints
         {
             get
@@ -92,9 +105,10 @@ namespace Dynasty.MatchSimulation.Heroes
     /// <summary>Learned level and cooldown of one hero ability.</summary>
     public sealed class AbilityState
     {
-        internal AbilityState(AbilityDefinition definition)
+        internal AbilityState(AbilityDefinition definition, int level = 0)
         {
             Definition = definition;
+            Level = level;
         }
 
         public AbilityDefinition Definition { get; }
@@ -220,7 +234,6 @@ namespace Dynasty.MatchSimulation.Heroes
             state.Level++;
             hero.Stats = state.Definition.StatsAtLevel(state.Level);
             hero.Recalculate();
-            state.MaxMana = state.Definition.MaxManaAtLevel(state.Level);
 
             if (hero.IsAlive)
             {

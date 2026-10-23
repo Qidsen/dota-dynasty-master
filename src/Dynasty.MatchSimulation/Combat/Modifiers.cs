@@ -53,8 +53,14 @@ namespace Dynasty.MatchSimulation.Combat
             int critChancePercent = 0,
             int critMultiplierPercent = 0,
             int structureDamagePercent = 0,
-            int lifestealPercent = 0)
+            int lifestealPercent = 0,
+            int maxHpBonus = 0,
+            int maxManaBonus = 0,
+            Fixed hpRegenBonus = default)
         {
+            MaxHpBonus = maxHpBonus;
+            MaxManaBonus = maxManaBonus;
+            HpRegenBonus = hpRegenBonus;
             CritChancePercent = critChancePercent;
             CritMultiplierPercent = critMultiplierPercent;
             StructureDamagePercent = structureDamagePercent;
@@ -109,6 +115,12 @@ namespace Dynasty.MatchSimulation.Combat
         /// <summary>Share of dealt attack damage returned to the attacker as HP.</summary>
         public int LifestealPercent { get; }
 
+        public int MaxHpBonus { get; }
+        public int MaxManaBonus { get; }
+
+        /// <summary>Extra HP regeneration per second (heroes).</summary>
+        public Fixed HpRegenBonus { get; }
+
         public bool IsPeriodic => DamagePerSecond > Fixed.Zero || HealPerSecond > Fixed.Zero;
 
         public bool IsPermanent => DurationMs < 0;
@@ -131,6 +143,9 @@ namespace Dynasty.MatchSimulation.Combat
             w.WriteInt64(CritMultiplierPercent);
             w.WriteInt64(StructureDamagePercent);
             w.WriteInt64(LifestealPercent);
+            w.WriteInt64(MaxHpBonus);
+            w.WriteInt64(MaxManaBonus);
+            w.WriteFixed(HpRegenBonus);
         }
 
         public static ModifierSpec Status(string key, int durationMs, ModifierFlags flags) => new ModifierSpec(key, durationMs, flags);
@@ -186,6 +201,18 @@ namespace Dynasty.MatchSimulation.Combat
             }
 
             context.Emit(new ModifierApplied(target.Id, source, spec.Key, expires));
+            return modifier;
+        }
+
+        /// <summary>
+        /// Adds a permanent instance that never merges with others of the same key (item bonuses:
+        /// two identical items stack). Removed explicitly via <see cref="Remove"/>.
+        /// </summary>
+        public static ActiveModifier AddInstance(SimulationContext<MatchState> context, MatchUnit target, ModifierSpec spec, EntityId source)
+        {
+            var modifier = new ActiveModifier(spec, source, context.Tick.Value, -1, long.MaxValue);
+            target.AddModifier(modifier);
+            context.Emit(new ModifierApplied(target.Id, source, spec.Key, -1));
             return modifier;
         }
 

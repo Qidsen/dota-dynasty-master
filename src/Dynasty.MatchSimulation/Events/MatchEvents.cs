@@ -428,6 +428,87 @@ namespace Dynasty.MatchSimulation.Events
         public void WritePayload(ref Fnv1a64 hash) => hash.AddInt64(Unit.Value);
     }
 
+    public sealed class ItemPurchased : IDomainEvent
+    {
+        public ItemPurchased(EntityId hero, string itemId, int cost, System.Collections.Generic.IReadOnlyList<string> consumedComponents)
+        {
+            Hero = hero;
+            ItemId = itemId;
+            Cost = cost;
+            ConsumedComponents = consumedComponents;
+        }
+
+        public EntityId Hero { get; }
+        public string ItemId { get; }
+
+        /// <summary>Gold actually paid (full price minus consumed components).</summary>
+        public int Cost { get; }
+
+        public System.Collections.Generic.IReadOnlyList<string> ConsumedComponents { get; }
+
+        public string Type => "match.item_purchased";
+        public int SchemaVersion => 1;
+
+        public void WritePayload(ref Fnv1a64 hash)
+        {
+            hash.AddInt64(Hero.Value);
+            hash.AddString(ItemId);
+            hash.AddInt64(Cost);
+            hash.AddInt64(ConsumedComponents.Count);
+            foreach (string component in ConsumedComponents)
+                hash.AddString(component);
+        }
+    }
+
+    /// <summary>Reasons: unknown_item, not_in_shop, gold, inventory_full, not_owned.</summary>
+    public sealed class ItemPurchaseFailed : IDomainEvent
+    {
+        public ItemPurchaseFailed(EntityId hero, string itemId, string reason)
+        {
+            Hero = hero;
+            ItemId = itemId;
+            Reason = reason;
+        }
+
+        public EntityId Hero { get; }
+        public string ItemId { get; }
+        public string Reason { get; }
+
+        public string Type => "match.item_purchase_failed";
+        public int SchemaVersion => 1;
+
+        public void WritePayload(ref Fnv1a64 hash)
+        {
+            hash.AddInt64(Hero.Value);
+            hash.AddString(ItemId);
+            hash.AddString(Reason);
+        }
+    }
+
+    public sealed class ItemSold : IDomainEvent
+    {
+        public ItemSold(EntityId hero, string itemId, int refund)
+        {
+            Hero = hero;
+            ItemId = itemId;
+            Refund = refund;
+        }
+
+        public EntityId Hero { get; }
+        public string ItemId { get; }
+        public int Refund { get; }
+
+        public string Type => "match.item_sold";
+        public int SchemaVersion => 1;
+
+        public void WritePayload(ref Fnv1a64 hash)
+        {
+            hash.AddInt64(Hero.Value);
+            hash.AddString(ItemId);
+            hash.AddInt64(Refund);
+        }
+    }
+
     public sealed class MatchFinished : IDomainEvent
     {
         public MatchFinished(Team winner, string destroyedAncient)

@@ -343,9 +343,11 @@ namespace Dynasty.MatchSimulation.Rules
             WaveRules waves,
             IReadOnlyList<HeroDefinition>? heroes = null,
             HeroRules? heroRules = null,
-            IReadOnlyList<AbilityDefinition>? abilities = null)
+            IReadOnlyList<AbilityDefinition>? abilities = null,
+            IReadOnlyList<ItemDefinition>? items = null)
         {
             Abilities = (abilities ?? Array.Empty<AbilityDefinition>()).ToArray();
+            Items = (items ?? Array.Empty<ItemDefinition>()).ToArray();
             Id = id;
             Version = version;
             TicksPerSecond = ticksPerSecond;
@@ -368,6 +370,10 @@ namespace Dynasty.MatchSimulation.Rules
         public IReadOnlyList<AbilityDefinition> Abilities { get; }
 
         public AbilityDefinition? FindAbility(string id) => Abilities.FirstOrDefault(a => a.Id == id);
+
+        public IReadOnlyList<ItemDefinition> Items { get; }
+
+        public ItemDefinition? FindItem(string id) => Items.FirstOrDefault(i => i.Id == id);
 
         public string Id { get; }
         public int Version { get; }
@@ -410,7 +416,39 @@ namespace Dynasty.MatchSimulation.Rules
             ValidateWaves(errors);
             ValidateHeroes(errors);
             ValidateAbilities(errors);
+            ValidateItems(errors);
             return errors;
+        }
+
+        private void ValidateItems(List<string> errors)
+        {
+            ReportDuplicates(errors, "item", Items.Select(i => i.Id));
+            foreach (ItemDefinition item in Items)
+            {
+                string owner = "Item '" + item.Id + "'";
+                if (item.Cost <= 0)
+                    errors.Add(owner + " must have a positive cost.");
+                int componentCost = 0;
+                foreach (string componentId in item.Components)
+                {
+                    ItemDefinition? component = FindItem(componentId);
+                    if (component == null || componentId == item.Id)
+                        errors.Add(owner + " uses unknown component '" + componentId + "'.");
+                    else
+                        componentCost += component.Cost;
+                }
+
+                if (componentCost > item.Cost)
+                    errors.Add(owner + " costs less than its components.");
+                if (item.ActiveAbilityId != null)
+                {
+                    AbilityDefinition? active = FindAbility(item.ActiveAbilityId);
+                    if (active == null)
+                        errors.Add(owner + " uses unknown active ability '" + item.ActiveAbilityId + "'.");
+                    else if (active.Targeting == AbilityTargeting.Passive)
+                        errors.Add(owner + " active ability cannot be passive.");
+                }
+            }
         }
 
         private void ValidateAbilities(List<string> errors)
@@ -575,6 +613,9 @@ namespace Dynasty.MatchSimulation.Rules
             writer.WriteInt64(Abilities.Count);
             foreach (AbilityDefinition ability in Abilities)
                 ability.WriteCanonical(writer);
+            writer.WriteInt64(Items.Count);
+            foreach (ItemDefinition item in Items)
+                item.WriteCanonical(writer);
 
             writer.WriteInt64(Waves.FirstSpawnMs);
             writer.WriteInt64(Waves.IntervalMs);

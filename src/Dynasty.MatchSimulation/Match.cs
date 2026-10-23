@@ -38,6 +38,7 @@ namespace Dynasty.MatchSimulation
             kernel.AddSystem(new WaveSpawnSystem());
             kernel.AddSystem(new ModifierSystem());
             kernel.AddSystem(new HeroEconomySystem());
+            kernel.AddSystem(new ShopSystem());
             kernel.AddSystem(new TargetingSystem());
             kernel.AddSystem(new HeroOrderSystem());
             kernel.AddSystem(new AbilitySystem());
