@@ -13,6 +13,7 @@ namespace Dynasty.MatchSimulation.Tests.Acceptance;
 /// Phase 02 acceptance: on the built-in ruleset, ten AI-controlled original heroes play 5v5 and
 /// each hero's kit shows up as distinguishable behaviour in the event stream.
 /// </summary>
+[Trait("Category", "Acceptance")]
 public class Phase02AcceptanceTests
 {
     private const int TicksPerMinute = 30 * 60;
