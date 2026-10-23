@@ -1,0 +1,8 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Dynasty.Core/Dynasty.Core.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Dynasty.Core.Tests/Dynasty.Core.Tests.csproj" />
+  </Folder>
+</Solution>
