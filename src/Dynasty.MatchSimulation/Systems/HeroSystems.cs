@@ -104,8 +104,9 @@ namespace Dynasty.MatchSimulation.Systems
                         break;
 
                     case HeroOrderKind.Attack:
+                        // A hero cannot keep chasing what its team no longer sees.
                         MatchUnit? target = state.Find(order.Target);
-                        if (target == null || !state.CanAttack(unit, target))
+                        if (target == null || !state.CanAttack(unit, target) || !state.IsVisibleTo(unit.Team, target))
                         {
                             HeroOrders.Issue(unit, HeroOrder.Idle);
                             break;

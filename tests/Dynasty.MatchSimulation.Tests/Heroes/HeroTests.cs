@@ -19,6 +19,17 @@ public class HeroTests
     private static void At(SimulationKernel<MatchState> kernel, long tick, Action<SimulationContext<MatchState>> action) =>
         kernel.AddSystem(new LambdaSystem(tick, action));
 
+    /// <summary>Once Dawn sees a Dusk creep, the given heroes are ordered to attack it (orders on unseen units are rejected).</summary>
+    private static void AttackFirstVisibleDuskCreep(SimulationKernel<MatchState> kernel, params string[] heroes) =>
+        kernel.AddSystem(new TriggerSystem(
+            ctx => ctx.State.Creeps(Team.Dusk).Any(c => ctx.State.IsVisibleTo(Team.Dawn, c)),
+            ctx =>
+            {
+                EntityId creep = ctx.State.Creeps(Team.Dusk).First(c => ctx.State.IsVisibleTo(Team.Dawn, c)).Id;
+                foreach (string hero in heroes)
+                    HeroOrders.Issue(HeroOf(ctx.State, hero), HeroOrder.Attack(creep));
+            }));
+
     [Fact]
     public void Lineup_SpawnsHeroesAtTheirFountainWithLevelOneStats()
     {
@@ -77,7 +88,8 @@ public class HeroTests
         var draft = new RulesetDraft();
         draft.DawnWave.Clear();
         var kernel = draft.StartWithHeroes(new[] { ("alpha", "mid") }, None);
-        At(kernel, 1, ctx => HeroOrders.Issue(HeroOf(ctx.State, "alpha"), HeroOrder.Attack(ctx.State.Creeps(Team.Dusk).First().Id)));
+        At(kernel, 0, ctx => HeroOrders.Issue(HeroOf(ctx.State, "alpha"), HeroOrder.Move(P(4500, 5000))));
+        AttackFirstVisibleDuskCreep(kernel, "alpha");
 
         kernel.StepUntil(() => kernel.EventsOf<UnitKilled>().Any(), 3000);
 
@@ -94,12 +106,12 @@ public class HeroTests
         var draft = new RulesetDraft();
         draft.DawnWave.Clear();
         var kernel = draft.StartWithHeroes(new[] { ("alpha", "mid"), ("beta", "mid"), ("gamma", "mid") }, None);
-        At(kernel, 1, ctx =>
+        At(kernel, 0, ctx =>
         {
-            EntityId creep = ctx.State.Creeps(Team.Dusk).First().Id;
-            HeroOrders.Issue(HeroOf(ctx.State, "alpha"), HeroOrder.Attack(creep));
-            HeroOrders.Issue(HeroOf(ctx.State, "beta"), HeroOrder.Attack(creep));
+            HeroOrders.Issue(HeroOf(ctx.State, "alpha"), HeroOrder.Move(P(4500, 5000)));
+            HeroOrders.Issue(HeroOf(ctx.State, "beta"), HeroOrder.Move(P(4500, 5100)));
         });
+        AttackFirstVisibleDuskCreep(kernel, "alpha", "beta");
 
         kernel.StepUntil(() => kernel.EventsOf<UnitKilled>().Any(), 3000);
 

@@ -118,7 +118,8 @@ namespace Dynasty.MatchSimulation.Systems
 
                 int searchRange = unit.Kind == UnitKind.Structure ? unit.AttackRange : unit.AcquisitionRange;
                 MatchUnit? current = state.Find(unit.TargetId);
-                if (current != null && state.CanAttack(unit, current) && Geometry.WithinEdgeRange(unit, current, searchRange))
+                if (current != null && state.CanAttack(unit, current) && state.IsVisibleTo(unit.Team, current) &&
+                    Geometry.WithinEdgeRange(unit, current, searchRange))
                     continue;
 
                 unit.TargetId = FindNearest(state, unit, searchRange);
@@ -131,7 +132,7 @@ namespace Dynasty.MatchSimulation.Systems
             Fixed bestDistance = Fixed.Zero;
             foreach (MatchUnit candidate in state.Units)
             {
-                if (!state.CanAttack(unit, candidate) || !Geometry.WithinEdgeRange(unit, candidate, range))
+                if (!state.CanAttack(unit, candidate) || !Geometry.WithinEdgeRange(unit, candidate, range) || !state.IsVisibleTo(unit.Team, candidate))
                     continue;
 
                 Fixed distance = Geometry.EdgeDistance(unit, candidate);
@@ -282,7 +283,8 @@ namespace Dynasty.MatchSimulation.Systems
         private static void TryStartAttack(SimulationContext<MatchState> context, MatchUnit unit, long now)
         {
             MatchUnit? target = context.State.Find(unit.TargetId);
-            if (target == null || !context.State.CanAttack(unit, target) || !Geometry.WithinEdgeRange(unit, target, unit.AttackRange))
+            if (target == null || !context.State.CanAttack(unit, target) || !context.State.IsVisibleTo(unit.Team, target) ||
+                !Geometry.WithinEdgeRange(unit, target, unit.AttackRange))
                 return;
 
             unit.PendingTargetId = target.Id;

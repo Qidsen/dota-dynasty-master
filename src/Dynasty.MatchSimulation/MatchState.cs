@@ -169,7 +169,7 @@ namespace Dynasty.MatchSimulation
             int maxHpBonus = 0;
             int maxManaBonus = 0;
             Fixed hpRegenBonus = Fixed.Zero;
-            ModifierFlags flags = ModifierFlags.None;
+            ModifierFlags flags = Stats.InnateFlags;
             foreach (ActiveModifier modifier in _modifiers)
             {
                 ModifierSpec spec = modifier.Spec;
@@ -246,6 +246,7 @@ namespace Dynasty.MatchSimulation
             NextWaveTick = rate.TicksFor(ruleset.Waves.FirstSpawnMs);
             Nav = Navigation.NavGrid.FromMap(ruleset.Map);
             Pathfinder = new Navigation.Pathfinder(Nav);
+            SightGrid = Navigation.NavGrid.Build(ruleset.Map.Width, ruleset.Map.Height, ruleset.Map.NavCellSize, ruleset.Map.Obstacles, clearance: 0);
         }
 
         internal Navigation.NavGrid Nav { get; }
@@ -266,6 +267,17 @@ namespace Dynasty.MatchSimulation
 
         internal TickRate Rate { get; }
         internal long NextWaveTick { get; set; }
+
+        /// <summary>Whether the team currently sees the unit (own units: always). Recomputed every few ticks.</summary>
+        public bool IsVisibleTo(Team team, MatchUnit unit) => KnowledgeOf(team).Sees(unit);
+
+        public Vision.TeamKnowledge KnowledgeOf(Team team) => team == Team.Dawn ? _dawnKnowledge : _duskKnowledge;
+
+        private readonly Vision.TeamKnowledge _dawnKnowledge = new Vision.TeamKnowledge(Team.Dawn);
+        private readonly Vision.TeamKnowledge _duskKnowledge = new Vision.TeamKnowledge(Team.Dusk);
+
+        /// <summary>Obstacles without clearance: what blocks line of sight.</summary>
+        internal Navigation.NavGrid SightGrid { get; }
 
         public MatchUnit? Find(EntityId id) => _byId.TryGetValue(id, out MatchUnit? unit) ? unit : null;
 

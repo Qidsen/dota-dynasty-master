@@ -78,6 +78,27 @@ namespace Dynasty.MatchSimulation.Navigation
             }
         }
 
+        /// <summary>
+        /// Like <see cref="HasLineOfSight"/> but without a square root per sample (hot path for
+        /// vision): samples every half cell by linear interpolation.
+        /// </summary>
+        public bool HasClearLine(FixedVector2 from, FixedVector2 to)
+        {
+            FixedVector2 delta = to - from;
+            long span = System.Math.Max(System.Math.Abs(delta.X.ToIntFloor()), System.Math.Abs(delta.Y.ToIntFloor()));
+            long samples = span * 2 / CellSize + 1;
+            Fixed count = Fixed.FromInt((int)samples);
+            for (long i = 0; i <= samples; i++)
+            {
+                Fixed t = Fixed.FromInt((int)i);
+                var point = new FixedVector2(from.X + delta.X * t / count, from.Y + delta.Y * t / count);
+                if (!IsWalkable(point))
+                    return false;
+            }
+
+            return true;
+        }
+
         internal bool IsWalkableCell(int column, int row) =>
             column >= 0 && row >= 0 && column < Columns && row < Rows && _walkable[row * Columns + column];
 

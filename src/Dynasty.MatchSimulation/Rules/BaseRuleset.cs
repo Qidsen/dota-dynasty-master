@@ -148,6 +148,8 @@ namespace Dynasty.MatchSimulation.Rules
             points.Select(p => FixedVector2.FromInts(p.X, p.Y)).ToArray();
 
         private static UnitStats Stats(int hp, int armor, int speed, int dmgMin, int dmgMax, int range, int intervalMs, int pointMs, int acquisition, int radius) =>
-            new UnitStats(hp, Fixed.FromInt(armor), speed, dmgMin, dmgMax, range, intervalMs, pointMs, acquisition, radius);
+            new UnitStats(hp, Fixed.FromInt(armor), speed, dmgMin, dmgMax, range, intervalMs, pointMs, acquisition, radius,
+                visionRange: speed == 0 ? 900 : 800,
+                trueSightRange: speed == 0 && dmgMax > 0 ? 700 : 0);
     }
 }

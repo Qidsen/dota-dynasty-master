@@ -1,4 +1,4 @@
-using Dynasty.Core.Ids;
+﻿using Dynasty.Core.Ids;
 using Dynasty.Core.Kernel;
 using Dynasty.Core.Mathematics;
 using Dynasty.MatchSimulation.Combat;
@@ -54,13 +54,13 @@ public class AbilityTests
     public void UnitTargetNuke_DealsMagicalDamageAfterCastPointAndSpendsMana()
     {
         var kernel = Arena(new[] { "bolt" });
-        Order(kernel, 1, s => HeroOrder.Cast("bolt", H(s, "beta").Id));
+        Order(kernel, 3, s => HeroOrder.Cast("bolt", H(s, "beta").Id));
 
         kernel.RunTicks(30);
 
         (long castTick, AbilityCast cast) = Assert.Single(kernel.TimedEventsOf<AbilityCast>());
         Assert.Equal("bolt", cast.AbilityId);
-        Assert.Equal(11, castTick);   // ordered on tick 1, wind-up starts on tick 2, 9-tick cast point
+        Assert.Equal(13, castTick);   // ordered on tick 3 (after vision saw the arena), wind-up from tick 4, 9-tick cast point
         DamageDealt hit = Assert.Single(kernel.EventsOf<DamageDealt>(), d => d.Target == H(kernel.State, "beta").Id);
         Assert.Equal(DamageType.Magical, hit.DamageType);
         Assert.Equal(Fixed.FromInt(75), hit.Amount);   // 100 vs 25 % magic resist
@@ -71,7 +71,7 @@ public class AbilityTests
     public void Cooldown_PreventsImmediateRecast()
     {
         var kernel = Arena(new[] { "bolt" });
-        Order(kernel, 1, s => HeroOrder.Cast("bolt", H(s, "beta").Id));
+        Order(kernel, 3, s => HeroOrder.Cast("bolt", H(s, "beta").Id));
         Order(kernel, 20, s => HeroOrder.Cast("bolt", H(s, "beta").Id));
 
         kernel.RunTicks(40);
@@ -83,20 +83,20 @@ public class AbilityTests
     [Fact]
     public void OutOfRangeTarget_IsApproachedBeforeCasting()
     {
-        var kernel = Arena(new[] { "bolt" }, ctx => H(ctx.State, "beta").Position = P(7000, 3000));
-        Order(kernel, 1, s => HeroOrder.Cast("bolt", H(s, "beta").Id));
+        var kernel = Arena(new[] { "bolt" }, ctx => H(ctx.State, "beta").Position = P(6100, 3000));   // visible (1100), out of cast range
+        Order(kernel, 3, s => HeroOrder.Cast("bolt", H(s, "beta").Id));
 
         kernel.RunTicks(300);
 
         Assert.Single(kernel.EventsOf<AbilityCast>());
-        Assert.True(H(kernel.State, "alpha").Position.X > Fixed.FromInt(6000));
+        Assert.True(H(kernel.State, "alpha").Position.X > Fixed.FromInt(5300));
     }
 
     [Fact]
     public void NotEnoughMana_FailsTheCast()
     {
         var kernel = Arena(new[] { "bolt" }, ctx => H(ctx.State, "alpha").Hero!.Mana = Fixed.FromInt(50));
-        Order(kernel, 1, s => HeroOrder.Cast("bolt", H(s, "beta").Id));
+        Order(kernel, 3, s => HeroOrder.Cast("bolt", H(s, "beta").Id));
 
         kernel.RunTicks(20);
 
@@ -109,7 +109,7 @@ public class AbilityTests
     {
         var kernel = Arena(new[] { "bolt" }, ctx =>
             Modifiers.Apply(ctx, H(ctx.State, "alpha"), ModifierSpec.Status("hush", 5000, ModifierFlags.Silenced), EntityId.None));
-        Order(kernel, 1, s => HeroOrder.Cast("bolt", H(s, "beta").Id));
+        Order(kernel, 3, s => HeroOrder.Cast("bolt", H(s, "beta").Id));
 
         kernel.RunTicks(20);
 
@@ -121,7 +121,7 @@ public class AbilityTests
     public void StunDuringCastPoint_InterruptsWithoutSpendingMana()
     {
         var kernel = Arena(new[] { "bolt" });
-        Order(kernel, 1, s => HeroOrder.Cast("bolt", H(s, "beta").Id));
+        Order(kernel, 3, s => HeroOrder.Cast("bolt", H(s, "beta").Id));
         kernel.AddSystem(new TriggerSystem(
             ctx => H(ctx.State, "alpha").Hero!.IsCasting,
             ctx => Modifiers.Apply(ctx, H(ctx.State, "alpha"), ModifierSpec.Status("stun", 2000, ModifierFlags.Stunned), EntityId.None)));
@@ -137,9 +137,9 @@ public class AbilityTests
     public void AreaStun_HitsOnlyEnemiesInsideTheRadius()
     {
         var kernel = Arena(new[] { "quake" });
-        Order(kernel, 1, _ => HeroOrder.CastNoTarget("quake"));
+        Order(kernel, 3, _ => HeroOrder.CastNoTarget("quake"));
 
-        kernel.RunTicks(3);
+        kernel.RunTicks(5);
 
         MatchState s = kernel.State;
         Assert.True(H(s, "beta").IsStunned);
@@ -152,9 +152,9 @@ public class AbilityTests
     public void Heal_RestoresAnAllyUpToMaxHp()
     {
         var kernel = Arena(new[] { "mend" }, ctx => H(ctx.State, "gamma").Hp = Fixed.FromInt(300));
-        Order(kernel, 1, s => HeroOrder.Cast("mend", H(s, "gamma").Id));
+        Order(kernel, 3, s => HeroOrder.Cast("mend", H(s, "gamma").Id));
 
-        kernel.RunTicks(3);
+        kernel.RunTicks(5);
 
         Assert.InRange(H(kernel.State, "gamma").Hp.ToDouble(), 500, 501);
     }
@@ -163,9 +163,9 @@ public class AbilityTests
     public void Heal_EmitsTheAmountActuallyRestored()
     {
         var kernel = Arena(new[] { "mend" }, ctx => H(ctx.State, "gamma").Hp = Fixed.FromInt(500));
-        Order(kernel, 1, s => HeroOrder.Cast("mend", H(s, "gamma").Id));
+        Order(kernel, 3, s => HeroOrder.Cast("mend", H(s, "gamma").Id));
 
-        kernel.RunTicks(3);
+        kernel.RunTicks(5);
 
         HealApplied heal = Assert.Single(kernel.EventsOf<HealApplied>());
         Assert.Equal(H(kernel.State, "alpha").Id, heal.Source);
@@ -177,7 +177,7 @@ public class AbilityTests
     public void AllyAbility_CannotTargetAnEnemy()
     {
         var kernel = Arena(new[] { "mend" });
-        Order(kernel, 1, s => HeroOrder.Cast("mend", H(s, "beta").Id));
+        Order(kernel, 3, s => HeroOrder.Cast("mend", H(s, "beta").Id));
 
         kernel.RunTicks(5);
 
@@ -189,9 +189,9 @@ public class AbilityTests
     public void Dash_MovesTheCasterNextToTheTargetThenHits()
     {
         var kernel = Arena(new[] { "leap" });
-        Order(kernel, 1, s => HeroOrder.Cast("leap", H(s, "delta").Id));
+        Order(kernel, 3, s => HeroOrder.Cast("leap", H(s, "delta").Id));
 
-        kernel.RunTicks(3);
+        kernel.RunTicks(5);
 
         double gap = FixedVector2.Distance(H(kernel.State, "alpha").Position, H(kernel.State, "delta").Position).ToDouble();
         Assert.InRange(gap, 40, 60);   // two 24-unit hero radii
@@ -202,9 +202,9 @@ public class AbilityTests
     public void Knockback_PushesTheTargetAwayFromTheCaster()
     {
         var kernel = Arena(new[] { "shove" });
-        Order(kernel, 1, s => HeroOrder.Cast("shove", H(s, "beta").Id));
+        Order(kernel, 3, s => HeroOrder.Cast("shove", H(s, "beta").Id));
 
-        kernel.RunTicks(3);
+        kernel.RunTicks(5);
 
         Assert.Equal(P(5600, 3000), H(kernel.State, "beta").Position);
     }
@@ -215,9 +215,9 @@ public class AbilityTests
         var draft = Draft();
         draft.Obstacles.Add(ObstacleDefinition.Rectangle("rock", P(5400, 2800), P(5500, 3200)));
         var kernel = Arena(new[] { "shove" }, draft: draft);
-        Order(kernel, 1, s => HeroOrder.Cast("shove", H(s, "beta").Id));
+        Order(kernel, 3, s => HeroOrder.Cast("shove", H(s, "beta").Id));
 
-        kernel.RunTicks(3);
+        kernel.RunTicks(5);
 
         Fixed x = H(kernel.State, "beta").Position.X;
         Assert.True(x > Fixed.FromInt(5200) && x < Fixed.FromInt(5400), "stopped at " + x);
@@ -227,7 +227,7 @@ public class AbilityTests
     public void Summon_CreatesTemporaryFightersThatExpireWithoutBounty()
     {
         var kernel = Arena(new[] { "swarm" });
-        Order(kernel, 1, _ => HeroOrder.CastNoTarget("swarm"));
+        Order(kernel, 3, _ => HeroOrder.CastNoTarget("swarm"));
 
         kernel.RunTicks(30);
         var summons = kernel.State.Units.Where(u => u.Kind == UnitKind.Summon).ToList();
@@ -244,9 +244,9 @@ public class AbilityTests
     public void PointArea_DamagesEnemiesAroundThePoint()
     {
         var kernel = Arena(new[] { "meteor" });
-        Order(kernel, 1, _ => HeroOrder.CastAtPoint("meteor", P(5600, 3000)));
+        Order(kernel, 3, _ => HeroOrder.CastAtPoint("meteor", P(5600, 3000)));
 
-        kernel.RunTicks(3);
+        kernel.RunTicks(5);
 
         // delta stands 100 from the point (hit); beta 400 away and ally gamma are not.
         var targets = kernel.EventsOf<DamageDealt>().Select(d => d.Target).ToList();

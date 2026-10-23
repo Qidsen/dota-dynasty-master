@@ -91,7 +91,7 @@ namespace Dynasty.MatchSimulation.Systems
             if (ability.Definition.Targeting == AbilityTargeting.Unit)
             {
                 MatchUnit? target = state.Find(order.Target);
-                if (target == null || !Effects.Matches(state, caster, target, ability.Definition.TargetTeam))
+                if (target == null || !Effects.Matches(state, caster, target, ability.Definition.TargetTeam) || !state.IsVisibleTo(caster.Team, target))
                     return "invalid_target";
             }
 
@@ -124,12 +124,29 @@ namespace Dynasty.MatchSimulation.Systems
 
             hero.Mana -= Fixed.FromInt(definition.ManaCostAt(ability.Level));
             ability.CooldownReadyTick = now + context.TickRate.TicksFor(definition.CooldownAt(ability.Level));
+            ConsumeCharge(context, caster, hero, ability);
             hero.CastEndTick = -1;
             HeroOrders.Issue(caster, HeroOrder.Idle);
             context.Emit(new AbilityCast(caster.Id, definition.Id, ability.Level, definition.Targeting == AbilityTargeting.Unit ? target.Id : EntityId.None, order.Point));
 
             FixedVector2 point = definition.Targeting == AbilityTargeting.Point ? order.Point : target.Position;
             Effects.Run(context, caster, definition.Effects, ability.Level, target, point);
+        }
+
+        /// <summary>Using a consumable item's active spends a charge; the item is gone at zero.</summary>
+        private static void ConsumeCharge(SimulationContext<MatchState> context, MatchUnit caster, HeroState hero, AbilityState ability)
+        {
+            ItemSlot? slot = hero.InventorySlots.FirstOrDefault(s => ReferenceEquals(s.Active, ability));
+            if (slot == null || slot.Definition.Charges == 0)
+                return;
+
+            slot.Charges--;
+            if (slot.Charges > 0)
+                return;
+
+            hero.InventorySlots.Remove(slot);
+            if (slot.Bonus != null)
+                Modifiers.Remove(context, caster, slot.Bonus, "item_consumed");
         }
 
         private static void Fail(SimulationContext<MatchState> context, MatchUnit caster, string abilityId, string reason)
@@ -191,7 +208,7 @@ namespace Dynasty.MatchSimulation.Systems
                     Knockback(context.State, caster, target, effect.AmountAt(level));
                     break;
                 case EffectKind.Summon:
-                    Summon(context, caster, effect, level);
+                    Summon(context, caster, effect, level, point);
                     break;
             }
         }
@@ -253,7 +270,7 @@ namespace Dynasty.MatchSimulation.Systems
                 target.Hero.Path = null;
         }
 
-        private static void Summon(SimulationContext<MatchState> context, MatchUnit caster, EffectDefinition effect, int level)
+        private static void Summon(SimulationContext<MatchState> context, MatchUnit caster, EffectDefinition effect, int level, FixedVector2 point)
         {
             CreepType type = context.State.Ruleset.FindCreepType(effect.SummonTypeId!)!;
             long now = context.Tick.Value;
@@ -261,6 +278,12 @@ namespace Dynasty.MatchSimulation.Systems
             for (int i = 0; i < effect.AmountAt(level); i++)
             {
                 MatchUnit unit = context.State.SpawnSummon(context.Ids.Allocate(), caster, type, now, expires);
+                if (effect.AtPoint)
+                {
+                    unit.Position = point;
+                    unit.StartPosition = point;
+                }
+
                 context.Emit(new UnitSummoned(unit.Id, caster.Id, type.Id, expires));
             }
         }

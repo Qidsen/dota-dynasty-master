@@ -20,6 +20,10 @@ namespace Dynasty.MatchSimulation.Rules
             new CreepType("swarmling", Stats(hp: 220, armor: 0, speed: 350, dmgMin: 14, dmgMax: 16, range: 100, intervalMs: 1000, pointMs: 400, acquisition: 600, radius: 12), new Bounty(18, 22, 20)),
             new CreepType("hive_guard", Stats(hp: 650, armor: 3, speed: 330, dmgMin: 34, dmgMax: 40, range: 120, intervalMs: 1200, pointMs: 400, acquisition: 600, radius: 20), new Bounty(30, 36, 40)),
             new CreepType("golem", Stats(hp: 700, armor: 4, speed: 300, dmgMin: 30, dmgMax: 36, range: 120, intervalMs: 1300, pointMs: 400, acquisition: 600, radius: 24), new Bounty(30, 36, 40)),
+            new CreepType("observer_ward", Stats(hp: 4, armor: 0, speed: 0, dmgMin: 0, dmgMax: 0, range: 0, intervalMs: 1000, pointMs: 0, acquisition: 0, radius: 8,
+                vision: 1600, innate: ModifierFlags.Invisible), new Bounty(30, 30, 0)),
+            new CreepType("sentry_ward", Stats(hp: 4, armor: 0, speed: 0, dmgMin: 0, dmgMax: 0, range: 0, intervalMs: 1000, pointMs: 0, acquisition: 0, radius: 8,
+                vision: 300, trueSight: 900, innate: ModifierFlags.Invisible), new Bounty(20, 20, 0)),
         };
 
         public static IReadOnlyList<AbilityDefinition> Abilities { get; } = BuildAbilities();
@@ -168,6 +172,12 @@ namespace Dynasty.MatchSimulation.Rules
             list.Add(Passive("starborn.ascension", "Ascension", Ultimate,
                 Levels(2, l => new ModifierSpec("starborn.ascension", -1, critChancePercent: 15 + 10 * l, critMultiplierPercent: 220, damageBonus: 15 * l))));
 
+            // Wards.
+            list.Add(Cast("item.place_observer", "Place Observer Ward", AbilityTargeting.Point, TargetTeam.Ally, 500, 0, new[] { 1 }, new[] { 1000 }, new[] { 0 },
+                EffectDefinition.SummonAtPoint("observer_ward", 360000, 1)));
+            list.Add(Cast("item.place_sentry", "Place Sentry Ward", AbilityTargeting.Point, TargetTeam.Ally, 500, 0, new[] { 1 }, new[] { 1000 }, new[] { 0 },
+                EffectDefinition.SummonAtPoint("sentry_ward", 300000, 1)));
+
             // Item active.
             list.Add(Cast("item.arc_pulse", "Arc Pulse", AbilityTargeting.NoTarget, TargetTeam.Enemy, 0, 0, new[] { 1 }, new[] { 25000 }, new[] { 50 },
                 EffectDefinition.Area(400, AreaCenter.Caster, TargetTeam.Enemy, EffectDefinition.Damage(DamageType.Magical, 150))));
@@ -182,6 +192,8 @@ namespace Dynasty.MatchSimulation.Rules
             new ItemDefinition("vital_orb", "Vital Orb", 450, new ModifierSpec("item.vital_orb", -1, maxHpBonus: 250)),
             new ItemDefinition("mana_crystal", "Mana Crystal", 400, new ModifierSpec("item.mana_crystal", -1, maxManaBonus: 200)),
             new ItemDefinition("swift_boots", "Swift Boots", 400, new ModifierSpec("item.swift_boots", -1, moveSpeedPercent: 15)),
+            new ItemDefinition("observer_ward", "Observer Ward", 75, activeAbilityId: "item.place_observer", charges: 1),
+            new ItemDefinition("sentry_ward", "Sentry Ward", 100, activeAbilityId: "item.place_sentry", charges: 1),
             new ItemDefinition("crest_of_valor", "Crest of Valor", 1600,
                 new ModifierSpec("item.crest_of_valor", -1, damageBonus: 30, armorBonus: Fixed.FromInt(10)), new[] { "iron_blade", "warden_plate" }),
             new ItemDefinition("storm_edge", "Storm Edge", 2400,
@@ -227,8 +239,8 @@ namespace Dynasty.MatchSimulation.Rules
             int hpPerLevel, int dmgPerLevel, int mana, int manaPerLevel, string q, string w, string e, string r, string[] build)
         {
             UnitStats stats = melee
-                ? Stats(hp, armor, speed, dmg, dmg + 6, range: 150, intervalMs: 1700, pointMs: 400, acquisition: 800, radius: 24, magicResist: 25)
-                : Stats(hp, armor, speed, dmg, dmg + 6, range: 575, intervalMs: 1700, pointMs: 450, acquisition: 800, radius: 24, magicResist: 25);
+                ? Stats(hp, armor, speed, dmg, dmg + 6, range: 150, intervalMs: 1700, pointMs: 400, acquisition: 800, radius: 24, magicResist: 25, vision: 1200)
+                : Stats(hp, armor, speed, dmg, dmg + 6, range: 575, intervalMs: 1700, pointMs: 450, acquisition: 800, radius: 24, magicResist: 25, vision: 1200);
             return new HeroDefinition(id, name, roles, stats, hpPerLevel, Fixed.FromRatio(3, 10), dmgPerLevel, mana, manaPerLevel,
                 hpRegenPerSecond: Fixed.FromRatio(5, 2), manaRegenPerSecond: Fixed.FromRatio(3, 2),
                 abilityIds: new[] { q, w, e, r }, itemBuild: build);
@@ -249,7 +261,8 @@ namespace Dynasty.MatchSimulation.Rules
 
         private static int[] Mana(params int[] values) => values;
 
-        internal static UnitStats Stats(int hp, int armor, int speed, int dmgMin, int dmgMax, int range, int intervalMs, int pointMs, int acquisition, int radius, int magicResist = 0) =>
-            new UnitStats(hp, Fixed.FromInt(armor), speed, dmgMin, dmgMax, range, intervalMs, pointMs, acquisition, radius, magicResist);
+        internal static UnitStats Stats(int hp, int armor, int speed, int dmgMin, int dmgMax, int range, int intervalMs, int pointMs, int acquisition, int radius,
+            int magicResist = 0, int vision = 800, int trueSight = 0, ModifierFlags innate = ModifierFlags.None) =>
+            new UnitStats(hp, Fixed.FromInt(armor), speed, dmgMin, dmgMax, range, intervalMs, pointMs, acquisition, radius, magicResist, vision, trueSight, innate);
     }
 }

@@ -10,11 +10,6 @@ namespace Dynasty.HeroAI
 {
     public sealed class HeroAiSettings
     {
-        /// <summary>How far allied heroes, creeps/summons and structures reveal enemies.</summary>
-        public int HeroPerception { get; set; } = 1200;
-        public int UnitPerception { get; set; } = 800;
-        public int StructurePerception { get; set; } = 900;
-
         /// <summary>Below this HP percent a hero walks home; it comes back at <see cref="ReturnHpPercent"/>.</summary>
         public int RetreatHpPercent { get; set; } = 30;
         public int ReturnHpPercent { get; set; } = 90;
@@ -27,54 +22,23 @@ namespace Dynasty.HeroAI
     }
 
     /// <summary>
-    /// What a team can currently see: enemy units within perception range of any living allied
-    /// unit. Allied units are always known. Static map knowledge (structures, fountains) is not
-    /// part of this. Stand-in until the Vision module (fog of war, terrain blocking) exists.
+    /// The AI's window on the match: exactly the team's fog-of-war knowledge from the Vision
+    /// module (spec §9). The AI must not look at units through any other path.
     /// </summary>
     public sealed class TeamPerception
     {
-        private readonly HashSet<long> _visible;
+        private readonly MatchState _state;
         private readonly Team _team;
 
-        private TeamPerception(Team team, HashSet<long> visible)
+        private TeamPerception(MatchState state, Team team)
         {
+            _state = state;
             _team = team;
-            _visible = visible;
         }
 
-        public static TeamPerception Build(MatchState state, Team team, HeroAiSettings settings)
-        {
-            var observers = new List<(FixedVector2 Position, Fixed RangeSquared)>();
-            foreach (MatchUnit unit in state.Units)
-            {
-                if (unit.Team != team || !unit.IsAlive)
-                    continue;
-                int range = unit.Kind == UnitKind.Hero ? settings.HeroPerception
-                    : unit.Kind == UnitKind.Structure ? settings.StructurePerception
-                    : settings.UnitPerception;
-                Fixed r = Fixed.FromInt(range);
-                observers.Add((unit.Position, r * r));
-            }
+        public static TeamPerception Build(MatchState state, Team team, HeroAiSettings settings) => new TeamPerception(state, team);
 
-            var visible = new HashSet<long>();
-            foreach (MatchUnit unit in state.Units)
-            {
-                if (unit.Team == team || !unit.IsAlive)
-                    continue;
-                foreach ((FixedVector2 position, Fixed rangeSquared) in observers)
-                {
-                    if (FixedVector2.DistanceSquared(position, unit.Position) <= rangeSquared)
-                    {
-                        visible.Add(unit.Id.Value);
-                        break;
-                    }
-                }
-            }
-
-            return new TeamPerception(team, visible);
-        }
-
-        public bool CanSee(MatchUnit unit) => unit.Team == _team || _visible.Contains(unit.Id.Value);
+        public bool CanSee(MatchUnit unit) => _state.IsVisibleTo(_team, unit);
     }
 
     public static class HeroAi

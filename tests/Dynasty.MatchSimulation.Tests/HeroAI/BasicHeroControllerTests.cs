@@ -28,7 +28,7 @@ public class BasicHeroControllerTests
             H(ctx.State, "beta").Position = P(4900, 5000);    // 900 from alpha: seen
             H(ctx.State, "gamma").Position = P(5600, 6500);   // far from every Dawn unit
         });
-        kernel.Step();
+        kernel.RunTicks(4);   // the tick-3 vision update sees the new positions
 
         var perception = TeamPerception.Build(kernel.State, Team.Dawn, new HeroAiSettings());
 

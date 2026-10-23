@@ -29,6 +29,9 @@ namespace Dynasty.MatchSimulation.Combat
 
         /// <summary>No attacks; interrupts attack wind-up.</summary>
         Disarmed = 8,
+
+        /// <summary>Not visible to enemies unless inside one of their true-sight radii.</summary>
+        Invisible = 16,
     }
 
     /// <summary>

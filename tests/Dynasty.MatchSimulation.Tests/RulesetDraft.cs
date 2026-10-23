@@ -15,7 +15,7 @@ public sealed class RulesetDraft
         new(hp, Fixed.FromInt(armor), speed, dmgMin, dmgMax, range, intervalMs, pointMs, acquisition, 16);
 
     public static UnitStats TowerStats(int hp = 1800, int armor = 0, int dmg = 100, int range = 700, int pointMs = 0) =>
-        new(hp, Fixed.FromInt(armor), 0, dmg, dmg, range, 1000, pointMs, range, 100);
+        new(hp, Fixed.FromInt(armor), 0, dmg, dmg, range, 1000, pointMs, range, 100, visionRange: 900, trueSightRange: 700);
 
     public static UnitStats AncientStats(int hp = 3000) =>
         new(hp, Fixed.Zero, 0, 0, 0, 0, 1000, 0, 0, 150);
@@ -53,7 +53,7 @@ public sealed class RulesetDraft
     public List<ObstacleDefinition> Obstacles { get; } = new();
 
     public static UnitStats HeroStats(int hp = 600, int dmg = 50, int range = 150, int speed = 300, int intervalMs = 1500, int pointMs = 300) =>
-        new(hp, Fixed.FromInt(2), speed, dmg, dmg + 4, range, intervalMs, pointMs, 800, 24, 25);
+        new(hp, Fixed.FromInt(2), speed, dmg, dmg + 4, range, intervalMs, pointMs, 800, 24, 25, visionRange: 1200);
 
     public static HeroDefinition Hero(string id, UnitStats? stats = null, IReadOnlyList<string>? abilities = null) =>
         new(id, id, new[] { "carry" }, stats ?? HeroStats(), hpPerLevel: 80, armorPerLevel: Fixed.FromRatio(3, 10),
