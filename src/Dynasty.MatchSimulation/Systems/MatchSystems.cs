@@ -256,7 +256,7 @@ namespace Dynasty.MatchSimulation.Systems
         {
             unit.PendingAttackTick = -1;
             MatchUnit? target = context.State.Find(unit.PendingTargetId);
-            if (target == null || !target.IsAlive || target.Team == unit.Team || !context.State.IsVulnerable(target))
+            if (target == null || !context.State.CanAttack(unit, target))
                 return;
 
             int roll = context.Random("combat").NextInt(unit.AttackDamageMin, unit.AttackDamageMax + 1);
@@ -272,19 +272,29 @@ namespace Dynasty.MatchSimulation.Systems
         public void Tick(SimulationContext<MatchState> context)
         {
             MatchState state = context.State;
-            List<MatchUnit> dead = state.Units.Where(u => !u.IsAlive).ToList();
+            List<MatchUnit> dead = state.Units.Where(u => !u.IsAlive && !(u.Hero?.IsDead ?? false)).ToList();
             StructurePlacement? fallenAncient = null;
 
             foreach (MatchUnit unit in dead)
             {
+                if (unit.Hero != null)
+                {
+                    // Heroes stay in the match and respawn.
+                    Rewards.HeroDied(context, unit);
+                    continue;
+                }
+
                 state.Remove(unit);
                 if (unit.Placement == null)
                 {
                     context.Emit(new UnitKilled(unit.Id, unit.Team, unit.TypeId, unit.LastAttackerId));
+                    if (unit.Kind == UnitKind.Creep)
+                        Rewards.CreepDied(context, unit, state.Ruleset.FindCreepType(unit.TypeId));
                     continue;
                 }
 
                 context.Emit(new StructureDestroyed(unit.Id, unit.Placement.Id, unit.Team, unit.LastAttackerId));
+                Rewards.StructureDestroyed(context, unit);
                 if (unit.Placement.IsAncient && fallenAncient == null)
                     fallenAncient = unit.Placement;
             }

@@ -178,7 +178,12 @@ namespace Dynasty.MatchSimulation.Combat
             Fixed amount = DamageMath.Mitigate(rawAmount, type, target.Armor, target.MagicResistPercent, context.State.Ruleset.Combat.ArmorFactor);
             target.Hp = Fixed.Max(Fixed.Zero, target.Hp - amount);
             if (attacker.IsValid)
+            {
                 target.LastAttackerId = attacker;
+                MatchUnit? source = context.State.Find(attacker);
+                if (target.Hero != null && source?.Hero != null && source.Team != target.Team)
+                    target.Hero.RecentHeroAttackers[attacker.Value] = context.Tick.Value;
+            }
             context.Emit(new DamageDealt(attacker, target.Id, amount, target.Hp, type));
             return amount;
         }

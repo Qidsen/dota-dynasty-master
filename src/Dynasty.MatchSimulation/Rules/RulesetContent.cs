@@ -91,14 +91,18 @@ namespace Dynasty.MatchSimulation.Rules
 
     public sealed class CreepType
     {
-        public CreepType(string id, UnitStats stats)
+        public CreepType(string id, UnitStats stats, Bounty? bounty = null)
         {
             Id = id;
             Stats = stats;
+            Bounty = bounty ?? Bounty.None;
         }
 
         public string Id { get; }
         public UnitStats Stats { get; }
+
+        /// <summary>Gold to the hero landing the last hit; XP shared by nearby enemy heroes.</summary>
+        public Bounty Bounty { get; }
     }
 
     public sealed class StructureType
@@ -249,13 +253,15 @@ namespace Dynasty.MatchSimulation.Rules
             IReadOnlyList<StructurePlacement> structures,
             IReadOnlyList<ObstacleDefinition>? obstacles = null,
             int navCellSize = 100,
-            int navClearance = 24)
+            int navClearance = 24,
+            IReadOnlyList<FountainPlacement>? fountains = null)
         {
             Width = width;
             Height = height;
             Lanes = lanes.ToArray();
             Structures = structures.ToArray();
             Obstacles = (obstacles ?? Array.Empty<ObstacleDefinition>()).ToArray();
+            Fountains = (fountains ?? Array.Empty<FountainPlacement>()).ToArray();
             NavCellSize = navCellSize;
             NavClearance = navClearance;
         }
@@ -265,6 +271,11 @@ namespace Dynasty.MatchSimulation.Rules
         public IReadOnlyList<LaneDefinition> Lanes { get; }
         public IReadOnlyList<StructurePlacement> Structures { get; }
         public IReadOnlyList<ObstacleDefinition> Obstacles { get; }
+
+        /// <summary>Hero spawn and heal areas, one per team when heroes are used.</summary>
+        public IReadOnlyList<FountainPlacement> Fountains { get; }
+
+        public FountainPlacement? FountainOf(Team team) => Fountains.FirstOrDefault(f => f.Team == team);
 
         /// <summary>Side of a navigation grid cell in map units.</summary>
         public int NavCellSize { get; }
@@ -329,7 +340,9 @@ namespace Dynasty.MatchSimulation.Rules
             IReadOnlyList<CreepType> creepTypes,
             IReadOnlyList<StructureType> structureTypes,
             MapDefinition map,
-            WaveRules waves)
+            WaveRules waves,
+            IReadOnlyList<HeroDefinition>? heroes = null,
+            HeroRules? heroRules = null)
         {
             Id = id;
             Version = version;
@@ -339,7 +352,16 @@ namespace Dynasty.MatchSimulation.Rules
             StructureTypes = structureTypes.ToArray();
             Map = map;
             Waves = waves;
+            Heroes = (heroes ?? Array.Empty<HeroDefinition>()).ToArray();
+            HeroRules = heroRules;
         }
+
+        public IReadOnlyList<HeroDefinition> Heroes { get; }
+
+        /// <summary>Required when <see cref="Heroes"/> is not empty.</summary>
+        public HeroRules? HeroRules { get; }
+
+        public HeroDefinition? FindHero(string id) => Heroes.FirstOrDefault(h => h.Id == id);
 
         public string Id { get; }
         public int Version { get; }
@@ -380,7 +402,52 @@ namespace Dynasty.MatchSimulation.Rules
 
             ValidateMap(errors);
             ValidateWaves(errors);
+            ValidateHeroes(errors);
             return errors;
+        }
+
+        private void ValidateHeroes(List<string> errors)
+        {
+            foreach (CreepType creep in CreepTypes)
+            {
+                if (creep.Bounty.GoldMin < 0 || creep.Bounty.GoldMin > creep.Bounty.GoldMax || creep.Bounty.Xp < 0)
+                    errors.Add("Creep type '" + creep.Id + "' has an invalid bounty.");
+            }
+
+            if (Heroes.Count == 0)
+                return;
+
+            ReportDuplicates(errors, "hero", Heroes.Select(h => h.Id));
+            foreach (HeroDefinition hero in Heroes)
+            {
+                ValidateStats(errors, "Hero '" + hero.Id + "'", hero.BaseStats);
+                if (hero.BaseStats.MoveSpeed <= 0)
+                    errors.Add("Hero '" + hero.Id + "' must have positive move speed.");
+            }
+
+            if (HeroRules == null)
+            {
+                errors.Add("Hero rules are required when heroes are defined.");
+                return;
+            }
+
+            IReadOnlyList<int> xp = HeroRules.XpForLevel;
+            if (xp.Count == 0 || xp[0] != 0)
+                errors.Add("XP table must start at 0 for level 1.");
+            for (int i = 1; i < xp.Count; i++)
+            {
+                if (xp[i] <= xp[i - 1])
+                    errors.Add("XP table must be strictly increasing (level " + (i + 1) + ").");
+            }
+
+            foreach (Team team in new[] { Team.Dawn, Team.Dusk })
+            {
+                FountainPlacement? fountain = Map.FountainOf(team);
+                if (fountain == null)
+                    errors.Add("Team " + team + " needs a fountain for heroes.");
+                else if (!IsInsideMap(fountain.Position))
+                    errors.Add("Team " + team + " fountain is outside the map.");
+            }
         }
 
         public void WriteCanonical(CanonicalWriter writer)
@@ -396,6 +463,9 @@ namespace Dynasty.MatchSimulation.Rules
             {
                 writer.WriteString(creep.Id);
                 creep.Stats.WriteCanonical(writer);
+                writer.WriteInt64(creep.Bounty.GoldMin);
+                writer.WriteInt64(creep.Bounty.GoldMax);
+                writer.WriteInt64(creep.Bounty.Xp);
             }
 
             writer.WriteInt64(StructureTypes.Count);
@@ -435,6 +505,19 @@ namespace Dynasty.MatchSimulation.Rules
                 obstacle.WriteCanonical(writer);
             writer.WriteInt64(Map.NavCellSize);
             writer.WriteInt64(Map.NavClearance);
+            writer.WriteInt64(Map.Fountains.Count);
+            foreach (FountainPlacement fountain in Map.Fountains)
+            {
+                writer.WriteInt64((int)fountain.Team);
+                writer.WriteVector(fountain.Position);
+                writer.WriteInt64(fountain.Radius);
+            }
+
+            writer.WriteInt64(Heroes.Count);
+            foreach (HeroDefinition hero in Heroes)
+                hero.WriteCanonical(writer);
+            writer.WriteBool(HeroRules != null);
+            HeroRules?.WriteCanonical(writer);
 
             writer.WriteInt64(Waves.FirstSpawnMs);
             writer.WriteInt64(Waves.IntervalMs);

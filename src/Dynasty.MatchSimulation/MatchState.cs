@@ -72,6 +72,9 @@ namespace Dynasty.MatchSimulation
 
         public IReadOnlyList<ActiveModifier> Modifiers => _modifiers;
 
+        /// <summary>Hero progression and economy; null for non-hero units.</summary>
+        public Heroes.HeroState? Hero { get; internal set; }
+
         /// <summary>Lane a creep belongs to; null for structures.</summary>
         public string? LaneId => Lane?.Id;
 
@@ -114,6 +117,12 @@ namespace Dynasty.MatchSimulation
         internal void RemoveModifier(ActiveModifier modifier)
         {
             _modifiers.Remove(modifier);
+            Recalculate();
+        }
+
+        internal void ClearModifiers()
+        {
+            _modifiers.Clear();
             Recalculate();
         }
 
@@ -177,7 +186,15 @@ namespace Dynasty.MatchSimulation
             Ruleset = ruleset;
             Rate = rate;
             NextWaveTick = rate.TicksFor(ruleset.Waves.FirstSpawnMs);
+            Nav = Navigation.NavGrid.FromMap(ruleset.Map);
+            Pathfinder = new Navigation.Pathfinder(Nav);
         }
+
+        internal Navigation.NavGrid Nav { get; }
+        internal Navigation.Pathfinder Pathfinder { get; }
+
+        /// <summary>All heroes (alive or waiting to respawn) in spawn order.</summary>
+        public IEnumerable<MatchUnit> Heroes => _units.Where(u => u.Hero != null);
 
         public RulesetContent Ruleset { get; }
 
@@ -208,12 +225,29 @@ namespace Dynasty.MatchSimulation
                 : placement.ProtectedBy.All(_destroyed.Contains);
         }
 
-        /// <summary>Whether <paramref name="attacker"/> may attack <paramref name="target"/> right now.</summary>
-        internal bool CanAttack(MatchUnit attacker, MatchUnit target) =>
-            target.Team != attacker.Team &&
-            target.IsAlive &&
-            IsVulnerable(target) &&
-            !(attacker.Kind == UnitKind.Structure && target.Kind == UnitKind.Structure);
+        /// <summary>
+        /// Whether <paramref name="attacker"/> may attack <paramref name="target"/> right now. Heroes
+        /// may also attack allied creeps below half HP (deny).
+        /// </summary>
+        internal bool CanAttack(MatchUnit attacker, MatchUnit target)
+        {
+            if (!target.IsAlive || target == attacker)
+                return false;
+            if (target.Team == attacker.Team)
+                return attacker.Kind == UnitKind.Hero && target.Kind == UnitKind.Creep && target.Hp * Fixed.FromInt(2) < Fixed.FromInt(target.MaxHp);
+
+            return IsVulnerable(target) && !(attacker.Kind == UnitKind.Structure && target.Kind == UnitKind.Structure);
+        }
+
+        internal MatchUnit SpawnHero(EntityId id, Team team, HeroDefinition definition, string laneId, FixedVector2 position, int startingGold)
+        {
+            var unit = new MatchUnit(id, team, UnitKind.Hero, definition.Id, definition.StatsAtLevel(1), position, Rate)
+            {
+                Hero = new Heroes.HeroState(definition, laneId, startingGold),
+            };
+            Add(unit);
+            return unit;
+        }
 
         internal MatchUnit SpawnStructure(EntityId id, StructurePlacement placement, StructureType type)
         {

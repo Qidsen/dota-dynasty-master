@@ -198,6 +198,106 @@ namespace Dynasty.MatchSimulation.Events
         }
     }
 
+    /// <summary>Bounty gold (passive income is a rule, not an event). Reasons: last_hit, hero_kill, structure.</summary>
+    public sealed class GoldEarned : IDomainEvent
+    {
+        public GoldEarned(EntityId hero, int amount, string reason)
+        {
+            Hero = hero;
+            Amount = amount;
+            Reason = reason;
+        }
+
+        public EntityId Hero { get; }
+        public int Amount { get; }
+        public string Reason { get; }
+
+        public string Type => "match.gold_earned";
+        public int SchemaVersion => 1;
+
+        public void WritePayload(ref Fnv1a64 hash)
+        {
+            hash.AddInt64(Hero.Value);
+            hash.AddInt64(Amount);
+            hash.AddString(Reason);
+        }
+    }
+
+    public sealed class HeroLeveledUp : IDomainEvent
+    {
+        public HeroLeveledUp(EntityId hero, int level)
+        {
+            Hero = hero;
+            Level = level;
+        }
+
+        public EntityId Hero { get; }
+        public int Level { get; }
+
+        public string Type => "match.hero_leveled_up";
+        public int SchemaVersion => 1;
+
+        public void WritePayload(ref Fnv1a64 hash)
+        {
+            hash.AddInt64(Hero.Value);
+            hash.AddInt64(Level);
+        }
+    }
+
+    public sealed class HeroKilled : IDomainEvent
+    {
+        public HeroKilled(EntityId victim, EntityId killer, System.Collections.Generic.IReadOnlyList<EntityId> assists, int bountyGold, long respawnTick)
+        {
+            Victim = victim;
+            Killer = killer;
+            Assists = assists;
+            BountyGold = bountyGold;
+            RespawnTick = respawnTick;
+        }
+
+        public EntityId Victim { get; }
+
+        /// <summary>Last unit to damage the victim (may be a creep or tower).</summary>
+        public EntityId Killer { get; }
+
+        /// <summary>Enemy heroes (other than the killer) who damaged the victim within the assist window, by ID.</summary>
+        public System.Collections.Generic.IReadOnlyList<EntityId> Assists { get; }
+
+        /// <summary>Gold paid to the killer; 0 when the killer was not an enemy hero.</summary>
+        public int BountyGold { get; }
+
+        public long RespawnTick { get; }
+
+        public string Type => "match.hero_killed";
+        public int SchemaVersion => 1;
+
+        public void WritePayload(ref Fnv1a64 hash)
+        {
+            hash.AddInt64(Victim.Value);
+            hash.AddInt64(Killer.Value);
+            hash.AddInt64(Assists.Count);
+            foreach (EntityId assist in Assists)
+                hash.AddInt64(assist.Value);
+            hash.AddInt64(BountyGold);
+            hash.AddInt64(RespawnTick);
+        }
+    }
+
+    public sealed class HeroRespawned : IDomainEvent
+    {
+        public HeroRespawned(EntityId hero)
+        {
+            Hero = hero;
+        }
+
+        public EntityId Hero { get; }
+
+        public string Type => "match.hero_respawned";
+        public int SchemaVersion => 1;
+
+        public void WritePayload(ref Fnv1a64 hash) => hash.AddInt64(Hero.Value);
+    }
+
     public sealed class MatchFinished : IDomainEvent
     {
         public MatchFinished(Team winner, string destroyedAncient)
