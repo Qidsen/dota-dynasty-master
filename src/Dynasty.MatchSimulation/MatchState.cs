@@ -75,6 +75,17 @@ namespace Dynasty.MatchSimulation
         /// <summary>Hero progression and economy; null for non-hero units.</summary>
         public Heroes.HeroState? Hero { get; internal set; }
 
+        /// <summary>Hero that summoned this unit; None otherwise.</summary>
+        public EntityId Owner { get; internal set; }
+
+        /// <summary>Tick a temporary unit disappears; -1 for permanent units.</summary>
+        public long ExpiresTick { get; internal set; } = -1;
+
+        public int CritChancePercent { get; private set; }
+        public int CritMultiplierPercent { get; private set; }
+        public int StructureDamagePercent { get; private set; }
+        public int LifestealPercent { get; private set; }
+
         /// <summary>Lane a creep belongs to; null for structures.</summary>
         public string? LaneId => Lane?.Id;
 
@@ -120,9 +131,10 @@ namespace Dynasty.MatchSimulation
             Recalculate();
         }
 
-        internal void ClearModifiers()
+        /// <summary>Drops timed modifiers (on death); permanent ones such as passives remain.</summary>
+        internal void ClearTemporaryModifiers()
         {
-            _modifiers.Clear();
+            _modifiers.RemoveAll(m => !m.Spec.IsPermanent);
             Recalculate();
         }
 
@@ -137,10 +149,23 @@ namespace Dynasty.MatchSimulation
             int damageBonus = 0;
             int attackSpeed = 0;
             int movePercent = 0;
+            int critChance = 0;
+            int critMultiplier = 0;
+            int structurePercent = 0;
+            int lifesteal = 0;
             ModifierFlags flags = ModifierFlags.None;
             foreach (ActiveModifier modifier in _modifiers)
             {
                 ModifierSpec spec = modifier.Spec;
+                // Critical strikes do not stack: the highest chance (with its multiplier) wins.
+                if (spec.CritChancePercent > critChance)
+                {
+                    critChance = spec.CritChancePercent;
+                    critMultiplier = spec.CritMultiplierPercent;
+                }
+
+                structurePercent += spec.StructureDamagePercent;
+                lifesteal += spec.LifestealPercent;
                 armor += spec.ArmorBonus;
                 magicResist += spec.MagicResistBonus;
                 damageBonus += spec.DamageBonus;
@@ -156,6 +181,10 @@ namespace Dynasty.MatchSimulation
             AttackDamageMax = Stats.AttackDamageMax + damageBonus;
             AttackSpeedBonus = Math.Max(attackSpeed, -80);
             Flags = flags;
+            CritChancePercent = Math.Min(critChance, 100);
+            CritMultiplierPercent = critMultiplier;
+            StructureDamagePercent = structurePercent;
+            LifestealPercent = lifesteal;
 
             int speed = Stats.MoveSpeed * (100 + movePercent) / 100;
             MoveSpeed = Stats.MoveSpeed == 0 ? 0 : Math.Max(speed, Math.Min(100, Stats.MoveSpeed));
@@ -241,9 +270,10 @@ namespace Dynasty.MatchSimulation
 
         internal MatchUnit SpawnHero(EntityId id, Team team, HeroDefinition definition, string laneId, FixedVector2 position, int startingGold)
         {
+            var abilities = definition.AbilityIds.Select(a => Ruleset.FindAbility(a)!).ToList();
             var unit = new MatchUnit(id, team, UnitKind.Hero, definition.Id, definition.StatsAtLevel(1), position, Rate)
             {
-                Hero = new Heroes.HeroState(definition, laneId, startingGold),
+                Hero = new Heroes.HeroState(definition, laneId, startingGold, abilities),
             };
             Add(unit);
             return unit;
@@ -269,6 +299,18 @@ namespace Dynasty.MatchSimulation
             };
             unit.Position = unit.WaypointAt(0);
             unit.NextWaypoint = 1;
+            Add(unit);
+            return unit;
+        }
+
+        internal MatchUnit SpawnSummon(EntityId id, MatchUnit owner, CreepType type, long tick, long expiresTick)
+        {
+            var unit = new MatchUnit(id, owner.Team, UnitKind.Summon, type.Id, type.Stats, owner.Position, Rate)
+            {
+                Owner = owner.Id,
+                ExpiresTick = expiresTick,
+                LastActiveTick = tick,
+            };
             Add(unit);
             return unit;
         }

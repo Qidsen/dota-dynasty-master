@@ -342,8 +342,10 @@ namespace Dynasty.MatchSimulation.Rules
             MapDefinition map,
             WaveRules waves,
             IReadOnlyList<HeroDefinition>? heroes = null,
-            HeroRules? heroRules = null)
+            HeroRules? heroRules = null,
+            IReadOnlyList<AbilityDefinition>? abilities = null)
         {
+            Abilities = (abilities ?? Array.Empty<AbilityDefinition>()).ToArray();
             Id = id;
             Version = version;
             TicksPerSecond = ticksPerSecond;
@@ -362,6 +364,10 @@ namespace Dynasty.MatchSimulation.Rules
         public HeroRules? HeroRules { get; }
 
         public HeroDefinition? FindHero(string id) => Heroes.FirstOrDefault(h => h.Id == id);
+
+        public IReadOnlyList<AbilityDefinition> Abilities { get; }
+
+        public AbilityDefinition? FindAbility(string id) => Abilities.FirstOrDefault(a => a.Id == id);
 
         public string Id { get; }
         public int Version { get; }
@@ -403,7 +409,55 @@ namespace Dynasty.MatchSimulation.Rules
             ValidateMap(errors);
             ValidateWaves(errors);
             ValidateHeroes(errors);
+            ValidateAbilities(errors);
             return errors;
+        }
+
+        private void ValidateAbilities(List<string> errors)
+        {
+            ReportDuplicates(errors, "ability", Abilities.Select(a => a.Id));
+            foreach (AbilityDefinition ability in Abilities)
+            {
+                string owner = "Ability '" + ability.Id + "'";
+                if (ability.MaxLevel == 0)
+                    errors.Add(owner + " needs at least one level.");
+                if (ability.Targeting == AbilityTargeting.Passive)
+                {
+                    if (ability.PassiveModifiers.Count != ability.MaxLevel)
+                        errors.Add(owner + " must define one passive modifier per level.");
+                    continue;
+                }
+
+                if (ability.CooldownMs.Count != ability.MaxLevel || ability.ManaCost.Count != ability.MaxLevel)
+                    errors.Add(owner + " must define cooldown and mana cost per level.");
+                if (ability.CastRange < 0 || ability.CastPointMs < 0)
+                    errors.Add(owner + " has a negative cast range or cast point.");
+                if (ability.Effects.Count == 0)
+                    errors.Add(owner + " has no effects.");
+
+                foreach (EffectDefinition effect in ability.Effects.SelectMany(e => e.SelfAndDescendants()))
+                {
+                    bool needsAmounts = effect.Kind == EffectKind.Damage || effect.Kind == EffectKind.Heal ||
+                                        effect.Kind == EffectKind.Knockback || effect.Kind == EffectKind.Summon;
+                    if (needsAmounts && effect.Amounts.Count == 0)
+                        errors.Add(owner + " has a " + effect.Kind + " effect without amounts.");
+                    if (effect.Kind == EffectKind.ApplyModifier && effect.Modifiers.Count == 0)
+                        errors.Add(owner + " has a modifier effect without modifiers.");
+                    if (effect.Kind == EffectKind.Summon && (effect.SummonTypeId == null || FindCreepType(effect.SummonTypeId) == null))
+                        errors.Add(owner + " summons unknown creep type '" + effect.SummonTypeId + "'.");
+                    if (effect.Kind == EffectKind.Area && effect.Radius <= 0)
+                        errors.Add(owner + " has an area effect without a radius.");
+                }
+            }
+
+            foreach (HeroDefinition hero in Heroes)
+            {
+                foreach (string abilityId in hero.AbilityIds.Concat(hero.SkillPriority).Distinct())
+                {
+                    if (FindAbility(abilityId) == null)
+                        errors.Add("Hero '" + hero.Id + "' references unknown ability '" + abilityId + "'.");
+                }
+            }
         }
 
         private void ValidateHeroes(List<string> errors)
@@ -518,6 +572,9 @@ namespace Dynasty.MatchSimulation.Rules
                 hero.WriteCanonical(writer);
             writer.WriteBool(HeroRules != null);
             HeroRules?.WriteCanonical(writer);
+            writer.WriteInt64(Abilities.Count);
+            foreach (AbilityDefinition ability in Abilities)
+                ability.WriteCanonical(writer);
 
             writer.WriteInt64(Waves.FirstSpawnMs);
             writer.WriteInt64(Waves.IntervalMs);

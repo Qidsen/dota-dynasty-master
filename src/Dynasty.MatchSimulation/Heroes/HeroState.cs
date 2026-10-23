@@ -10,8 +10,14 @@ namespace Dynasty.MatchSimulation.Heroes
     /// <summary>Hero-only state of a <see cref="MatchUnit"/>: progression, economy, scoreboard and current order.</summary>
     public sealed class HeroState
     {
-        internal HeroState(HeroDefinition definition, string assignedLane, int startingGold)
+        private readonly List<AbilityState> _abilities;
+
+        internal HeroState(HeroDefinition definition, string assignedLane, int startingGold, IReadOnlyList<AbilityDefinition> abilities)
         {
+            _abilities = new List<AbilityState>();
+            foreach (AbilityDefinition ability in abilities)
+                _abilities.Add(new AbilityState(ability));
+            CastEndTick = -1;
             Definition = definition;
             AssignedLane = assignedLane;
             Level = 1;
@@ -42,6 +48,39 @@ namespace Dynasty.MatchSimulation.Heroes
 
         public HeroOrder Order { get; internal set; }
 
+        /// <summary>The hero's abilities in definition order.</summary>
+        public IReadOnlyList<AbilityState> Abilities => _abilities;
+
+        public AbilityState? Ability(string abilityId)
+        {
+            foreach (AbilityState ability in _abilities)
+            {
+                if (ability.Definition.Id == abilityId)
+                    return ability;
+            }
+
+            return null;
+        }
+
+        public int AbilityLevel(string abilityId) => Ability(abilityId)?.Level ?? 0;
+
+        /// <summary>Hero level minus ability levels already learned.</summary>
+        public int UnspentSkillPoints
+        {
+            get
+            {
+                int spent = 0;
+                foreach (AbilityState ability in _abilities)
+                    spent += ability.Level;
+                return Level - spent;
+            }
+        }
+
+        /// <summary>In the wind-up of an ability (between cast start and effect).</summary>
+        public bool IsCasting => CastEndTick >= 0;
+
+        internal long CastEndTick { get; set; }
+
         internal IReadOnlyList<FixedVector2>? Path { get; set; }
         internal int PathIndex { get; set; }
         internal FixedVector2 PathGoal { get; set; }
@@ -50,21 +89,40 @@ namespace Dynasty.MatchSimulation.Heroes
         internal SortedDictionary<long, long> RecentHeroAttackers { get; } = new SortedDictionary<long, long>();
     }
 
+    /// <summary>Learned level and cooldown of one hero ability.</summary>
+    public sealed class AbilityState
+    {
+        internal AbilityState(AbilityDefinition definition)
+        {
+            Definition = definition;
+        }
+
+        public AbilityDefinition Definition { get; }
+        public int Level { get; internal set; }
+
+        /// <summary>First tick the ability can be cast again.</summary>
+        public long CooldownReadyTick { get; internal set; }
+
+        public bool IsReady(long now) => Level > 0 && now >= CooldownReadyTick;
+    }
+
     public enum HeroOrderKind
     {
         Idle = 0,
         Move = 1,
         Attack = 2,
+        Cast = 3,
     }
 
     /// <summary>What a hero is currently trying to do. Set by AI/controllers, carried out by match systems.</summary>
     public sealed class HeroOrder
     {
-        private HeroOrder(HeroOrderKind kind, FixedVector2 point, EntityId target)
+        private HeroOrder(HeroOrderKind kind, FixedVector2 point, EntityId target, string? abilityId = null)
         {
             Kind = kind;
             Point = point;
             Target = target;
+            AbilityId = abilityId;
         }
 
         public static HeroOrder Idle { get; } = new HeroOrder(HeroOrderKind.Idle, FixedVector2.Zero, EntityId.None);
@@ -73,9 +131,21 @@ namespace Dynasty.MatchSimulation.Heroes
         public FixedVector2 Point { get; }
         public EntityId Target { get; }
 
+        /// <summary>Ability to cast for <see cref="HeroOrderKind.Cast"/> orders.</summary>
+        public string? AbilityId { get; }
+
         public static HeroOrder Move(FixedVector2 point) => new HeroOrder(HeroOrderKind.Move, point, EntityId.None);
 
         public static HeroOrder Attack(EntityId target) => new HeroOrder(HeroOrderKind.Attack, FixedVector2.Zero, target);
+
+        public static HeroOrder Cast(string abilityId, EntityId target) =>
+            new HeroOrder(HeroOrderKind.Cast, FixedVector2.Zero, target, abilityId);
+
+        public static HeroOrder CastAtPoint(string abilityId, FixedVector2 point) =>
+            new HeroOrder(HeroOrderKind.Cast, point, EntityId.None, abilityId);
+
+        public static HeroOrder CastNoTarget(string abilityId) =>
+            new HeroOrder(HeroOrderKind.Cast, FixedVector2.Zero, EntityId.None, abilityId);
     }
 
     public static class HeroOrders
@@ -89,6 +159,7 @@ namespace Dynasty.MatchSimulation.Heroes
             HeroState state = hero.Hero!;
             state.Order = order;
             state.Path = null;
+            state.CastEndTick = -1;
             hero.TargetId = order.Kind == HeroOrderKind.Attack ? order.Target : EntityId.None;
         }
     }
@@ -102,6 +173,37 @@ namespace Dynasty.MatchSimulation.Heroes
             state.Xp += amount;
             while (state.Level < rules.MaxLevel && state.Xp >= rules.XpForLevel[state.Level])
                 LevelUp(context, hero, state);
+        }
+
+        /// <summary>
+        /// Spends unspent skill points: each goes to the first ability in the hero's skill priority
+        /// that can be levelled now. Passive abilities apply their level's permanent modifier.
+        /// </summary>
+        public static void LearnSkills(SimulationContext<MatchState> context, MatchUnit hero)
+        {
+            HeroState state = hero.Hero!;
+            while (state.UnspentSkillPoints > 0)
+            {
+                AbilityState? next = null;
+                foreach (string abilityId in state.Definition.SkillPriority)
+                {
+                    AbilityState? candidate = state.Ability(abilityId);
+                    if (candidate != null && candidate.Level < candidate.Definition.MaxLevel &&
+                        candidate.Definition.RequiredHeroLevel[candidate.Level] <= state.Level)
+                    {
+                        next = candidate;
+                        break;
+                    }
+                }
+
+                if (next == null)
+                    return;
+
+                next.Level++;
+                if (next.Definition.Targeting == AbilityTargeting.Passive)
+                    Combat.Modifiers.Apply(context, hero, next.Definition.PassiveModifiers[next.Level - 1], hero.Id);
+                context.Emit(new AbilityLearned(hero.Id, next.Definition.Id, next.Level));
+            }
         }
 
         public static void GrantGold(SimulationContext<MatchState> context, MatchUnit hero, int amount, string reason)

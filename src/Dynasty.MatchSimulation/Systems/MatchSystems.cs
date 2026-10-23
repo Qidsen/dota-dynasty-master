@@ -142,7 +142,7 @@ namespace Dynasty.MatchSimulation.Systems
             long now = context.Tick.Value;
             foreach (MatchUnit unit in state.Units)
             {
-                if (unit.Kind != UnitKind.Creep || !unit.CanMove)
+                if ((unit.Kind != UnitKind.Creep && unit.Kind != UnitKind.Summon) || !unit.CanMove)
                     continue;
 
                 MatchUnit? target = state.Find(unit.TargetId);
@@ -151,25 +151,43 @@ namespace Dynasty.MatchSimulation.Systems
 
                 if (target != null)
                 {
-                    if (Approach(unit, target))
+                    if (Approach(unit, target, unit.AttackRange))
                         unit.LastActiveTick = now;
                     continue;
                 }
 
-                if (unit.Lane != null && FollowLane(unit))
+                if (unit.Lane != null)
+                {
+                    if (FollowLane(unit))
+                        unit.LastActiveTick = now;
+                }
+                else if (unit.Kind == UnitKind.Summon && FollowOwner(state, unit))
+                {
                     unit.LastActiveTick = now;
+                }
             }
         }
 
-        /// <summary>Moves toward the target until it is within attack range. Returns true if it moved.</summary>
-        internal static bool Approach(MatchUnit unit, MatchUnit target)
+        /// <summary>Summons without a target stay near their owner.</summary>
+        private static bool FollowOwner(MatchState state, MatchUnit unit)
         {
-            // Same predicate as the attack check; a separate sqrt-based test could disagree at the
-            // boundary (floored sqrt) and leave the unit neither moving nor attacking.
-            if (Geometry.WithinEdgeRange(unit, target, unit.AttackRange))
+            MatchUnit? owner = state.Find(unit.Owner);
+            if (owner == null || !owner.IsAlive || Geometry.WithinRange(unit.Position, owner.Position, 300))
                 return false;
 
-            Fixed reach = Fixed.FromInt(unit.AttackRange + unit.BoundingRadius + target.BoundingRadius);
+            unit.Position = FixedVector2.MoveTowards(unit.Position, owner.Position, unit.StepPerTick);
+            return true;
+        }
+
+        /// <summary>Moves toward the target until it is within <paramref name="range"/> (edge to edge). Returns true if it moved.</summary>
+        internal static bool Approach(MatchUnit unit, MatchUnit target, int range)
+        {
+            // Same predicate as the attack/cast check; a separate sqrt-based test could disagree at the
+            // boundary (floored sqrt) and leave the unit neither moving nor acting.
+            if (Geometry.WithinEdgeRange(unit, target, range))
+                return false;
+
+            Fixed reach = Fixed.FromInt(range + unit.BoundingRadius + target.BoundingRadius);
             Fixed distance = FixedVector2.Distance(unit.Position, target.Position);
             // +1 unit guarantees progress into range even when the floored distance equals reach.
             Fixed step = Fixed.Min(unit.StepPerTick, distance - reach + Fixed.One);
@@ -260,7 +278,17 @@ namespace Dynasty.MatchSimulation.Systems
                 return;
 
             int roll = context.Random("combat").NextInt(unit.AttackDamageMin, unit.AttackDamageMax + 1);
-            Damage.Deal(context, unit.Id, target, Fixed.FromInt(roll), DamageType.Physical);
+            Fixed damage = Fixed.FromInt(roll);
+
+            bool critical = unit.CritChancePercent > 0 && context.Random("combat").NextInt(0, 100) < unit.CritChancePercent;
+            if (critical)
+                damage = damage * Fixed.FromInt(unit.CritMultiplierPercent) / Fixed.FromInt(100);
+            if (target.Kind == UnitKind.Structure && unit.StructureDamagePercent != 0)
+                damage = damage * Fixed.FromInt(100 + unit.StructureDamagePercent) / Fixed.FromInt(100);
+
+            Fixed dealt = Damage.Deal(context, unit.Id, target, damage, DamageType.Physical, critical);
+            if (unit.LifestealPercent > 0 && unit.IsAlive)
+                Damage.Heal(unit, dealt * Fixed.FromInt(unit.LifestealPercent) / Fixed.FromInt(100));
         }
     }
 
@@ -272,6 +300,13 @@ namespace Dynasty.MatchSimulation.Systems
         public void Tick(SimulationContext<MatchState> context)
         {
             MatchState state = context.State;
+            long now = context.Tick.Value;
+            foreach (MatchUnit expired in state.Units.Where(u => u.ExpiresTick >= 0 && now >= u.ExpiresTick && u.IsAlive).ToList())
+            {
+                state.Remove(expired);
+                context.Emit(new UnitExpired(expired.Id));
+            }
+
             List<MatchUnit> dead = state.Units.Where(u => !u.IsAlive && !(u.Hero?.IsDead ?? false)).ToList();
             StructurePlacement? fallenAncient = null;
 
@@ -288,7 +323,7 @@ namespace Dynasty.MatchSimulation.Systems
                 if (unit.Placement == null)
                 {
                     context.Emit(new UnitKilled(unit.Id, unit.Team, unit.TypeId, unit.LastAttackerId));
-                    if (unit.Kind == UnitKind.Creep)
+                    if (unit.Kind == UnitKind.Creep || unit.Kind == UnitKind.Summon)
                         Rewards.CreepDied(context, unit, state.Ruleset.FindCreepType(unit.TypeId));
                     continue;
                 }

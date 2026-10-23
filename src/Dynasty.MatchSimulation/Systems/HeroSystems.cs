@@ -112,19 +112,40 @@ namespace Dynasty.MatchSimulation.Systems
                         }
 
                         unit.TargetId = target.Id;
-                        if (unit.CanMove && !Geometry.WithinEdgeRange(unit, target, unit.AttackRange) && Chase(state, unit, hero, target))
+                        if (unit.CanMove && !Geometry.WithinEdgeRange(unit, target, unit.AttackRange) && Chase(state, unit, hero, target, unit.AttackRange))
+                            unit.LastActiveTick = now;
+                        break;
+
+                    case HeroOrderKind.Cast:
+                        if (unit.CanMove && !hero.IsCasting && MoveIntoCastRange(state, unit, hero, order))
                             unit.LastActiveTick = now;
                         break;
                 }
             }
         }
 
-        private static bool Chase(MatchState state, MatchUnit unit, HeroState hero, MatchUnit target)
+        /// <summary>Walks toward a cast order's target or point until the ability's cast range is reached.</summary>
+        private static bool MoveIntoCastRange(MatchState state, MatchUnit unit, HeroState hero, HeroOrder order)
+        {
+            AbilityState? ability = hero.Ability(order.AbilityId!);
+            if (ability == null || AbilitySystem.InCastRange(unit, ability.Definition, order, state))
+                return false;
+
+            if (ability.Definition.Targeting == AbilityTargeting.Unit)
+            {
+                MatchUnit? target = state.Find(order.Target);
+                return target != null && Chase(state, unit, hero, target, ability.Definition.CastRange);
+            }
+
+            return WalkTo(state, unit, hero, order.Point);
+        }
+
+        private static bool Chase(MatchState state, MatchUnit unit, HeroState hero, MatchUnit target, int range)
         {
             if (state.Nav.HasLineOfSight(unit.Position, target.Position))
             {
                 hero.Path = null;
-                return MovementSystem.Approach(unit, target);
+                return MovementSystem.Approach(unit, target, range);
             }
 
             if (hero.Path != null && FixedVector2.Distance(hero.PathGoal, target.Position) > RepathDistance)
@@ -228,7 +249,7 @@ namespace Dynasty.MatchSimulation.Systems
             hero.Path = null;
             HeroOrders.Issue(victim, HeroOrder.Idle);
             victim.PendingAttackTick = -1;
-            victim.ClearModifiers();
+            victim.ClearTemporaryModifiers();
             context.Emit(new HeroKilled(victim.Id, victim.LastAttackerId, assists, bounty, hero.RespawnTick));
         }
 

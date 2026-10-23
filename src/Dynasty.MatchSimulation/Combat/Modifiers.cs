@@ -49,8 +49,16 @@ namespace Dynasty.MatchSimulation.Combat
             Fixed damagePerSecond = default,
             DamageType damageType = DamageType.Magical,
             Fixed healPerSecond = default,
-            int periodMs = 1000)
+            int periodMs = 1000,
+            int critChancePercent = 0,
+            int critMultiplierPercent = 0,
+            int structureDamagePercent = 0,
+            int lifestealPercent = 0)
         {
+            CritChancePercent = critChancePercent;
+            CritMultiplierPercent = critMultiplierPercent;
+            StructureDamagePercent = structureDamagePercent;
+            LifestealPercent = lifestealPercent;
             Key = key;
             DurationMs = durationMs;
             Flags = flags;
@@ -89,7 +97,41 @@ namespace Dynasty.MatchSimulation.Combat
         /// <summary>Interval of periodic damage/heal; each period deals per-second value × period.</summary>
         public int PeriodMs { get; }
 
+        /// <summary>Chance per attack to deal <see cref="CritMultiplierPercent"/> damage.</summary>
+        public int CritChancePercent { get; }
+
+        /// <summary>Attack damage on a critical hit, e.g. 200 = double.</summary>
+        public int CritMultiplierPercent { get; }
+
+        /// <summary>Extra attack damage against structures, in percent.</summary>
+        public int StructureDamagePercent { get; }
+
+        /// <summary>Share of dealt attack damage returned to the attacker as HP.</summary>
+        public int LifestealPercent { get; }
+
         public bool IsPeriodic => DamagePerSecond > Fixed.Zero || HealPerSecond > Fixed.Zero;
+
+        public bool IsPermanent => DurationMs < 0;
+
+        internal void WriteCanonical(Dynasty.Core.Hashing.CanonicalWriter w)
+        {
+            w.WriteString(Key);
+            w.WriteInt64(DurationMs);
+            w.WriteInt64((int)Flags);
+            w.WriteFixed(ArmorBonus);
+            w.WriteInt64(MoveSpeedPercent);
+            w.WriteInt64(AttackSpeedBonus);
+            w.WriteInt64(DamageBonus);
+            w.WriteInt64(MagicResistBonus);
+            w.WriteFixed(DamagePerSecond);
+            w.WriteInt64((int)DamageType);
+            w.WriteFixed(HealPerSecond);
+            w.WriteInt64(PeriodMs);
+            w.WriteInt64(CritChancePercent);
+            w.WriteInt64(CritMultiplierPercent);
+            w.WriteInt64(StructureDamagePercent);
+            w.WriteInt64(LifestealPercent);
+        }
 
         public static ModifierSpec Status(string key, int durationMs, ModifierFlags flags) => new ModifierSpec(key, durationMs, flags);
     }
@@ -123,6 +165,13 @@ namespace Dynasty.MatchSimulation.Combat
             long expires = spec.DurationMs < 0 ? -1 : now + context.TickRate.TicksFor(spec.DurationMs);
 
             ActiveModifier? existing = target.FindModifier(spec.Key, source);
+            if (existing != null && !ReferenceEquals(existing.Spec, spec))
+            {
+                // Same key, different spec (e.g. a passive's next level): replace, don't refresh.
+                target.RemoveModifier(existing);
+                existing = null;
+            }
+
             ActiveModifier modifier;
             if (existing != null)
             {
@@ -170,7 +219,7 @@ namespace Dynasty.MatchSimulation.Combat
     /// <summary>The single entry point through which anything reduces a unit's HP.</summary>
     public static class Damage
     {
-        public static Fixed Deal(SimulationContext<MatchState> context, EntityId attacker, MatchUnit target, Fixed rawAmount, DamageType type)
+        public static Fixed Deal(SimulationContext<MatchState> context, EntityId attacker, MatchUnit target, Fixed rawAmount, DamageType type, bool isCritical = false)
         {
             if (!target.IsAlive)
                 return Fixed.Zero;
@@ -184,7 +233,7 @@ namespace Dynasty.MatchSimulation.Combat
                 if (target.Hero != null && source?.Hero != null && source.Team != target.Team)
                     target.Hero.RecentHeroAttackers[attacker.Value] = context.Tick.Value;
             }
-            context.Emit(new DamageDealt(attacker, target.Id, amount, target.Hp, type));
+            context.Emit(new DamageDealt(attacker, target.Id, amount, target.Hp, type, isCritical));
             return amount;
         }
 

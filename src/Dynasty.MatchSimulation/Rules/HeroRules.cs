@@ -24,7 +24,8 @@ namespace Dynasty.MatchSimulation.Rules
             int manaPerLevel,
             Fixed hpRegenPerSecond,
             Fixed manaRegenPerSecond,
-            IReadOnlyList<string>? abilityIds = null)
+            IReadOnlyList<string>? abilityIds = null,
+            IReadOnlyList<string>? skillPriority = null)
         {
             Id = id;
             Name = name;
@@ -38,7 +39,17 @@ namespace Dynasty.MatchSimulation.Rules
             HpRegenPerSecond = hpRegenPerSecond;
             ManaRegenPerSecond = manaRegenPerSecond;
             AbilityIds = (abilityIds ?? Array.Empty<string>()).ToArray();
+
+            // Default: the last ability (the ultimate) first, then the rest in order, so the
+            // ultimate is taken as soon as its level requirement allows.
+            SkillPriority = (skillPriority ?? AbilityIds.Skip(AbilityIds.Count - 1).Concat(AbilityIds.Take(AbilityIds.Count - 1))).ToArray();
         }
+
+        /// <summary>
+        /// Order in which skill points are spent: each point goes to the first ability in this list
+        /// that can be levelled at the current hero level.
+        /// </summary>
+        public IReadOnlyList<string> SkillPriority { get; }
 
         /// <summary>Stable ID, independent of the display name.</summary>
         public string Id { get; }
@@ -95,6 +106,9 @@ namespace Dynasty.MatchSimulation.Rules
             w.WriteFixed(ManaRegenPerSecond);
             w.WriteInt64(AbilityIds.Count);
             foreach (string ability in AbilityIds)
+                w.WriteString(ability);
+            w.WriteInt64(SkillPriority.Count);
+            foreach (string ability in SkillPriority)
                 w.WriteString(ability);
         }
     }

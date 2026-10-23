@@ -57,13 +57,14 @@ namespace Dynasty.MatchSimulation.Events
 
     public sealed class DamageDealt : IDomainEvent
     {
-        public DamageDealt(EntityId attacker, EntityId target, Fixed amount, Fixed targetHpAfter, DamageType damageType)
+        public DamageDealt(EntityId attacker, EntityId target, Fixed amount, Fixed targetHpAfter, DamageType damageType, bool isCritical = false)
         {
             Attacker = attacker;
             Target = target;
             Amount = amount;
             TargetHpAfter = targetHpAfter;
             DamageType = damageType;
+            IsCritical = isCritical;
         }
 
         public EntityId Attacker { get; }
@@ -76,8 +77,10 @@ namespace Dynasty.MatchSimulation.Events
 
         public DamageType DamageType { get; }
 
+        public bool IsCritical { get; }
+
         public string Type => "match.damage_dealt";
-        public int SchemaVersion => 2;
+        public int SchemaVersion => 3;
 
         public void WritePayload(ref Fnv1a64 hash)
         {
@@ -86,6 +89,7 @@ namespace Dynasty.MatchSimulation.Events
             hash.AddInt64(Amount.Raw);
             hash.AddInt64(TargetHpAfter.Raw);
             hash.AddInt64((int)DamageType);
+            hash.AddInt64(IsCritical ? 1 : 0);
         }
     }
 
@@ -296,6 +300,132 @@ namespace Dynasty.MatchSimulation.Events
         public int SchemaVersion => 1;
 
         public void WritePayload(ref Fnv1a64 hash) => hash.AddInt64(Hero.Value);
+    }
+
+    public sealed class AbilityCast : IDomainEvent
+    {
+        public AbilityCast(EntityId caster, string abilityId, int level, EntityId target, FixedVector2 point)
+        {
+            Caster = caster;
+            AbilityId = abilityId;
+            Level = level;
+            Target = target;
+            Point = point;
+        }
+
+        public EntityId Caster { get; }
+        public string AbilityId { get; }
+        public int Level { get; }
+
+        /// <summary>Unit target; None for point and no-target abilities.</summary>
+        public EntityId Target { get; }
+
+        public FixedVector2 Point { get; }
+
+        public string Type => "match.ability_cast";
+        public int SchemaVersion => 1;
+
+        public void WritePayload(ref Fnv1a64 hash)
+        {
+            hash.AddInt64(Caster.Value);
+            hash.AddString(AbilityId);
+            hash.AddInt64(Level);
+            hash.AddInt64(Target.Value);
+            hash.AddInt64(Point.X.Raw);
+            hash.AddInt64(Point.Y.Raw);
+        }
+    }
+
+    /// <summary>An ordered cast that could not happen. Reasons: not_learned, cooldown, mana, silenced, invalid_target, interrupted.</summary>
+    public sealed class AbilityCastFailed : IDomainEvent
+    {
+        public AbilityCastFailed(EntityId caster, string abilityId, string reason)
+        {
+            Caster = caster;
+            AbilityId = abilityId;
+            Reason = reason;
+        }
+
+        public EntityId Caster { get; }
+        public string AbilityId { get; }
+        public string Reason { get; }
+
+        public string Type => "match.ability_cast_failed";
+        public int SchemaVersion => 1;
+
+        public void WritePayload(ref Fnv1a64 hash)
+        {
+            hash.AddInt64(Caster.Value);
+            hash.AddString(AbilityId);
+            hash.AddString(Reason);
+        }
+    }
+
+    public sealed class AbilityLearned : IDomainEvent
+    {
+        public AbilityLearned(EntityId hero, string abilityId, int level)
+        {
+            Hero = hero;
+            AbilityId = abilityId;
+            Level = level;
+        }
+
+        public EntityId Hero { get; }
+        public string AbilityId { get; }
+        public int Level { get; }
+
+        public string Type => "match.ability_learned";
+        public int SchemaVersion => 1;
+
+        public void WritePayload(ref Fnv1a64 hash)
+        {
+            hash.AddInt64(Hero.Value);
+            hash.AddString(AbilityId);
+            hash.AddInt64(Level);
+        }
+    }
+
+    public sealed class UnitSummoned : IDomainEvent
+    {
+        public UnitSummoned(EntityId unit, EntityId owner, string creepTypeId, long expiresTick)
+        {
+            Unit = unit;
+            Owner = owner;
+            CreepTypeId = creepTypeId;
+            ExpiresTick = expiresTick;
+        }
+
+        public EntityId Unit { get; }
+        public EntityId Owner { get; }
+        public string CreepTypeId { get; }
+        public long ExpiresTick { get; }
+
+        public string Type => "match.unit_summoned";
+        public int SchemaVersion => 1;
+
+        public void WritePayload(ref Fnv1a64 hash)
+        {
+            hash.AddInt64(Unit.Value);
+            hash.AddInt64(Owner.Value);
+            hash.AddString(CreepTypeId);
+            hash.AddInt64(ExpiresTick);
+        }
+    }
+
+    /// <summary>A temporary unit reached the end of its lifetime (no bounty).</summary>
+    public sealed class UnitExpired : IDomainEvent
+    {
+        public UnitExpired(EntityId unit)
+        {
+            Unit = unit;
+        }
+
+        public EntityId Unit { get; }
+
+        public string Type => "match.unit_expired";
+        public int SchemaVersion => 1;
+
+        public void WritePayload(ref Fnv1a64 hash) => hash.AddInt64(Unit.Value);
     }
 
     public sealed class MatchFinished : IDomainEvent
