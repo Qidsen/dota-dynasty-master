@@ -82,6 +82,20 @@ namespace Dynasty.MatchSimulation.Rules
 
             var structures = dawnStructures.Concat(dawnStructures.Select(MirrorToDusk)).ToList();
 
+            // Tree clumps in the jungle between lanes; mirrored so both halves are identical.
+            var dawnObstacles = new[]
+            {
+                Obstacle("jungle.dawn.1", 3500, 2000, 300),
+                Obstacle("jungle.dawn.2", 5500, 2600, 400),
+                Obstacle("jungle.dawn.3", 2000, 3500, 300),
+                Obstacle("jungle.dawn.4", 2600, 5500, 400),
+                Obstacle("jungle.dawn.5", 4000, 3000, 250),
+                Obstacle("jungle.dawn.6", 3000, 4000, 250),
+            };
+            var obstacles = dawnObstacles
+                .Concat(dawnObstacles.Select(o => ObstacleDefinition.Circle(o.Id.Replace(".dawn.", ".dusk."), o.Center.ReflectThrough(Center), o.Radius)))
+                .ToList();
+
             return new RulesetContent(
                 id,
                 version,
@@ -89,7 +103,7 @@ namespace Dynasty.MatchSimulation.Rules
                 combat: new CombatRules(Fixed.FromRatio(6, 100)),
                 creepTypes: creeps,
                 structureTypes: structureTypes,
-                map: new MapDefinition(10000, 10000, lanes, structures),
+                map: new MapDefinition(10000, 10000, lanes, structures, obstacles),
                 waves: new WaveRules(firstSpawnMs: 0, intervalMs: 30000, dawnWave, duskWave));
         }
 
@@ -106,6 +120,9 @@ namespace Dynasty.MatchSimulation.Rules
 
         private static StructurePlacement Placement(string id, string type, int x, int y, bool isAncient, string[] protectedBy, VulnerabilityRule rule) =>
             new StructurePlacement(id, Team.Dawn, type, FixedVector2.FromInts(x, y), isAncient, protectedBy, rule);
+
+        private static ObstacleDefinition Obstacle(string id, int x, int y, int radius) =>
+            ObstacleDefinition.Circle(id, FixedVector2.FromInts(x, y), radius);
 
         private static FixedVector2[] Points(params (int X, int Y)[] points) =>
             points.Select(p => FixedVector2.FromInts(p.X, p.Y)).ToArray();

@@ -167,20 +167,104 @@ namespace Dynasty.MatchSimulation.Rules
         public IReadOnlyList<FixedVector2> Waypoints { get; }
     }
 
+    public enum ObstacleShape
+    {
+        Circle = 0,
+        Rectangle = 1,
+    }
+
+    /// <summary>Impassable terrain (cliffs, tree clumps). Structures do not block movement yet.</summary>
+    public sealed class ObstacleDefinition
+    {
+        private ObstacleDefinition(string id, ObstacleShape shape, FixedVector2 min, FixedVector2 max, FixedVector2 center, int radius)
+        {
+            Id = id;
+            Shape = shape;
+            Min = min;
+            Max = max;
+            Center = center;
+            Radius = radius;
+        }
+
+        public string Id { get; }
+        public ObstacleShape Shape { get; }
+
+        /// <summary>Rectangle corners; for circles, the bounding box.</summary>
+        public FixedVector2 Min { get; }
+        public FixedVector2 Max { get; }
+
+        public FixedVector2 Center { get; }
+
+        /// <summary>Circle radius; 0 for rectangles.</summary>
+        public int Radius { get; }
+
+        public static ObstacleDefinition Circle(string id, FixedVector2 center, int radius)
+        {
+            var extent = new FixedVector2(Fixed.FromInt(radius), Fixed.FromInt(radius));
+            return new ObstacleDefinition(id, ObstacleShape.Circle, center - extent, center + extent, center, radius);
+        }
+
+        public static ObstacleDefinition Rectangle(string id, FixedVector2 min, FixedVector2 max)
+        {
+            var center = new FixedVector2((min.X + max.X) / Fixed.FromInt(2), (min.Y + max.Y) / Fixed.FromInt(2));
+            return new ObstacleDefinition(id, ObstacleShape.Rectangle, min, max, center, 0);
+        }
+
+        /// <summary>Whether the point lies inside the obstacle grown by <paramref name="clearance"/> units.</summary>
+        public bool Contains(FixedVector2 point, int clearance)
+        {
+            Fixed pad = Fixed.FromInt(clearance);
+            if (Shape == ObstacleShape.Circle)
+            {
+                Fixed reach = Fixed.FromInt(Radius) + pad;
+                return FixedVector2.DistanceSquared(point, Center) <= reach * reach;
+            }
+
+            return point.X >= Min.X - pad && point.X <= Max.X + pad &&
+                   point.Y >= Min.Y - pad && point.Y <= Max.Y + pad;
+        }
+
+        internal void WriteCanonical(CanonicalWriter w)
+        {
+            w.WriteString(Id);
+            w.WriteInt64((int)Shape);
+            w.WriteVector(Min);
+            w.WriteVector(Max);
+            w.WriteInt64(Radius);
+        }
+    }
+
     public sealed class MapDefinition
     {
-        public MapDefinition(int width, int height, IReadOnlyList<LaneDefinition> lanes, IReadOnlyList<StructurePlacement> structures)
+        public MapDefinition(
+            int width,
+            int height,
+            IReadOnlyList<LaneDefinition> lanes,
+            IReadOnlyList<StructurePlacement> structures,
+            IReadOnlyList<ObstacleDefinition>? obstacles = null,
+            int navCellSize = 100,
+            int navClearance = 24)
         {
             Width = width;
             Height = height;
             Lanes = lanes.ToArray();
             Structures = structures.ToArray();
+            Obstacles = (obstacles ?? Array.Empty<ObstacleDefinition>()).ToArray();
+            NavCellSize = navCellSize;
+            NavClearance = navClearance;
         }
 
         public int Width { get; }
         public int Height { get; }
         public IReadOnlyList<LaneDefinition> Lanes { get; }
         public IReadOnlyList<StructurePlacement> Structures { get; }
+        public IReadOnlyList<ObstacleDefinition> Obstacles { get; }
+
+        /// <summary>Side of a navigation grid cell in map units.</summary>
+        public int NavCellSize { get; }
+
+        /// <summary>Obstacles are grown by this many units when building the navigation grid.</summary>
+        public int NavClearance { get; }
     }
 
     public sealed class WaveEntry
@@ -340,6 +424,12 @@ namespace Dynasty.MatchSimulation.Rules
                 writer.WriteInt64((int)placement.Vulnerability);
             }
 
+            writer.WriteInt64(Map.Obstacles.Count);
+            foreach (ObstacleDefinition obstacle in Map.Obstacles)
+                obstacle.WriteCanonical(writer);
+            writer.WriteInt64(Map.NavCellSize);
+            writer.WriteInt64(Map.NavClearance);
+
             writer.WriteInt64(Waves.FirstSpawnMs);
             writer.WriteInt64(Waves.IntervalMs);
             WriteComposition(writer, Waves.DawnComposition);
@@ -398,6 +488,22 @@ namespace Dynasty.MatchSimulation.Rules
                 }
             }
 
+            if (Map.NavCellSize <= 0 || Map.NavClearance < 0)
+                errors.Add("Navigation cell size must be positive and clearance non-negative.");
+            ReportDuplicates(errors, "obstacle", Map.Obstacles.Select(o => o.Id));
+            foreach (ObstacleDefinition obstacle in Map.Obstacles)
+            {
+                if (!IsInsideMap(obstacle.Center))
+                    errors.Add("Obstacle '" + obstacle.Id + "' is outside the map.");
+            }
+
+            foreach (LaneDefinition lane in Map.Lanes)
+            {
+                ObstacleDefinition? blocker = FindLaneBlocker(lane);
+                if (blocker != null)
+                    errors.Add("Lane '" + lane.Id + "' passes through obstacle '" + blocker.Id + "'.");
+            }
+
             foreach (Team team in new[] { Team.Dawn, Team.Dusk })
             {
                 int ancients = Map.Structures.Count(s => s.Team == team && s.IsAncient);
@@ -440,6 +546,31 @@ namespace Dynasty.MatchSimulation.Rules
         {
             foreach (IGrouping<string, string> group in ids.GroupBy(id => id).Where(g => g.Count() > 1))
                 errors.Add("Duplicate " + kind + " ID '" + group.Key + "'.");
+        }
+
+        /// <summary>Samples each lane segment every 50 units against every obstacle.</summary>
+        private ObstacleDefinition? FindLaneBlocker(LaneDefinition lane)
+        {
+            Fixed sampleStep = Fixed.FromInt(50);
+            for (int i = 0; i + 1 < lane.Waypoints.Count; i++)
+            {
+                FixedVector2 point = lane.Waypoints[i];
+                FixedVector2 end = lane.Waypoints[i + 1];
+                while (true)
+                {
+                    foreach (ObstacleDefinition obstacle in Map.Obstacles)
+                    {
+                        if (obstacle.Contains(point, 0))
+                            return obstacle;
+                    }
+
+                    if (point == end)
+                        break;
+                    point = FixedVector2.MoveTowards(point, end, sampleStep);
+                }
+            }
+
+            return null;
         }
 
         private bool IsInsideMap(FixedVector2 point) =>

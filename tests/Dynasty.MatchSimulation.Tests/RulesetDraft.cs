@@ -50,6 +50,8 @@ public sealed class RulesetDraft
         new StructurePlacement("dusk.ancient", Team.Dusk, "ancient", P(9500, 5000), true, new[] { "dusk.mid.t1" }, VulnerabilityRule.AllProtectorsDestroyed),
     };
 
+    public List<ObstacleDefinition> Obstacles { get; } = new();
+
     public int FirstSpawnMs { get; set; } = 0;
     public int IntervalMs { get; set; } = 30000;
     public List<WaveEntry> DawnWave { get; } = new() { new WaveEntry("melee", 1) };
@@ -75,6 +77,6 @@ public sealed class RulesetDraft
         new CombatRules(ArmorFactor),
         Creeps,
         StructureTypes,
-        new MapDefinition(Width, Height, Lanes, Placements),
+        new MapDefinition(Width, Height, Lanes, Placements, Obstacles),
         new WaveRules(FirstSpawnMs, IntervalMs, DawnWave, DuskWave));
 }
