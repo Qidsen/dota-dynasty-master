@@ -32,8 +32,10 @@ namespace Dynasty.MatchSimulation.Rules
             int attackIntervalMs,
             int attackPointMs,
             int acquisitionRange,
-            int boundingRadius)
+            int boundingRadius,
+            int magicResistPercent = 0)
         {
+            MagicResistPercent = magicResistPercent;
             MaxHp = maxHp;
             Armor = armor;
             MoveSpeed = moveSpeed;
@@ -68,8 +70,12 @@ namespace Dynasty.MatchSimulation.Rules
         public int AcquisitionRange { get; }
         public int BoundingRadius { get; }
 
+        /// <summary>Percent reduction of magical damage.</summary>
+        public int MagicResistPercent { get; }
+
         internal void WriteCanonical(CanonicalWriter w)
         {
+            w.WriteInt64(MagicResistPercent);
             w.WriteInt64(MaxHp);
             w.WriteFixed(Armor);
             w.WriteInt64(MoveSpeed);

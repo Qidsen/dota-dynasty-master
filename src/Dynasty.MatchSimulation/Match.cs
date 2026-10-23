@@ -24,6 +24,7 @@ namespace Dynasty.MatchSimulation
                 state.SpawnStructure(kernel.Ids.Allocate(), placement, ruleset.FindStructureType(placement.StructureTypeId)!);
 
             kernel.AddSystem(new WaveSpawnSystem());
+            kernel.AddSystem(new ModifierSystem());
             kernel.AddSystem(new TargetingSystem());
             kernel.AddSystem(new MovementSystem());
             kernel.AddSystem(new AttackSystem());
@@ -34,8 +35,8 @@ namespace Dynasty.MatchSimulation
 
     public static class CombatMath
     {
-        /// <summary>Damage multiplier for armor: 1 - f·a / (1 + f·|a|). Negative armor amplifies damage.</summary>
+        /// <summary>Damage multiplier for armor; see <see cref="Combat.DamageMath.ArmorMultiplier"/>.</summary>
         public static Fixed ArmorMultiplier(Fixed armor, Fixed armorFactor) =>
-            Fixed.One - armorFactor * armor / (Fixed.One + armorFactor * Fixed.Abs(armor));
+            Combat.DamageMath.ArmorMultiplier(armor, armorFactor);
     }
 }

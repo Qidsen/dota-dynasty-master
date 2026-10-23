@@ -66,7 +66,7 @@ public class FullMatchTests
             {
                 Assert.InRange(unit.Position.X.Raw, 0, mapSize.Raw);
                 Assert.InRange(unit.Position.Y.Raw, 0, mapSize.Raw);
-                Assert.True(unit.Hp > Fixed.Zero && unit.Hp <= Fixed.FromInt(unit.Stats.MaxHp), unit.TypeId + " has invalid HP " + unit.Hp);
+                Assert.True(unit.Hp > Fixed.Zero && unit.Hp <= Fixed.FromInt(unit.MaxHp), unit.TypeId + " has invalid HP " + unit.Hp);
                 if (unit.Kind == UnitKind.Creep)
                     Assert.True(now - unit.LastActiveTick <= stuckLimit, unit.TypeId + " " + unit.Id + " is stuck at " + unit.Position);
             }

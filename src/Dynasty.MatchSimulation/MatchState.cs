@@ -1,6 +1,8 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using Dynasty.Core.Ids;
+using Dynasty.MatchSimulation.Combat;
 using Dynasty.Core.Mathematics;
 using Dynasty.Core.Time;
 using Dynasty.MatchSimulation.Rules;
@@ -11,6 +13,8 @@ namespace Dynasty.MatchSimulation
     {
         Creep = 0,
         Structure = 1,
+        Hero = 2,
+        Summon = 3,
     }
 
     /// <summary>
@@ -19,6 +23,9 @@ namespace Dynasty.MatchSimulation
     /// </summary>
     public sealed class MatchUnit
     {
+        private readonly List<ActiveModifier> _modifiers = new List<ActiveModifier>();
+        private readonly TickRate _rate;
+
         internal MatchUnit(EntityId id, Team team, UnitKind kind, string typeId, UnitStats stats, FixedVector2 position, TickRate rate)
         {
             Id = id;
@@ -27,21 +34,43 @@ namespace Dynasty.MatchSimulation
             TypeId = typeId;
             Stats = stats;
             Position = position;
-            Hp = Fixed.FromInt(stats.MaxHp);
-            StepPerTick = Fixed.FromRatio(stats.MoveSpeed, rate.TicksPerSecond);
-            AttackIntervalTicks = rate.TicksFor(stats.AttackIntervalMs);
-            AttackPointTicks = rate.TicksFor(stats.AttackPointMs);
+            _rate = rate;
             PendingAttackTick = -1;
+            Recalculate();
+            Hp = Fixed.FromInt(MaxHp);
         }
 
         public EntityId Id { get; }
         public Team Team { get; }
         public UnitKind Kind { get; }
         public string TypeId { get; }
-        public UnitStats Stats { get; }
+
+        /// <summary>Base stats before modifiers.</summary>
+        public UnitStats Stats { get; internal set; }
+
         public FixedVector2 Position { get; internal set; }
         public Fixed Hp { get; internal set; }
         public bool IsAlive => Hp > Fixed.Zero;
+
+        // Effective values: base stats plus active modifiers. Refreshed by Recalculate().
+        public int MaxHp { get; private set; }
+        public Fixed Armor { get; private set; }
+        public int MagicResistPercent { get; private set; }
+        public int AttackDamageMin { get; private set; }
+        public int AttackDamageMax { get; private set; }
+        public int AttackSpeedBonus { get; private set; }
+        public int MoveSpeed { get; private set; }
+        public ModifierFlags Flags { get; private set; }
+        public int AttackRange => Stats.AttackRange;
+        public int AcquisitionRange => Stats.AcquisitionRange;
+        public int BoundingRadius => Stats.BoundingRadius;
+        public bool CanAttackAtAll => Stats.CanAttack;
+
+        public bool IsStunned => (Flags & ModifierFlags.Stunned) != 0;
+        public bool CanMove => (Flags & (ModifierFlags.Stunned | ModifierFlags.Rooted)) == 0 && StepPerTick > Fixed.Zero;
+        public bool CanStartAttack => (Flags & (ModifierFlags.Stunned | ModifierFlags.Disarmed)) == 0 && CanAttackAtAll;
+
+        public IReadOnlyList<ActiveModifier> Modifiers => _modifiers;
 
         /// <summary>Lane a creep belongs to; null for structures.</summary>
         public string? LaneId => Lane?.Id;
@@ -57,13 +86,74 @@ namespace Dynasty.MatchSimulation
 
         internal LaneDefinition? Lane { get; set; }
         internal int NextWaypoint { get; set; }
-        internal Fixed StepPerTick { get; }
-        internal long AttackIntervalTicks { get; }
-        internal long AttackPointTicks { get; }
+        internal Fixed StepPerTick { get; private set; }
+        internal long AttackIntervalTicks { get; private set; }
+        internal long AttackPointTicks { get; private set; }
         internal long NextAttackTick { get; set; }
         internal long PendingAttackTick { get; set; }
         internal EntityId PendingTargetId { get; set; }
         internal EntityId LastAttackerId { get; set; }
+
+        internal ActiveModifier? FindModifier(string key, EntityId source)
+        {
+            foreach (ActiveModifier modifier in _modifiers)
+            {
+                if (modifier.Spec.Key == key && modifier.Source == source)
+                    return modifier;
+            }
+
+            return null;
+        }
+
+        internal void AddModifier(ActiveModifier modifier)
+        {
+            _modifiers.Add(modifier);
+            Recalculate();
+        }
+
+        internal void RemoveModifier(ActiveModifier modifier)
+        {
+            _modifiers.Remove(modifier);
+            Recalculate();
+        }
+
+        /// <summary>
+        /// Recomputes effective stats from base stats and modifiers. Attack speed scales both the
+        /// attack interval and the attack point; move speed has a floor of 100 while slowed.
+        /// </summary>
+        internal void Recalculate()
+        {
+            Fixed armor = Stats.Armor;
+            int magicResist = Stats.MagicResistPercent;
+            int damageBonus = 0;
+            int attackSpeed = 0;
+            int movePercent = 0;
+            ModifierFlags flags = ModifierFlags.None;
+            foreach (ActiveModifier modifier in _modifiers)
+            {
+                ModifierSpec spec = modifier.Spec;
+                armor += spec.ArmorBonus;
+                magicResist += spec.MagicResistBonus;
+                damageBonus += spec.DamageBonus;
+                attackSpeed += spec.AttackSpeedBonus;
+                movePercent += spec.MoveSpeedPercent;
+                flags |= spec.Flags;
+            }
+
+            MaxHp = Stats.MaxHp;
+            Armor = armor;
+            MagicResistPercent = Math.Min(magicResist, 100);
+            AttackDamageMin = Stats.AttackDamageMin + damageBonus;
+            AttackDamageMax = Stats.AttackDamageMax + damageBonus;
+            AttackSpeedBonus = Math.Max(attackSpeed, -80);
+            Flags = flags;
+
+            int speed = Stats.MoveSpeed * (100 + movePercent) / 100;
+            MoveSpeed = Stats.MoveSpeed == 0 ? 0 : Math.Max(speed, Math.Min(100, Stats.MoveSpeed));
+            StepPerTick = Fixed.FromRatio(MoveSpeed, _rate.TicksPerSecond);
+            AttackIntervalTicks = Math.Max(1, _rate.TicksFor(Stats.AttackIntervalMs * 100 / (100 + AttackSpeedBonus)));
+            AttackPointTicks = _rate.TicksFor(Stats.AttackPointMs * 100 / (100 + AttackSpeedBonus));
+        }
 
         /// <summary>Waypoint by walking order: Dawn walks the lane forward, Dusk in reverse.</summary>
         internal FixedVector2 WaypointAt(int index)

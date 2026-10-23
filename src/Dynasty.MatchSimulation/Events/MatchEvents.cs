@@ -2,6 +2,7 @@ using Dynasty.Core.Events;
 using Dynasty.Core.Hashing;
 using Dynasty.Core.Ids;
 using Dynasty.Core.Mathematics;
+using Dynasty.MatchSimulation.Combat;
 using Dynasty.MatchSimulation.Rules;
 
 namespace Dynasty.MatchSimulation.Events
@@ -56,12 +57,13 @@ namespace Dynasty.MatchSimulation.Events
 
     public sealed class DamageDealt : IDomainEvent
     {
-        public DamageDealt(EntityId attacker, EntityId target, Fixed amount, Fixed targetHpAfter)
+        public DamageDealt(EntityId attacker, EntityId target, Fixed amount, Fixed targetHpAfter, DamageType damageType)
         {
             Attacker = attacker;
             Target = target;
             Amount = amount;
             TargetHpAfter = targetHpAfter;
+            DamageType = damageType;
         }
 
         public EntityId Attacker { get; }
@@ -72,8 +74,10 @@ namespace Dynasty.MatchSimulation.Events
 
         public Fixed TargetHpAfter { get; }
 
+        public DamageType DamageType { get; }
+
         public string Type => "match.damage_dealt";
-        public int SchemaVersion => 1;
+        public int SchemaVersion => 2;
 
         public void WritePayload(ref Fnv1a64 hash)
         {
@@ -81,6 +85,7 @@ namespace Dynasty.MatchSimulation.Events
             hash.AddInt64(Target.Value);
             hash.AddInt64(Amount.Raw);
             hash.AddInt64(TargetHpAfter.Raw);
+            hash.AddInt64((int)DamageType);
         }
     }
 
@@ -135,6 +140,61 @@ namespace Dynasty.MatchSimulation.Events
             hash.AddString(PlacementId);
             hash.AddInt64((int)Team);
             hash.AddInt64(Killer.Value);
+        }
+    }
+
+    public sealed class ModifierApplied : IDomainEvent
+    {
+        public ModifierApplied(EntityId target, EntityId source, string key, long expiresTick)
+        {
+            Target = target;
+            Source = source;
+            Key = key;
+            ExpiresTick = expiresTick;
+        }
+
+        public EntityId Target { get; }
+        public EntityId Source { get; }
+        public string Key { get; }
+
+        /// <summary>-1 for permanent modifiers.</summary>
+        public long ExpiresTick { get; }
+
+        public string Type => "match.modifier_applied";
+        public int SchemaVersion => 1;
+
+        public void WritePayload(ref Fnv1a64 hash)
+        {
+            hash.AddInt64(Target.Value);
+            hash.AddInt64(Source.Value);
+            hash.AddString(Key);
+            hash.AddInt64(ExpiresTick);
+        }
+    }
+
+    public sealed class ModifierRemoved : IDomainEvent
+    {
+        public ModifierRemoved(EntityId target, string key, string reason)
+        {
+            Target = target;
+            Key = key;
+            Reason = reason;
+        }
+
+        public EntityId Target { get; }
+        public string Key { get; }
+
+        /// <summary>"expired", "dispelled", ...</summary>
+        public string Reason { get; }
+
+        public string Type => "match.modifier_removed";
+        public int SchemaVersion => 1;
+
+        public void WritePayload(ref Fnv1a64 hash)
+        {
+            hash.AddInt64(Target.Value);
+            hash.AddString(Key);
+            hash.AddString(Reason);
         }
     }
 
