@@ -1,4 +1,4 @@
-using Dynasty.Core.Events;
+﻿using Dynasty.Core.Events;
 using Dynasty.Core.Ids;
 using Dynasty.Core.Kernel;
 using Dynasty.Core.Mathematics;
@@ -82,7 +82,8 @@ public class Phase02AcceptanceTests
     [Fact]
     public void Summoners_AndOnlySummoners_CreateUnits()
     {
-        var owners = All<UnitSummoned>().Select(s => s.Owner).ToHashSet();
+        // Wards are summons too, placed by supports; only fighting summons count here.
+        var owners = All<UnitSummoned>().Where(s => !s.CreepTypeId.EndsWith("_ward")).Select(s => s.Owner).ToHashSet();
         HashSet<EntityId> summoners = IdsOf("hivecaller").Concat(IdsOf("siegewright")).ToHashSet();
 
         Assert.NotEmpty(owners);
