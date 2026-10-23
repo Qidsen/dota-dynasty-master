@@ -104,6 +104,25 @@ public class BasicHeroControllerTests
     }
 
     [Fact]
+    public void Controller_BuysRecipeComponentsFirstWhenTheFullItemIsUnaffordable()
+    {
+        var draft = new RulesetDraft().WithoutWaves();
+        draft.Items.Add(new ItemDefinition("blade", "Blade", 500, new Dynasty.MatchSimulation.Combat.ModifierSpec("blade", -1, damageBonus: 20)));
+        draft.Items.Add(new ItemDefinition("plate", "Plate", 400, new Dynasty.MatchSimulation.Combat.ModifierSpec("plate", -1, armorBonus: Fixed.FromInt(5))));
+        draft.Items.Add(new ItemDefinition("crest", "Crest", 1500, new Dynasty.MatchSimulation.Combat.ModifierSpec("crest", -1, damageBonus: 30), new[] { "blade", "plate" }));
+        draft.Heroes[0] = new HeroDefinition("alpha", "alpha", new[] { "carry" }, HeroStats(), 80, Fixed.FromRatio(3, 10), 3, 300, 40,
+            Fixed.FromInt(2), Fixed.One, itemBuild: new[] { "crest" });
+        var kernel = draft.StartWithHeroes(new[] { ("alpha", "mid") }, NoHeroes);
+        HeroAi.Attach(kernel);
+        At(kernel, 30, ctx => H(ctx.State, "alpha").Hero!.Gold = Fixed.FromInt(5000));
+
+        kernel.RunTicks(60);
+
+        Assert.Equal(new[] { "blade", "plate", "crest" }, kernel.EventsOf<ItemPurchased>().Select(p => p.ItemId));
+        Assert.Equal(new[] { "crest" }, H(kernel.State, "alpha").Hero!.Inventory.Select(i => i.Definition.Id));
+    }
+
+    [Fact]
     public void ControlledMatch_IsDeterministic()
     {
         SimulationKernel<MatchState> Run()

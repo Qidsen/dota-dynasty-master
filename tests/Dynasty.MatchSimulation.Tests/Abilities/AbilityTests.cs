@@ -160,6 +160,20 @@ public class AbilityTests
     }
 
     [Fact]
+    public void Heal_EmitsTheAmountActuallyRestored()
+    {
+        var kernel = Arena(new[] { "mend" }, ctx => H(ctx.State, "gamma").Hp = Fixed.FromInt(500));
+        Order(kernel, 1, s => HeroOrder.Cast("mend", H(s, "gamma").Id));
+
+        kernel.RunTicks(3);
+
+        HealApplied heal = Assert.Single(kernel.EventsOf<HealApplied>());
+        Assert.Equal(H(kernel.State, "alpha").Id, heal.Source);
+        Assert.Equal(H(kernel.State, "gamma").Id, heal.Target);
+        Assert.InRange(heal.Amount.ToDouble(), 99, 101);   // capped by max HP (600)
+    }
+
+    [Fact]
     public void AllyAbility_CannotTargetAnEnemy()
     {
         var kernel = Arena(new[] { "mend" });

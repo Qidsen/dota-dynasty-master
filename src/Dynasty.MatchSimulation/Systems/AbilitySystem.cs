@@ -173,7 +173,7 @@ namespace Dynasty.MatchSimulation.Systems
                     Damage.Deal(context, caster.Id, target, Fixed.FromInt(effect.AmountAt(level)), effect.DamageType);
                     break;
                 case EffectKind.Heal:
-                    Damage.Heal(target, Fixed.FromInt(effect.AmountAt(level)));
+                    Damage.Heal(context, caster.Id, target, Fixed.FromInt(effect.AmountAt(level)));
                     break;
                 case EffectKind.ApplyModifier:
                     if (target.IsAlive)

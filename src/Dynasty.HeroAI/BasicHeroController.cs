@@ -158,8 +158,8 @@ namespace Dynasty.HeroAI
             if (!inShop)
                 return;
 
-            string? next = NextBuildItem(h);
-            ItemDefinition? item = next != null ? state.Ruleset.FindItem(next) : null;
+            string? target = NextBuildItem(h);
+            ItemDefinition? item = target != null ? NextPurchaseToward(state, h, state.Ruleset.FindItem(target)) : null;
             if (item == null)
                 return;
 
@@ -182,6 +182,23 @@ namespace Dynasty.HeroAI
             }
 
             return null;
+        }
+
+        /// <summary>The first missing component of the target (recursively), or the target itself once all are owned.</summary>
+        private static ItemDefinition? NextPurchaseToward(MatchState state, HeroState hero, ItemDefinition? target)
+        {
+            if (target == null)
+                return null;
+
+            var owned = hero.Inventory.Select(s => s.Definition.Id).ToList();
+            foreach (string componentId in target.Components)
+            {
+                if (owned.Remove(componentId))
+                    continue;
+                return NextPurchaseToward(state, hero, state.Ruleset.FindItem(componentId));
+            }
+
+            return target;
         }
 
         private bool TryCast(MatchState state, MatchUnit hero, TeamPerception perception, long now)

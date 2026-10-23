@@ -264,10 +264,17 @@ namespace Dynasty.MatchSimulation.Combat
             return amount;
         }
 
-        public static void Heal(MatchUnit target, Fixed amount)
+        public static Fixed Heal(SimulationContext<MatchState> context, EntityId source, MatchUnit target, Fixed amount)
         {
-            if (target.IsAlive)
-                target.Hp = Fixed.Min(Fixed.FromInt(target.MaxHp), target.Hp + amount);
+            if (!target.IsAlive)
+                return Fixed.Zero;
+
+            Fixed before = target.Hp;
+            target.Hp = Fixed.Min(Fixed.FromInt(target.MaxHp), target.Hp + amount);
+            Fixed restored = target.Hp - before;
+            if (restored > Fixed.Zero)
+                context.Emit(new HealApplied(source, target.Id, restored));
+            return restored;
         }
     }
 }

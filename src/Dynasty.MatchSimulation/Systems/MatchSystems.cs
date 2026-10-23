@@ -71,7 +71,7 @@ namespace Dynasty.MatchSimulation.Systems
                         if (spec.DamagePerSecond > Fixed.Zero)
                             Damage.Deal(context, modifier.Source, unit, spec.DamagePerSecond * periodFraction, spec.DamageType);
                         if (spec.HealPerSecond > Fixed.Zero)
-                            Damage.Heal(unit, spec.HealPerSecond * periodFraction);
+                            Damage.Heal(context, modifier.Source, unit, spec.HealPerSecond * periodFraction);
                         modifier.NextPeriodTick += context.TickRate.TicksFor(spec.PeriodMs);
                     }
 
@@ -288,7 +288,7 @@ namespace Dynasty.MatchSimulation.Systems
 
             Fixed dealt = Damage.Deal(context, unit.Id, target, damage, DamageType.Physical, critical);
             if (unit.LifestealPercent > 0 && unit.IsAlive)
-                Damage.Heal(unit, dealt * Fixed.FromInt(unit.LifestealPercent) / Fixed.FromInt(100));
+                Damage.Heal(context, unit.Id, unit, dealt * Fixed.FromInt(unit.LifestealPercent) / Fixed.FromInt(100));
         }
     }
 

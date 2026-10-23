@@ -93,6 +93,33 @@ namespace Dynasty.MatchSimulation.Events
         }
     }
 
+    /// <summary>HP restored by an ability, item, modifier or lifesteal (passive regeneration is not reported).</summary>
+    public sealed class HealApplied : IDomainEvent
+    {
+        public HealApplied(EntityId source, EntityId target, Fixed amount)
+        {
+            Source = source;
+            Target = target;
+            Amount = amount;
+        }
+
+        public EntityId Source { get; }
+        public EntityId Target { get; }
+
+        /// <summary>HP actually restored (after the max-HP cap).</summary>
+        public Fixed Amount { get; }
+
+        public string Type => "match.heal_applied";
+        public int SchemaVersion => 1;
+
+        public void WritePayload(ref Fnv1a64 hash)
+        {
+            hash.AddInt64(Source.Value);
+            hash.AddInt64(Target.Value);
+            hash.AddInt64(Amount.Raw);
+        }
+    }
+
     public sealed class UnitKilled : IDomainEvent
     {
         public UnitKilled(EntityId victim, Team victimTeam, string victimTypeId, EntityId killer)
