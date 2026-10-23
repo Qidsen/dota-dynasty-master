@@ -13,7 +13,8 @@
 ## Команды
 ```
 dotnet build              # сборка всего решения (DotaDynasty.slnx)
-dotnet test               # все тесты
+dotnet test               # все тесты (около 2 мин: приёмка гоняет матчи 5×5)
+dotnet test --filter "Category!=Acceptance"   # быстрый набор (около 11 с)
 dotnet run --project tools/Dynasty.MatchLab -c Release -- [heroes|swapped|mirror|base|lab] [firstSeed] [count] [maxMinutes]
 # MATCHLAB_DEATHS=1 — печатать причины смертей героев по командам
 ```
@@ -26,14 +27,15 @@ dotnet run --project tools/Dynasty.MatchLab -c Release -- [heroes|swapped|mirror
 - Состояние меняют только системы и обработчики команд через `SimulationContext`. Внешний код (AI, UI, менеджер) отправляет `ISimCommand`.
 - Каждое доменное событие: стабильный `Type`, `SchemaVersion`, все поля пишутся в `WritePayload` в фиксированном порядке.
 - **Честность порядка обработки (D-014):** внутри тика ни одно решение не должно зависеть от того, какой юнит обработан раньше (Dawn всегда первым). Погоня — по `StartPosition`, ограничения действий — по `StartFlags`; удары и касты, чей момент наступил, срабатывают. Новую механику проверяй зеркальным тестом.
-- ИИ (`Dynasty.HeroAI`) работает только через публичный API и приказы; видит только то, что видит команда.
+- ИИ (`Dynasty.HeroAI`) работает только через публичный API и приказы; видит только `TeamKnowledge` своей команды (обзор). Новые решения ИИ — без обращения к невидимым юнитам; аудит `AiControlledMatch_NeverHoldsOrdersOnUnseenUnits`.
+- Новые тесты поведения ИИ проверяй саботажем: отключи механизм — тест должен упасть.
 - TDD: сначала падающий тест, потом код. Не выдавать непроверенное за работающее; не создавать пустые классы/экраны как «прогресс».
 - Предупреждения компилятора = ошибки.
 
 ## Структура
 - `src/Dynasty.Core` — ID, тики, RNG, хеши, fixed-point, события, команды, ruleset-идентичность, ядро симуляции.
 - `src/Dynasty.MatchSimulation` — ruleset-схема, базовые правила и контент, навигация, бой, герои, способности, предметы, системы матча (`docs/MATCH_SIMULATION.md`).
-- `src/Dynasty.HeroAI` — базовый контроллер героев (этап 02), будет заменён слоями этапа 03.
+- `src/Dynasty.HeroAI` — командный и тактический ИИ (`docs/HERO_AI.md`).
 - `tools/Dynasty.MatchLab` — консольный прогон матчей (net10.0, не для Unity).
 - `tests/*` — xUnit, net10.0. Тестовые ruleset'ы собираются через `RulesetDraft`.
 - `docs/` — архитектура, решения, статус, журнал.

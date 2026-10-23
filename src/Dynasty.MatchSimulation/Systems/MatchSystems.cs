@@ -113,12 +113,14 @@ namespace Dynasty.MatchSimulation.Systems
             MatchState state = context.State;
             foreach (MatchUnit unit in state.Units)
             {
-                if (!unit.CanAttackAtAll || !unit.IsAlive || unit.Kind == UnitKind.Hero)
+                // Heroes get targets from orders, the boss from its own system.
+                if (!unit.CanAttackAtAll || !unit.IsAlive || unit.Kind == UnitKind.Hero || unit.Kind == UnitKind.Boss)
                     continue;
 
                 int searchRange = unit.Kind == UnitKind.Structure ? unit.AttackRange : unit.AcquisitionRange;
                 MatchUnit? current = state.Find(unit.TargetId);
-                if (current != null && state.CanAttack(unit, current) && Geometry.WithinEdgeRange(unit, current, searchRange))
+                if (current != null && current.Team != Team.Neutral && state.CanAttack(unit, current) && state.IsVisibleTo(unit.Team, current) &&
+                    Geometry.WithinEdgeRange(unit, current, searchRange))
                     continue;
 
                 unit.TargetId = FindNearest(state, unit, searchRange);
@@ -131,7 +133,9 @@ namespace Dynasty.MatchSimulation.Systems
             Fixed bestDistance = Fixed.Zero;
             foreach (MatchUnit candidate in state.Units)
             {
-                if (!state.CanAttack(unit, candidate) || !Geometry.WithinEdgeRange(unit, candidate, range))
+                // Creeps, towers and summons leave neutral objectives alone.
+                if (candidate.Team == Team.Neutral || !state.CanAttack(unit, candidate) || !Geometry.WithinEdgeRange(unit, candidate, range) ||
+                    !state.IsVisibleTo(unit.Team, candidate))
                     continue;
 
                 Fixed distance = Geometry.EdgeDistance(unit, candidate);
@@ -282,7 +286,8 @@ namespace Dynasty.MatchSimulation.Systems
         private static void TryStartAttack(SimulationContext<MatchState> context, MatchUnit unit, long now)
         {
             MatchUnit? target = context.State.Find(unit.TargetId);
-            if (target == null || !context.State.CanAttack(unit, target) || !Geometry.WithinEdgeRange(unit, target, unit.AttackRange))
+            if (target == null || !context.State.CanAttack(unit, target) || !context.State.IsVisibleTo(unit.Team, target) ||
+                !Geometry.WithinEdgeRange(unit, target, unit.AttackRange))
                 return;
 
             unit.PendingTargetId = target.Id;
@@ -342,6 +347,12 @@ namespace Dynasty.MatchSimulation.Systems
                 }
 
                 state.Remove(unit);
+                if (unit.Kind == UnitKind.Boss)
+                {
+                    context.Emit(new UnitKilled(unit.Id, unit.Team, unit.TypeId, unit.LastAttackerId));
+                    BossRewards.BossDied(context, unit);
+                    continue;
+                }
                 if (unit.Placement == null)
                 {
                     context.Emit(new UnitKilled(unit.Id, unit.Team, unit.TypeId, unit.LastAttackerId));

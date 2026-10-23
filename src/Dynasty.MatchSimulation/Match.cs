@@ -40,9 +40,11 @@ namespace Dynasty.MatchSimulation
             kernel.AddSystem(new HeroEconomySystem());
             kernel.AddSystem(new ShopSystem());
             kernel.AddSystem(new TickSnapshotSystem());
+            kernel.AddSystem(new Vision.VisionSystem());
             kernel.AddSystem(new TargetingSystem());
             kernel.AddSystem(new HeroOrderSystem());
             kernel.AddSystem(new AbilitySystem());
+            kernel.AddSystem(new BossSystem());
             kernel.AddSystem(new MovementSystem());
             kernel.AddSystem(new AttackSystem());
             kernel.AddSystem(new CleanupSystem());

@@ -18,8 +18,10 @@ namespace Dynasty.MatchSimulation.Rules
             int cost,
             ModifierSpec? bonuses = null,
             IReadOnlyList<string>? components = null,
-            string? activeAbilityId = null)
+            string? activeAbilityId = null,
+            int charges = 0)
         {
+            Charges = charges;
             Id = id;
             Name = name;
             Cost = cost;
@@ -40,6 +42,9 @@ namespace Dynasty.MatchSimulation.Rules
         /// <summary>Ability cast when the item is used; null for purely passive items.</summary>
         public string? ActiveAbilityId { get; }
 
+        /// <summary>Uses before the item is consumed; 0 = not consumable.</summary>
+        public int Charges { get; }
+
         internal void WriteCanonical(CanonicalWriter w)
         {
             w.WriteString(Id);
@@ -51,6 +56,7 @@ namespace Dynasty.MatchSimulation.Rules
             foreach (string component in Components)
                 w.WriteString(component);
             w.WriteString(ActiveAbilityId ?? "");
+            w.WriteInt64(Charges);
         }
     }
 }

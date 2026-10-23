@@ -89,7 +89,10 @@ namespace Dynasty.MatchSimulation.Rules
                 b.AttackPointMs,
                 b.AcquisitionRange,
                 b.BoundingRadius,
-                b.MagicResistPercent);
+                b.MagicResistPercent,
+                b.VisionRange,
+                b.TrueSightRange,
+                b.InnateFlags);
         }
 
         public int MaxManaAtLevel(int level) => BaseMana + ManaPerLevel * (level - 1);

@@ -536,6 +536,57 @@ namespace Dynasty.MatchSimulation.Events
         }
     }
 
+    public sealed class BossSpawned : IDomainEvent
+    {
+        public BossSpawned(EntityId boss, string bossId)
+        {
+            Boss = boss;
+            BossId = bossId;
+        }
+
+        public EntityId Boss { get; }
+        public string BossId { get; }
+
+        public string Type => "match.boss_spawned";
+        public int SchemaVersion => 1;
+
+        public void WritePayload(ref Fnv1a64 hash)
+        {
+            hash.AddInt64(Boss.Value);
+            hash.AddString(BossId);
+        }
+    }
+
+    public sealed class BossKilled : IDomainEvent
+    {
+        public BossKilled(EntityId boss, Team team, EntityId killer, long respawnTick)
+        {
+            Boss = boss;
+            Team = team;
+            Killer = killer;
+            RespawnTick = respawnTick;
+        }
+
+        public EntityId Boss { get; }
+
+        /// <summary>Team credited with the kill (the last attacker's team); Neutral when nobody earned it.</summary>
+        public Team Team { get; }
+
+        public EntityId Killer { get; }
+        public long RespawnTick { get; }
+
+        public string Type => "match.boss_killed";
+        public int SchemaVersion => 1;
+
+        public void WritePayload(ref Fnv1a64 hash)
+        {
+            hash.AddInt64(Boss.Value);
+            hash.AddInt64((int)Team);
+            hash.AddInt64(Killer.Value);
+            hash.AddInt64(RespawnTick);
+        }
+    }
+
     public sealed class MatchFinished : IDomainEvent
     {
         public MatchFinished(Team winner, string destroyedAncient)

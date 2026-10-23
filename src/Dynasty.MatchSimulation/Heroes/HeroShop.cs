@@ -12,9 +12,13 @@ namespace Dynasty.MatchSimulation.Heroes
             Definition = definition;
             Active = active;
             Bonus = bonus;
+            Charges = definition.Charges;
         }
 
         public ItemDefinition Definition { get; }
+
+        /// <summary>Remaining uses of a consumable; 0 for non-consumables.</summary>
+        public int Charges { get; internal set; }
 
         /// <summary>Castable ability of an active item (always level 1); null for passive items.</summary>
         public AbilityState? Active { get; }

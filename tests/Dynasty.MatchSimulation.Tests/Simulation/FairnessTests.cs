@@ -26,12 +26,17 @@ public class FairnessTests
         {
             H(ctx.State, chaser).Position = P(4000, 3000);
             H(ctx.State, runner).Position = P(4190, 3000);   // melee reach is 150 + 2 × 24 = 198
+        }));
+        kernel.AddSystem(new LambdaSystem(3, ctx =>   // once vision has seen the new positions
+        {
             HeroOrders.Issue(H(ctx.State, chaser), HeroOrder.Attack(H(ctx.State, runner).Id));
             HeroOrders.Issue(H(ctx.State, runner), HeroOrder.Move(P(9000, 3000)));
         }));
 
         kernel.RunTicks(200);
 
+        // The chase must really have happened, otherwise "equal" could mean "both did nothing".
+        Assert.True(H(kernel.State, chaser).Position.X > Fixed.FromInt(5500), "chaser did not pursue");
         EntityId chaserId = H(kernel.State, chaser).Id;
         return kernel.EventsOf<AttackStarted>().Count(a => a.Attacker == chaserId);
     }

@@ -27,8 +27,9 @@ public class PassiveAndLearningTests
             MatchUnit creep = ctx.State.Creeps(Team.Dusk).First();
             Modifiers.Apply(ctx, creep, ModifierSpec.Status("root", -1, ModifierFlags.Rooted), EntityId.None);
             H(ctx.State, "alpha").Position = creep.Position - FixedVector2.FromInts(100, 0);
-            HeroOrders.Issue(H(ctx.State, "alpha"), HeroOrder.Attack(creep.Id));
         }));
+        // Ordered once the tick-3 vision update has seen the creep next to the hero.
+        kernel.AddSystem(new LambdaSystem(4, ctx => HeroOrders.Issue(H(ctx.State, "alpha"), HeroOrder.Attack(ctx.State.Creeps(Team.Dusk).First().Id))));
         return kernel;
     }
 

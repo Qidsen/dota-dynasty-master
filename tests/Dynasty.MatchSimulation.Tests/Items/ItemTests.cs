@@ -146,13 +146,10 @@ public class ItemTests
     {
         var kernel = Start(Shop());
         Buy(kernel, 0, "wand");
-        At(kernel, 2, ctx =>
-        {
-            H(ctx.State, "beta").Position = H(ctx.State, "alpha").Position + FixedVector2.FromInts(300, 0);
-            HeroOrders.Issue(H(ctx.State, "alpha"), HeroOrder.Cast("zap", H(ctx.State, "beta").Id));
-        });
+        At(kernel, 2, ctx => H(ctx.State, "beta").Position = H(ctx.State, "alpha").Position + FixedVector2.FromInts(300, 0));
+        At(kernel, 4, ctx => HeroOrders.Issue(H(ctx.State, "alpha"), HeroOrder.Cast("zap", H(ctx.State, "beta").Id)));   // after vision saw beta
 
-        kernel.RunTicks(5);
+        kernel.RunTicks(7);
 
         Assert.True(H(kernel.State, "beta").IsStunned);
         Assert.Equal("zap", Assert.Single(kernel.EventsOf<AbilityCast>()).AbilityId);

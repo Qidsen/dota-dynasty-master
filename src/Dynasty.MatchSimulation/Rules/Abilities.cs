@@ -69,8 +69,10 @@ namespace Dynasty.MatchSimulation.Rules
             TargetTeam team = TargetTeam.Enemy,
             EffectDefinition[]? inner = null,
             string? summonTypeId = null,
-            int durationMs = 0)
+            int durationMs = 0,
+            bool atPoint = false)
         {
+            AtPoint = atPoint;
             Kind = kind;
             Amounts = amounts ?? Array.Empty<int>();
             DamageType = damageType;
@@ -99,6 +101,9 @@ namespace Dynasty.MatchSimulation.Rules
         /// <summary>Summon lifetime.</summary>
         public int DurationMs { get; }
 
+        /// <summary>Summons appear at the cast point rather than at the caster.</summary>
+        public bool AtPoint { get; }
+
         public static EffectDefinition Damage(DamageType type, params int[] perLevel) =>
             new EffectDefinition(EffectKind.Damage, perLevel, type);
 
@@ -117,6 +122,10 @@ namespace Dynasty.MatchSimulation.Rules
 
         public static EffectDefinition Summon(string creepTypeId, int durationMs, params int[] countPerLevel) =>
             new EffectDefinition(EffectKind.Summon, countPerLevel, summonTypeId: creepTypeId, durationMs: durationMs);
+
+        /// <summary>Summon at the cast point instead of next to the caster (wards); point-target abilities only.</summary>
+        public static EffectDefinition SummonAtPoint(string creepTypeId, int durationMs, params int[] countPerLevel) =>
+            new EffectDefinition(EffectKind.Summon, countPerLevel, summonTypeId: creepTypeId, durationMs: durationMs, atPoint: true);
 
         public int AmountAt(int level) => ValueAt(Amounts, level);
 
@@ -149,6 +158,7 @@ namespace Dynasty.MatchSimulation.Rules
             w.WriteInt64((int)Team);
             w.WriteString(SummonTypeId ?? "");
             w.WriteInt64(DurationMs);
+            w.WriteBool(AtPoint);
             w.WriteInt64(Inner.Count);
             foreach (EffectDefinition child in Inner)
                 child.WriteCanonical(w);

@@ -4,6 +4,7 @@ using System.Linq;
 using Dynasty.Core.Hashing;
 using Dynasty.Core.Mathematics;
 using Dynasty.Core.Rulesets;
+using Dynasty.MatchSimulation.Combat;
 
 namespace Dynasty.MatchSimulation.Rules
 {
@@ -12,6 +13,9 @@ namespace Dynasty.MatchSimulation.Rules
     {
         Dawn = 0,
         Dusk = 1,
+
+        /// <summary>Neutral objectives; hostile to both sides.</summary>
+        Neutral = 2,
     }
 
     public static class TeamExtensions
@@ -33,9 +37,15 @@ namespace Dynasty.MatchSimulation.Rules
             int attackPointMs,
             int acquisitionRange,
             int boundingRadius,
-            int magicResistPercent = 0)
+            int magicResistPercent = 0,
+            int visionRange = 800,
+            int trueSightRange = 0,
+            ModifierFlags innateFlags = ModifierFlags.None)
         {
             MagicResistPercent = magicResistPercent;
+            VisionRange = visionRange;
+            TrueSightRange = trueSightRange;
+            InnateFlags = innateFlags;
             MaxHp = maxHp;
             Armor = armor;
             MoveSpeed = moveSpeed;
@@ -73,9 +83,21 @@ namespace Dynasty.MatchSimulation.Rules
         /// <summary>Percent reduction of magical damage.</summary>
         public int MagicResistPercent { get; }
 
+        /// <summary>How far this unit reveals the map for its team (blocked by obstacles).</summary>
+        public int VisionRange { get; }
+
+        /// <summary>Radius in which this unit reveals invisible enemies (detection).</summary>
+        public int TrueSightRange { get; }
+
+        /// <summary>Status flags the unit always has, e.g. <see cref="ModifierFlags.Invisible"/> for wards.</summary>
+        public ModifierFlags InnateFlags { get; }
+
         internal void WriteCanonical(CanonicalWriter w)
         {
             w.WriteInt64(MagicResistPercent);
+            w.WriteInt64(VisionRange);
+            w.WriteInt64(TrueSightRange);
+            w.WriteInt64((int)InnateFlags);
             w.WriteInt64(MaxHp);
             w.WriteFixed(Armor);
             w.WriteInt64(MoveSpeed);
@@ -344,8 +366,10 @@ namespace Dynasty.MatchSimulation.Rules
             IReadOnlyList<HeroDefinition>? heroes = null,
             HeroRules? heroRules = null,
             IReadOnlyList<AbilityDefinition>? abilities = null,
-            IReadOnlyList<ItemDefinition>? items = null)
+            IReadOnlyList<ItemDefinition>? items = null,
+            BossDefinition? boss = null)
         {
+            Boss = boss;
             Abilities = (abilities ?? Array.Empty<AbilityDefinition>()).ToArray();
             Items = (items ?? Array.Empty<ItemDefinition>()).ToArray();
             Id = id;
@@ -375,6 +399,9 @@ namespace Dynasty.MatchSimulation.Rules
 
         public ItemDefinition? FindItem(string id) => Items.FirstOrDefault(i => i.Id == id);
 
+        /// <summary>Optional neutral boss objective.</summary>
+        public BossDefinition? Boss { get; }
+
         public string Id { get; }
         public int Version { get; }
         public int TicksPerSecond { get; }
@@ -402,11 +429,13 @@ namespace Dynasty.MatchSimulation.Rules
 
             ReportDuplicates(errors, "creep type", CreepTypes.Select(c => c.Id));
             ReportDuplicates(errors, "structure type", StructureTypes.Select(s => s.Id));
+            var waveCreeps = new HashSet<string>(Waves.DawnComposition.Concat(Waves.DuskComposition).Select(e => e.CreepTypeId));
             foreach (CreepType creep in CreepTypes)
             {
                 ValidateStats(errors, "Creep type '" + creep.Id + "'", creep.Stats);
-                if (creep.Stats.MoveSpeed <= 0)
-                    errors.Add("Creep type '" + creep.Id + "' must have positive move speed.");
+                // Immobile creep types are allowed (wards, stationary summons) but cannot walk a lane.
+                if (creep.Stats.MoveSpeed <= 0 && waveCreeps.Contains(creep.Id))
+                    errors.Add("Creep type '" + creep.Id + "' is used in waves and must have positive move speed.");
             }
 
             foreach (StructureType structure in StructureTypes)
@@ -417,6 +446,16 @@ namespace Dynasty.MatchSimulation.Rules
             ValidateHeroes(errors);
             ValidateAbilities(errors);
             ValidateItems(errors);
+            if (Boss != null)
+            {
+                if (FindCreepType(Boss.CreepTypeId) == null)
+                    errors.Add("Boss '" + Boss.Id + "' uses unknown creep type '" + Boss.CreepTypeId + "'.");
+                if (!IsInsideMap(Boss.Position) || Boss.LeashRadius <= 0)
+                    errors.Add("Boss '" + Boss.Id + "' needs a pit inside the map and a positive leash radius.");
+                if (Boss.FirstSpawnMs < 0 || Boss.RespawnMinMs <= 0 || Boss.RespawnMinMs > Boss.RespawnMaxMs)
+                    errors.Add("Boss '" + Boss.Id + "' has invalid spawn timings.");
+            }
+
             return errors;
         }
 
@@ -485,6 +524,8 @@ namespace Dynasty.MatchSimulation.Rules
                         errors.Add(owner + " summons unknown creep type '" + effect.SummonTypeId + "'.");
                     if (effect.Kind == EffectKind.Area && effect.Radius <= 0)
                         errors.Add(owner + " has an area effect without a radius.");
+                    if (effect.AtPoint && ability.Targeting != AbilityTargeting.Point)
+                        errors.Add(owner + " summons at a point but is not point-targeted.");
                 }
             }
 
@@ -622,6 +663,8 @@ namespace Dynasty.MatchSimulation.Rules
             writer.WriteInt64(Items.Count);
             foreach (ItemDefinition item in Items)
                 item.WriteCanonical(writer);
+            writer.WriteBool(Boss != null);
+            Boss?.WriteCanonical(writer);
 
             writer.WriteInt64(Waves.FirstSpawnMs);
             writer.WriteInt64(Waves.IntervalMs);
