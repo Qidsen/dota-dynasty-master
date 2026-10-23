@@ -495,6 +495,12 @@ namespace Dynasty.MatchSimulation.Rules
                     if (FindAbility(abilityId) == null)
                         errors.Add("Hero '" + hero.Id + "' references unknown ability '" + abilityId + "'.");
                 }
+
+                foreach (string itemId in hero.ItemBuild.Distinct())
+                {
+                    if (FindItem(itemId) == null)
+                        errors.Add("Hero '" + hero.Id + "' item build references unknown item '" + itemId + "'.");
+                }
             }
         }
 

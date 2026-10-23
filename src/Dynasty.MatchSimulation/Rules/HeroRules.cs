@@ -25,8 +25,10 @@ namespace Dynasty.MatchSimulation.Rules
             Fixed hpRegenPerSecond,
             Fixed manaRegenPerSecond,
             IReadOnlyList<string>? abilityIds = null,
-            IReadOnlyList<string>? skillPriority = null)
+            IReadOnlyList<string>? skillPriority = null,
+            IReadOnlyList<string>? itemBuild = null)
         {
+            ItemBuild = (itemBuild ?? Array.Empty<string>()).ToArray();
             Id = id;
             Name = name;
             Roles = roles.ToArray();
@@ -50,6 +52,9 @@ namespace Dynasty.MatchSimulation.Rules
         /// that can be levelled at the current hero level.
         /// </summary>
         public IReadOnlyList<string> SkillPriority { get; }
+
+        /// <summary>Default purchase order used by AI controllers (item IDs).</summary>
+        public IReadOnlyList<string> ItemBuild { get; }
 
         /// <summary>Stable ID, independent of the display name.</summary>
         public string Id { get; }
@@ -110,6 +115,9 @@ namespace Dynasty.MatchSimulation.Rules
             w.WriteInt64(SkillPriority.Count);
             foreach (string ability in SkillPriority)
                 w.WriteString(ability);
+            w.WriteInt64(ItemBuild.Count);
+            foreach (string item in ItemBuild)
+                w.WriteString(item);
         }
     }
 
