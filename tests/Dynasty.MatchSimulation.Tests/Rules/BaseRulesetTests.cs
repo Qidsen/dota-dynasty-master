@@ -51,6 +51,29 @@ public class BaseRulesetTests
     }
 
     [Fact]
+    public void LaneTowerIds_NameTheLaneTheyPhysicallyStandOn()
+    {
+        RulesetContent ruleset = BaseRuleset.Create();
+
+        foreach (StructurePlacement tower in ruleset.Map.Structures.Where(s => s.Id.Split('.')[1] is "top" or "mid" or "bot"))
+        {
+            string named = tower.Id.Split('.')[1];
+            LaneDefinition nearest = ruleset.Map.Lanes
+                .OrderBy(l => l.Waypoints.Zip(l.Waypoints.Skip(1), (a, b) => DistanceToSegment(tower.Position, a, b)).Min())
+                .First();
+            Assert.True(named == nearest.Id, $"{tower.Id} stands on lane '{nearest.Id}'");
+        }
+    }
+
+    private static double DistanceToSegment(FixedVector2 p, FixedVector2 a, FixedVector2 b)
+    {
+        double px = p.X.ToDouble(), py = p.Y.ToDouble(), ax = a.X.ToDouble(), ay = a.Y.ToDouble(), bx = b.X.ToDouble(), by = b.Y.ToDouble();
+        double dx = bx - ax, dy = by - ay;
+        double t = Math.Clamp(((px - ax) * dx + (py - ay) * dy) / (dx * dx + dy * dy), 0, 1);
+        return Math.Sqrt(Math.Pow(px - (ax + t * dx), 2) + Math.Pow(py - (ay + t * dy), 2));
+    }
+
+    [Fact]
     public void BaseWaves_AreIdenticalForBothTeams()
     {
         var waves = BaseRuleset.Create().Waves;

@@ -44,9 +44,11 @@ namespace Dynasty.MatchSimulation.Systems
             HeroOrder order = hero.Order;
             AbilityState? ability = hero.Ability(order.AbilityId!);
 
+            // Status checks use the tick-start snapshot (see MatchUnit.StartFlags): a stun landing this
+            // tick does not stop a cast resolving this tick, whichever hero is processed first.
             if (hero.IsCasting)
             {
-                if ((caster.Flags & (ModifierFlags.Stunned | ModifierFlags.Silenced)) != 0)
+                if ((caster.StartFlags & (ModifierFlags.Stunned | ModifierFlags.Silenced)) != 0)
                 {
                     Fail(context, caster, order.AbilityId!, "interrupted");
                     return;
@@ -58,7 +60,7 @@ namespace Dynasty.MatchSimulation.Systems
             }
 
             // A stunned hero keeps its order and tries again once the stun ends.
-            if (caster.IsStunned)
+            if ((caster.StartFlags & ModifierFlags.Stunned) != 0)
                 return;
 
             string? failure = Validate(context.State, caster, hero, ability, order, now);
@@ -80,7 +82,7 @@ namespace Dynasty.MatchSimulation.Systems
         {
             if (ability == null || ability.Level == 0 || ability.Definition.Targeting == AbilityTargeting.Passive)
                 return "not_learned";
-            if ((caster.Flags & ModifierFlags.Silenced) != 0)
+            if ((caster.StartFlags & ModifierFlags.Silenced) != 0)
                 return "silenced";
             if (!ability.IsReady(now))
                 return "cooldown";

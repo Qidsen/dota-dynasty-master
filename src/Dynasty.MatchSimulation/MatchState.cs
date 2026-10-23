@@ -34,6 +34,7 @@ namespace Dynasty.MatchSimulation
             TypeId = typeId;
             Stats = stats;
             Position = position;
+            StartPosition = position;
             _rate = rate;
             PendingAttackTick = -1;
             Recalculate();
@@ -67,8 +68,17 @@ namespace Dynasty.MatchSimulation
         public bool CanAttackAtAll => Stats.CanAttack;
 
         public bool IsStunned => (Flags & ModifierFlags.Stunned) != 0;
-        public bool CanMove => (Flags & (ModifierFlags.Stunned | ModifierFlags.Rooted)) == 0 && StepPerTick > Fixed.Zero;
-        public bool CanStartAttack => (Flags & (ModifierFlags.Stunned | ModifierFlags.Disarmed)) == 0 && CanAttackAtAll;
+
+        // Action gates use the tick-start snapshot: a status applied during a tick takes effect
+        // from the next tick, so the order units are processed in cannot decide who acts first.
+        public bool CanMove => (StartFlags & (ModifierFlags.Stunned | ModifierFlags.Rooted)) == 0 && StepPerTick > Fixed.Zero;
+        public bool CanStartAttack => (StartFlags & (ModifierFlags.Stunned | ModifierFlags.Disarmed)) == 0 && CanAttackAtAll;
+
+        /// <summary>Position at the start of the current tick; pursuit within a tick aims here.</summary>
+        public FixedVector2 StartPosition { get; internal set; }
+
+        /// <summary>Status flags at the start of the current tick.</summary>
+        public ModifierFlags StartFlags { get; internal set; }
 
         public IReadOnlyList<ActiveModifier> Modifiers => _modifiers;
 
@@ -317,6 +327,7 @@ namespace Dynasty.MatchSimulation
                 LastActiveTick = tick,
             };
             unit.Position = unit.WaypointAt(0);
+            unit.StartPosition = unit.Position;
             unit.NextWaypoint = 1;
             Add(unit);
             return unit;

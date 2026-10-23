@@ -112,7 +112,7 @@ namespace Dynasty.MatchSimulation.Systems
                         }
 
                         unit.TargetId = target.Id;
-                        if (unit.CanMove && !Geometry.WithinEdgeRange(unit, target, unit.AttackRange) && Chase(state, unit, hero, target, unit.AttackRange))
+                        if (unit.CanMove && !Geometry.WithinEdgeRangeOfStart(unit, target, unit.AttackRange) && Chase(state, unit, hero, target, unit.AttackRange))
                             unit.LastActiveTick = now;
                         break;
 
@@ -142,15 +142,15 @@ namespace Dynasty.MatchSimulation.Systems
 
         private static bool Chase(MatchState state, MatchUnit unit, HeroState hero, MatchUnit target, int range)
         {
-            if (state.Nav.HasLineOfSight(unit.Position, target.Position))
+            if (state.Nav.HasLineOfSight(unit.Position, target.StartPosition))
             {
                 hero.Path = null;
                 return MovementSystem.Approach(unit, target, range);
             }
 
-            if (hero.Path != null && FixedVector2.Distance(hero.PathGoal, target.Position) > RepathDistance)
+            if (hero.Path != null && FixedVector2.Distance(hero.PathGoal, target.StartPosition) > RepathDistance)
                 hero.Path = null;
-            return WalkTo(state, unit, hero, target.Position);
+            return WalkTo(state, unit, hero, target.StartPosition);
         }
 
         /// <summary>Follows (computing if needed) an A* path to the point. Returns true if the hero moved.</summary>

@@ -11,6 +11,13 @@ namespace Dynasty.MatchSimulation.Systems
             return FixedVector2.DistanceSquared(a.Position, b.Position) <= reach * reach;
         }
 
+        /// <summary>Like <see cref="WithinEdgeRange(MatchUnit, MatchUnit, int)"/>, against the target's tick-start position.</summary>
+        public static bool WithinEdgeRangeOfStart(MatchUnit unit, MatchUnit target, int range)
+        {
+            Fixed reach = Fixed.FromInt(range + unit.BoundingRadius + target.BoundingRadius);
+            return FixedVector2.DistanceSquared(unit.Position, target.StartPosition) <= reach * reach;
+        }
+
         public static bool WithinRange(FixedVector2 a, FixedVector2 b, int range)
         {
             Fixed reach = Fixed.FromInt(range);

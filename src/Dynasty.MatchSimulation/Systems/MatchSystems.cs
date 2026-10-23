@@ -83,6 +83,24 @@ namespace Dynasty.MatchSimulation.Systems
     }
 
     /// <summary>
+    /// Records every unit's position and status flags. Runs after the tick-start updates
+    /// (modifier expiry, respawns, shopping) and before anything acts.
+    /// </summary>
+    internal sealed class TickSnapshotSystem : ISimulationSystem<MatchState>
+    {
+        public string Name => "tick-snapshot";
+
+        public void Tick(SimulationContext<MatchState> context)
+        {
+            foreach (MatchUnit unit in context.State.Units)
+            {
+                unit.StartPosition = unit.Position;
+                unit.StartFlags = unit.Flags;
+            }
+        }
+    }
+
+    /// <summary>
     /// Keeps a valid target or acquires the nearest attackable enemy (edge distance, ties by lower ID).
     /// Creeps search within acquisition range; towers within attack range and only hit units.
     /// </summary>
@@ -179,19 +197,23 @@ namespace Dynasty.MatchSimulation.Systems
             return true;
         }
 
-        /// <summary>Moves toward the target until it is within <paramref name="range"/> (edge to edge). Returns true if it moved.</summary>
+        /// <summary>
+        /// Moves toward the target until it is within <paramref name="range"/> (edge to edge). Returns
+        /// true if it moved. Aims at the target's tick-start position, so pursuit does not depend on
+        /// whether the target was processed earlier or later in this tick.
+        /// </summary>
         internal static bool Approach(MatchUnit unit, MatchUnit target, int range)
         {
-            // Same predicate as the attack/cast check; a separate sqrt-based test could disagree at the
-            // boundary (floored sqrt) and leave the unit neither moving nor acting.
-            if (Geometry.WithinEdgeRange(unit, target, range))
+            // Squared-distance predicate, consistent with the attack/cast checks; a separate sqrt-based
+            // test could disagree at the boundary (floored sqrt) and leave the unit neither moving nor acting.
+            if (Geometry.WithinEdgeRangeOfStart(unit, target, range))
                 return false;
 
             Fixed reach = Fixed.FromInt(range + unit.BoundingRadius + target.BoundingRadius);
-            Fixed distance = FixedVector2.Distance(unit.Position, target.Position);
+            Fixed distance = FixedVector2.Distance(unit.Position, target.StartPosition);
             // +1 unit guarantees progress into range even when the floored distance equals reach.
             Fixed step = Fixed.Min(unit.StepPerTick, distance - reach + Fixed.One);
-            unit.Position = FixedVector2.MoveTowards(unit.Position, target.Position, step);
+            unit.Position = FixedVector2.MoveTowards(unit.Position, target.StartPosition, step);
             return true;
         }
 

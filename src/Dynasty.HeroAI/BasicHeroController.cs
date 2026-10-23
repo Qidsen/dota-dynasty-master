@@ -249,6 +249,14 @@ namespace Dynasty.HeroAI
                         return AnyVisibleEnemy(state, hero, perception, 800) ? HeroOrder.CastNoTarget(def.Id) : null;
                     EffectDefinition? area = def.Effects.FirstOrDefault(e => e.Kind == EffectKind.Area);
                     int radius = area?.Radius ?? 600;
+                    if (area != null && area.Team == TargetTeam.Ally)
+                    {
+                        // Group heal/buff: when an allied hero inside the area is hurt.
+                        bool allyHurt = state.Units.Any(u => u.Hero != null && u.Team == hero.Team && u.IsAlive &&
+                                                             u.Hp * Fixed.FromInt(100) < Fixed.FromInt(u.MaxHp * 60) && Within(hero.Position, u.Position, radius));
+                        return allyHurt ? HeroOrder.CastNoTarget(def.Id) : null;
+                    }
+
                     return NearestVisibleEnemyHero(state, hero, perception, radius) != null ? HeroOrder.CastNoTarget(def.Id) : null;
             }
         }
