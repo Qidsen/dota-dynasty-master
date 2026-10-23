@@ -6,9 +6,11 @@
 ```
 Presentation (Unity: 3D, 2D, UI)      — этап 04+, только читает снимки/события, отправляет команды
         │
-Domain modules (MatchSimulation, AI…) — этап 01+
+tools/Dynasty.MatchLab                — консольная Match Laboratory (существует)
         │
-Dynasty.Core                          — существует (этап 00)
+Dynasty.MatchSimulation               — правила, карта, юниты, бой, победа (этап 01, см. MATCH_SIMULATION.md)
+        │
+Dynasty.Core                          — ядро (этап 00) + fixed-point математика (этап 01)
 ```
 Зависимости направлены только вниз. Ядро не знает ни о Unity, ни о MOBA.
 
@@ -38,5 +40,8 @@ Step():
 ## Гарантия воспроизводимости (текущая)
 Одинаковые `(seed, ruleset fingerprint, журнал команд, набор систем, сборка)` дают идентичный поток событий (равный `EventLog.Checksum`). Покрыто тестами `SameSeed_*` и `ReplayingRecordedCommands_ReproducesTheExactRun`. Кросс-рантаймовая гарантия (.NET ↔ Unity Mono/IL2CPP) держится, пока ядро целочисленное; см. D-003.
 
+| Математика | `Fixed`, `FixedVector2` | Q47.16 fixed-point для всего авторитетного состояния (D-003) |
+| Каноника | `CanonicalWriter` | Однозначная байтовая запись контента → SHA-256 fingerprint |
+
 ## Чего пока нет
-Карта, юниты, бой, ИИ, сериализация снимков/сохранений, канонический формат контента ruleset'а, Unity-проект.
+Герои, способности, предметы, ИИ, обзор, навграф, сериализация снимков/сохранений, JSON-импорт ruleset'ов, Unity-проект.

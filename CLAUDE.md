@@ -14,6 +14,7 @@
 ```
 dotnet build              # сборка всего решения (DotaDynasty.slnx)
 dotnet test               # все тесты
+dotnet run --project tools/Dynasty.MatchLab -c Release -- [base|lab] [firstSeed] [count] [maxMinutes]
 ```
 Требуется .NET SDK 10. Unity 6.3 LTS (6000.3.x) понадобится с этапа 04.
 
@@ -27,6 +28,8 @@ dotnet test               # все тесты
 - Предупреждения компилятора = ошибки.
 
 ## Структура
-- `src/Dynasty.Core` — ID, тики, RNG, хеши, события, команды, ruleset-идентичность, ядро симуляции.
-- `tests/Dynasty.Core.Tests` — xUnit, net10.0.
+- `src/Dynasty.Core` — ID, тики, RNG, хеши, fixed-point, события, команды, ruleset-идентичность, ядро симуляции.
+- `src/Dynasty.MatchSimulation` — ruleset-схема, базовые правила, состояние и системы матча (`docs/MATCH_SIMULATION.md`).
+- `tools/Dynasty.MatchLab` — консольный прогон матчей (net10.0, не для Unity).
+- `tests/*` — xUnit, net10.0. Тестовые ruleset'ы собираются через `RulesetDraft`.
 - `docs/` — архитектура, решения, статус, журнал.
