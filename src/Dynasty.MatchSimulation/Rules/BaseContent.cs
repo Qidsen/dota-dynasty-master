@@ -45,6 +45,19 @@ namespace Dynasty.MatchSimulation.Rules
             respawnMinMs: 480000, respawnMaxMs: 660000, teamGold: 200,
             reward: new ModifierSpec("colossus.blessing", 180000, damageBonus: 30, armorBonus: Fixed.FromInt(5), hpRegenBonus: Fixed.FromInt(10)));
 
+        /// <summary>Two river spots on the anti-diagonal (mirror images, equidistant from both fountains); a rune every 2 minutes.</summary>
+        public static RuneRules Runes { get; } = new RuneRules(
+            new[] { FixedVector2.FromInts(3000, 7000), FixedVector2.FromInts(7000, 3000) },
+            firstSpawnMs: 120000,
+            intervalMs: 120000,
+            new[]
+            {
+                new RuneType("haste", new ModifierSpec("rune.haste", 20000, moveSpeedPercent: 40)),
+                new RuneType("might", new ModifierSpec("rune.might", 30000, damageBonus: 40)),
+                new RuneType("renewal", new ModifierSpec("rune.renewal", 5000, healPerSecond: Fixed.FromInt(60))),
+                new RuneType("bounty", gold: 75),
+            });
+
         public static HeroRules Rules { get; } = new HeroRules(
             xpForLevel: new[] { 0, 230, 600, 1080, 1660, 2260, 2980, 3730, 4510, 5320, 6160, 7030, 7930, 9000, 10200 },
             xpShareRadius: 1200,

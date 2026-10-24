@@ -130,7 +130,8 @@ namespace Dynasty.MatchSimulation.Rules
                 heroRules: BaseContent.Rules,
                 abilities: BaseContent.Abilities,
                 items: BaseContent.Items,
-                boss: BaseContent.Boss);
+                boss: BaseContent.Boss,
+                runes: BaseContent.Runes);
         }
 
         private static StructurePlacement MirrorToDusk(StructurePlacement dawn) => new StructurePlacement(

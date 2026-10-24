@@ -400,9 +400,11 @@ namespace Dynasty.MatchSimulation.Rules
             HeroRules? heroRules = null,
             IReadOnlyList<AbilityDefinition>? abilities = null,
             IReadOnlyList<ItemDefinition>? items = null,
-            BossDefinition? boss = null)
+            BossDefinition? boss = null,
+            RuneRules? runes = null)
         {
             Boss = boss;
+            Runes = runes;
             Abilities = (abilities ?? Array.Empty<AbilityDefinition>()).ToArray();
             Items = (items ?? Array.Empty<ItemDefinition>()).ToArray();
             Id = id;
@@ -434,6 +436,9 @@ namespace Dynasty.MatchSimulation.Rules
 
         /// <summary>Optional neutral boss objective.</summary>
         public BossDefinition? Boss { get; }
+
+        /// <summary>Optional power-up runes.</summary>
+        public RuneRules? Runes { get; }
 
         public string Id { get; }
         public int Version { get; }
@@ -479,6 +484,17 @@ namespace Dynasty.MatchSimulation.Rules
             ValidateHeroes(errors);
             ValidateAbilities(errors);
             ValidateItems(errors);
+            if (Runes != null)
+            {
+                if (Runes.Types.Count == 0 || Runes.Spots.Count == 0)
+                    errors.Add("Rune rules need at least one rune type and one spot.");
+                if (Runes.IntervalMs <= 0 || Runes.FirstSpawnMs < 0 || Runes.PickupRadius <= 0)
+                    errors.Add("Rune rules need a positive interval and pickup radius.");
+                if (Runes.Spots.Any(s => !IsInsideMap(s)))
+                    errors.Add("A rune spot is outside the map.");
+                ReportDuplicates(errors, "rune type", Runes.Types.Select(t => t.Id));
+            }
+
             if (Boss != null)
             {
                 if (FindCreepType(Boss.CreepTypeId) == null)
@@ -709,6 +725,8 @@ namespace Dynasty.MatchSimulation.Rules
                 item.WriteCanonical(writer);
             writer.WriteBool(Boss != null);
             Boss?.WriteCanonical(writer);
+            writer.WriteBool(Runes != null);
+            Runes?.WriteCanonical(writer);
 
             writer.WriteInt64(Waves.FirstSpawnMs);
             writer.WriteInt64(Waves.IntervalMs);

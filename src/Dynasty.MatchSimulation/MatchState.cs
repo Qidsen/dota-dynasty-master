@@ -18,6 +18,9 @@ namespace Dynasty.MatchSimulation
 
         /// <summary>Neutral objective (see <see cref="BossDefinition"/>).</summary>
         Boss = 4,
+
+        /// <summary>A power-up lying on the map; picked up by walking onto it, never attacked.</summary>
+        Rune = 5,
     }
 
     /// <summary>
@@ -113,6 +116,10 @@ namespace Dynasty.MatchSimulation
 
         /// <summary>Last tick the unit moved or started an attack; used to detect stuck units.</summary>
         public long LastActiveTick { get; internal set; }
+
+        /// <summary>Runes only: what the rune gives and which spot it occupies.</summary>
+        public RuneType? Rune { get; internal set; }
+        internal int RuneSpot { get; set; }
 
         /// <summary>Neutral units only: where they return to and how far they may chase.</summary>
         internal FixedVector2 NeutralHome { get; set; }
@@ -278,6 +285,24 @@ namespace Dynasty.MatchSimulation
                 NextBossSpawnTick = rate.TicksFor(ruleset.Boss.FirstSpawnMs);
             foreach (NeutralCampDefinition camp in ruleset.Map.Camps)
                 Camps.Add(new CampState(camp, rate.TicksFor(camp.FirstSpawnMs)));
+            if (ruleset.Runes != null)
+                NextRuneTick = rate.TicksFor(ruleset.Runes.FirstSpawnMs);
+        }
+
+        /// <summary>Tick of the next rune spawn; -1 without runes.</summary>
+        internal long NextRuneTick { get; set; } = -1;
+
+        private static readonly UnitStats RuneStats = new UnitStats(1, Fixed.Zero, 0, 0, 0, 0, 1000, 0, 0, 16, visionRange: 0);
+
+        internal MatchUnit SpawnRune(EntityId id, RuneType type, int spot, FixedVector2 position)
+        {
+            var unit = new MatchUnit(id, Team.Neutral, UnitKind.Rune, type.Id, RuneStats, position, Rate)
+            {
+                Rune = type,
+                RuneSpot = spot,
+            };
+            Add(unit);
+            return unit;
         }
 
         internal List<CampState> Camps { get; } = new List<CampState>();
@@ -368,7 +393,7 @@ namespace Dynasty.MatchSimulation
         /// </summary>
         internal bool CanAttack(MatchUnit attacker, MatchUnit target)
         {
-            if (!target.IsAlive || target == attacker)
+            if (!target.IsAlive || target == attacker || target.Kind == UnitKind.Rune)
                 return false;
             if (target.Team == attacker.Team)
                 return attacker.Kind == UnitKind.Hero && target.Kind == UnitKind.Creep && target.Hp * Fixed.FromInt(2) < Fixed.FromInt(target.MaxHp);

@@ -32,7 +32,7 @@ namespace Dynasty.MatchSimulation.Systems
 
             foreach (MatchUnit unit in state.Units)
             {
-                if (unit.Team != Team.Neutral || !unit.IsAlive)
+                if (unit.Team != Team.Neutral || !unit.IsAlive || unit.Kind == UnitKind.Rune)
                     continue;
 
                 MatchUnit? target = ChooseTarget(state, unit);

@@ -175,7 +175,7 @@ namespace Dynasty.MatchSimulation.Systems
         /// </summary>
         public static bool Matches(MatchState state, MatchUnit caster, MatchUnit unit, TargetTeam team, bool allowAlliedStructures = false)
         {
-            if (!unit.IsAlive)
+            if (!unit.IsAlive || unit.Kind == UnitKind.Rune)
                 return false;
             if (unit.Kind == UnitKind.Structure)
                 return allowAlliedStructures && unit.Team == caster.Team && team != TargetTeam.Enemy;

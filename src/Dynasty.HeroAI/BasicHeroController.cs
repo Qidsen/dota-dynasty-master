@@ -262,9 +262,30 @@ namespace Dynasty.HeroAI
                 return;
             if (Gank())
                 return;
+            if (PickUpRune())
+                return;
             if (FarmJungle())
                 return;
             Lane();
+        }
+
+        // ── Runes ────────────────────────────────────────────────────────────────
+
+        /// <summary>Walks onto a visible rune nearby (runes are only known while seen).</summary>
+        private bool PickUpRune()
+        {
+            if (Math.HpPercent(_hero) < 40)
+                return false;
+            HeroDecision self = this;
+            MatchUnit? rune = _state.Units
+                .Where(u => u.Kind == UnitKind.Rune && self.Sees(u) && Math.Within(u.Position, self._hero.Position, 2500) && !self.UnderEnemyTower(u.Position))
+                .OrderBy(u => FixedVector2.DistanceSquared(u.Position, self._hero.Position))
+                .FirstOrDefault();
+            if (rune == null)
+                return false;
+
+            Issue(HeroOrder.Move(rune.Position));
+            return true;
         }
 
         // ── Jungle ───────────────────────────────────────────────────────────────

@@ -645,6 +645,56 @@ namespace Dynasty.MatchSimulation.Events
         public void WritePayload(ref Fnv1a64 hash) => hash.AddString(CampId);
     }
 
+    public sealed class RuneSpawned : IDomainEvent
+    {
+        public RuneSpawned(EntityId rune, string runeTypeId, FixedVector2 position)
+        {
+            Rune = rune;
+            RuneTypeId = runeTypeId;
+            Position = position;
+        }
+
+        public EntityId Rune { get; }
+        public string RuneTypeId { get; }
+        public FixedVector2 Position { get; }
+
+        public string Type => "match.rune_spawned";
+        public int SchemaVersion => 1;
+
+        public void WritePayload(ref Fnv1a64 hash)
+        {
+            hash.AddInt64(Rune.Value);
+            hash.AddString(RuneTypeId);
+            hash.AddInt64(Position.X.Raw);
+            hash.AddInt64(Position.Y.Raw);
+        }
+    }
+
+    public sealed class RunePickedUp : IDomainEvent
+    {
+        public RunePickedUp(EntityId hero, string runeTypeId, FixedVector2 position)
+        {
+            Hero = hero;
+            RuneTypeId = runeTypeId;
+            Position = position;
+        }
+
+        public EntityId Hero { get; }
+        public string RuneTypeId { get; }
+        public FixedVector2 Position { get; }
+
+        public string Type => "match.rune_picked_up";
+        public int SchemaVersion => 1;
+
+        public void WritePayload(ref Fnv1a64 hash)
+        {
+            hash.AddInt64(Hero.Value);
+            hash.AddString(RuneTypeId);
+            hash.AddInt64(Position.X.Raw);
+            hash.AddInt64(Position.Y.Raw);
+        }
+    }
+
     public sealed class MatchFinished : IDomainEvent
     {
         public MatchFinished(Team winner, string destroyedAncient)
