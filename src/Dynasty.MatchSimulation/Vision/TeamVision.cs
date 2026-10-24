@@ -3,6 +3,7 @@ using Dynasty.Core.Ids;
 using Dynasty.Core.Kernel;
 using Dynasty.Core.Mathematics;
 using Dynasty.MatchSimulation.Combat;
+using Dynasty.MatchSimulation.Events;
 using Dynasty.MatchSimulation.Navigation;
 using Dynasty.MatchSimulation.Rules;
 
@@ -68,21 +69,26 @@ namespace Dynasty.MatchSimulation.Vision
         public void Tick(SimulationContext<MatchState> context)
         {
             long now = context.Tick.Value;
+            MatchState state = context.State;
+            bool night = state.IsNight(now);
+            if (now > 0 && night != state.IsNight(now - 1))
+                context.Emit(new DayNightChanged(night));
+
             if (now % IntervalTicks != 0)
                 return;
 
-            MatchState state = context.State;
             foreach (Team team in new[] { Team.Dawn, Team.Dusk })
-                Update(state, state.KnowledgeOf(team), now);
+                Update(state, state.KnowledgeOf(team), now, night);
         }
 
-        private void Update(MatchState state, TeamKnowledge knowledge, long now)
+        private void Update(MatchState state, TeamKnowledge knowledge, long now, bool night)
         {
             _observers.Clear();
             foreach (MatchUnit unit in state.Units)
             {
-                if (unit.Team == knowledge.Team && unit.IsAlive && unit.Stats.VisionRange > 0)
-                    _observers.Add(new Observer(unit.Position, Square(unit.Stats.VisionRange), Square(unit.Stats.TrueSightRange)));
+                int range = night ? unit.Stats.NightVisionRange : unit.Stats.VisionRange;
+                if (unit.Team == knowledge.Team && unit.IsAlive && range > 0)
+                    _observers.Add(new Observer(unit.Position, Square(range), Square(unit.Stats.TrueSightRange), state.ElevationAt(unit.Position)));
             }
 
             knowledge.Reset();
@@ -90,12 +96,12 @@ namespace Dynasty.MatchSimulation.Vision
             {
                 if (unit.Team == knowledge.Team || !unit.IsAlive)
                     continue;
-                if (IsSeen(state.SightGrid, unit))
+                if (IsSeen(state.SightGrid, unit, state.ElevationAt(unit.Position)))
                     knowledge.MarkVisible(unit, now);
             }
         }
 
-        private bool IsSeen(NavGrid sight, MatchUnit target)
+        private bool IsSeen(NavGrid sight, MatchUnit target, int targetLevel)
         {
             bool invisible = (target.Flags & ModifierFlags.Invisible) != 0;
             if (invisible)
@@ -114,9 +120,11 @@ namespace Dynasty.MatchSimulation.Vision
                     return false;
             }
 
+            // Low ground cannot see up onto high ground.
             foreach (Observer observer in _observers)
             {
-                if (FixedVector2.DistanceSquared(observer.Position, target.Position) <= observer.VisionSquared &&
+                if (observer.Level >= targetLevel &&
+                    FixedVector2.DistanceSquared(observer.Position, target.Position) <= observer.VisionSquared &&
                     sight.HasClearLine(observer.Position, target.Position))
                     return true;
             }
@@ -132,14 +140,16 @@ namespace Dynasty.MatchSimulation.Vision
 
         private readonly struct Observer
         {
-            public Observer(FixedVector2 position, Fixed visionSquared, Fixed trueSightSquared)
+            public Observer(FixedVector2 position, Fixed visionSquared, Fixed trueSightSquared, int level)
             {
                 Position = position;
                 VisionSquared = visionSquared;
                 TrueSightSquared = trueSightSquared;
+                Level = level;
             }
 
             public FixedVector2 Position { get; }
+            public int Level { get; }
             public Fixed VisionSquared { get; }
             public Fixed TrueSightSquared { get; }
         }

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using Dynasty.Core.Commands;
 using Dynasty.Core.Events;
 using Dynasty.Core.Ids;
@@ -60,6 +61,16 @@ namespace Dynasty.Core.Kernel
     }
 
     /// <summary>
+    /// Optional measurement hook (MatchLab, performance tests). It observes wall-clock time only and
+    /// never feeds back into the simulation, so it cannot affect determinism.
+    /// </summary>
+    public interface ISimulationProfiler
+    {
+        /// <summary>Called after each system tick with its duration in <see cref="Stopwatch"/> ticks.</summary>
+        void SystemTicked(string system, long elapsedStopwatchTicks);
+    }
+
+    /// <summary>
     /// Authoritative fixed-tick simulation loop, independent of Unity and of frame rate.
     /// Per tick: due commands (validated, then applied, in submission order), then systems.
     /// Live, fast-forward, headless batch and replay all drive this same loop.
@@ -93,6 +104,9 @@ namespace Dynasty.Core.Kernel
         public EntityIdAllocator Ids { get; } = new EntityIdAllocator();
 
         internal RandomStreams Streams { get; }
+
+        /// <summary>When set, every system tick is timed and reported (see <see cref="ISimulationProfiler"/>).</summary>
+        public ISimulationProfiler? Profiler { get; set; }
 
         public void AddSystem(ISimulationSystem<TState> system)
         {
@@ -133,8 +147,19 @@ namespace Dynasty.Core.Kernel
             _started = true;
 
             ExecuteDueCommands();
+            ISimulationProfiler? profiler = Profiler;
             foreach (ISimulationSystem<TState> system in _systems)
+            {
+                if (profiler == null)
+                {
+                    system.Tick(_context);
+                    continue;
+                }
+
+                long start = Stopwatch.GetTimestamp();
                 system.Tick(_context);
+                profiler.SystemTicked(system.Name, Stopwatch.GetTimestamp() - start);
+            }
 
             CurrentTick = CurrentTick.Next();
         }

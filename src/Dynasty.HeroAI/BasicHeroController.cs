@@ -45,7 +45,7 @@ namespace Dynasty.HeroAI
         public TeamPlanKind Plan { get; private set; }
         public MatchUnit? Objective { get; private set; }
 
-        public void UpdatePlan(MatchState state, long now, int ticksPerMinute)
+        public void UpdatePlan(MatchState state, long now, int ticksPerMinute, HeroAiSettings settings)
         {
             MatchUnit? threatened = FindThreatenedStructure(state);
             if (threatened != null)
@@ -59,19 +59,25 @@ namespace Dynasty.HeroAI
             int enemyAlive = state.Heroes.Count(h => h.Team != Team && !h.Hero!.IsDead);
             long minute = now / ticksPerMinute;
 
-            if (state.Boss != null && ownAlive >= 3 && ownAlive - enemyAlive >= 2)
+            MatchUnit? boss = state.Boss;
+            bool bossUncontested = boss != null && minute >= settings.BossAtEvenNumbersFromMinute && ownAlive >= 4 && ownAlive >= enemyAlive &&
+                                   !state.Heroes.Any(h => h.Team != Team && h.IsAlive && state.IsVisibleTo(Team, h) && Math.Within(h.Position, boss.Position, 2500));
+            if (boss != null && ((ownAlive >= 3 && ownAlive - enemyAlive >= 2) || bossUncontested))
             {
                 Plan = TeamPlanKind.Boss;
                 Objective = state.Boss;
                 return;
             }
-            bool advantage = ownAlive - enemyAlive >= 2 || (ownAlive >= enemyAlive && ownAlive >= 3 && minute >= 20);
+            int needed = minute < settings.LaningPhaseMinutes ? 3 : 2;   // the laning phase is for farming
+            bool advantage = ownAlive - enemyAlive >= needed || (ownAlive >= enemyAlive && ownAlive >= 3 && minute >= 15);
             if (advantage)
             {
                 FixedVector2 home = state.Ruleset.Map.FountainOf(Team)!.Position;
+                // Join the siege already under way: a structure our creeps are at beats a closer one.
                 Objective = state.Units
                     .Where(u => u.Kind == UnitKind.Structure && u.Team != Team && u.IsAlive && state.IsVulnerable(u))
-                    .OrderBy(u => FixedVector2.DistanceSquared(u.Position, home))
+                    .OrderByDescending(u => AlliedCreepsAt(state, u))
+                    .ThenBy(u => FixedVector2.DistanceSquared(u.Position, home))
                     .FirstOrDefault();
                 Plan = Objective != null ? TeamPlanKind.Push : TeamPlanKind.Lane;
                 return;
@@ -79,6 +85,12 @@ namespace Dynasty.HeroAI
 
             Plan = TeamPlanKind.Lane;
             Objective = null;
+        }
+
+        private int AlliedCreepsAt(MatchState state, MatchUnit structure)
+        {
+            int reach = Math.TowerReach(structure) + 300;
+            return state.Units.Count(u => u.Kind == UnitKind.Creep && u.Team == Team && u.IsAlive && Math.Within(u.Position, structure.Position, reach));
         }
 
         /// <summary>An own structure with a visible enemy hero in or near its attack range.</summary>
@@ -146,6 +158,9 @@ namespace Dynasty.HeroAI
     {
         public long NextDecisionTick { get; set; }
         public bool Retreating { get; set; }
+
+        /// <summary>Camps this hero found empty, with the tick they are expected back.</summary>
+        public Dictionary<string, long> CampEmptyUntil { get; } = new Dictionary<string, long>();
     }
 
     /// <summary>
@@ -177,8 +192,8 @@ namespace Dynasty.HeroAI
             int ticksPerMinute = context.TickRate.TicksPerSecond * 60;
             if (now % PlanIntervalTicks == 0)
             {
-                _dawn.UpdatePlan(state, now, ticksPerMinute);
-                _dusk.UpdatePlan(state, now, ticksPerMinute);
+                _dawn.UpdatePlan(state, now, ticksPerMinute, _settings);
+                _dusk.UpdatePlan(state, now, ticksPerMinute, _settings);
             }
 
             DeterministicRandom random = context.Random("ai");
@@ -251,6 +266,8 @@ namespace Dynasty.HeroAI
                 return;
             }
 
+            if (Cleanse())
+                return;
             if (Fight())
                 return;
             if (FollowPlan())
@@ -259,7 +276,104 @@ namespace Dynasty.HeroAI
                 return;
             if (Gank())
                 return;
+            if (PickUpRune())
+                return;
+            if (FarmJungle())
+                return;
             Lane();
+        }
+
+        // ── Runes ────────────────────────────────────────────────────────────────
+
+        /// <summary>Walks onto a visible rune nearby (runes are only known while seen).</summary>
+        private bool PickUpRune()
+        {
+            if (Math.HpPercent(_hero) < 40)
+                return false;
+            HeroDecision self = this;
+            MatchUnit? rune = _state.Units
+                .Where(u => u.Kind == UnitKind.Rune && self.Sees(u) && Math.Within(u.Position, self._hero.Position, 2500) && !self.UnderEnemyTower(u.Position))
+                .OrderBy(u => FixedVector2.DistanceSquared(u.Position, self._hero.Position))
+                .FirstOrDefault();
+            if (rune == null)
+                return false;
+
+            Issue(HeroOrder.Move(rune.Position));
+            return true;
+        }
+
+        // ── Jungle ───────────────────────────────────────────────────────────────
+
+        /// <summary>
+        /// With no allied creeps in its lane, a healthy hero farms the nearest own-half camp it has
+        /// not recently found empty. Camp positions are static map knowledge; creeps must be seen.
+        /// </summary>
+        private bool FarmJungle()
+        {
+            if (Math.HpPercent(_hero) < 50 || _state.Ruleset.Map.Camps.Count == 0)
+                return false;
+            HeroDecision self = this;
+            bool laneHasCreeps = _state.Units.Any(u => u.Team == self._hero.Team && u.Kind == UnitKind.Creep && u.IsAlive && u.LaneId == self._h.AssignedLane);
+            if (laneHasCreeps)
+                return false;
+
+            FixedVector2 enemyHome = _state.Ruleset.Map.FountainOf(_hero.Team.Opponent())!.Position;
+            NeutralCampDefinition? camp = _state.Ruleset.Map.Camps
+                .Where(c => FixedVector2.DistanceSquared(c.Position, self.Home) < FixedVector2.DistanceSquared(c.Position, enemyHome))
+                .Where(c => !self._memory.CampEmptyUntil.TryGetValue(c.Id, out long until) || self._now >= until)
+                .OrderBy(c => FixedVector2.DistanceSquared(c.Position, self._hero.Position))
+                .FirstOrDefault();
+            if (camp == null)
+                return false;
+
+            if (!Math.Within(_hero.Position, camp.Position, 500))
+            {
+                Issue(HeroOrder.Move(camp.Position));
+                return true;
+            }
+
+            MatchUnit? creep = _state.Units
+                .Where(u => u.Team == Team.Neutral && u.Kind == UnitKind.Creep && u.IsAlive && self.Sees(u) && Math.Within(u.Position, camp.Position, camp.LeashRadius))
+                .OrderBy(u => u.Hp)
+                .FirstOrDefault();
+            if (creep == null)
+            {
+                _memory.CampEmptyUntil[camp.Id] = _now + camp.RespawnMs * (_ticksPerMinute / 60) / 1000;
+                return false;
+            }
+
+            Issue(HeroOrder.Attack(creep.Id));
+            return true;
+        }
+
+        // ── Support ──────────────────────────────────────────────────────────────
+
+        /// <summary>Dispels a disabled or slowed allied hero in range.</summary>
+        private bool Cleanse()
+        {
+            if ((_hero.Flags & ModifierFlags.Silenced) != 0)
+                return false;
+            HeroDecision self = this;
+            foreach (AbilityState ability in ReadyAbilities())
+            {
+                AbilityDefinition def = ability.Definition;
+                EffectDefinition? dispel = def.Effects.FirstOrDefault(e => e.Kind == EffectKind.Dispel);
+                if (dispel == null || def.Targeting != AbilityTargeting.Unit || def.TargetTeam == TargetTeam.Enemy)
+                    continue;
+
+                MatchUnit? ally = _state.Heroes
+                    .Where(h => h.Team == self._hero.Team && h.IsAlive && Math.Within(h.Position, self._hero.Position, def.CastRange + 200) &&
+                                h.Modifiers.Any(m => Math.WorthCleansing(m.Spec, dispel.Strong)))
+                    .OrderBy(h => h.Hp)
+                    .FirstOrDefault();
+                if (ally != null)
+                {
+                    Issue(HeroOrder.Cast(def.Id, ally.Id));
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         // ── Fighting ─────────────────────────────────────────────────────────────
@@ -274,8 +388,8 @@ namespace Dynasty.HeroAI
 
             HeroDecision self = this;
             List<MatchUnit> allies = _state.Heroes.Where(h => h.Team == self._hero.Team && h.IsAlive && Math.Within(h.Position, self._hero.Position, range)).ToList();
-            double own = allies.Sum(Math.Power) + TowerSupport(_hero.Team, _hero.Position);
-            double theirs = enemies.Sum(Math.Power) + TowerSupport(_hero.Team.Opponent(), _hero.Position);
+            double own = allies.Sum(PowerOf) + TowerSupport(_hero.Team, _hero.Position);
+            double theirs = enemies.Sum(PowerOf) + TowerSupport(_hero.Team.Opponent(), _hero.Position);
             double noise = _settings.MisjudgementPercent > 0 ? _random.NextInt(-_settings.MisjudgementPercent, _settings.MisjudgementPercent + 1) / 100.0 : 0;
             double odds = own / System.Math.Max(theirs, 1) * _personality.Aggression * (1 + noise);
 
@@ -300,6 +414,29 @@ namespace Dynasty.HeroAI
             Issue(HeroOrder.Attack(focus.Id));
             return true;
         }
+
+        /// <summary>
+        /// Fighting strength as this team judges it: an ultimate ready to cast counts for a lot.
+        /// Allies' cooldowns and mana are known; an enemy's learned ultimate is assumed ready,
+        /// since its cooldown cannot be seen.
+        /// </summary>
+        private double PowerOf(MatchUnit hero)
+        {
+            double power = Math.Power(hero);
+            foreach (AbilityState ability in hero.Hero!.Abilities)
+            {
+                if (ability.Level == 0 || !Math.IsUltimate(ability.Definition))
+                    continue;
+                bool ready = hero.Team != _hero.Team ||
+                             (ability.IsReady(_now) && hero.Hero.Mana >= Fixed.FromInt(ability.Definition.ManaCostAt(ability.Level)));
+                if (ready)
+                    return power * UltimateReadyFactor;
+            }
+
+            return power;
+        }
+
+        private const double UltimateReadyFactor = 1.25;
 
         /// <summary>Even fight: poke with single-target nukes when not worse off than the target.</summary>
         private bool Harass(List<MatchUnit> enemies)
@@ -371,6 +508,9 @@ namespace Dynasty.HeroAI
                     return hurt != null ? HeroOrder.Cast(def.Id, hurt.Id) : null;
 
                 case AbilityTargeting.Unit:
+                    // A dispel on an enemy is only worth it when there is a buff to strip.
+                    if (def.Effects.Any(e => e.Kind == EffectKind.Dispel) && !focus.Modifiers.Any(m => !m.Spec.IsPermanent && m.Spec.Dispellable && !m.Spec.IsDebuff))
+                        return null;
                     return Math.Within(_hero.Position, focus.Position, reach) ? HeroOrder.Cast(def.Id, focus.Id) : null;
 
                 case AbilityTargeting.Point:
@@ -406,11 +546,33 @@ namespace Dynasty.HeroAI
             if (prey == null)
                 return false;
 
-            double own = _state.Heroes.Where(h => h.Team == self._hero.Team && h.IsAlive && Math.Within(h.Position, prey.Position, 3000)).Sum(Math.Power);
-            if (own * _personality.Aggression < Math.Power(prey) * 1.3)
+            double own = _state.Heroes.Where(h => h.Team == self._hero.Team && h.IsAlive && Math.Within(h.Position, prey.Position, 3000)).Sum(PowerOf);
+            if (own * _personality.Aggression < PowerOf(prey) * 1.3)
                 return false;
 
+            if (!Math.Within(_hero.Position, prey.Position, 1500) && TrySmoke())
+                return true;
+
             Issue(HeroOrder.Attack(prey.Id));
+            return true;
+        }
+
+        /// <summary>Smokes the nearby group before a long approach (at least one ally close by).</summary>
+        private bool TrySmoke()
+        {
+            if ((_hero.Flags & ModifierFlags.Invisible) != 0)
+                return false;
+            HeroDecision self = this;
+            if (_state.Heroes.Count(h => h.Team == self._hero.Team && h.IsAlive && h != self._hero && Math.Within(h.Position, self._hero.Position, 800)) == 0)
+                return false;
+            AbilityState? smoke = _h.Inventory
+                .Where(i => i.Active != null && Math.IsSmoke(i.Active.Definition))
+                .Select(i => i.Active!)
+                .FirstOrDefault(a => a.IsReady(_now));
+            if (smoke == null)
+                return false;
+
+            Issue(HeroOrder.CastNoTarget(smoke.Definition.Id));
             return true;
         }
 
@@ -424,7 +586,14 @@ namespace Dynasty.HeroAI
 
             if (_brain.Plan == TeamPlanKind.Defend)
             {
-                if (Math.HpPercent(_hero) < 50 || !Math.Within(_hero.Position, objective.Position, 7000))
+                if (Math.HpPercent(_hero) < 50)
+                    return false;
+                // While laning, and for a greedy carry, only heroes already close come to help.
+                long minute = _now / _ticksPerMinute;
+                int responseRange = minute < _settings.LaningPhaseMinutes || _personality.Greed > 0.7 ? 3000 : 7000;
+                if (responseRange > 4000 && !Math.Within(_hero.Position, objective.Position, 4000) && TryTeleportTo(objective))
+                    return true;
+                if (!Math.Within(_hero.Position, objective.Position, responseRange))
                     return false;
                 Issue(HeroOrder.Move(FixedVector2.MoveTowards(objective.Position, Home, Fixed.FromInt(250))));
                 return true;
@@ -446,6 +615,7 @@ namespace Dynasty.HeroAI
                 long minute = _now / _ticksPerMinute;
                 if (_personality.Greed > 0.7 && minute < 18)
                     return false;
+                HeroDecision self = this;
 
                 MatchUnit? lastHit = FindLastHit(400);
                 if (lastHit != null)
@@ -454,8 +624,10 @@ namespace Dynasty.HeroAI
                     return true;
                 }
 
-                bool towerBusy = !objective.CanAttackAtAll || CreepsTanking(objective) || AlliedHeroesNear(objective.Position, 1200) >= 3;
-                if (towerBusy && _state.IsVulnerable(objective))
+                // Hit it together: wait at the gathering point until enough of the team has arrived.
+                int needed = System.Math.Min(3, _state.Heroes.Count(h => h.Team == self._hero.Team && h.IsAlive));
+                bool assembled = !objective.CanAttackAtAll || AlliedHeroesNear(objective.Position, Math.TowerReach(objective) + 700) >= needed;
+                if (assembled && _state.IsVulnerable(objective))
                 {
                     Issue(HeroOrder.Attack(objective.Id));
                     return true;
@@ -468,6 +640,22 @@ namespace Dynasty.HeroAI
             }
 
             return false;
+        }
+
+        /// <summary>Channels a carried teleport onto an allied structure.</summary>
+        private bool TryTeleportTo(MatchUnit structure)
+        {
+            if (structure.Kind != UnitKind.Structure || structure.Team != _hero.Team)
+                return false;
+            AbilityState? teleport = _h.Inventory
+                .Where(i => i.Active != null && Math.IsTeleport(i.Active.Definition))
+                .Select(i => i.Active!)
+                .FirstOrDefault(a => a.IsReady(_now));
+            if (teleport == null)
+                return false;
+
+            Issue(HeroOrder.Cast(teleport.Definition.Id, structure.Id));
+            return true;
         }
 
         // ── Vision ───────────────────────────────────────────────────────────────
@@ -496,14 +684,18 @@ namespace Dynasty.HeroAI
 
         private void Lane()
         {
+            MatchUnit? lastHit = FindLastHit(_hero.AttackRange + 400);
             if (_h.Order.Kind == HeroOrderKind.Attack)
             {
+                // Keep a swing at a creep only while it is still worth it; otherwise stop hitting the
+                // wave (that only helps the allied creeps take the kill) and wait for the next chance.
                 MatchUnit? current = _state.Find(_h.Order.Target);
-                if (current != null && current.IsAlive && current.Kind != UnitKind.Hero && current.Kind != UnitKind.Structure && Sees(current))
+                if (current != null && current.Kind == UnitKind.Structure && current.IsAlive)
+                    return;
+                if (current != null && current.IsAlive && current.Kind != UnitKind.Hero && Sees(current) && IsLastHitCandidate(current))
                     return;
             }
 
-            MatchUnit? lastHit = FindLastHit(_hero.AttackRange + 400);
             if (lastHit != null)
             {
                 Issue(HeroOrder.Attack(lastHit.Id));
@@ -525,7 +717,6 @@ namespace Dynasty.HeroAI
 
         private MatchUnit? FindLastHit(int reach)
         {
-            Fixed factor = _state.Ruleset.Combat.ArmorFactor;
             MatchUnit? best = null;
             foreach (MatchUnit unit in _state.Units)
             {
@@ -533,15 +724,86 @@ namespace Dynasty.HeroAI
                     continue;
                 if (!Math.Within(_hero.Position, unit.Position, reach) || UnderEnemyTower(unit.Position))
                     continue;
-
-                Fixed hit = Fixed.FromInt(_hero.AttackDamageMin) * CombatMath.ArmorMultiplier(unit.Armor, factor);
-                bool deny = unit.Team == _hero.Team && unit.Hp * Fixed.FromInt(2) < Fixed.FromInt(unit.MaxHp);
-                if (unit.Hp <= hit && (unit.Team != _hero.Team || deny) && (best == null || unit.Hp < best.Hp))
+                if (IsLastHitCandidate(unit) && (best == null || unit.Hp < best.Hp))
                     best = unit;
             }
 
             return best;
         }
+
+        /// <summary>
+        /// An enemy creep (or an allied one below half HP, a deny) that a swing started now finishes:
+        /// the hits already on their way to it (visible wind-ups and the attackers' rhythm) leave it
+        /// alive but within one hit by the time the swing lands.
+        /// </summary>
+        private bool IsLastHitCandidate(MatchUnit unit)
+        {
+            if (unit.Kind != UnitKind.Creep && unit.Kind != UnitKind.Summon)
+                return false;
+            bool deny = unit.Team == _hero.Team && unit.Hp * Fixed.FromInt(2) < Fixed.FromInt(unit.MaxHp);
+            if (unit.Team == _hero.Team && !deny)
+                return false;
+
+            Fixed factor = _state.Ruleset.Combat.ArmorFactor;
+            Fixed hit = Fixed.FromInt(_hero.AttackDamageMin) * CombatMath.ArmorMultiplier(unit.Armor, factor);
+            if (unit.Hp <= hit)
+                return true;
+            if (deny)
+                return false;   // a speculative deny would cost the cooldown a last hit needs
+            Fixed expected = unit.Hp - DamageLandingBefore(unit, _now + TicksUntilMyHitLands(unit), factor);
+            return expected <= hit && expected > Fixed.Zero;
+        }
+
+        /// <summary>Walk into range (while the attack cooldown runs out), then wind-up and projectile flight, in ticks.</summary>
+        private int TicksUntilMyHitLands(MatchUnit target)
+        {
+            Fixed distance = FixedVector2.Distance(_hero.Position, target.Position);
+            Fixed reach = Fixed.FromInt(_hero.AttackRange + _hero.BoundingRadius + target.BoundingRadius);
+            long walk = 0;
+            if (distance > reach && _hero.MoveSpeed > 0)
+                walk = ((distance - reach) * Fixed.FromInt(TicksPerSecond) / Fixed.FromInt(_hero.MoveSpeed)).ToIntFloor();
+            long swingStarts = System.Math.Max(walk, _hero.NextAttackTick - _now);
+            return (int)swingStarts + WindUpTicks(_hero) + FlightTicks(_hero, Fixed.Min(distance, reach));
+        }
+
+        /// <summary>
+        /// Damage the visible units attacking the target from within range will land before
+        /// <paramref name="tick"/>: a wind-up in progress, then one swing per attack interval.
+        /// </summary>
+        private Fixed DamageLandingBefore(MatchUnit target, long tick, Fixed armorFactor)
+        {
+            Fixed perHit = CombatMath.ArmorMultiplier(target.Armor, armorFactor);
+            Fixed total = Fixed.Zero;
+            foreach (MatchUnit attacker in _state.Units)
+            {
+                if (attacker.Team == target.Team || attacker.Kind == UnitKind.Hero || !attacker.IsAlive || !Sees(attacker))
+                    continue;
+                bool windingUp = attacker.PendingAttackTick >= 0 && attacker.PendingTargetId == target.Id;
+                if (!windingUp && attacker.TargetId != target.Id)
+                    continue;
+                if (!Math.Within(attacker.Position, target.Position, attacker.AttackRange + attacker.BoundingRadius + target.BoundingRadius + 25))
+                    continue;   // still walking up: not hitting yet
+
+                Fixed average = Fixed.FromRatio(attacker.AttackDamageMin + attacker.AttackDamageMax, 2) * perHit;
+                long flight = FlightTicks(attacker, FixedVector2.Distance(attacker.Position, target.Position));
+                int hits = 0;
+                if (windingUp && attacker.PendingAttackTick + flight < tick)
+                    hits++;
+                long interval = System.Math.Max(1, attacker.Stats.AttackIntervalMs * 100 / (100 + attacker.AttackSpeedBonus) * TicksPerSecond / 1000);
+                for (long start = System.Math.Max(_now, attacker.NextAttackTick); start + WindUpTicks(attacker) + flight < tick; start += interval)
+                    hits++;
+                total += average * Fixed.FromInt(hits);
+            }
+
+            return total;
+        }
+
+        private int TicksPerSecond => _ticksPerMinute / 60;
+
+        private int WindUpTicks(MatchUnit unit) => unit.Stats.AttackPointMs * 100 / (100 + unit.AttackSpeedBonus) * TicksPerSecond / 1000;
+
+        private int FlightTicks(MatchUnit unit, Fixed distance) =>
+            unit.Stats.ProjectileSpeed > 0 ? (distance * Fixed.FromInt(TicksPerSecond) / Fixed.FromInt(unit.Stats.ProjectileSpeed)).ToIntFloor() : 0;
 
         private MatchUnit? FindPushTarget()
         {
@@ -609,14 +871,38 @@ namespace Dynasty.HeroAI
 
         private void Shop()
         {
+            if (_h.IsDead && TryBuyback())
+                return;
+
             FountainPlacement? fountain = _state.Ruleset.Map.FountainOf(_hero.Team);
             bool inShop = _h.IsDead || (fountain != null && Math.Within(_hero.Position, fountain.Position, fountain.Radius));
             if (!inShop)
                 return;
 
-            if (WantsWard() && _h.Gold >= Fixed.FromInt(_state.Ruleset.FindItem("observer_ward")!.Cost))
+            if (WantsWard() && CanSpend(_state.Ruleset.FindItem("observer_ward")!.Cost))
             {
                 HeroShop.QueuePurchase(_hero, "observer_ward");
+                return;
+            }
+
+            // Supports carry the team's smoke.
+            ItemDefinition? smokeItem = _state.Ruleset.Items.FirstOrDefault(i =>
+                i.ActiveAbilityId != null && Math.IsSmoke(_state.Ruleset.FindAbility(i.ActiveAbilityId)!));
+            bool isSupport = _h.Definition.Roles.Contains("support") || _h.Definition.Roles.Contains("healer");
+            HeroDecision me = this;
+            bool teamHasSmoke = smokeItem != null && _state.Heroes.Any(h => h.Team == me._hero.Team && h.Hero!.Inventory.Any(i => i.Definition.Id == smokeItem.Id));
+            if (smokeItem != null && isSupport && !teamHasSmoke && _h.Inventory.Count < HeroShop.InventorySize && CanSpend(smokeItem.Cost))
+            {
+                HeroShop.QueuePurchase(_hero, smokeItem.Id);
+                return;
+            }
+
+            // Every hero keeps one teleport scroll.
+            ItemDefinition? scroll = _state.Ruleset.Items.FirstOrDefault(i =>
+                i.ActiveAbilityId != null && Math.IsTeleport(_state.Ruleset.FindAbility(i.ActiveAbilityId)!));
+            if (scroll != null && _h.Inventory.All(i => i.Definition.Id != scroll.Id) && _h.Inventory.Count < HeroShop.InventorySize && CanSpend(scroll.Cost))
+            {
+                HeroShop.QueuePurchase(_hero, scroll.Id);
                 return;
             }
 
@@ -627,8 +913,33 @@ namespace Dynasty.HeroAI
 
             HeroDecision self = this;
             int ownedComponentCost = item.Components.Where(c => self._h.Inventory.Any(slot => slot.Definition.Id == c)).Sum(c => self._state.Ruleset.FindItem(c)!.Cost);
-            if (_h.Gold >= Fixed.FromInt(item.Cost - ownedComponentCost))
+            if (CanSpend(item.Cost - ownedComponentCost))
                 HeroShop.QueuePurchase(_hero, item.Id);
+        }
+
+        /// <summary>Whether the price is affordable while keeping a buyback in reserve in the late game.</summary>
+        private bool CanSpend(int price)
+        {
+            HeroRules? rules = _state.Ruleset.HeroRules;
+            bool reserve = rules != null && rules.BuybackEnabled && _now / _ticksPerMinute >= _settings.BuybackReserveFromMinute;
+            int keep = reserve ? rules!.BuybackCost(_h.Level) : 0;
+            return _h.Gold >= Fixed.FromInt(price + keep);
+        }
+
+        /// <summary>Buy back when the team is defending and the natural respawn is still far away.</summary>
+        private bool TryBuyback()
+        {
+            HeroRules? rules = _state.Ruleset.HeroRules;
+            if (rules == null || !rules.BuybackEnabled || _brain.Plan != TeamPlanKind.Defend || _now < _h.BuybackReadyTick)
+                return false;
+            long ticksPerSecond = _ticksPerMinute / 60;
+            if (_h.RespawnTick - _now < _settings.BuybackMinWaitSeconds * ticksPerSecond)
+                return false;
+            if (_h.Gold < Fixed.FromInt(rules.BuybackCost(_h.Level)))
+                return false;
+
+            HeroActions.QueueBuyback(_hero);
+            return true;
         }
 
         /// <summary>Supports keep an observer ward while the team has fewer than two placed.</summary>
@@ -765,6 +1076,23 @@ namespace Dynasty.HeroAI
             double strength = hero.Hero!.Level * 10 + hero.Hero.Inventory.Sum(i => i.Definition.Cost) / 100.0;
             return strength * (0.4 + 0.6 * HpPercent(hero) / 100.0);
         }
+
+        public static bool IsTeleport(AbilityDefinition ability) => ability.Effects.Any(e => e.Kind == EffectKind.Teleport);
+
+        /// <summary>A removable debuff that hampers an ally: a disable (stun only with a strong dispel) or a slow.</summary>
+        public static bool WorthCleansing(ModifierSpec spec, bool strong)
+        {
+            if (spec.IsPermanent || !spec.Dispellable || !spec.IsDebuff)
+                return false;
+            if ((spec.Flags & ModifierFlags.Stunned) != 0)
+                return strong;
+            return (spec.Flags & (ModifierFlags.Rooted | ModifierFlags.Silenced | ModifierFlags.Disarmed)) != 0 || spec.MoveSpeedPercent < 0;
+        }
+
+        /// <summary>A group-invisibility ability: a heroes-only allied area that grants invisibility.</summary>
+        public static bool IsSmoke(AbilityDefinition ability) =>
+            ability.Effects.Any(e => e.Kind == EffectKind.Area && e.HeroesOnly && e.Team == TargetTeam.Ally &&
+                                     e.Inner.Any(i => i.Kind == EffectKind.ApplyModifier && i.Modifiers.Any(m => (m.Flags & ModifierFlags.Invisible) != 0)));
 
         public static bool IsUltimate(AbilityDefinition ability) => ability.RequiredHeroLevel.Count > 0 && ability.RequiredHeroLevel[0] >= 6;
 

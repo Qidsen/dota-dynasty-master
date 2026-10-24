@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using Dynasty.Core.Ids;
 using Dynasty.Core.Kernel;
 using Dynasty.Core.Mathematics;
@@ -59,8 +60,14 @@ namespace Dynasty.MatchSimulation.Combat
             int lifestealPercent = 0,
             int maxHpBonus = 0,
             int maxManaBonus = 0,
-            Fixed hpRegenBonus = default)
+            Fixed hpRegenBonus = default,
+            bool breakOnAction = false,
+            int breakRadius = 0,
+            bool dispellable = true)
         {
+            Dispellable = dispellable;
+            BreakOnAction = breakOnAction;
+            BreakRadius = breakRadius;
             MaxHpBonus = maxHpBonus;
             MaxManaBonus = maxManaBonus;
             HpRegenBonus = hpRegenBonus;
@@ -124,6 +131,24 @@ namespace Dynasty.MatchSimulation.Combat
         /// <summary>Extra HP regeneration per second (heroes).</summary>
         public Fixed HpRegenBonus { get; }
 
+        /// <summary>Removed as soon as the bearer starts an attack or completes a cast (smoke).</summary>
+        public bool BreakOnAction { get; }
+
+        /// <summary>Removed when an enemy hero or tower comes this close to the bearer; 0 = never.</summary>
+        public int BreakRadius { get; }
+
+        /// <summary>Whether dispels may remove it (permanent modifiers never are, regardless).</summary>
+        public bool Dispellable { get; }
+
+        /// <summary>
+        /// Harmful to its bearer: a disabling status, any negative stat change, or damage over time.
+        /// Invisibility counts as a buff. Dispels on allies remove debuffs, on enemies buffs.
+        /// </summary>
+        public bool IsDebuff =>
+            (Flags & (ModifierFlags.Stunned | ModifierFlags.Rooted | ModifierFlags.Silenced | ModifierFlags.Disarmed)) != 0 ||
+            MoveSpeedPercent < 0 || AttackSpeedBonus < 0 || ArmorBonus < Fixed.Zero || DamageBonus < 0 || MagicResistBonus < 0 ||
+            DamagePerSecond > Fixed.Zero;
+
         public bool IsPeriodic => DamagePerSecond > Fixed.Zero || HealPerSecond > Fixed.Zero;
 
         public bool IsPermanent => DurationMs < 0;
@@ -149,6 +174,9 @@ namespace Dynasty.MatchSimulation.Combat
             w.WriteInt64(MaxHpBonus);
             w.WriteInt64(MaxManaBonus);
             w.WriteFixed(HpRegenBonus);
+            w.WriteBool(BreakOnAction);
+            w.WriteInt64(BreakRadius);
+            w.WriteBool(Dispellable);
         }
 
         public static ModifierSpec Status(string key, int durationMs, ModifierFlags flags) => new ModifierSpec(key, durationMs, flags);
@@ -217,6 +245,15 @@ namespace Dynasty.MatchSimulation.Combat
             target.AddModifier(modifier);
             context.Emit(new ModifierApplied(target.Id, source, spec.Key, -1));
             return modifier;
+        }
+
+        /// <summary>Removes the unit's break-on-action modifiers (it just attacked or cast).</summary>
+        internal static void BreakOnAction(SimulationContext<MatchState> context, MatchUnit unit)
+        {
+            if (unit.Modifiers.Count == 0)
+                return;
+            foreach (ActiveModifier modifier in unit.Modifiers.Where(m => m.Spec.BreakOnAction).ToList())
+                Remove(context, unit, modifier, "broken");
         }
 
         internal static void Remove(SimulationContext<MatchState> context, MatchUnit target, ActiveModifier modifier, string reason)

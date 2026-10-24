@@ -44,6 +44,24 @@ namespace Dynasty.HeroAI
         /// <summary>± percent error applied when a hero judges fight odds (plausible misjudgement).</summary>
         public int MisjudgementPercent { get; set; } = 15;
 
+        /// <summary>From this match minute on, heroes keep enough gold for a buyback when shopping.</summary>
+        public int BuybackReserveFromMinute { get; set; } = 25;
+
+        /// <summary>A dead hero buys back to defend only if its respawn is at least this far away.</summary>
+        public int BuybackMinWaitSeconds { get; set; } = 15;
+
+        /// <summary>
+        /// Until this match minute heroes stay in their lanes: a team pushes only with a three-hero
+        /// numbers advantage, and only heroes already nearby rotate to defend.
+        /// </summary>
+        public int LaningPhaseMinutes { get; set; } = 10;
+
+        /// <summary>
+        /// From this match minute on, a team of four or more takes the boss without a numbers
+        /// advantage, as long as no enemy hero is seen near the pit.
+        /// </summary>
+        public int BossAtEvenNumbersFromMinute { get; set; } = 20;
+
         /// <summary>Radius around a hero within which allies and visible enemies count toward a fight.</summary>
         public int EngageRange { get; set; } = 1200;
 

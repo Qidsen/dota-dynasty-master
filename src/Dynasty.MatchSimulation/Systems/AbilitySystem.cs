@@ -91,7 +91,8 @@ namespace Dynasty.MatchSimulation.Systems
             if (ability.Definition.Targeting == AbilityTargeting.Unit)
             {
                 MatchUnit? target = state.Find(order.Target);
-                if (target == null || !Effects.Matches(state, caster, target, ability.Definition.TargetTeam) || !state.IsVisibleTo(caster.Team, target))
+                if (target == null || !Effects.Matches(state, caster, target, ability.Definition.TargetTeam, ability.Definition.TargetsStructures) ||
+                    !state.IsVisibleTo(caster.Team, target))
                     return "invalid_target";
             }
 
@@ -129,6 +130,8 @@ namespace Dynasty.MatchSimulation.Systems
             HeroOrders.Issue(caster, HeroOrder.Idle);
             context.Emit(new AbilityCast(caster.Id, definition.Id, ability.Level, definition.Targeting == AbilityTargeting.Unit ? target.Id : EntityId.None, order.Point));
 
+            // Acting reveals the caster first, so a smoke being cast is not broken by its own cast.
+            Modifiers.BreakOnAction(context, caster);
             FixedVector2 point = definition.Targeting == AbilityTargeting.Point ? order.Point : target.Position;
             Effects.Run(context, caster, definition.Effects, ability.Level, target, point);
         }
@@ -168,11 +171,16 @@ namespace Dynasty.MatchSimulation.Systems
                 RunOne(context, caster, effect, level, target, point);
         }
 
-        /// <summary>Whether <paramref name="unit"/> is a legal target for the team filter. Abilities never affect structures.</summary>
-        public static bool Matches(MatchState state, MatchUnit caster, MatchUnit unit, TargetTeam team)
+        /// <summary>
+        /// Whether <paramref name="unit"/> is a legal target for the team filter. Abilities never affect
+        /// structures, except allied ones for abilities that explicitly target structures (teleports).
+        /// </summary>
+        public static bool Matches(MatchState state, MatchUnit caster, MatchUnit unit, TargetTeam team, bool allowAlliedStructures = false)
         {
-            if (!unit.IsAlive || unit.Kind == UnitKind.Structure)
+            if (!unit.IsAlive || unit.Kind == UnitKind.Rune)
                 return false;
+            if (unit.Kind == UnitKind.Structure)
+                return allowAlliedStructures && unit.Team == caster.Team && team != TargetTeam.Enemy;
             switch (team)
             {
                 case TargetTeam.Enemy:
@@ -203,12 +211,26 @@ namespace Dynasty.MatchSimulation.Systems
                     break;
                 case EffectKind.Dash:
                     Dash(caster, target, point);
+                    DisjointProjectiles(context, caster);
+                    break;
+                case EffectKind.Projectile:
+                    Projectile projectile = context.State.LaunchProjectile(caster, target, effect.Speed);
+                    projectile.Effects = effect.Inner;
+                    projectile.Level = level;
+                    context.Emit(new ProjectileLaunched(projectile.Id, caster.Id, target.Id, isAbility: true));
                     break;
                 case EffectKind.Knockback:
                     Knockback(context.State, caster, target, effect.AmountAt(level));
                     break;
                 case EffectKind.Summon:
                     Summon(context, caster, effect, level, point);
+                    break;
+                case EffectKind.Teleport:
+                    Teleport(context.State, caster, target);
+                    DisjointProjectiles(context, caster);
+                    break;
+                case EffectKind.Dispel:
+                    Dispel(context, caster, target, effect.Strong);
                     break;
             }
         }
@@ -220,7 +242,8 @@ namespace Dynasty.MatchSimulation.Systems
                 : point;
 
             List<MatchUnit> affected = context.State.Units
-                .Where(u => Matches(context.State, caster, u, effect.Team) && Geometry.WithinRange(center, u.Position, effect.Radius + u.BoundingRadius))
+                .Where(u => Matches(context.State, caster, u, effect.Team) && (!effect.HeroesOnly || u.Hero != null) &&
+                            Geometry.WithinRange(center, u.Position, effect.Radius + u.BoundingRadius))
                 .ToList();
             foreach (MatchUnit unit in affected)
             {
@@ -243,6 +266,38 @@ namespace Dynasty.MatchSimulation.Systems
                     caster.Position = FixedVector2.MoveTowards(caster.Position, target.Position, distance - stopShort);
             }
 
+            if (caster.Hero != null)
+                caster.Hero.Path = null;
+        }
+
+        /// <summary>Blinking or teleporting makes projectiles homing on the unit lose it.</summary>
+        private static void DisjointProjectiles(SimulationContext<MatchState> context, MatchUnit unit)
+        {
+            foreach (Projectile projectile in context.State.Disjoint(unit))
+                context.Emit(new ProjectileDodged(projectile.Id, projectile.Source, unit.Id));
+        }
+
+        /// <summary>Allies lose their dispellable debuffs, enemies their dispellable buffs; stuns need a strong dispel.</summary>
+        private static void Dispel(SimulationContext<MatchState> context, MatchUnit caster, MatchUnit target, bool strong)
+        {
+            bool ally = target.Team == caster.Team;
+            foreach (ActiveModifier modifier in target.Modifiers.ToList())
+            {
+                ModifierSpec spec = modifier.Spec;
+                if (spec.IsPermanent || !spec.Dispellable || spec.IsDebuff != ally)
+                    continue;
+                if ((spec.Flags & ModifierFlags.Stunned) != 0 && !strong)
+                    continue;
+                Modifiers.Remove(context, target, modifier, "dispelled");
+            }
+        }
+
+        /// <summary>Arrives just outside the destination, on the side facing the caster's fountain.</summary>
+        private static void Teleport(MatchState state, MatchUnit caster, MatchUnit destination)
+        {
+            FixedVector2 home = state.Ruleset.Map.FountainOf(caster.Team)!.Position;
+            Fixed offset = Fixed.FromInt(destination.BoundingRadius + caster.BoundingRadius + 100);
+            caster.Position = FixedVector2.MoveTowards(destination.Position, home, offset);
             if (caster.Hero != null)
                 caster.Hero.Path = null;
         }

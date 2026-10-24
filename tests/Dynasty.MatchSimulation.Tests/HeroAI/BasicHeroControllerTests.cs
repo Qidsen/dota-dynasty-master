@@ -60,8 +60,7 @@ public class BasicHeroControllerTests
     {
         var kernel = new RulesetDraft().StartWithHeroes(new[] { ("alpha", "mid") }, NoHeroes);
         HeroAi.Attach(kernel);
-
-        kernel.RunTicks(3 * 60 * 30);
+        kernel.RunTicks(5 * 60 * 30);   // ten waves: enough samples that a single missed last hit does not decide the test
 
         MatchUnit alpha = H(kernel.State, "alpha");
         Assert.True(alpha.Hero!.LastHits >= 2, "last hits: " + alpha.Hero.LastHits);

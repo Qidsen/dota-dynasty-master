@@ -20,6 +20,8 @@ namespace Dynasty.MatchSimulation.Rules
             new CreepType("swarmling", Stats(hp: 220, armor: 0, speed: 350, dmgMin: 14, dmgMax: 16, range: 100, intervalMs: 1000, pointMs: 400, acquisition: 600, radius: 12), new Bounty(18, 22, 20)),
             new CreepType("hive_guard", Stats(hp: 650, armor: 3, speed: 330, dmgMin: 34, dmgMax: 40, range: 120, intervalMs: 1200, pointMs: 400, acquisition: 600, radius: 20), new Bounty(30, 36, 40)),
             new CreepType("golem", Stats(hp: 700, armor: 4, speed: 300, dmgMin: 30, dmgMax: 36, range: 120, intervalMs: 1300, pointMs: 400, acquisition: 600, radius: 24), new Bounty(30, 36, 40)),
+            new CreepType("jungle_small", Stats(hp: 420, armor: 1, speed: 320, dmgMin: 16, dmgMax: 19, range: 100, intervalMs: 1100, pointMs: 400, acquisition: 400, radius: 16), new Bounty(32, 38, 42)),
+            new CreepType("jungle_large", Stats(hp: 850, armor: 3, speed: 300, dmgMin: 30, dmgMax: 36, range: 120, intervalMs: 1300, pointMs: 400, acquisition: 400, radius: 24), new Bounty(55, 65, 80)),
             new CreepType("colossus", Stats(hp: 6000, armor: 15, speed: 270, dmgMin: 75, dmgMax: 85, range: 150, intervalMs: 1200, pointMs: 300, acquisition: 400, radius: 60,
                 magicResist: 50, vision: 600)),
             new CreepType("observer_ward", Stats(hp: 4, armor: 0, speed: 0, dmgMin: 0, dmgMax: 0, range: 0, intervalMs: 1000, pointMs: 0, acquisition: 0, radius: 8,
@@ -43,6 +45,19 @@ namespace Dynasty.MatchSimulation.Rules
             respawnMinMs: 480000, respawnMaxMs: 660000, teamGold: 200,
             reward: new ModifierSpec("colossus.blessing", 180000, damageBonus: 30, armorBonus: Fixed.FromInt(5), hpRegenBonus: Fixed.FromInt(10)));
 
+        /// <summary>Two river spots on the anti-diagonal (mirror images, equidistant from both fountains); a rune every 2 minutes.</summary>
+        public static RuneRules Runes { get; } = new RuneRules(
+            new[] { FixedVector2.FromInts(3000, 7000), FixedVector2.FromInts(7000, 3000) },
+            firstSpawnMs: 120000,
+            intervalMs: 120000,
+            new[]
+            {
+                new RuneType("haste", new ModifierSpec("rune.haste", 20000, moveSpeedPercent: 40)),
+                new RuneType("might", new ModifierSpec("rune.might", 30000, damageBonus: 40)),
+                new RuneType("renewal", new ModifierSpec("rune.renewal", 5000, healPerSecond: Fixed.FromInt(60))),
+                new RuneType("bounty", gold: 75),
+            });
+
         public static HeroRules Rules { get; } = new HeroRules(
             xpForLevel: new[] { 0, 230, 600, 1080, 1660, 2260, 2980, 3730, 4510, 5320, 6160, 7030, 7930, 9000, 10200 },
             xpShareRadius: 1200,
@@ -57,7 +72,10 @@ namespace Dynasty.MatchSimulation.Rules
             respawnPerLevelMs: 2500,
             goldLossPerLevel: 20,
             structureTeamGold: 120,
-            fountainHealPercentPerSecond: 5);
+            fountainHealPercentPerSecond: 5,
+            buybackBaseGold: 150,
+            buybackGoldPerLevel: 40,
+            buybackCooldownMs: 480000);
 
         private static IReadOnlyList<AbilityDefinition> BuildAbilities()
         {
@@ -75,7 +93,7 @@ namespace Dynasty.MatchSimulation.Rules
 
             // Emberwisp — mid nuker: lance, burning field, ember passive, inferno.
             list.Add(Cast("emberwisp.fire_lance", "Fire Lance", AbilityTargeting.Unit, TargetTeam.Enemy, 650, 300, Basic, Cd(9000, 8000, 7000, 6000), Mana(90, 105, 120, 135),
-                EffectDefinition.Damage(DamageType.Magical, 90, 150, 210, 270)));
+                EffectDefinition.Projectile(1000, EffectDefinition.Damage(DamageType.Magical, 90, 150, 210, 270))));
             list.Add(Cast("emberwisp.ember_field", "Ember Field", AbilityTargeting.Point, TargetTeam.Enemy, 700, 400, Basic, Cd(14000, 13000, 12000, 11000), Mana(110, 120, 130, 140),
                 EffectDefinition.Area(275, AreaCenter.Point, TargetTeam.Enemy,
                     EffectDefinition.Damage(DamageType.Magical, 50, 80, 110, 140),
@@ -103,8 +121,9 @@ namespace Dynasty.MatchSimulation.Rules
 
             // Frostweaver — control mage: shackle stun, glacier slow, frost mantle, deep winter.
             list.Add(Cast("frostweaver.frost_shackle", "Frost Shackle", AbilityTargeting.Unit, TargetTeam.Enemy, 600, 300, Basic, Cd(13000, 12000, 11000, 10000), Mana(100, 110, 120, 130),
-                EffectDefinition.Damage(DamageType.Magical, 60, 90, 120, 150),
-                EffectDefinition.Modifier(Levels(4, l => ModifierSpec.Status("frostweaver.shackle", 1000 + 300 * l, ModifierFlags.Stunned)))));
+                EffectDefinition.Projectile(1000,
+                    EffectDefinition.Damage(DamageType.Magical, 60, 90, 120, 150),
+                    EffectDefinition.Modifier(Levels(4, l => ModifierSpec.Status("frostweaver.shackle", 1000 + 300 * l, ModifierFlags.Stunned))))));
             list.Add(Cast("frostweaver.glacier", "Glacier", AbilityTargeting.Point, TargetTeam.Enemy, 700, 300, Basic, Cd(12000, 11000, 10000, 9000), Mana(90, 100, 110, 120),
                 EffectDefinition.Area(300, AreaCenter.Point, TargetTeam.Enemy,
                     EffectDefinition.Damage(DamageType.Magical, 40, 70, 100, 130),
@@ -131,8 +150,9 @@ namespace Dynasty.MatchSimulation.Rules
             list.Add(Cast("hivecaller.brood", "Brood", AbilityTargeting.NoTarget, TargetTeam.Enemy, 0, 300, Basic, Cd(18000, 17000, 16000, 15000), Mana(90, 100, 110, 120),
                 EffectDefinition.Summon("swarmling", 25000, 2, 2, 3, 3)));
             list.Add(Cast("hivecaller.sting", "Sting", AbilityTargeting.Unit, TargetTeam.Enemy, 550, 200, Basic, Cd(10000, 9000, 8000, 7000), Mana(70, 80, 90, 100),
-                EffectDefinition.Damage(DamageType.Magical, 60, 90, 120, 150),
-                EffectDefinition.Modifier(Levels(4, l => new ModifierSpec("hivecaller.sting.slow", 2000, moveSpeedPercent: -15 - 5 * l)))));
+                EffectDefinition.Projectile(1100,
+                    EffectDefinition.Damage(DamageType.Magical, 60, 90, 120, 150),
+                    EffectDefinition.Modifier(Levels(4, l => new ModifierSpec("hivecaller.sting.slow", 2000, moveSpeedPercent: -15 - 5 * l))))));
             list.Add(Passive("hivecaller.chitin", "Chitin", Basic,
                 Levels(4, l => new ModifierSpec("hivecaller.chitin", -1, armorBonus: Fixed.FromInt(l), hpRegenBonus: Fixed.FromInt(l)))));
             list.Add(Cast("hivecaller.swarm_lord", "Swarm Lord", AbilityTargeting.NoTarget, TargetTeam.Enemy, 0, 500, Ultimate, Cd(70000, 60000), Mana(200, 275),
@@ -175,7 +195,7 @@ namespace Dynasty.MatchSimulation.Rules
 
             // Starborn — late scaler: star bolt, quickening, radiance, ascension.
             list.Add(Cast("starborn.star_bolt", "Star Bolt", AbilityTargeting.Unit, TargetTeam.Enemy, 650, 300, Basic, Cd(10000, 9000, 8000, 7000), Mana(80, 90, 100, 110),
-                EffectDefinition.Damage(DamageType.Magical, 70, 110, 150, 190)));
+                EffectDefinition.Projectile(1100, EffectDefinition.Damage(DamageType.Magical, 70, 110, 150, 190))));
             list.Add(Passive("starborn.quickening", "Quickening", Basic,
                 Levels(4, l => new ModifierSpec("starborn.quickening", -1, attackSpeedBonus: 10 * l))));
             list.Add(Passive("starborn.radiance", "Radiance", Basic,
@@ -188,6 +208,14 @@ namespace Dynasty.MatchSimulation.Rules
                 EffectDefinition.SummonAtPoint("observer_ward", 360000, 1)));
             list.Add(Cast("item.place_sentry", "Place Sentry Ward", AbilityTargeting.Point, TargetTeam.Ally, 500, 0, new[] { 1 }, new[] { 1000 }, new[] { 0 },
                 EffectDefinition.SummonAtPoint("sentry_ward", 300000, 1)));
+
+            list.Add(Cast("item.smoke", "Smoke of Veiling", AbilityTargeting.NoTarget, TargetTeam.Ally, 0, 0, new[] { 1 }, new[] { 1000 }, new[] { 0 },
+                EffectDefinition.Area(1200, AreaCenter.Caster, TargetTeam.Ally, heroesOnly: true,
+                    EffectDefinition.Modifier(new ModifierSpec("smoke", 35000, ModifierFlags.Invisible, moveSpeedPercent: 15, breakOnAction: true, breakRadius: 1025)))));
+            list.Add(Cast("item.cleanse", "Cleanse", AbilityTargeting.Unit, TargetTeam.Any, 700, 0, new[] { 1 }, new[] { 18000 }, new[] { 40 },
+                EffectDefinition.Dispel(strong: false)));
+            list.Add(new AbilityDefinition("item.teleport", "Teleport", AbilityTargeting.Unit, TargetTeam.Ally, 20000, 3000,
+                new[] { 60000 }, new[] { 0 }, new[] { 1 }, new[] { EffectDefinition.Teleport() }, targetsStructures: true));
 
             // Item active.
             list.Add(Cast("item.arc_pulse", "Arc Pulse", AbilityTargeting.NoTarget, TargetTeam.Enemy, 0, 0, new[] { 1 }, new[] { 25000 }, new[] { 50 },
@@ -203,6 +231,8 @@ namespace Dynasty.MatchSimulation.Rules
             new ItemDefinition("vital_orb", "Vital Orb", 450, new ModifierSpec("item.vital_orb", -1, maxHpBonus: 250)),
             new ItemDefinition("mana_crystal", "Mana Crystal", 400, new ModifierSpec("item.mana_crystal", -1, maxManaBonus: 200)),
             new ItemDefinition("swift_boots", "Swift Boots", 400, new ModifierSpec("item.swift_boots", -1, moveSpeedPercent: 15)),
+            new ItemDefinition("tp_scroll", "Teleport Scroll", 90, activeAbilityId: "item.teleport", charges: 1),
+            new ItemDefinition("smoke", "Smoke of Veiling", 80, activeAbilityId: "item.smoke", charges: 1),
             new ItemDefinition("observer_ward", "Observer Ward", 75, activeAbilityId: "item.place_observer", charges: 1),
             new ItemDefinition("sentry_ward", "Sentry Ward", 100, activeAbilityId: "item.place_sentry", charges: 1),
             new ItemDefinition("crest_of_valor", "Crest of Valor", 1600,
@@ -211,6 +241,8 @@ namespace Dynasty.MatchSimulation.Rules
                 new ModifierSpec("item.storm_edge", -1, damageBonus: 35, attackSpeedBonus: 40, critChancePercent: 20, critMultiplierPercent: 170), new[] { "iron_blade", "swift_gloves" }),
             new ItemDefinition("aegis_heart", "Aegis Heart", 2600,
                 new ModifierSpec("item.aegis_heart", -1, maxHpBonus: 500, armorBonus: Fixed.FromInt(8), hpRegenBonus: Fixed.FromInt(6)), new[] { "vital_orb", "warden_plate" }),
+            new ItemDefinition("cleansing_charm", "Cleansing Charm", 1300,
+                new ModifierSpec("item.cleansing_charm", -1, maxManaBonus: 150, magicResistBonus: 10), new[] { "mana_crystal" }, "item.cleanse"),
             new ItemDefinition("spellshard", "Spellshard", 2000,
                 new ModifierSpec("item.spellshard", -1, maxManaBonus: 300, maxHpBonus: 250, magicResistBonus: 15), new[] { "mana_crystal", "vital_orb" }, "item.arc_pulse"),
         };
@@ -219,6 +251,7 @@ namespace Dynasty.MatchSimulation.Rules
         {
             string[] carry = { "swift_boots", "storm_edge", "crest_of_valor" };
             string[] caster = { "swift_boots", "spellshard", "aegis_heart" };
+            string[] support = { "swift_boots", "cleansing_charm", "spellshard", "aegis_heart" };
             string[] tank = { "swift_boots", "aegis_heart", "crest_of_valor" };
 
             return new[]
@@ -232,7 +265,7 @@ namespace Dynasty.MatchSimulation.Rules
                 Hero("frostweaver", "Frostweaver", new[] { "mid", "control" }, melee: false, hp: 500, armor: 1, speed: 295, dmg: 44, hpPerLevel: 70, dmgPerLevel: 2, mana: 380, manaPerLevel: 50,
                     "frostweaver.frost_shackle", "frostweaver.glacier", "frostweaver.frost_mantle", "frostweaver.deep_winter", caster),
                 Hero("dawnmender", "Dawnmender", new[] { "support", "healer" }, melee: false, hp: 520, armor: 1, speed: 300, dmg: 42, hpPerLevel: 75, dmgPerLevel: 2, mana: 360, manaPerLevel: 45,
-                    "dawnmender.mend", "dawnmender.sanctuary", "dawnmender.smite", "dawnmender.renewal", caster),
+                    "dawnmender.mend", "dawnmender.sanctuary", "dawnmender.smite", "dawnmender.renewal", support),
                 Hero("hivecaller", "Hivecaller", new[] { "offlane", "summoner" }, melee: false, hp: 540, armor: 2, speed: 300, dmg: 44, hpPerLevel: 80, dmgPerLevel: 2, mana: 330, manaPerLevel: 40,
                     "hivecaller.brood", "hivecaller.sting", "hivecaller.chitin", "hivecaller.swarm_lord", tank),
                 Hero("shadeblade", "Shadeblade", new[] { "mid", "assassin" }, melee: true, hp: 540, armor: 2, speed: 320, dmg: 54, hpPerLevel: 80, dmgPerLevel: 3, mana: 270, manaPerLevel: 30,
@@ -240,7 +273,7 @@ namespace Dynasty.MatchSimulation.Rules
                 Hero("siegewright", "Siegewright", new[] { "offlane", "pusher" }, melee: false, hp: 560, armor: 2, speed: 295, dmg: 48, hpPerLevel: 80, dmgPerLevel: 3, mana: 300, manaPerLevel: 35,
                     "siegewright.demolition", "siegewright.mortar", "siegewright.construct", "siegewright.bombardment", tank),
                 Hero("thornkeeper", "Thornkeeper", new[] { "support" }, melee: false, hp: 530, armor: 2, speed: 300, dmg: 43, hpPerLevel: 75, dmgPerLevel: 2, mana: 340, manaPerLevel: 40,
-                    "thornkeeper.bramble", "thornkeeper.thorn_ward", "thornkeeper.barkskin", "thornkeeper.overgrowth", caster),
+                    "thornkeeper.bramble", "thornkeeper.thorn_ward", "thornkeeper.barkskin", "thornkeeper.overgrowth", support),
                 Hero("starborn", "Starborn", new[] { "carry", "late" }, melee: false, hp: 480, armor: 1, speed: 300, dmg: 46, hpPerLevel: 70, dmgPerLevel: 5, mana: 280, manaPerLevel: 30,
                     "starborn.star_bolt", "starborn.quickening", "starborn.radiance", "starborn.ascension", carry),
             };
@@ -250,8 +283,8 @@ namespace Dynasty.MatchSimulation.Rules
             int hpPerLevel, int dmgPerLevel, int mana, int manaPerLevel, string q, string w, string e, string r, string[] build)
         {
             UnitStats stats = melee
-                ? Stats(hp, armor, speed, dmg, dmg + 6, range: 150, intervalMs: 1700, pointMs: 400, acquisition: 800, radius: 24, magicResist: 25, vision: 1200)
-                : Stats(hp, armor, speed, dmg, dmg + 6, range: 575, intervalMs: 1700, pointMs: 450, acquisition: 800, radius: 24, magicResist: 25, vision: 1200);
+                ? Stats(hp, armor, speed, dmg, dmg + 6, range: 150, intervalMs: 1700, pointMs: 400, acquisition: 800, radius: 24, magicResist: 25, vision: 1200, nightVision: 800)
+                : Stats(hp, armor, speed, dmg, dmg + 6, range: 575, intervalMs: 1700, pointMs: 450, acquisition: 800, radius: 24, magicResist: 25, vision: 1200, projectileSpeed: 900, nightVision: 800);
             return new HeroDefinition(id, name, roles, stats, hpPerLevel, Fixed.FromRatio(3, 10), dmgPerLevel, mana, manaPerLevel,
                 hpRegenPerSecond: Fixed.FromRatio(5, 2), manaRegenPerSecond: Fixed.FromRatio(3, 2),
                 abilityIds: new[] { q, w, e, r }, itemBuild: build);
@@ -273,7 +306,7 @@ namespace Dynasty.MatchSimulation.Rules
         private static int[] Mana(params int[] values) => values;
 
         internal static UnitStats Stats(int hp, int armor, int speed, int dmgMin, int dmgMax, int range, int intervalMs, int pointMs, int acquisition, int radius,
-            int magicResist = 0, int vision = 800, int trueSight = 0, ModifierFlags innate = ModifierFlags.None) =>
-            new UnitStats(hp, Fixed.FromInt(armor), speed, dmgMin, dmgMax, range, intervalMs, pointMs, acquisition, radius, magicResist, vision, trueSight, innate);
+            int magicResist = 0, int vision = 800, int trueSight = 0, ModifierFlags innate = ModifierFlags.None, int projectileSpeed = 0, int nightVision = -1) =>
+            new UnitStats(hp, Fixed.FromInt(armor), speed, dmgMin, dmgMax, range, intervalMs, pointMs, acquisition, radius, magicResist, vision, trueSight, innate, projectileSpeed, nightVision);
     }
 }

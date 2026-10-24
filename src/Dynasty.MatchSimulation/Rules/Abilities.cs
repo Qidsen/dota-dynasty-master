@@ -44,6 +44,15 @@ namespace Dynasty.MatchSimulation.Rules
 
         /// <summary>Spawns temporary units of a creep type that fight for the caster's team.</summary>
         Summon = 6,
+
+        /// <summary>Moves the caster next to the target (an allied structure), on its own base side.</summary>
+        Teleport = 7,
+
+        /// <summary>Removes debuffs from an ally or buffs from an enemy; stuns only with a strong dispel.</summary>
+        Dispel = 8,
+
+        /// <summary>Launches a homing projectile at the target; the inner effects apply on arrival. Dodged by disjoints.</summary>
+        Projectile = 9,
     }
 
     public enum AreaCenter
@@ -70,9 +79,15 @@ namespace Dynasty.MatchSimulation.Rules
             EffectDefinition[]? inner = null,
             string? summonTypeId = null,
             int durationMs = 0,
-            bool atPoint = false)
+            bool atPoint = false,
+            bool heroesOnly = false,
+            bool strong = false,
+            int speed = 0)
         {
+            Speed = speed;
             AtPoint = atPoint;
+            HeroesOnly = heroesOnly;
+            Strong = strong;
             Kind = kind;
             Amounts = amounts ?? Array.Empty<int>();
             DamageType = damageType;
@@ -104,6 +119,15 @@ namespace Dynasty.MatchSimulation.Rules
         /// <summary>Summons appear at the cast point rather than at the caster.</summary>
         public bool AtPoint { get; }
 
+        /// <summary>Area effects only: affect heroes, not creeps or summons.</summary>
+        public bool HeroesOnly { get; }
+
+        /// <summary>Dispels only: also removes stuns.</summary>
+        public bool Strong { get; }
+
+        /// <summary>Projectiles only: travel speed in units per second.</summary>
+        public int Speed { get; }
+
         public static EffectDefinition Damage(DamageType type, params int[] perLevel) =>
             new EffectDefinition(EffectKind.Damage, perLevel, type);
 
@@ -115,7 +139,19 @@ namespace Dynasty.MatchSimulation.Rules
         public static EffectDefinition Area(int radius, AreaCenter center, TargetTeam team, params EffectDefinition[] inner) =>
             new EffectDefinition(EffectKind.Area, radius: radius, center: center, team: team, inner: inner);
 
+        /// <summary>Area restricted to heroes when <paramref name="heroesOnly"/> (e.g. smoke).</summary>
+        public static EffectDefinition Area(int radius, AreaCenter center, TargetTeam team, bool heroesOnly, params EffectDefinition[] inner) =>
+            new EffectDefinition(EffectKind.Area, radius: radius, center: center, team: team, inner: inner, heroesOnly: heroesOnly);
+
         public static EffectDefinition Dash() => new EffectDefinition(EffectKind.Dash);
+
+        public static EffectDefinition Projectile(int speed, params EffectDefinition[] onHit) =>
+            new EffectDefinition(EffectKind.Projectile, inner: onHit, speed: speed);
+
+        public static EffectDefinition Dispel(bool strong) => new EffectDefinition(EffectKind.Dispel, strong: strong);
+
+        /// <summary>Use with a long cast point as the channel; stuns and silences interrupt it.</summary>
+        public static EffectDefinition Teleport() => new EffectDefinition(EffectKind.Teleport);
 
         public static EffectDefinition Knockback(params int[] distancePerLevel) =>
             new EffectDefinition(EffectKind.Knockback, distancePerLevel);
@@ -159,6 +195,9 @@ namespace Dynasty.MatchSimulation.Rules
             w.WriteString(SummonTypeId ?? "");
             w.WriteInt64(DurationMs);
             w.WriteBool(AtPoint);
+            w.WriteBool(HeroesOnly);
+            w.WriteBool(Strong);
+            w.WriteInt64(Speed);
             w.WriteInt64(Inner.Count);
             foreach (EffectDefinition child in Inner)
                 child.WriteCanonical(w);
@@ -178,8 +217,10 @@ namespace Dynasty.MatchSimulation.Rules
             IReadOnlyList<int> manaCost,
             IReadOnlyList<int> requiredHeroLevel,
             IReadOnlyList<EffectDefinition> effects,
-            IReadOnlyList<ModifierSpec>? passiveModifiers = null)
+            IReadOnlyList<ModifierSpec>? passiveModifiers = null,
+            bool targetsStructures = false)
         {
+            TargetsStructures = targetsStructures;
             Id = id;
             Name = name;
             Targeting = targeting;
@@ -211,9 +252,13 @@ namespace Dynasty.MatchSimulation.Rules
         /// <summary>Permanent modifier per level for passive abilities.</summary>
         public IReadOnlyList<ModifierSpec> PassiveModifiers { get; }
 
+        /// <summary>Unit-target abilities only: allied structures are valid targets (teleports).</summary>
+        public bool TargetsStructures { get; }
+
         public int CooldownAt(int level) => EffectDefinition.ValueAt(CooldownMs, level);
 
-        public int ManaCostAt(int level) => EffectDefinition.ValueAt(ManaCost, level);
+        /// <summary>Mana needed to cast at the given level; passives (no costs listed) need none.</summary>
+        public int ManaCostAt(int level) => ManaCost.Count == 0 ? 0 : EffectDefinition.ValueAt(ManaCost, level);
 
         internal void WriteCanonical(CanonicalWriter w)
         {
@@ -236,6 +281,7 @@ namespace Dynasty.MatchSimulation.Rules
             w.WriteInt64(PassiveModifiers.Count);
             foreach (ModifierSpec modifier in PassiveModifiers)
                 modifier.WriteCanonical(w);
+            w.WriteBool(TargetsStructures);
         }
     }
 }

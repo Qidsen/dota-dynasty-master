@@ -52,6 +52,10 @@ public sealed class RulesetDraft
 
     public List<ObstacleDefinition> Obstacles { get; } = new();
 
+    public List<NeutralCampDefinition> Camps { get; } = new();
+
+    public List<ElevationZone> Elevation { get; } = new();
+
     public static UnitStats HeroStats(int hp = 600, int dmg = 50, int range = 150, int speed = 300, int intervalMs = 1500, int pointMs = 300) =>
         new(hp, Fixed.FromInt(2), speed, dmg, dmg + 4, range, intervalMs, pointMs, 800, 24, 25, visionRange: 1200);
 
@@ -68,6 +72,10 @@ public sealed class RulesetDraft
 
     public BossDefinition? Boss { get; set; }
 
+    public RuneRules? Runes { get; set; }
+
+    public DayNightRules? DayNight { get; set; }
+
     public List<int> XpTable { get; } = new() { 0, 200, 500, 900, 1400, 2000 };
     public int XpShareRadius { get; set; } = 1200;
     public int GoldPerMinute { get; set; } = 90;
@@ -81,18 +89,24 @@ public sealed class RulesetDraft
         new FountainPlacement(Team.Dusk, P(9800, 5000), 400),
     };
 
+    public int BuybackBaseGold { get; set; }
+    public int BuybackGoldPerLevel { get; set; }
+    public int BuybackCooldownMs { get; set; }
+
     public HeroRules BuildHeroRules() => new(
         XpTable, XpShareRadius,
         heroKillXpBase: 100, heroKillXpPerLevel: 20,
         heroKillGoldBase: 200, heroKillGoldPerLevel: 10,
         assistWindowMs: 10000, GoldPerMinute, StartingGold,
         RespawnBaseMs, RespawnPerLevelMs,
-        goldLossPerLevel: 30, structureTeamGold: 100, fountainHealPercentPerSecond: 5);
+        goldLossPerLevel: 30, structureTeamGold: 100, fountainHealPercentPerSecond: 5,
+        buybackBaseGold: BuybackBaseGold, buybackGoldPerLevel: BuybackGoldPerLevel, buybackCooldownMs: BuybackCooldownMs);
 
     public int FirstSpawnMs { get; set; } = 0;
     public int IntervalMs { get; set; } = 30000;
     public List<WaveEntry> DawnWave { get; } = new() { new WaveEntry("melee", 1) };
     public List<WaveEntry> DuskWave { get; } = new() { new WaveEntry("melee", 1) };
+    public List<CreepUpgrade> SuperUpgrades { get; } = new();
 
     public RulesetDraft WithoutStructures()
     {
@@ -114,13 +128,15 @@ public sealed class RulesetDraft
         new CombatRules(ArmorFactor),
         Creeps,
         StructureTypes,
-        new MapDefinition(Width, Height, Lanes, Placements, Obstacles, fountains: Fountains),
-        new WaveRules(FirstSpawnMs, IntervalMs, DawnWave, DuskWave),
+        new MapDefinition(Width, Height, Lanes, Placements, Obstacles, fountains: Fountains, camps: Camps, elevation: Elevation),
+        new WaveRules(FirstSpawnMs, IntervalMs, DawnWave, DuskWave, SuperUpgrades),
         Heroes,
         BuildHeroRules(),
         Abilities,
         Items,
-        Boss);
+        Boss,
+        Runes,
+        DayNight);
 
     /// <summary>Starts a match with the given heroes; each pick is (heroId, laneId).</summary>
     public Dynasty.Core.Kernel.SimulationKernel<MatchState> StartWithHeroes(

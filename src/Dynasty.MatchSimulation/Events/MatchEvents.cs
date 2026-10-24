@@ -587,6 +587,181 @@ namespace Dynasty.MatchSimulation.Events
         }
     }
 
+    public sealed class HeroBoughtBack : IDomainEvent
+    {
+        public HeroBoughtBack(EntityId hero, int cost)
+        {
+            Hero = hero;
+            Cost = cost;
+        }
+
+        public EntityId Hero { get; }
+        public int Cost { get; }
+
+        public string Type => "match.hero_bought_back";
+        public int SchemaVersion => 1;
+
+        public void WritePayload(ref Fnv1a64 hash)
+        {
+            hash.AddInt64(Hero.Value);
+            hash.AddInt64(Cost);
+        }
+    }
+
+    /// <summary>Reasons: disabled, not_dead, cooldown, gold.</summary>
+    public sealed class BuybackFailed : IDomainEvent
+    {
+        public BuybackFailed(EntityId hero, string reason)
+        {
+            Hero = hero;
+            Reason = reason;
+        }
+
+        public EntityId Hero { get; }
+        public string Reason { get; }
+
+        public string Type => "match.buyback_failed";
+        public int SchemaVersion => 1;
+
+        public void WritePayload(ref Fnv1a64 hash)
+        {
+            hash.AddInt64(Hero.Value);
+            hash.AddString(Reason);
+        }
+    }
+
+    public sealed class CampSpawned : IDomainEvent
+    {
+        public CampSpawned(string campId)
+        {
+            CampId = campId;
+        }
+
+        public string CampId { get; }
+
+        public string Type => "match.camp_spawned";
+        public int SchemaVersion => 1;
+
+        public void WritePayload(ref Fnv1a64 hash) => hash.AddString(CampId);
+    }
+
+    public sealed class RuneSpawned : IDomainEvent
+    {
+        public RuneSpawned(EntityId rune, string runeTypeId, FixedVector2 position)
+        {
+            Rune = rune;
+            RuneTypeId = runeTypeId;
+            Position = position;
+        }
+
+        public EntityId Rune { get; }
+        public string RuneTypeId { get; }
+        public FixedVector2 Position { get; }
+
+        public string Type => "match.rune_spawned";
+        public int SchemaVersion => 1;
+
+        public void WritePayload(ref Fnv1a64 hash)
+        {
+            hash.AddInt64(Rune.Value);
+            hash.AddString(RuneTypeId);
+            hash.AddInt64(Position.X.Raw);
+            hash.AddInt64(Position.Y.Raw);
+        }
+    }
+
+    public sealed class RunePickedUp : IDomainEvent
+    {
+        public RunePickedUp(EntityId hero, string runeTypeId, FixedVector2 position)
+        {
+            Hero = hero;
+            RuneTypeId = runeTypeId;
+            Position = position;
+        }
+
+        public EntityId Hero { get; }
+        public string RuneTypeId { get; }
+        public FixedVector2 Position { get; }
+
+        public string Type => "match.rune_picked_up";
+        public int SchemaVersion => 1;
+
+        public void WritePayload(ref Fnv1a64 hash)
+        {
+            hash.AddInt64(Hero.Value);
+            hash.AddString(RuneTypeId);
+            hash.AddInt64(Position.X.Raw);
+            hash.AddInt64(Position.Y.Raw);
+        }
+    }
+
+    public sealed class ProjectileLaunched : IDomainEvent
+    {
+        public ProjectileLaunched(long projectile, EntityId source, EntityId target, bool isAbility)
+        {
+            Projectile = projectile;
+            Source = source;
+            Target = target;
+            IsAbility = isAbility;
+        }
+
+        public long Projectile { get; }
+        public EntityId Source { get; }
+        public EntityId Target { get; }
+        public bool IsAbility { get; }
+
+        public string Type => "match.projectile_launched";
+        public int SchemaVersion => 1;
+
+        public void WritePayload(ref Fnv1a64 hash)
+        {
+            hash.AddInt64(Projectile);
+            hash.AddInt64(Source.Value);
+            hash.AddInt64(Target.Value);
+            hash.AddInt64(IsAbility ? 1 : 0);
+        }
+    }
+
+    /// <summary>A projectile lost its target to a disjoint (blink, teleport).</summary>
+    public sealed class ProjectileDodged : IDomainEvent
+    {
+        public ProjectileDodged(long projectile, EntityId source, EntityId target)
+        {
+            Projectile = projectile;
+            Source = source;
+            Target = target;
+        }
+
+        public long Projectile { get; }
+        public EntityId Source { get; }
+        public EntityId Target { get; }
+
+        public string Type => "match.projectile_dodged";
+        public int SchemaVersion => 1;
+
+        public void WritePayload(ref Fnv1a64 hash)
+        {
+            hash.AddInt64(Projectile);
+            hash.AddInt64(Source.Value);
+            hash.AddInt64(Target.Value);
+        }
+    }
+
+    public sealed class DayNightChanged : IDomainEvent
+    {
+        public DayNightChanged(bool isNight)
+        {
+            IsNight = isNight;
+        }
+
+        public bool IsNight { get; }
+
+        public string Type => "match.day_night_changed";
+        public int SchemaVersion => 1;
+
+        public void WritePayload(ref Fnv1a64 hash) => hash.AddInt64(IsNight ? 1 : 0);
+    }
+
     public sealed class MatchFinished : IDomainEvent
     {
         public MatchFinished(Team winner, string destroyedAncient)

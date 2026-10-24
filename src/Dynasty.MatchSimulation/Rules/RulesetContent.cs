@@ -40,8 +40,12 @@ namespace Dynasty.MatchSimulation.Rules
             int magicResistPercent = 0,
             int visionRange = 800,
             int trueSightRange = 0,
-            ModifierFlags innateFlags = ModifierFlags.None)
+            ModifierFlags innateFlags = ModifierFlags.None,
+            int projectileSpeed = 0,
+            int nightVisionRange = -1)
         {
+            ProjectileSpeed = projectileSpeed;
+            NightVisionRange = nightVisionRange < 0 ? visionRange : nightVisionRange;
             MagicResistPercent = magicResistPercent;
             VisionRange = visionRange;
             TrueSightRange = trueSightRange;
@@ -92,8 +96,16 @@ namespace Dynasty.MatchSimulation.Rules
         /// <summary>Status flags the unit always has, e.g. <see cref="ModifierFlags.Invisible"/> for wards.</summary>
         public ModifierFlags InnateFlags { get; }
 
+        /// <summary>Speed of the attack projectile in units per second; 0 = the hit lands at the attack point (melee).</summary>
+        public int ProjectileSpeed { get; }
+
+        /// <summary>Vision range at night (defaults to the day range).</summary>
+        public int NightVisionRange { get; }
+
         internal void WriteCanonical(CanonicalWriter w)
         {
+            w.WriteInt64(ProjectileSpeed);
+            w.WriteInt64(NightVisionRange);
             w.WriteInt64(MagicResistPercent);
             w.WriteInt64(VisionRange);
             w.WriteInt64(TrueSightRange);
@@ -158,8 +170,10 @@ namespace Dynasty.MatchSimulation.Rules
             FixedVector2 position,
             bool isAncient,
             IReadOnlyList<string> protectedBy,
-            VulnerabilityRule vulnerability)
+            VulnerabilityRule vulnerability,
+            string? barracksLane = null)
         {
+            BarracksLane = barracksLane;
             Id = id;
             Team = team;
             StructureTypeId = structureTypeId;
@@ -183,6 +197,22 @@ namespace Dynasty.MatchSimulation.Rules
         public IReadOnlyList<string> ProtectedBy { get; }
 
         public VulnerabilityRule Vulnerability { get; }
+
+        /// <summary>For barracks: the lane whose enemy waves are upgraded once this structure falls.</summary>
+        public string? BarracksLane { get; }
+    }
+
+    /// <summary>Wave creep replacement applied to a team's waves on a lane whose enemy barracks fell.</summary>
+    public sealed class CreepUpgrade
+    {
+        public CreepUpgrade(string fromCreepTypeId, string toCreepTypeId)
+        {
+            FromCreepTypeId = fromCreepTypeId;
+            ToCreepTypeId = toCreepTypeId;
+        }
+
+        public string FromCreepTypeId { get; }
+        public string ToCreepTypeId { get; }
     }
 
     public sealed class LaneDefinition
@@ -276,8 +306,12 @@ namespace Dynasty.MatchSimulation.Rules
             IReadOnlyList<ObstacleDefinition>? obstacles = null,
             int navCellSize = 100,
             int navClearance = 24,
-            IReadOnlyList<FountainPlacement>? fountains = null)
+            IReadOnlyList<FountainPlacement>? fountains = null,
+            IReadOnlyList<NeutralCampDefinition>? camps = null,
+            IReadOnlyList<ElevationZone>? elevation = null)
         {
+            Camps = (camps ?? Array.Empty<NeutralCampDefinition>()).ToArray();
+            Elevation = (elevation ?? Array.Empty<ElevationZone>()).ToArray();
             Width = width;
             Height = height;
             Lanes = lanes.ToArray();
@@ -298,6 +332,12 @@ namespace Dynasty.MatchSimulation.Rules
         public IReadOnlyList<FountainPlacement> Fountains { get; }
 
         public FountainPlacement? FountainOf(Team team) => Fountains.FirstOrDefault(f => f.Team == team);
+
+        /// <summary>Neutral jungle camps.</summary>
+        public IReadOnlyList<NeutralCampDefinition> Camps { get; }
+
+        /// <summary>Raised ground; units only see targets on their own level or below.</summary>
+        public IReadOnlyList<ElevationZone> Elevation { get; }
 
         /// <summary>Side of a navigation grid cell in map units.</summary>
         public int NavCellSize { get; }
@@ -321,8 +361,10 @@ namespace Dynasty.MatchSimulation.Rules
     /// <summary>Creep waves spawned on every lane. Compositions are per team so sandbox/lab rulesets can be asymmetric.</summary>
     public sealed class WaveRules
     {
-        public WaveRules(int firstSpawnMs, int intervalMs, IReadOnlyList<WaveEntry> dawnComposition, IReadOnlyList<WaveEntry> duskComposition)
+        public WaveRules(int firstSpawnMs, int intervalMs, IReadOnlyList<WaveEntry> dawnComposition, IReadOnlyList<WaveEntry> duskComposition,
+            IReadOnlyList<CreepUpgrade>? superUpgrades = null)
         {
+            SuperUpgrades = (superUpgrades ?? Array.Empty<CreepUpgrade>()).ToArray();
             FirstSpawnMs = firstSpawnMs;
             IntervalMs = intervalMs;
             DawnComposition = dawnComposition.ToArray();
@@ -335,6 +377,9 @@ namespace Dynasty.MatchSimulation.Rules
         public IReadOnlyList<WaveEntry> DuskComposition { get; }
 
         public IReadOnlyList<WaveEntry> CompositionFor(Team team) => team == Team.Dawn ? DawnComposition : DuskComposition;
+
+        /// <summary>Creep replacements for waves on lanes where the enemy barracks are destroyed.</summary>
+        public IReadOnlyList<CreepUpgrade> SuperUpgrades { get; }
     }
 
     public sealed class CombatRules
@@ -367,9 +412,13 @@ namespace Dynasty.MatchSimulation.Rules
             HeroRules? heroRules = null,
             IReadOnlyList<AbilityDefinition>? abilities = null,
             IReadOnlyList<ItemDefinition>? items = null,
-            BossDefinition? boss = null)
+            BossDefinition? boss = null,
+            RuneRules? runes = null,
+            DayNightRules? dayNight = null)
         {
+            DayNight = dayNight;
             Boss = boss;
+            Runes = runes;
             Abilities = (abilities ?? Array.Empty<AbilityDefinition>()).ToArray();
             Items = (items ?? Array.Empty<ItemDefinition>()).ToArray();
             Id = id;
@@ -401,6 +450,12 @@ namespace Dynasty.MatchSimulation.Rules
 
         /// <summary>Optional neutral boss objective.</summary>
         public BossDefinition? Boss { get; }
+
+        /// <summary>Optional power-up runes.</summary>
+        public RuneRules? Runes { get; }
+
+        /// <summary>Optional day/night cycle; without it, it is always day.</summary>
+        public DayNightRules? DayNight { get; }
 
         public string Id { get; }
         public int Version { get; }
@@ -446,6 +501,20 @@ namespace Dynasty.MatchSimulation.Rules
             ValidateHeroes(errors);
             ValidateAbilities(errors);
             ValidateItems(errors);
+            if (DayNight != null && (DayNight.DayMs <= 0 || DayNight.NightMs <= 0))
+                errors.Add("Day and night phases must both be positive.");
+
+            if (Runes != null)
+            {
+                if (Runes.Types.Count == 0 || Runes.Spots.Count == 0)
+                    errors.Add("Rune rules need at least one rune type and one spot.");
+                if (Runes.IntervalMs <= 0 || Runes.FirstSpawnMs < 0 || Runes.PickupRadius <= 0)
+                    errors.Add("Rune rules need a positive interval and pickup radius.");
+                if (Runes.Spots.Any(s => !IsInsideMap(s)))
+                    errors.Add("A rune spot is outside the map.");
+                ReportDuplicates(errors, "rune type", Runes.Types.Select(t => t.Id));
+            }
+
             if (Boss != null)
             {
                 if (FindCreepType(Boss.CreepTypeId) == null)
@@ -526,6 +595,10 @@ namespace Dynasty.MatchSimulation.Rules
                         errors.Add(owner + " has an area effect without a radius.");
                     if (effect.AtPoint && ability.Targeting != AbilityTargeting.Point)
                         errors.Add(owner + " summons at a point but is not point-targeted.");
+                    if (effect.Kind == EffectKind.Projectile && (ability.Targeting != AbilityTargeting.Unit || effect.Speed <= 0 || effect.Inner.Count == 0))
+                        errors.Add(owner + " has a projectile but is not unit-targeted, or lacks speed or on-hit effects.");
+                    if (effect.Kind == EffectKind.Teleport && (ability.Targeting != AbilityTargeting.Unit || !ability.TargetsStructures))
+                        errors.Add(owner + " teleports but does not target allied structures.");
                 }
             }
 
@@ -637,6 +710,7 @@ namespace Dynasty.MatchSimulation.Rules
                 foreach (string protector in placement.ProtectedBy)
                     writer.WriteString(protector);
                 writer.WriteInt64((int)placement.Vulnerability);
+                writer.WriteString(placement.BarracksLane ?? "");
             }
 
             writer.WriteInt64(Map.Obstacles.Count);
@@ -644,6 +718,14 @@ namespace Dynasty.MatchSimulation.Rules
                 obstacle.WriteCanonical(writer);
             writer.WriteInt64(Map.NavCellSize);
             writer.WriteInt64(Map.NavClearance);
+            writer.WriteInt64(Map.Elevation.Count);
+            foreach (ElevationZone zone in Map.Elevation)
+                zone.WriteCanonical(writer);
+
+            writer.WriteInt64(Map.Camps.Count);
+            foreach (NeutralCampDefinition camp in Map.Camps)
+                camp.WriteCanonical(writer);
+
             writer.WriteInt64(Map.Fountains.Count);
             foreach (FountainPlacement fountain in Map.Fountains)
             {
@@ -665,11 +747,21 @@ namespace Dynasty.MatchSimulation.Rules
                 item.WriteCanonical(writer);
             writer.WriteBool(Boss != null);
             Boss?.WriteCanonical(writer);
+            writer.WriteBool(Runes != null);
+            Runes?.WriteCanonical(writer);
+            writer.WriteBool(DayNight != null);
+            DayNight?.WriteCanonical(writer);
 
             writer.WriteInt64(Waves.FirstSpawnMs);
             writer.WriteInt64(Waves.IntervalMs);
             WriteComposition(writer, Waves.DawnComposition);
             WriteComposition(writer, Waves.DuskComposition);
+            writer.WriteInt64(Waves.SuperUpgrades.Count);
+            foreach (CreepUpgrade upgrade in Waves.SuperUpgrades)
+            {
+                writer.WriteString(upgrade.FromCreepTypeId);
+                writer.WriteString(upgrade.ToCreepTypeId);
+            }
         }
 
         /// <summary>Identity of this exact snapshot. Throws if the content is invalid.</summary>
@@ -724,6 +816,28 @@ namespace Dynasty.MatchSimulation.Rules
                 }
             }
 
+            ReportDuplicates(errors, "elevation zone", Map.Elevation.Select(z => z.Id));
+            foreach (ElevationZone zone in Map.Elevation)
+            {
+                if (zone.Level < 0 || zone.Radius <= 0 || !IsInsideMap(zone.Center))
+                    errors.Add("Elevation zone '" + zone.Id + "' needs a non-negative level, a positive radius and a center inside the map.");
+            }
+
+            ReportDuplicates(errors, "camp", Map.Camps.Select(c => c.Id));
+            foreach (NeutralCampDefinition camp in Map.Camps)
+            {
+                foreach (WaveEntry entry in camp.Creeps)
+                {
+                    if (FindCreepType(entry.CreepTypeId) == null || entry.Count <= 0)
+                        errors.Add("Camp '" + camp.Id + "' uses unknown creep type '" + entry.CreepTypeId + "' or a non-positive count.");
+                }
+
+                if (!IsInsideMap(camp.Position) || Map.Obstacles.Any(o => o.Contains(camp.Position, 0)))
+                    errors.Add("Camp '" + camp.Id + "' must be inside the map and outside obstacles.");
+                if (camp.Creeps.Count == 0 || camp.RespawnMs <= 0 || camp.LeashRadius <= 0 || camp.FirstSpawnMs < 0)
+                    errors.Add("Camp '" + camp.Id + "' needs creeps, a positive respawn time and leash radius.");
+            }
+
             if (Map.NavCellSize <= 0 || Map.NavClearance < 0)
                 errors.Add("Navigation cell size must be positive and clearance non-negative.");
             ReportDuplicates(errors, "obstacle", Map.Obstacles.Select(o => o.Id));
@@ -761,6 +875,24 @@ namespace Dynasty.MatchSimulation.Rules
                     errors.Add("Wave uses unknown creep type '" + entry.CreepTypeId + "'.");
                 if (entry.Count <= 0)
                     errors.Add("Wave entry '" + entry.CreepTypeId + "' must have a positive count.");
+            }
+
+            foreach (CreepUpgrade upgrade in Waves.SuperUpgrades)
+            {
+                foreach (string id in new[] { upgrade.FromCreepTypeId, upgrade.ToCreepTypeId })
+                {
+                    CreepType? type = FindCreepType(id);
+                    if (type == null)
+                        errors.Add("Super creep upgrade uses unknown creep type '" + id + "'.");
+                    else if (type.Stats.MoveSpeed <= 0)
+                        errors.Add("Super creep upgrade type '" + id + "' must be able to walk a lane.");
+                }
+            }
+
+            foreach (StructurePlacement barracks in Map.Structures.Where(s => s.BarracksLane != null))
+            {
+                if (Map.Lanes.All(l => l.Id != barracks.BarracksLane))
+                    errors.Add("Barracks '" + barracks.Id + "' refers to unknown lane '" + barracks.BarracksLane + "'.");
             }
         }
 

@@ -46,6 +46,11 @@ namespace Dynasty.MatchSimulation.Heroes
 
         public bool IsDead => RespawnTick >= 0;
 
+        /// <summary>First tick a buyback is allowed again.</summary>
+        public long BuybackReadyTick { get; internal set; }
+
+        internal bool BuybackRequested { get; set; }
+
         public HeroOrder Order { get; internal set; }
 
         public IReadOnlyList<ItemSlot> Inventory => InventorySlots;

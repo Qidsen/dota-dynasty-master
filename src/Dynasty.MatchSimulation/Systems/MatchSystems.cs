@@ -26,9 +26,13 @@ namespace Dynasty.MatchSimulation.Systems
             {
                 foreach (Team team in new[] { Team.Dawn, Team.Dusk })
                 {
+                    bool super = EnemyBarracksDestroyed(state, team, lane.Id);
                     foreach (WaveEntry entry in waves.CompositionFor(team))
                     {
-                        CreepType type = state.Ruleset.FindCreepType(entry.CreepTypeId)!;
+                        string typeId = entry.CreepTypeId;
+                        if (super)
+                            typeId = waves.SuperUpgrades.FirstOrDefault(u => u.FromCreepTypeId == typeId)?.ToCreepTypeId ?? typeId;
+                        CreepType type = state.Ruleset.FindCreepType(typeId)!;
                         for (int i = 0; i < entry.Count; i++)
                         {
                             MatchUnit creep = state.SpawnCreep(context.Ids.Allocate(), team, type, lane, now);
@@ -40,6 +44,10 @@ namespace Dynasty.MatchSimulation.Systems
 
             state.NextWaveTick += state.Rate.TicksFor(waves.IntervalMs);
         }
+
+        /// <summary>Whether the opponent's barracks for this lane have fallen (the team's waves there become super creeps).</summary>
+        private static bool EnemyBarracksDestroyed(MatchState state, Team team, string laneId) =>
+            state.Ruleset.Map.Structures.Any(s => s.Team != team && s.BarracksLane == laneId && state.DestroyedStructures.Contains(s.Id));
     }
 
     /// <summary>
@@ -77,8 +85,25 @@ namespace Dynasty.MatchSimulation.Systems
 
                     if (modifier.ExpiresTick >= 0 && now >= modifier.ExpiresTick)
                         Modifiers.Remove(context, unit, modifier, "expired");
+                    else if (spec.BreakRadius > 0 && EnemyBreakerNear(context.State, unit, spec.BreakRadius))
+                        Modifiers.Remove(context, unit, modifier, "broken");
                 }
             }
+        }
+
+        /// <summary>An enemy hero or attacking structure within the radius (positions from the end of the previous tick).</summary>
+        private static bool EnemyBreakerNear(MatchState state, MatchUnit unit, int radius)
+        {
+            foreach (MatchUnit other in state.Units)
+            {
+                if (other.Team == unit.Team || other.Team == Team.Neutral || !other.IsAlive)
+                    continue;
+                bool breaker = other.Hero != null || (other.Kind == UnitKind.Structure && other.CanAttackAtAll);
+                if (breaker && Geometry.WithinRange(other.Position, unit.Position, radius))
+                    return true;
+            }
+
+            return false;
         }
     }
 
@@ -113,8 +138,8 @@ namespace Dynasty.MatchSimulation.Systems
             MatchState state = context.State;
             foreach (MatchUnit unit in state.Units)
             {
-                // Heroes get targets from orders, the boss from its own system.
-                if (!unit.CanAttackAtAll || !unit.IsAlive || unit.Kind == UnitKind.Hero || unit.Kind == UnitKind.Boss)
+                // Heroes get targets from orders, neutrals from the neutral system.
+                if (!unit.CanAttackAtAll || !unit.IsAlive || unit.Kind == UnitKind.Hero || unit.Team == Team.Neutral)
                     continue;
 
                 int searchRange = unit.Kind == UnitKind.Structure ? unit.AttackRange : unit.AcquisitionRange;
@@ -133,8 +158,8 @@ namespace Dynasty.MatchSimulation.Systems
             Fixed bestDistance = Fixed.Zero;
             foreach (MatchUnit candidate in state.Units)
             {
-                // Creeps, towers and summons leave neutral objectives alone.
-                if (candidate.Team == Team.Neutral || !state.CanAttack(unit, candidate) || !Geometry.WithinEdgeRange(unit, candidate, range) ||
+                // Creeps, towers and summons leave neutral objectives alone. Cheapest test first.
+                if (!Geometry.WithinEdgeRange(unit, candidate, range) || candidate.Team == Team.Neutral || !state.CanAttack(unit, candidate) ||
                     !state.IsVisibleTo(unit.Team, candidate))
                     continue;
 
@@ -164,7 +189,7 @@ namespace Dynasty.MatchSimulation.Systems
             long now = context.Tick.Value;
             foreach (MatchUnit unit in state.Units)
             {
-                if ((unit.Kind != UnitKind.Creep && unit.Kind != UnitKind.Summon) || !unit.CanMove)
+                if ((unit.Kind != UnitKind.Creep && unit.Kind != UnitKind.Summon) || unit.Team == Team.Neutral || !unit.CanMove)
                     continue;
 
                 MatchUnit? target = state.Find(unit.TargetId);
@@ -230,6 +255,9 @@ namespace Dynasty.MatchSimulation.Systems
                 return false;
 
             unit.Position = FixedVector2.MoveTowards(unit.Position, unit.WaypointAt(unit.NextWaypoint), unit.StepPerTick);
+            // Count the waypoint as reached now, before separation may nudge the unit off it.
+            if (unit.Position == unit.WaypointAt(unit.NextWaypoint))
+                unit.NextWaypoint++;
             return true;
         }
 
@@ -294,6 +322,7 @@ namespace Dynasty.MatchSimulation.Systems
             unit.PendingAttackTick = now + unit.AttackPointTicks;
             unit.NextAttackTick = now + unit.AttackIntervalTicks;
             unit.LastActiveTick = now;
+            Modifiers.BreakOnAction(context, unit);
             context.Emit(new AttackStarted(unit.Id, target.Id));
         }
 
@@ -313,9 +342,73 @@ namespace Dynasty.MatchSimulation.Systems
             if (target.Kind == UnitKind.Structure && unit.StructureDamagePercent != 0)
                 damage = damage * Fixed.FromInt(100 + unit.StructureDamagePercent) / Fixed.FromInt(100);
 
-            Fixed dealt = Damage.Deal(context, unit.Id, target, damage, DamageType.Physical, critical);
-            if (unit.LifestealPercent > 0 && unit.IsAlive)
-                Damage.Heal(context, unit.Id, unit, dealt * Fixed.FromInt(unit.LifestealPercent) / Fixed.FromInt(100));
+            if (unit.Stats.ProjectileSpeed > 0)
+            {
+                // Ranged: the rolled hit travels; it lands (or is dodged) in the projectile system.
+                Projectile projectile = context.State.LaunchProjectile(unit, target, unit.Stats.ProjectileSpeed);
+                projectile.Damage = damage;
+                projectile.IsCritical = critical;
+                context.Emit(new ProjectileLaunched(projectile.Id, unit.Id, target.Id, isAbility: false));
+                return;
+            }
+
+            ApplyHit(context, unit, target, damage, critical);
+        }
+
+        internal static void ApplyHit(SimulationContext<MatchState> context, MatchUnit attacker, MatchUnit target, Fixed damage, bool critical)
+        {
+            Fixed dealt = Damage.Deal(context, attacker.Id, target, damage, DamageType.Physical, critical);
+            if (attacker.LifestealPercent > 0 && attacker.IsAlive)
+                Damage.Heal(context, attacker.Id, attacker, dealt * Fixed.FromInt(attacker.LifestealPercent) / Fixed.FromInt(100));
+        }
+    }
+
+    /// <summary>
+    /// Moves homing projectiles toward their targets and resolves arrivals. Runs after every unit
+    /// has moved, so it does not matter which side's units were processed first.
+    /// </summary>
+    internal sealed class ProjectileSystem : ISimulationSystem<MatchState>
+    {
+        public string Name => "projectiles";
+
+        public void Tick(SimulationContext<MatchState> context)
+        {
+            MatchState state = context.State;
+            if (state.Projectiles.Count == 0)
+                return;
+
+            foreach (Projectile projectile in state.Projectiles.ToList())
+            {
+                MatchUnit? target = state.Find(projectile.Target);
+                if (target == null || !target.IsAlive)
+                {
+                    state.RemoveProjectile(projectile);   // fizzles
+                    continue;
+                }
+
+                Fixed distance = FixedVector2.Distance(projectile.Position, target.Position);
+                if (distance > projectile.StepPerTick + Fixed.FromInt(target.BoundingRadius))
+                {
+                    projectile.Position = FixedVector2.MoveTowards(projectile.Position, target.Position, projectile.StepPerTick);
+                    continue;
+                }
+
+                state.RemoveProjectile(projectile);
+                MatchUnit? source = state.Find(projectile.Source);
+                if (projectile.IsAbility)
+                {
+                    if (source != null)
+                        Effects.Run(context, source, projectile.Effects!, projectile.Level, target, target.Position);
+                }
+                else if (source != null)
+                {
+                    AttackSystem.ApplyHit(context, source, target, projectile.Damage, projectile.IsCritical);
+                }
+                else
+                {
+                    Damage.Deal(context, projectile.Source, target, projectile.Damage, DamageType.Physical, projectile.IsCritical);
+                }
+            }
         }
     }
 

@@ -127,6 +127,33 @@ public class BossTests
     }
 
     [Fact]
+    public void TeamAi_TakesTheBossAtEvenNumbersLateWhenTheEnemyIsNotAround()
+    {
+        var draft = WithBoss();
+        foreach (string id in new[] { "delta", "epsilon", "zeta", "eta", "theta" })
+            draft.Heroes.Add(Hero(id));
+        var kernel = draft.StartWithHeroes(
+            new[] { ("alpha", "mid"), ("beta", "mid"), ("gamma", "mid"), ("delta", "mid") },
+            new[] { ("epsilon", "mid"), ("zeta", "mid"), ("eta", "mid"), ("theta", "mid") });
+        At(kernel, 0, ctx =>
+        {
+            foreach (string hero in new[] { "alpha", "beta", "gamma", "delta" })
+                HeroProgression.GrantXp(ctx, H(ctx.State, hero), 2000);
+            int i = 0;
+            foreach (string hero in new[] { "epsilon", "zeta", "eta", "theta" })
+                H(ctx.State, hero).Position = P(9000, 8000 + 200 * i++);   // all alive, far from the pit and unseen
+        });
+        var settings = new HeroAiSettings { ReactionJitterTicks = 0, MisjudgementPercent = 0, BossAtEvenNumbersFromMinute = 0 };
+        foreach (string hero in new[] { "epsilon", "zeta", "eta", "theta" })
+            settings.Uncontrolled.Add(hero);
+        HeroAi.Attach(kernel, settings);
+
+        kernel.RunTicks(30 * 60);
+
+        Assert.Equal(Team.Dawn, Assert.Single(kernel.EventsOf<BossKilled>()).Team);
+    }
+
+    [Fact]
     public void Validation_RejectsBossWithUnknownCreepType()
     {
         var draft = WithBoss();

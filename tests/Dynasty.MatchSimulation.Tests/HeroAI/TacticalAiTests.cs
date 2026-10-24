@@ -136,6 +136,65 @@ public class TacticalAiTests
         Assert.True(now < start - 1500, $"alpha should rotate to defend (distance {start:0} -> {now:0})");
     }
 
+    /// <summary>Two Dawn heroes against nobody, Dawn mid creeps sieging the Dusk mid tower, alpha's own lane wave holding near its spawn.</summary>
+    private static SimulationKernel<MatchState> SiegeScenario(HeroAiSettings settings)
+    {
+        var draft = TestAbilities.Draft();
+        draft.DuskWave.Clear();
+        draft.DawnWave.Add(new WaveEntry("melee", 2));
+        draft.Lanes.Add(new LaneDefinition("side", new[] { P(1000, 2000), P(9000, 2000) }));
+        draft.StructureTypes[0] = new StructureType("tower", TowerStats(dmg: 1));   // the sieging creeps must survive
+        // Closer to the Dawn fountain than the mid tower, so a plain "nearest structure" choice picks it.
+        draft.Placements.Add(new StructurePlacement("dusk.side.t1", Team.Dusk, "tower", P(5500, 2000), false, Array.Empty<string>(), VulnerabilityRule.AnyProtectorDestroyed));
+        settings.Personalities["alpha"] = new HeroPersonality { Greed = 0.3 };   // not a carry holding out for farm
+        settings.Personalities["gamma"] = new HeroPersonality { Greed = 0.3 };
+        var kernel = Skirmish(
+            new[] { ("alpha", 3000, 3500), ("gamma", 3000, 3600) },
+            Array.Empty<(string, int, int)>(),
+            settings,
+            draft: draft,
+            lane: "side");
+        At(kernel, 1, ctx =>
+        {
+            // Mid creeps are sieging the mid tower; the side wave (alpha's own lane) holds near its spawn.
+            int i = 0;
+            foreach (MatchUnit creep in ctx.State.Creeps(Team.Dawn))
+            {
+                Modifiers.Apply(ctx, creep, ModifierSpec.Status("test.pin", -1, ModifierFlags.Rooted), EntityId.None);
+                if (creep.Position.Y > Fixed.FromInt(3500))
+                    creep.Position = P(6500, 4900 + 60 * i++);
+            }
+        });
+
+        return kernel;
+    }
+
+    [Fact]
+    public void Push_JoinsTheSiegeOurCreepsAlreadyHave()
+    {
+        var kernel = SiegeScenario(new HeroAiSettings { ReactionJitterTicks = 0, MisjudgementPercent = 0, LaningPhaseMinutes = 0 });
+
+        kernel.RunTicks(240);
+
+        FixedVector2 alpha = H(kernel.State, "alpha").Position;
+        double toMid = FixedVector2.Distance(alpha, P(7000, 5000)).ToDouble();
+        double toSide = FixedVector2.Distance(alpha, P(5500, 2000)).ToDouble();
+        Assert.True(toMid < toSide, $"alpha should push the sieged mid tower (mid {toMid:0}, side {toSide:0})");
+    }
+
+    [Fact]
+    public void LaningPhase_ATwoHeroAdvantageDoesNotPullHeroesOutOfLane()
+    {
+        var kernel = SiegeScenario(new HeroAiSettings { ReactionJitterTicks = 0, MisjudgementPercent = 0, LaningPhaseMinutes = 10 });
+
+        kernel.RunTicks(240);
+
+        FixedVector2 alpha = H(kernel.State, "alpha").Position;
+        double toMid = FixedVector2.Distance(alpha, P(7000, 5000)).ToDouble();
+        double toOwnWave = FixedVector2.Distance(alpha, P(1020, 2000)).ToDouble();
+        Assert.True(toOwnWave < toMid, $"alpha should stay with its lane wave (own wave {toOwnWave:0}, mid tower {toMid:0})");
+    }
+
     [Fact]
     public void Support_PlacesObserverWardsAtWardSpots()
     {
@@ -194,6 +253,35 @@ public class TacticalAiTests
 
         Assert.True(AlphaAttacks(1.6) > 0);
         Assert.Equal(0, AlphaAttacks(0.6));
+    }
+
+    [Fact]
+    public void ReadyUltimate_MakesAnEvenFightWorthTaking()
+    {
+        bool AlphaEngages(bool ultimateReady)
+        {
+            var draft = TestAbilities.Draft().WithHeroAbilities("alpha", "finale");
+            var settings = new HeroAiSettings { ReactionJitterTicks = 0, MisjudgementPercent = 0 };
+            settings.Personalities["alpha"] = new HeroPersonality { Aggression = 1.0 };
+            settings.Uncontrolled.Add("beta");
+            var kernel = Skirmish(new[] { ("alpha", 5000, 2000) }, new[] { ("beta", 5700, 2000) }, settings, draft: draft, setup: ctx =>
+            {
+                Pin(ctx, "beta");
+                HeroProgression.GrantXp(ctx, H(ctx.State, "alpha"), 2000);   // level 6 each: an even fight on paper
+                HeroProgression.GrantXp(ctx, H(ctx.State, "beta"), 2000);
+            });
+            At(kernel, 2, ctx =>
+            {
+                if (!ultimateReady)
+                    H(ctx.State, "alpha").Hero!.Ability("finale")!.CooldownReadyTick = 100000;
+            });
+            kernel.RunTicks(120);
+            EntityId alpha = H(kernel.State, "alpha").Id;
+            return kernel.EventsOf<AttackStarted>().Any(a => a.Attacker == alpha) || kernel.EventsOf<AbilityCast>().Any(c => c.Caster == alpha);
+        }
+
+        Assert.True(AlphaEngages(ultimateReady: true), "with its ultimate ready alpha should take the even fight");
+        Assert.False(AlphaEngages(ultimateReady: false), "with its ultimate on cooldown alpha should not");
     }
 
     [Fact]

@@ -18,6 +18,9 @@ namespace Dynasty.MatchSimulation
 
         /// <summary>Neutral objective (see <see cref="BossDefinition"/>).</summary>
         Boss = 4,
+
+        /// <summary>A power-up lying on the map; picked up by walking onto it, never attacked.</summary>
+        Rune = 5,
     }
 
     /// <summary>
@@ -114,14 +117,27 @@ namespace Dynasty.MatchSimulation
         /// <summary>Last tick the unit moved or started an attack; used to detect stuck units.</summary>
         public long LastActiveTick { get; internal set; }
 
+        /// <summary>Runes only: what the rune gives and which spot it occupies.</summary>
+        public RuneType? Rune { get; internal set; }
+        internal int RuneSpot { get; set; }
+
+        /// <summary>Neutral units only: where they return to and how far they may chase.</summary>
+        internal FixedVector2 NeutralHome { get; set; }
+        internal int LeashRadius { get; set; }
+        internal CampState? Camp { get; set; }
+
         internal LaneDefinition? Lane { get; set; }
         internal int NextWaypoint { get; set; }
         internal Fixed StepPerTick { get; private set; }
         internal long AttackIntervalTicks { get; private set; }
         internal long AttackPointTicks { get; private set; }
-        internal long NextAttackTick { get; set; }
-        internal long PendingAttackTick { get; set; }
-        internal EntityId PendingTargetId { get; set; }
+        /// <summary>Earliest tick the next attack can start (attack cooldown); a player knows this of its own hero.</summary>
+        public long NextAttackTick { get; internal set; }
+        /// <summary>Tick the attack being wound up lands, or -1 (the wind-up is visible, like an animation).</summary>
+        public long PendingAttackTick { get; internal set; }
+
+        /// <summary>Target of the attack being wound up.</summary>
+        public EntityId PendingTargetId { get; internal set; }
         internal EntityId LastAttackerId { get; set; }
 
         internal ActiveModifier? FindModifier(string key, EntityId source)
@@ -233,10 +249,29 @@ namespace Dynasty.MatchSimulation
         }
     }
 
+    /// <summary>Runtime state of a neutral camp.</summary>
+    internal sealed class CampState
+    {
+        public CampState(NeutralCampDefinition definition, long nextSpawnTick)
+        {
+            Definition = definition;
+            NextSpawnTick = nextSpawnTick;
+        }
+
+        public NeutralCampDefinition Definition { get; }
+
+        /// <summary>Creeps of the current spawn (dead ones stay listed until the next spawn).</summary>
+        public List<MatchUnit> Members { get; } = new List<MatchUnit>();
+
+        /// <summary>Tick of the next spawn; -1 while creeps of the current spawn are alive.</summary>
+        public long NextSpawnTick { get; set; }
+    }
+
     /// <summary>Authoritative state of one match (world truth).</summary>
     public sealed class MatchState
     {
         private readonly List<MatchUnit> _units = new List<MatchUnit>();
+        private readonly List<MatchUnit> _heroes = new List<MatchUnit>();
         private readonly Dictionary<EntityId, MatchUnit> _byId = new Dictionary<EntityId, MatchUnit>();
         private readonly Dictionary<string, MatchUnit> _structures = new Dictionary<string, MatchUnit>();
         private readonly List<string> _destroyedOrder = new List<string>();
@@ -250,20 +285,67 @@ namespace Dynasty.MatchSimulation
             Nav = Navigation.NavGrid.FromMap(ruleset.Map);
             Pathfinder = new Navigation.Pathfinder(Nav);
             SightGrid = Navigation.NavGrid.Build(ruleset.Map.Width, ruleset.Map.Height, ruleset.Map.NavCellSize, ruleset.Map.Obstacles, clearance: 0);
+            _elevation = BuildElevation(Nav, ruleset.Map.Elevation);
             if (ruleset.Boss != null)
                 NextBossSpawnTick = rate.TicksFor(ruleset.Boss.FirstSpawnMs);
+            foreach (NeutralCampDefinition camp in ruleset.Map.Camps)
+                Camps.Add(new CampState(camp, rate.TicksFor(camp.FirstSpawnMs)));
+            if (ruleset.Runes != null)
+                NextRuneTick = rate.TicksFor(ruleset.Runes.FirstSpawnMs);
+        }
+
+        /// <summary>Tick of the next rune spawn; -1 without runes.</summary>
+        internal long NextRuneTick { get; set; } = -1;
+
+        private static readonly UnitStats RuneStats = new UnitStats(1, Fixed.Zero, 0, 0, 0, 0, 1000, 0, 0, 16, visionRange: 0);
+
+        internal MatchUnit SpawnRune(EntityId id, RuneType type, int spot, FixedVector2 position)
+        {
+            var unit = new MatchUnit(id, Team.Neutral, UnitKind.Rune, type.Id, RuneStats, position, Rate)
+            {
+                Rune = type,
+                RuneSpot = spot,
+            };
+            Add(unit);
+            return unit;
+        }
+
+        internal List<CampState> Camps { get; } = new List<CampState>();
+
+        /// <summary>Projectiles currently in flight, in launch order.</summary>
+        public IReadOnlyList<Projectile> Projectiles => _projectiles;
+
+        private readonly List<Projectile> _projectiles = new List<Projectile>();
+        private long _nextProjectileId = 1;
+
+        internal Projectile LaunchProjectile(MatchUnit source, MatchUnit target, int speed)
+        {
+            var projectile = new Projectile(_nextProjectileId++, source.Id, target.Id, source.Position, Fixed.FromRatio(speed, Rate.TicksPerSecond));
+            _projectiles.Add(projectile);
+            return projectile;
+        }
+
+        internal void RemoveProjectile(Projectile projectile) => _projectiles.Remove(projectile);
+
+        /// <summary>Removes every projectile homing on the unit (blink, teleport); returns them for event reporting.</summary>
+        internal List<Projectile> Disjoint(MatchUnit unit)
+        {
+            List<Projectile> dodged = _projectiles.Where(p => p.Target == unit.Id).ToList();
+            foreach (Projectile projectile in dodged)
+                _projectiles.Remove(projectile);
+            return dodged;
         }
 
         internal Navigation.NavGrid Nav { get; }
         internal Navigation.Pathfinder Pathfinder { get; }
 
         /// <summary>All heroes (alive or waiting to respawn) in spawn order.</summary>
-        public IEnumerable<MatchUnit> Heroes => _units.Where(u => u.Hero != null);
+        public UnitView Heroes => new UnitView(_heroes);
 
         public RulesetContent Ruleset { get; }
 
         /// <summary>Living units in creation order (which is also ascending ID order).</summary>
-        public IReadOnlyList<MatchUnit> Units => _units;
+        public UnitView Units => new UnitView(_units);
 
         public Team? Winner { get; internal set; }
 
@@ -287,6 +369,42 @@ namespace Dynasty.MatchSimulation
 
         public Vision.TeamKnowledge KnowledgeOf(Team team) => team == Team.Dawn ? _dawnKnowledge : _duskKnowledge;
 
+        /// <summary>Whether the given tick falls in a night phase (the cycle starts with day).</summary>
+        public bool IsNight(long tick)
+        {
+            DayNightRules? rules = Ruleset.DayNight;
+            if (rules == null)
+                return false;
+            long day = Rate.TicksFor(rules.DayMs);
+            long cycle = day + Rate.TicksFor(rules.NightMs);
+            return tick % cycle >= day;
+        }
+
+        /// <summary>Ground level at a point (0 = low ground): the highest zone covering its grid cell center.</summary>
+        public int ElevationAt(FixedVector2 point) => _elevation.Length == 0 ? 0 : _elevation[Nav.IndexOf(point)];
+
+        private readonly int[] _elevation;
+
+        private static int[] BuildElevation(Navigation.NavGrid grid, IReadOnlyList<ElevationZone> zones)
+        {
+            if (zones.Count == 0)
+                return Array.Empty<int>();
+
+            var levels = new int[grid.Columns * grid.Rows];
+            for (int i = 0; i < levels.Length; i++)
+            {
+                FixedVector2 center = grid.CenterOf(i);
+                foreach (ElevationZone zone in zones)
+                {
+                    Fixed r = Fixed.FromInt(zone.Radius);
+                    if (zone.Level > levels[i] && FixedVector2.DistanceSquared(center, zone.Center) <= r * r)
+                        levels[i] = zone.Level;
+                }
+            }
+
+            return levels;
+        }
+
         private readonly Vision.TeamKnowledge _dawnKnowledge = new Vision.TeamKnowledge(Team.Dawn);
         private readonly Vision.TeamKnowledge _duskKnowledge = new Vision.TeamKnowledge(Team.Dusk);
 
@@ -304,9 +422,14 @@ namespace Dynasty.MatchSimulation
             if (placement == null || placement.ProtectedBy.Count == 0)
                 return true;
 
-            return placement.Vulnerability == VulnerabilityRule.AnyProtectorDestroyed
-                ? placement.ProtectedBy.Any(_destroyed.Contains)
-                : placement.ProtectedBy.All(_destroyed.Contains);
+            bool any = placement.Vulnerability == VulnerabilityRule.AnyProtectorDestroyed;
+            for (int i = 0; i < placement.ProtectedBy.Count; i++)
+            {
+                if (_destroyed.Contains(placement.ProtectedBy[i]) == any)
+                    return any;
+            }
+
+            return !any;
         }
 
         /// <summary>
@@ -315,7 +438,7 @@ namespace Dynasty.MatchSimulation
         /// </summary>
         internal bool CanAttack(MatchUnit attacker, MatchUnit target)
         {
-            if (!target.IsAlive || target == attacker)
+            if (!target.IsAlive || target == attacker || target.Kind == UnitKind.Rune)
                 return false;
             if (target.Team == attacker.Team)
                 return attacker.Kind == UnitKind.Hero && target.Kind == UnitKind.Creep && target.Hp * Fixed.FromInt(2) < Fixed.FromInt(target.MaxHp);
@@ -371,10 +494,27 @@ namespace Dynasty.MatchSimulation
             return unit;
         }
 
+        internal MatchUnit SpawnCampCreep(EntityId id, CampState camp, CreepType type)
+        {
+            var unit = new MatchUnit(id, Team.Neutral, UnitKind.Creep, type.Id, type.Stats, camp.Definition.Position, Rate)
+            {
+                NeutralHome = camp.Definition.Position,
+                LeashRadius = camp.Definition.LeashRadius,
+                Camp = camp,
+            };
+            Add(unit);
+            camp.Members.Add(unit);
+            return unit;
+        }
+
         internal MatchUnit SpawnBoss(EntityId id, BossDefinition boss)
         {
             CreepType type = Ruleset.FindCreepType(boss.CreepTypeId)!;
-            var unit = new MatchUnit(id, Team.Neutral, UnitKind.Boss, type.Id, type.Stats, boss.Position, Rate);
+            var unit = new MatchUnit(id, Team.Neutral, UnitKind.Boss, type.Id, type.Stats, boss.Position, Rate)
+            {
+                NeutralHome = boss.Position,
+                LeashRadius = boss.LeashRadius,
+            };
             Add(unit);
             Boss = unit;
             NextBossSpawnTick = -1;
@@ -386,6 +526,8 @@ namespace Dynasty.MatchSimulation
             if (unit == Boss)
                 Boss = null;
             _units.Remove(unit);
+            if (unit.Hero != null)
+                _heroes.Remove(unit);
             _byId.Remove(unit.Id);
             if (unit.Placement != null)
             {
@@ -398,7 +540,30 @@ namespace Dynasty.MatchSimulation
         private void Add(MatchUnit unit)
         {
             _units.Add(unit);
+            if (unit.Hero != null)
+                _heroes.Add(unit);
             _byId.Add(unit.Id, unit);
         }
+    }
+
+    /// <summary>
+    /// Read-only view of a unit list. A struct with a struct enumerator, so the hot
+    /// <c>foreach (MatchUnit u in state.Units)</c> loops allocate nothing.
+    /// </summary>
+    public readonly struct UnitView : IReadOnlyList<MatchUnit>
+    {
+        private readonly List<MatchUnit> _list;
+
+        internal UnitView(List<MatchUnit> list) => _list = list;
+
+        public int Count => _list.Count;
+
+        public MatchUnit this[int index] => _list[index];
+
+        public List<MatchUnit>.Enumerator GetEnumerator() => _list.GetEnumerator();
+
+        IEnumerator<MatchUnit> IEnumerable<MatchUnit>.GetEnumerator() => _list.GetEnumerator();
+
+        System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => _list.GetEnumerator();
     }
 }

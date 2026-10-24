@@ -128,6 +128,14 @@ public class PassiveAndLearningTests
     }
 
     [Fact]
+    public void PassiveAbility_CostsNoMana()
+    {
+        AbilityDefinition passive = TestAbilities.Passive("aura", new ModifierSpec("aura", -1, damageBonus: 10));
+
+        Assert.Equal(0, passive.ManaCostAt(1));
+    }
+
+    [Fact]
     public void Validation_RejectsUnknownAbilityReference()
     {
         var draft = Draft();

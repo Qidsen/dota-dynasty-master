@@ -33,6 +33,12 @@ namespace Dynasty.MatchSimulation.Systems
 
                 hero.Gold += passiveGold;
 
+                if (hero.BuybackRequested)
+                {
+                    hero.BuybackRequested = false;
+                    TryBuyback(context, unit, hero, rules, now);
+                }
+
                 if (hero.IsDead)
                 {
                     if (now >= hero.RespawnTick)
@@ -61,12 +67,37 @@ namespace Dynasty.MatchSimulation.Systems
 
         private static void Respawn(SimulationContext<MatchState> context, MatchUnit unit, HeroState hero)
         {
+            Revive(context, unit, hero);
+            context.Emit(new HeroRespawned(unit.Id));
+        }
+
+        private static void TryBuyback(SimulationContext<MatchState> context, MatchUnit unit, HeroState hero, HeroRules rules, long now)
+        {
+            string? failure = !rules.BuybackEnabled ? "disabled"
+                : !hero.IsDead ? "not_dead"
+                : now < hero.BuybackReadyTick ? "cooldown"
+                : hero.Gold < Fixed.FromInt(rules.BuybackCost(hero.Level)) ? "gold"
+                : null;
+            if (failure != null)
+            {
+                context.Emit(new BuybackFailed(unit.Id, failure));
+                return;
+            }
+
+            int cost = rules.BuybackCost(hero.Level);
+            hero.Gold -= Fixed.FromInt(cost);
+            hero.BuybackReadyTick = now + context.TickRate.TicksFor(rules.BuybackCooldownMs);
+            Revive(context, unit, hero);
+            context.Emit(new HeroBoughtBack(unit.Id, cost));
+        }
+
+        private static void Revive(SimulationContext<MatchState> context, MatchUnit unit, HeroState hero)
+        {
             hero.RespawnTick = -1;
             unit.Position = context.State.Ruleset.Map.FountainOf(unit.Team)!.Position;
             unit.Hp = Fixed.FromInt(unit.MaxHp);
             hero.Mana = Fixed.FromInt(hero.MaxMana);
             unit.LastActiveTick = context.Tick.Value;
-            context.Emit(new HeroRespawned(unit.Id));
         }
     }
 
@@ -176,6 +207,9 @@ namespace Dynasty.MatchSimulation.Systems
             }
 
             unit.Position = FixedVector2.MoveTowards(unit.Position, path[hero.PathIndex], unit.StepPerTick);
+            // Count the waypoint as reached now, before separation may nudge the hero off it.
+            if (unit.Position == path[hero.PathIndex])
+                hero.PathIndex++;
             return true;
         }
     }
@@ -206,9 +240,13 @@ namespace Dynasty.MatchSimulation.Systems
                 }
             }
 
-            // Denied creeps give no XP to the enemy.
-            if (!denied && type != null && type.Bounty.Xp > 0)
-                ShareXp(context, creep, type.Bounty.Xp);
+            // Denied creeps give no XP to the enemy. Neutral creeps reward the killer's team.
+            if (denied || type == null || type.Bounty.Xp <= 0)
+                return;
+            if (creep.Team != Team.Neutral)
+                ShareXp(context, creep, creep.Team.Opponent(), type.Bounty.Xp);
+            else if (killer != null && killer.Team != Team.Neutral)
+                ShareXp(context, creep, killer.Team, type.Bounty.Xp);
         }
 
         public static void HeroDied(SimulationContext<MatchState> context, MatchUnit victim)
@@ -244,7 +282,7 @@ namespace Dynasty.MatchSimulation.Systems
                 assists.Add(helper.Id);
             }
 
-            ShareXp(context, victim, rules.HeroKillXpBase + rules.HeroKillXpPerLevel * hero.Level);
+            ShareXp(context, victim, victim.Team.Opponent(), rules.HeroKillXpBase + rules.HeroKillXpPerLevel * hero.Level);
 
             hero.RecentHeroAttackers.Clear();
             hero.Path = null;
@@ -264,12 +302,12 @@ namespace Dynasty.MatchSimulation.Systems
                 HeroProgression.GrantGold(context, hero, rules.StructureTeamGold, "structure");
         }
 
-        /// <summary>Living enemy heroes within the share radius split the XP equally (remainder dropped).</summary>
-        private static void ShareXp(SimulationContext<MatchState> context, MatchUnit dead, int xp)
+        /// <summary>Living heroes of the receiving team within the share radius split the XP equally (remainder dropped).</summary>
+        private static void ShareXp(SimulationContext<MatchState> context, MatchUnit dead, Team receivingTeam, int xp)
         {
             int radius = context.State.Ruleset.HeroRules!.XpShareRadius;
             List<MatchUnit> receivers = context.State.Heroes
-                .Where(h => h.Team != dead.Team && h.IsAlive && Geometry.WithinRange(h.Position, dead.Position, radius))
+                .Where(h => h.Team == receivingTeam && h.IsAlive && Geometry.WithinRange(h.Position, dead.Position, radius))
                 .ToList();
             if (receivers.Count == 0)
                 return;

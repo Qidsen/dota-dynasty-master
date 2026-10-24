@@ -74,6 +74,19 @@ public class BaseRulesetTests
     }
 
     [Fact]
+    public void BaseCamps_AreMirroredBetweenTheHalves()
+    {
+        var camps = BaseRuleset.Create().Map.Camps;
+
+        Assert.NotEmpty(camps);
+        foreach (NeutralCampDefinition camp in camps)
+        {
+            NeutralCampDefinition mirror = Assert.Single(camps, c => c.Position == camp.Position.ReflectThrough(Center));
+            Assert.Equal(camp.Creeps.Select(e => (e.CreepTypeId, e.Count)), mirror.Creeps.Select(e => (e.CreepTypeId, e.Count)));
+        }
+    }
+
+    [Fact]
     public void BaseWaves_AreIdenticalForBothTeams()
     {
         var waves = BaseRuleset.Create().Waves;
