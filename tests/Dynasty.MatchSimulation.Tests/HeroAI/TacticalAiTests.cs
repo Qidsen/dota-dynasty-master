@@ -136,8 +136,8 @@ public class TacticalAiTests
         Assert.True(now < start - 1500, $"alpha should rotate to defend (distance {start:0} -> {now:0})");
     }
 
-    [Fact]
-    public void Push_JoinsTheSiegeOurCreepsAlreadyHave()
+    /// <summary>Two Dawn heroes against nobody, Dawn mid creeps sieging the Dusk mid tower, alpha's own lane wave holding near its spawn.</summary>
+    private static SimulationKernel<MatchState> SiegeScenario(HeroAiSettings settings)
     {
         var draft = TestAbilities.Draft();
         draft.DuskWave.Clear();
@@ -146,7 +146,6 @@ public class TacticalAiTests
         draft.StructureTypes[0] = new StructureType("tower", TowerStats(dmg: 1));   // the sieging creeps must survive
         // Closer to the Dawn fountain than the mid tower, so a plain "nearest structure" choice picks it.
         draft.Placements.Add(new StructurePlacement("dusk.side.t1", Team.Dusk, "tower", P(5500, 2000), false, Array.Empty<string>(), VulnerabilityRule.AnyProtectorDestroyed));
-        var settings = new HeroAiSettings { ReactionJitterTicks = 0, MisjudgementPercent = 0 };
         settings.Personalities["alpha"] = new HeroPersonality { Greed = 0.3 };   // not a carry holding out for farm
         settings.Personalities["gamma"] = new HeroPersonality { Greed = 0.3 };
         var kernel = Skirmish(
@@ -167,12 +166,33 @@ public class TacticalAiTests
             }
         });
 
+        return kernel;
+    }
+
+    [Fact]
+    public void Push_JoinsTheSiegeOurCreepsAlreadyHave()
+    {
+        var kernel = SiegeScenario(new HeroAiSettings { ReactionJitterTicks = 0, MisjudgementPercent = 0, LaningPhaseMinutes = 0 });
+
         kernel.RunTicks(240);
 
         FixedVector2 alpha = H(kernel.State, "alpha").Position;
         double toMid = FixedVector2.Distance(alpha, P(7000, 5000)).ToDouble();
         double toSide = FixedVector2.Distance(alpha, P(5500, 2000)).ToDouble();
         Assert.True(toMid < toSide, $"alpha should push the sieged mid tower (mid {toMid:0}, side {toSide:0})");
+    }
+
+    [Fact]
+    public void LaningPhase_ATwoHeroAdvantageDoesNotPullHeroesOutOfLane()
+    {
+        var kernel = SiegeScenario(new HeroAiSettings { ReactionJitterTicks = 0, MisjudgementPercent = 0, LaningPhaseMinutes = 10 });
+
+        kernel.RunTicks(240);
+
+        FixedVector2 alpha = H(kernel.State, "alpha").Position;
+        double toMid = FixedVector2.Distance(alpha, P(7000, 5000)).ToDouble();
+        double toOwnWave = FixedVector2.Distance(alpha, P(1020, 2000)).ToDouble();
+        Assert.True(toOwnWave < toMid, $"alpha should stay with its lane wave (own wave {toOwnWave:0}, mid tower {toMid:0})");
     }
 
     [Fact]

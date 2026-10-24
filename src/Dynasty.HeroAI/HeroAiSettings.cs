@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
 using Dynasty.MatchSimulation;
 using Dynasty.MatchSimulation.Rules;
@@ -49,6 +49,12 @@ namespace Dynasty.HeroAI
 
         /// <summary>A dead hero buys back to defend only if its respawn is at least this far away.</summary>
         public int BuybackMinWaitSeconds { get; set; } = 15;
+
+        /// <summary>
+        /// Until this match minute heroes stay in their lanes: a team pushes only with a three-hero
+        /// numbers advantage, and only heroes already nearby rotate to defend.
+        /// </summary>
+        public int LaningPhaseMinutes { get; set; } = 10;
 
         /// <summary>Radius around a hero within which allies and visible enemies count toward a fight.</summary>
         public int EngageRange { get; set; } = 1200;

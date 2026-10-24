@@ -1,4 +1,4 @@
-using Dynasty.Core.Ids;
+﻿using Dynasty.Core.Ids;
 using Dynasty.Core.Kernel;
 using Dynasty.Core.Mathematics;
 using Dynasty.HeroAI;
@@ -95,8 +95,7 @@ public class TeleportTests
         Assert.Contains(kernel.EventsOf<AbilityCastFailed>(), f => f.Reason == "invalid_target");
     }
 
-    [Fact]
-    public void Ai_TeleportsToDefendADistantStructure()
+    private static SimulationKernel<MatchState> DistantThreat(HeroPersonality alphaPersonality)
     {
         var draft = WithTeleport();
         draft.StructureTypes[0] = new StructureType("tower", TowerStats(dmg: 1));
@@ -108,12 +107,30 @@ public class TeleportTests
             HeroOrders.Issue(H(ctx.State, "beta"), HeroOrder.Attack(ctx.State.FindStructure("dawn.mid.t1")!.Id));
         });
         At(kernel, 2, ctx => H(ctx.State, "alpha").Position = P(1000, 9000));   // far away in a corner, outside the fountain
-        var settings = new HeroAiSettings { ReactionJitterTicks = 0, MisjudgementPercent = 0 };
+        var settings = new HeroAiSettings { ReactionJitterTicks = 0, MisjudgementPercent = 0, LaningPhaseMinutes = 0 };
         settings.Uncontrolled.Add("beta");
+        settings.Personalities["alpha"] = alphaPersonality;
         HeroAi.Attach(kernel, settings);
+        return kernel;
+    }
+
+    [Fact]
+    public void Ai_TeleportsToDefendADistantStructure()
+    {
+        var kernel = DistantThreat(new HeroPersonality { Greed = 0.5 });
 
         kernel.RunTicks(30 * 30);
 
         Assert.Contains(kernel.EventsOf<AbilityCast>(), c => c.AbilityId == "teleport");
+    }
+
+    [Fact]
+    public void Ai_GreedyCarryKeepsFarmingInsteadOfDefendingFarAway()
+    {
+        var kernel = DistantThreat(new HeroPersonality { Greed = 0.8 });
+
+        kernel.RunTicks(30 * 30);
+
+        Assert.DoesNotContain(kernel.EventsOf<AbilityCast>(), c => c.AbilityId == "teleport");
     }
 }

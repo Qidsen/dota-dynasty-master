@@ -45,7 +45,7 @@ namespace Dynasty.HeroAI
         public TeamPlanKind Plan { get; private set; }
         public MatchUnit? Objective { get; private set; }
 
-        public void UpdatePlan(MatchState state, long now, int ticksPerMinute)
+        public void UpdatePlan(MatchState state, long now, int ticksPerMinute, int laningPhaseMinutes)
         {
             MatchUnit? threatened = FindThreatenedStructure(state);
             if (threatened != null)
@@ -65,7 +65,8 @@ namespace Dynasty.HeroAI
                 Objective = state.Boss;
                 return;
             }
-            bool advantage = ownAlive - enemyAlive >= 2 || (ownAlive >= enemyAlive && ownAlive >= 3 && minute >= 15);
+            int needed = minute < laningPhaseMinutes ? 3 : 2;   // the laning phase is for farming
+            bool advantage = ownAlive - enemyAlive >= needed || (ownAlive >= enemyAlive && ownAlive >= 3 && minute >= 15);
             if (advantage)
             {
                 FixedVector2 home = state.Ruleset.Map.FountainOf(Team)!.Position;
@@ -188,8 +189,8 @@ namespace Dynasty.HeroAI
             int ticksPerMinute = context.TickRate.TicksPerSecond * 60;
             if (now % PlanIntervalTicks == 0)
             {
-                _dawn.UpdatePlan(state, now, ticksPerMinute);
-                _dusk.UpdatePlan(state, now, ticksPerMinute);
+                _dawn.UpdatePlan(state, now, ticksPerMinute, _settings.LaningPhaseMinutes);
+                _dusk.UpdatePlan(state, now, ticksPerMinute, _settings.LaningPhaseMinutes);
             }
 
             DeterministicRandom random = context.Random("ai");
@@ -561,9 +562,12 @@ namespace Dynasty.HeroAI
             {
                 if (Math.HpPercent(_hero) < 50)
                     return false;
-                if (!Math.Within(_hero.Position, objective.Position, 4000) && TryTeleportTo(objective))
+                // While laning, and for a greedy carry, only heroes already close come to help.
+                long minute = _now / _ticksPerMinute;
+                int responseRange = minute < _settings.LaningPhaseMinutes || _personality.Greed > 0.7 ? 3000 : 7000;
+                if (responseRange > 4000 && !Math.Within(_hero.Position, objective.Position, 4000) && TryTeleportTo(objective))
                     return true;
-                if (!Math.Within(_hero.Position, objective.Position, 7000))
+                if (!Math.Within(_hero.Position, objective.Position, responseRange))
                     return false;
                 Issue(HeroOrder.Move(FixedVector2.MoveTowards(objective.Position, Home, Fixed.FromInt(250))));
                 return true;
