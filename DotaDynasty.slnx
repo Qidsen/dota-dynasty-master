@@ -1,12 +1,14 @@
 <Solution>
   <Folder Name="/src/">
     <Project Path="src/Dynasty.Core/Dynasty.Core.csproj" />
+    <Project Path="src/Dynasty.Drafting/Dynasty.Drafting.csproj" />
     <Project Path="src/Dynasty.HeroAI/Dynasty.HeroAI.csproj" />
     <Project Path="src/Dynasty.MatchSimulation/Dynasty.MatchSimulation.csproj" />
     <Project Path="src/Dynasty.Presentation/Dynasty.Presentation.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Dynasty.Core.Tests/Dynasty.Core.Tests.csproj" />
+    <Project Path="tests/Dynasty.Drafting.Tests/Dynasty.Drafting.Tests.csproj" />
     <Project Path="tests/Dynasty.MatchSimulation.Tests/Dynasty.MatchSimulation.Tests.csproj" />
     <Project Path="tests/Dynasty.Presentation.Tests/Dynasty.Presentation.Tests.csproj" />
   </Folder>

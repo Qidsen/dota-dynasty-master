@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using Dynasty.Core.Mathematics;
@@ -17,7 +17,10 @@ namespace Dynasty.MatchSimulation.Rules
 
         private static readonly FixedVector2 Center = FixedVector2.FromInts(5000, 5000);
 
-        public static RulesetContent Create() => Build(Id, Version, StandardWave(), StandardWave());
+        public static RulesetContent Create() => Build(Id, Version, StandardWave(), StandardWave(), DraftRules.CaptainsMode());
+
+        /// <summary>The base ruleset with a different pick/ban format (patch experiments, tests).</summary>
+        public static RulesetContent Create(DraftRules draft) => Build(Id, Version, StandardWave(), StandardWave(), draft);
 
         /// <summary>
         /// Match Laboratory scenario: Dawn waves also bring two siege creeps per lane. The
@@ -27,7 +30,7 @@ namespace Dynasty.MatchSimulation.Rules
         {
             var dawn = StandardWave().ToList();
             dawn.Add(new WaveEntry("siege", 2));
-            return Build("dynasty.lab.dawn-siege", 1, dawn, StandardWave());
+            return Build("dynasty.lab.dawn-siege", 1, dawn, StandardWave(), DraftRules.CaptainsMode());
         }
 
         private static IReadOnlyList<WaveEntry> StandardWave() => new[]
@@ -36,7 +39,7 @@ namespace Dynasty.MatchSimulation.Rules
             new WaveEntry("ranged", 1),
         };
 
-        private static RulesetContent Build(string id, int version, IReadOnlyList<WaveEntry> dawnWave, IReadOnlyList<WaveEntry> duskWave)
+        private static RulesetContent Build(string id, int version, IReadOnlyList<WaveEntry> dawnWave, IReadOnlyList<WaveEntry> duskWave, DraftRules draft)
         {
             var creeps = new[]
             {
@@ -132,7 +135,8 @@ namespace Dynasty.MatchSimulation.Rules
                 items: BaseContent.Items,
                 boss: BaseContent.Boss,
                 runes: BaseContent.Runes,
-                dayNight: new DayNightRules(dayMs: 300000, nightMs: 300000));
+                dayNight: new DayNightRules(dayMs: 300000, nightMs: 300000),
+                draft: draft);
         }
 
         private static StructurePlacement MirrorToDusk(StructurePlacement dawn) => new StructurePlacement(

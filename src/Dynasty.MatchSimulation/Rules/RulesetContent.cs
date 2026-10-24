@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using Dynasty.Core.Hashing;
@@ -414,9 +414,11 @@ namespace Dynasty.MatchSimulation.Rules
             IReadOnlyList<ItemDefinition>? items = null,
             BossDefinition? boss = null,
             RuneRules? runes = null,
-            DayNightRules? dayNight = null)
+            DayNightRules? dayNight = null,
+            DraftRules? draft = null)
         {
             DayNight = dayNight;
+            Draft = draft;
             Boss = boss;
             Runes = runes;
             Abilities = (abilities ?? Array.Empty<AbilityDefinition>()).ToArray();
@@ -456,6 +458,9 @@ namespace Dynasty.MatchSimulation.Rules
 
         /// <summary>Optional day/night cycle; without it, it is always day.</summary>
         public DayNightRules? DayNight { get; }
+
+        /// <summary>Pick/ban format; null when the ruleset does not define drafting.</summary>
+        public DraftRules? Draft { get; }
 
         public string Id { get; }
         public int Version { get; }
@@ -503,6 +508,7 @@ namespace Dynasty.MatchSimulation.Rules
             ValidateItems(errors);
             if (DayNight != null && (DayNight.DayMs <= 0 || DayNight.NightMs <= 0))
                 errors.Add("Day and night phases must both be positive.");
+            Draft?.Validate(errors, Heroes);
 
             if (Runes != null)
             {
@@ -751,6 +757,8 @@ namespace Dynasty.MatchSimulation.Rules
             Runes?.WriteCanonical(writer);
             writer.WriteBool(DayNight != null);
             DayNight?.WriteCanonical(writer);
+            writer.WriteBool(Draft != null);
+            Draft?.WriteCanonical(writer);
 
             writer.WriteInt64(Waves.FirstSpawnMs);
             writer.WriteInt64(Waves.IntervalMs);
