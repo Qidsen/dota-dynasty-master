@@ -130,6 +130,8 @@ namespace Dynasty.MatchSimulation.Systems
             HeroOrders.Issue(caster, HeroOrder.Idle);
             context.Emit(new AbilityCast(caster.Id, definition.Id, ability.Level, definition.Targeting == AbilityTargeting.Unit ? target.Id : EntityId.None, order.Point));
 
+            // Acting reveals the caster first, so a smoke being cast is not broken by its own cast.
+            Modifiers.BreakOnAction(context, caster);
             FixedVector2 point = definition.Targeting == AbilityTargeting.Point ? order.Point : target.Position;
             Effects.Run(context, caster, definition.Effects, ability.Level, target, point);
         }
@@ -229,7 +231,8 @@ namespace Dynasty.MatchSimulation.Systems
                 : point;
 
             List<MatchUnit> affected = context.State.Units
-                .Where(u => Matches(context.State, caster, u, effect.Team) && Geometry.WithinRange(center, u.Position, effect.Radius + u.BoundingRadius))
+                .Where(u => Matches(context.State, caster, u, effect.Team) && (!effect.HeroesOnly || u.Hero != null) &&
+                            Geometry.WithinRange(center, u.Position, effect.Radius + u.BoundingRadius))
                 .ToList();
             foreach (MatchUnit unit in affected)
             {

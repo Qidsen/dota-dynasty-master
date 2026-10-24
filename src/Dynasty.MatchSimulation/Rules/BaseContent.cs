@@ -207,6 +207,9 @@ namespace Dynasty.MatchSimulation.Rules
             list.Add(Cast("item.place_sentry", "Place Sentry Ward", AbilityTargeting.Point, TargetTeam.Ally, 500, 0, new[] { 1 }, new[] { 1000 }, new[] { 0 },
                 EffectDefinition.SummonAtPoint("sentry_ward", 300000, 1)));
 
+            list.Add(Cast("item.smoke", "Smoke of Veiling", AbilityTargeting.NoTarget, TargetTeam.Ally, 0, 0, new[] { 1 }, new[] { 1000 }, new[] { 0 },
+                EffectDefinition.Area(1200, AreaCenter.Caster, TargetTeam.Ally, heroesOnly: true,
+                    EffectDefinition.Modifier(new ModifierSpec("smoke", 35000, ModifierFlags.Invisible, moveSpeedPercent: 15, breakOnAction: true, breakRadius: 1025)))));
             list.Add(new AbilityDefinition("item.teleport", "Teleport", AbilityTargeting.Unit, TargetTeam.Ally, 20000, 3000,
                 new[] { 60000 }, new[] { 0 }, new[] { 1 }, new[] { EffectDefinition.Teleport() }, targetsStructures: true));
 
@@ -225,6 +228,7 @@ namespace Dynasty.MatchSimulation.Rules
             new ItemDefinition("mana_crystal", "Mana Crystal", 400, new ModifierSpec("item.mana_crystal", -1, maxManaBonus: 200)),
             new ItemDefinition("swift_boots", "Swift Boots", 400, new ModifierSpec("item.swift_boots", -1, moveSpeedPercent: 15)),
             new ItemDefinition("tp_scroll", "Teleport Scroll", 90, activeAbilityId: "item.teleport", charges: 1),
+            new ItemDefinition("smoke", "Smoke of Veiling", 80, activeAbilityId: "item.smoke", charges: 1),
             new ItemDefinition("observer_ward", "Observer Ward", 75, activeAbilityId: "item.place_observer", charges: 1),
             new ItemDefinition("sentry_ward", "Sentry Ward", 100, activeAbilityId: "item.place_sentry", charges: 1),
             new ItemDefinition("crest_of_valor", "Crest of Valor", 1600,

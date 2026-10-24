@@ -115,13 +115,18 @@ public class Phase02AcceptanceTests
         Assert.True(Share("emberwisp", DamageType.Magical) > Share("ironvow", DamageType.Magical) + 0.1);
         Assert.True(Share("ironvow", DamageType.Physical) > 0.9);
         // Ironvow crits from level 1; every critical hit comes from a unit that actually has a crit source.
-        HashSet<EntityId> crits = All<DamageDealt>().Where(d => d.IsCritical).Select(d => d.Attacker).ToHashSet();
-        Assert.Contains(crits, IdsOf("ironvow").Contains);
-        foreach (MatchUnit attacker in Matches.Value.SelectMany(k => k.State.Heroes).Where(h => crits.Contains(h.Id)))
+        // Checked per match: entity IDs repeat between matches with the same lineup.
+        HashSet<EntityId> anyCrits = All<DamageDealt>().Where(d => d.IsCritical).Select(d => d.Attacker).ToHashSet();
+        Assert.Contains(anyCrits, IdsOf("ironvow").Contains);
+        foreach (SimulationKernel<MatchState> match in Matches.Value)
+        foreach (MatchUnit attacker in match.State.Heroes.Where(h => match.Events.Records.Any(r => r.Event is DamageDealt d && d.IsCritical && d.Attacker == h.Id)))
         {
             bool hasSource = attacker.Hero!.Abilities.Any(a => a.Level > 0 && a.Definition.PassiveModifiers.Any(m => m.CritChancePercent > 0)) ||
                              attacker.Hero.Inventory.Any(i => i.Definition.Bonuses?.CritChancePercent > 0);
-            Assert.True(hasSource, attacker.TypeId + " landed a critical hit without a crit source");
+            Assert.True(hasSource, attacker.TypeId + " landed a critical hit without a crit source; items: " +
+                string.Join(",", attacker.Hero.Inventory.Select(i => i.Definition.Id)) + "; abilities: " +
+                string.Join(",", attacker.Hero.Abilities.Select(a => a.Definition.Id + "=" + a.Level)) + "; modifiers: " +
+                string.Join(",", attacker.Modifiers.Select(m => m.Spec.Key)));
         }
     }
 

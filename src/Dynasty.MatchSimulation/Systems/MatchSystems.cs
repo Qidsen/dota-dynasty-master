@@ -85,8 +85,25 @@ namespace Dynasty.MatchSimulation.Systems
 
                     if (modifier.ExpiresTick >= 0 && now >= modifier.ExpiresTick)
                         Modifiers.Remove(context, unit, modifier, "expired");
+                    else if (spec.BreakRadius > 0 && EnemyBreakerNear(context.State, unit, spec.BreakRadius))
+                        Modifiers.Remove(context, unit, modifier, "broken");
                 }
             }
+        }
+
+        /// <summary>An enemy hero or attacking structure within the radius (positions from the end of the previous tick).</summary>
+        private static bool EnemyBreakerNear(MatchState state, MatchUnit unit, int radius)
+        {
+            foreach (MatchUnit other in state.Units)
+            {
+                if (other.Team == unit.Team || other.Team == Team.Neutral || !other.IsAlive)
+                    continue;
+                bool breaker = other.Hero != null || (other.Kind == UnitKind.Structure && other.CanAttackAtAll);
+                if (breaker && Geometry.WithinRange(other.Position, unit.Position, radius))
+                    return true;
+            }
+
+            return false;
         }
     }
 
@@ -302,6 +319,7 @@ namespace Dynasty.MatchSimulation.Systems
             unit.PendingAttackTick = now + unit.AttackPointTicks;
             unit.NextAttackTick = now + unit.AttackIntervalTicks;
             unit.LastActiveTick = now;
+            Modifiers.BreakOnAction(context, unit);
             context.Emit(new AttackStarted(unit.Id, target.Id));
         }
 

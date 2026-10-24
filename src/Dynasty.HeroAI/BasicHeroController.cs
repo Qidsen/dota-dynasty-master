@@ -480,7 +480,29 @@ namespace Dynasty.HeroAI
             if (own * _personality.Aggression < Math.Power(prey) * 1.3)
                 return false;
 
+            if (!Math.Within(_hero.Position, prey.Position, 1500) && TrySmoke())
+                return true;
+
             Issue(HeroOrder.Attack(prey.Id));
+            return true;
+        }
+
+        /// <summary>Smokes the nearby group before a long approach (at least one ally close by).</summary>
+        private bool TrySmoke()
+        {
+            if ((_hero.Flags & ModifierFlags.Invisible) != 0)
+                return false;
+            HeroDecision self = this;
+            if (_state.Heroes.Count(h => h.Team == self._hero.Team && h.IsAlive && h != self._hero && Math.Within(h.Position, self._hero.Position, 800)) == 0)
+                return false;
+            AbilityState? smoke = _h.Inventory
+                .Where(i => i.Active != null && Math.IsSmoke(i.Active.Definition))
+                .Select(i => i.Active!)
+                .FirstOrDefault(a => a.IsReady(_now));
+            if (smoke == null)
+                return false;
+
+            Issue(HeroOrder.CastNoTarget(smoke.Definition.Id));
             return true;
         }
 
@@ -713,6 +735,18 @@ namespace Dynasty.HeroAI
                 return;
             }
 
+            // Supports carry the team's smoke.
+            ItemDefinition? smokeItem = _state.Ruleset.Items.FirstOrDefault(i =>
+                i.ActiveAbilityId != null && Math.IsSmoke(_state.Ruleset.FindAbility(i.ActiveAbilityId)!));
+            bool isSupport = _h.Definition.Roles.Contains("support") || _h.Definition.Roles.Contains("healer");
+            HeroDecision me = this;
+            bool teamHasSmoke = smokeItem != null && _state.Heroes.Any(h => h.Team == me._hero.Team && h.Hero!.Inventory.Any(i => i.Definition.Id == smokeItem.Id));
+            if (smokeItem != null && isSupport && !teamHasSmoke && _h.Inventory.Count < HeroShop.InventorySize && CanSpend(smokeItem.Cost))
+            {
+                HeroShop.QueuePurchase(_hero, smokeItem.Id);
+                return;
+            }
+
             // Every hero keeps one teleport scroll.
             ItemDefinition? scroll = _state.Ruleset.Items.FirstOrDefault(i =>
                 i.ActiveAbilityId != null && Math.IsTeleport(_state.Ruleset.FindAbility(i.ActiveAbilityId)!));
@@ -894,6 +928,11 @@ namespace Dynasty.HeroAI
         }
 
         public static bool IsTeleport(AbilityDefinition ability) => ability.Effects.Any(e => e.Kind == EffectKind.Teleport);
+
+        /// <summary>A group-invisibility ability: a heroes-only allied area that grants invisibility.</summary>
+        public static bool IsSmoke(AbilityDefinition ability) =>
+            ability.Effects.Any(e => e.Kind == EffectKind.Area && e.HeroesOnly && e.Team == TargetTeam.Ally &&
+                                     e.Inner.Any(i => i.Kind == EffectKind.ApplyModifier && i.Modifiers.Any(m => (m.Flags & ModifierFlags.Invisible) != 0)));
 
         public static bool IsUltimate(AbilityDefinition ability) => ability.RequiredHeroLevel.Count > 0 && ability.RequiredHeroLevel[0] >= 6;
 

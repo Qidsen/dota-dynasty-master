@@ -73,9 +73,11 @@ namespace Dynasty.MatchSimulation.Rules
             EffectDefinition[]? inner = null,
             string? summonTypeId = null,
             int durationMs = 0,
-            bool atPoint = false)
+            bool atPoint = false,
+            bool heroesOnly = false)
         {
             AtPoint = atPoint;
+            HeroesOnly = heroesOnly;
             Kind = kind;
             Amounts = amounts ?? Array.Empty<int>();
             DamageType = damageType;
@@ -107,6 +109,9 @@ namespace Dynasty.MatchSimulation.Rules
         /// <summary>Summons appear at the cast point rather than at the caster.</summary>
         public bool AtPoint { get; }
 
+        /// <summary>Area effects only: affect heroes, not creeps or summons.</summary>
+        public bool HeroesOnly { get; }
+
         public static EffectDefinition Damage(DamageType type, params int[] perLevel) =>
             new EffectDefinition(EffectKind.Damage, perLevel, type);
 
@@ -117,6 +122,10 @@ namespace Dynasty.MatchSimulation.Rules
 
         public static EffectDefinition Area(int radius, AreaCenter center, TargetTeam team, params EffectDefinition[] inner) =>
             new EffectDefinition(EffectKind.Area, radius: radius, center: center, team: team, inner: inner);
+
+        /// <summary>Area restricted to heroes when <paramref name="heroesOnly"/> (e.g. smoke).</summary>
+        public static EffectDefinition Area(int radius, AreaCenter center, TargetTeam team, bool heroesOnly, params EffectDefinition[] inner) =>
+            new EffectDefinition(EffectKind.Area, radius: radius, center: center, team: team, inner: inner, heroesOnly: heroesOnly);
 
         public static EffectDefinition Dash() => new EffectDefinition(EffectKind.Dash);
 
@@ -165,6 +174,7 @@ namespace Dynasty.MatchSimulation.Rules
             w.WriteString(SummonTypeId ?? "");
             w.WriteInt64(DurationMs);
             w.WriteBool(AtPoint);
+            w.WriteBool(HeroesOnly);
             w.WriteInt64(Inner.Count);
             foreach (EffectDefinition child in Inner)
                 child.WriteCanonical(w);
