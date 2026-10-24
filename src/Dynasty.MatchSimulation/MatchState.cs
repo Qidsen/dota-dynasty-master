@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using Dynasty.Core.Ids;
@@ -267,6 +267,7 @@ namespace Dynasty.MatchSimulation
     public sealed class MatchState
     {
         private readonly List<MatchUnit> _units = new List<MatchUnit>();
+        private readonly List<MatchUnit> _heroes = new List<MatchUnit>();
         private readonly Dictionary<EntityId, MatchUnit> _byId = new Dictionary<EntityId, MatchUnit>();
         private readonly Dictionary<string, MatchUnit> _structures = new Dictionary<string, MatchUnit>();
         private readonly List<string> _destroyedOrder = new List<string>();
@@ -335,12 +336,12 @@ namespace Dynasty.MatchSimulation
         internal Navigation.Pathfinder Pathfinder { get; }
 
         /// <summary>All heroes (alive or waiting to respawn) in spawn order.</summary>
-        public IEnumerable<MatchUnit> Heroes => _units.Where(u => u.Hero != null);
+        public UnitView Heroes => new UnitView(_heroes);
 
         public RulesetContent Ruleset { get; }
 
         /// <summary>Living units in creation order (which is also ascending ID order).</summary>
-        public IReadOnlyList<MatchUnit> Units => _units;
+        public UnitView Units => new UnitView(_units);
 
         public Team? Winner { get; internal set; }
 
@@ -417,9 +418,14 @@ namespace Dynasty.MatchSimulation
             if (placement == null || placement.ProtectedBy.Count == 0)
                 return true;
 
-            return placement.Vulnerability == VulnerabilityRule.AnyProtectorDestroyed
-                ? placement.ProtectedBy.Any(_destroyed.Contains)
-                : placement.ProtectedBy.All(_destroyed.Contains);
+            bool any = placement.Vulnerability == VulnerabilityRule.AnyProtectorDestroyed;
+            for (int i = 0; i < placement.ProtectedBy.Count; i++)
+            {
+                if (_destroyed.Contains(placement.ProtectedBy[i]) == any)
+                    return any;
+            }
+
+            return !any;
         }
 
         /// <summary>
@@ -516,6 +522,8 @@ namespace Dynasty.MatchSimulation
             if (unit == Boss)
                 Boss = null;
             _units.Remove(unit);
+            if (unit.Hero != null)
+                _heroes.Remove(unit);
             _byId.Remove(unit.Id);
             if (unit.Placement != null)
             {
@@ -528,7 +536,30 @@ namespace Dynasty.MatchSimulation
         private void Add(MatchUnit unit)
         {
             _units.Add(unit);
+            if (unit.Hero != null)
+                _heroes.Add(unit);
             _byId.Add(unit.Id, unit);
         }
+    }
+
+    /// <summary>
+    /// Read-only view of a unit list. A struct with a struct enumerator, so the hot
+    /// <c>foreach (MatchUnit u in state.Units)</c> loops allocate nothing.
+    /// </summary>
+    public readonly struct UnitView : IReadOnlyList<MatchUnit>
+    {
+        private readonly List<MatchUnit> _list;
+
+        internal UnitView(List<MatchUnit> list) => _list = list;
+
+        public int Count => _list.Count;
+
+        public MatchUnit this[int index] => _list[index];
+
+        public List<MatchUnit>.Enumerator GetEnumerator() => _list.GetEnumerator();
+
+        IEnumerator<MatchUnit> IEnumerable<MatchUnit>.GetEnumerator() => _list.GetEnumerator();
+
+        System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => _list.GetEnumerator();
     }
 }

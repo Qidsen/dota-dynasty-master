@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
 using Dynasty.Core.Ids;
 using Dynasty.Core.Kernel;
@@ -158,8 +158,8 @@ namespace Dynasty.MatchSimulation.Systems
             Fixed bestDistance = Fixed.Zero;
             foreach (MatchUnit candidate in state.Units)
             {
-                // Creeps, towers and summons leave neutral objectives alone.
-                if (candidate.Team == Team.Neutral || !state.CanAttack(unit, candidate) || !Geometry.WithinEdgeRange(unit, candidate, range) ||
+                // Creeps, towers and summons leave neutral objectives alone. Cheapest test first.
+                if (!Geometry.WithinEdgeRange(unit, candidate, range) || candidate.Team == Team.Neutral || !state.CanAttack(unit, candidate) ||
                     !state.IsVisibleTo(unit.Team, candidate))
                     continue;
 

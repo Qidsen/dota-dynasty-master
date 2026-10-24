@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using Dynasty.Core.Mathematics;
 
 namespace Dynasty.MatchSimulation.Navigation
@@ -18,9 +18,23 @@ namespace Dynasty.MatchSimulation.Navigation
 
         private readonly NavGrid _grid;
 
+        // Search scratch reused across calls. A cell's g/parent/closed are valid only when its stamp
+        // equals the current search number, so nothing is cleared between searches.
+        private readonly int[] _g;
+        private readonly int[] _parent;
+        private readonly int[] _stamp;
+        private readonly bool[] _closed;
+        private readonly MinHeap _open = new MinHeap();
+        private int _search;
+
         public Pathfinder(NavGrid grid)
         {
             _grid = grid;
+            int count = grid.Columns * grid.Rows;
+            _g = new int[count];
+            _parent = new int[count];
+            _stamp = new int[count];
+            _closed = new bool[count];
         }
 
         /// <summary>
@@ -51,28 +65,20 @@ namespace Dynasty.MatchSimulation.Navigation
 
         private List<int>? Search(int startIndex, int goalIndex)
         {
-            int count = _grid.Columns * _grid.Rows;
-            var g = new int[count];
-            var parent = new int[count];
-            var closed = new bool[count];
-            for (int i = 0; i < count; i++)
-            {
-                g[i] = int.MaxValue;
-                parent[i] = -1;
-            }
+            _search++;
+            _open.Clear();
+            Touch(startIndex);
+            _g[startIndex] = 0;
+            _open.Push(new Node(Heuristic(startIndex, goalIndex), Heuristic(startIndex, goalIndex), startIndex));
 
-            var open = new MinHeap();
-            g[startIndex] = 0;
-            open.Push(new Node(Heuristic(startIndex, goalIndex), Heuristic(startIndex, goalIndex), startIndex));
-
-            while (open.Count > 0)
+            while (_open.Count > 0)
             {
-                Node node = open.Pop();
-                if (closed[node.Index])
+                Node node = _open.Pop();
+                if (_closed[node.Index])
                     continue;
                 if (node.Index == goalIndex)
-                    return Reconstruct(parent, goalIndex);
-                closed[node.Index] = true;
+                    return Reconstruct(goalIndex);
+                _closed[node.Index] = true;
 
                 int column = node.Index % _grid.Columns;
                 int row = node.Index / _grid.Columns;
@@ -87,18 +93,30 @@ namespace Dynasty.MatchSimulation.Navigation
                         continue;
 
                     int next = nr * _grid.Columns + nc;
-                    int cost = g[node.Index] + (diagonal ? DiagonalCost : StraightCost);
-                    if (closed[next] || cost >= g[next])
+                    Touch(next);
+                    int cost = _g[node.Index] + (diagonal ? DiagonalCost : StraightCost);
+                    if (_closed[next] || cost >= _g[next])
                         continue;
 
-                    g[next] = cost;
-                    parent[next] = node.Index;
+                    _g[next] = cost;
+                    _parent[next] = node.Index;
                     int h = Heuristic(next, goalIndex);
-                    open.Push(new Node(cost + h, h, next));
+                    _open.Push(new Node(cost + h, h, next));
                 }
             }
 
             return null;
+        }
+
+        /// <summary>Resets a cell's search data the first time the current search reaches it.</summary>
+        private void Touch(int index)
+        {
+            if (_stamp[index] == _search)
+                return;
+            _stamp[index] = _search;
+            _g[index] = int.MaxValue;
+            _parent[index] = -1;
+            _closed[index] = false;
         }
 
         private List<FixedVector2> Smooth(FixedVector2 start, List<FixedVector2> points)
@@ -158,10 +176,10 @@ namespace Dynasty.MatchSimulation.Navigation
             return StraightCost * (dx + dy) + (DiagonalCost - 2 * StraightCost) * diagonal;
         }
 
-        private static List<int> Reconstruct(int[] parent, int goal)
+        private List<int> Reconstruct(int goal)
         {
             var cells = new List<int>();
-            for (int at = goal; at >= 0; at = parent[at])
+            for (int at = goal; at >= 0; at = _parent[at])
                 cells.Add(at);
             cells.Reverse();
             return cells;
@@ -190,6 +208,8 @@ namespace Dynasty.MatchSimulation.Navigation
             private readonly List<Node> _items = new List<Node>();
 
             public int Count => _items.Count;
+
+            public void Clear() => _items.Clear();
 
             public void Push(Node node)
             {

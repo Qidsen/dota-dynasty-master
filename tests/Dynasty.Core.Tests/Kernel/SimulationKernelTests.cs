@@ -1,3 +1,4 @@
+﻿using Dynasty.Core.Kernel;
 using Dynasty.Core.Commands;
 using Dynasty.Core.Events;
 using Dynasty.Core.Time;
@@ -25,6 +26,31 @@ public class SimulationKernelTests
         kernel.RunTicks(2);
 
         Assert.Equal(new[] { "a@0", "b@0", "a@1", "b@1" }, kernel.State.Trace);
+    }
+
+    [Fact]
+    public void Profiler_ReceivesTheTimeOfEverySystemEveryTick()
+    {
+        var kernel = KernelFactory.Create(1, new TraceSystem("a"), new TraceSystem("b"));
+        var profiler = new RecordingProfiler();
+        kernel.Profiler = profiler;
+
+        kernel.RunTicks(3);
+
+        Assert.Equal(new[] { "a", "b", "a", "b", "a", "b" }, profiler.Systems);
+        Assert.All(profiler.Elapsed, e => Assert.True(e >= 0));
+    }
+
+    private sealed class RecordingProfiler : ISimulationProfiler
+    {
+        public List<string> Systems { get; } = new();
+        public List<long> Elapsed { get; } = new();
+
+        public void SystemTicked(string system, long elapsedStopwatchTicks)
+        {
+            Systems.Add(system);
+            Elapsed.Add(elapsedStopwatchTicks);
+        }
     }
 
     [Fact]

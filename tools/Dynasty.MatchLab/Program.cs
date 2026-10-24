@@ -6,7 +6,8 @@ using Dynasty.MatchSimulation.Events;
 using Dynasty.MatchSimulation.Rules;
 
 // Match Laboratory (headless): runs matches with a chosen ruleset and seeds and prints what happened.
-// Usage: dotnet run --project tools/Dynasty.MatchLab -c Release -- [heroes|swapped|base|lab] [firstSeed] [count] [maxMinutes]
+// Usage: dotnet run --project tools/Dynasty.MatchLab -c Release -- [heroes|swapped|mirror|base|lab] [firstSeed] [count] [maxMinutes]
+// MATCHLAB_DEATHS=1 prints what killed the heroes; MATCHLAB_PROFILE=1 prints time spent per system.
 //   heroes  — base ruleset, 5v5 with the basic hero AI (default)
 //   swapped — same, with the two lineups exchanged between sides (separates side bias from draft strength)
 //   base   — base ruleset, creeps only
@@ -33,6 +34,8 @@ for (ulong seed = firstSeed; seed < firstSeed + (ulong)count; seed++)
         HeroAi.Attach(kernel);
     var pushes = new GroupedPushCounter();
     kernel.AddSystem(pushes);
+    var profile = Environment.GetEnvironmentVariable("MATCHLAB_PROFILE") == "1" ? new SystemProfile() : null;
+    kernel.Profiler = profile;
 
     int tps = kernel.Config.TickRate.TicksPerSecond;
     var clock = Stopwatch.StartNew();
@@ -47,6 +50,9 @@ for (ulong seed = firstSeed; seed < firstSeed + (ulong)count; seed++)
     Console.WriteLine();
     Console.WriteLine($"── seed {seed} ─ {(kernel.State.Winner is Team w ? $"{w} wins at {Time(ticks)}" : $"no winner after {Time(ticks)}")}");
     Console.WriteLine($"   {ticks} ticks in {clock.ElapsedMilliseconds} ms ({ticks * 1000 / Math.Max(1, clock.ElapsedMilliseconds)} ticks/s), {records.Count} events, checksum {kernel.Events.Checksum:x16}");
+
+    if (profile != null)
+        Console.WriteLine("   time per system: " + profile.Report());
 
     var structures = records.Where(r => r.Event is StructureDestroyed).ToList();
     dawnStructuresLost += structures.Count(r => ((StructureDestroyed)r.Event).Team == Team.Dawn);
@@ -152,5 +158,21 @@ sealed class GroupedPushCounter : ISimulationSystem<MatchState>
             if (near >= 3)
                 Grouped++;
         }
+    }
+}
+
+/// <summary>Accumulates wall-clock time per simulation system.</summary>
+sealed class SystemProfile : ISimulationProfiler
+{
+    private readonly Dictionary<string, long> _elapsed = new();
+
+    public void SystemTicked(string system, long elapsedStopwatchTicks) =>
+        _elapsed[system] = _elapsed.GetValueOrDefault(system) + elapsedStopwatchTicks;
+
+    public string Report()
+    {
+        long total = Math.Max(1, _elapsed.Values.Sum());
+        return string.Join(", ", _elapsed.OrderByDescending(e => e.Value)
+            .Select(e => $"{e.Key} {e.Value * 100.0 / total:0.0}% ({e.Value * 1000 / Stopwatch.Frequency} ms)"));
     }
 }

@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using Dynasty.Core.Mathematics;
 using Dynasty.MatchSimulation.Rules;
 
@@ -64,35 +64,29 @@ namespace Dynasty.MatchSimulation.Navigation
         }
 
         /// <summary>Samples the segment every quarter cell; true when every sample is walkable.</summary>
-        public bool HasLineOfSight(FixedVector2 from, FixedVector2 to)
-        {
-            Fixed step = Fixed.FromRatio(CellSize, 4);
-            FixedVector2 point = from;
-            while (true)
-            {
-                if (!IsWalkable(point))
-                    return false;
-                if (point == to)
-                    return true;
-                point = FixedVector2.MoveTowards(point, to, step);
-            }
-        }
+        public bool HasLineOfSight(FixedVector2 from, FixedVector2 to) => SamplesWalkable(from, to, 4);
 
         /// <summary>
-        /// Like <see cref="HasLineOfSight"/> but without a square root per sample (hot path for
-        /// vision): samples every half cell by linear interpolation.
+        /// Coarser than <see cref="HasLineOfSight"/> (hot path for vision): samples every half cell.
         /// </summary>
-        public bool HasClearLine(FixedVector2 from, FixedVector2 to)
+        public bool HasClearLine(FixedVector2 from, FixedVector2 to) => SamplesWalkable(from, to, 2);
+
+        /// <summary>
+        /// Checks evenly spaced points from <paramref name="from"/> to <paramref name="to"/> inclusive,
+        /// <paramref name="perCell"/> per cell length, by integer interpolation on raw fixed-point
+        /// values (no square root, no fixed-point division per sample).
+        /// </summary>
+        private bool SamplesWalkable(FixedVector2 from, FixedVector2 to, int perCell)
         {
-            FixedVector2 delta = to - from;
-            long span = System.Math.Max(System.Math.Abs(delta.X.ToIntFloor()), System.Math.Abs(delta.Y.ToIntFloor()));
-            long samples = span * 2 / CellSize + 1;
-            Fixed count = Fixed.FromInt((int)samples);
+            long dx = to.X.Raw - from.X.Raw;
+            long dy = to.Y.Raw - from.Y.Raw;
+            long span = System.Math.Max(System.Math.Abs((to - from).X.ToIntFloor()), System.Math.Abs((to - from).Y.ToIntFloor()));
+            long samples = span * perCell / CellSize + 1;
             for (long i = 0; i <= samples; i++)
             {
-                Fixed t = Fixed.FromInt((int)i);
-                var point = new FixedVector2(from.X + delta.X * t / count, from.Y + delta.Y * t / count);
-                if (!IsWalkable(point))
+                long x = from.X.Raw + dx * i / samples;
+                long y = from.Y.Raw + dy * i / samples;
+                if (x < 0 || y < 0 || !IsWalkableCell((int)((x >> Fixed.FractionalBits) / CellSize), (int)((y >> Fixed.FractionalBits) / CellSize)))
                     return false;
             }
 
