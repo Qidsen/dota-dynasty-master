@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
 using Dynasty.Core.Mathematics;
 using Dynasty.MatchSimulation.Combat;
@@ -93,7 +93,7 @@ namespace Dynasty.MatchSimulation.Rules
 
             // Emberwisp — mid nuker: lance, burning field, ember passive, inferno.
             list.Add(Cast("emberwisp.fire_lance", "Fire Lance", AbilityTargeting.Unit, TargetTeam.Enemy, 650, 300, Basic, Cd(9000, 8000, 7000, 6000), Mana(90, 105, 120, 135),
-                EffectDefinition.Damage(DamageType.Magical, 90, 150, 210, 270)));
+                EffectDefinition.Projectile(1000, EffectDefinition.Damage(DamageType.Magical, 90, 150, 210, 270))));
             list.Add(Cast("emberwisp.ember_field", "Ember Field", AbilityTargeting.Point, TargetTeam.Enemy, 700, 400, Basic, Cd(14000, 13000, 12000, 11000), Mana(110, 120, 130, 140),
                 EffectDefinition.Area(275, AreaCenter.Point, TargetTeam.Enemy,
                     EffectDefinition.Damage(DamageType.Magical, 50, 80, 110, 140),
@@ -121,8 +121,9 @@ namespace Dynasty.MatchSimulation.Rules
 
             // Frostweaver — control mage: shackle stun, glacier slow, frost mantle, deep winter.
             list.Add(Cast("frostweaver.frost_shackle", "Frost Shackle", AbilityTargeting.Unit, TargetTeam.Enemy, 600, 300, Basic, Cd(13000, 12000, 11000, 10000), Mana(100, 110, 120, 130),
-                EffectDefinition.Damage(DamageType.Magical, 60, 90, 120, 150),
-                EffectDefinition.Modifier(Levels(4, l => ModifierSpec.Status("frostweaver.shackle", 1000 + 300 * l, ModifierFlags.Stunned)))));
+                EffectDefinition.Projectile(1000,
+                    EffectDefinition.Damage(DamageType.Magical, 60, 90, 120, 150),
+                    EffectDefinition.Modifier(Levels(4, l => ModifierSpec.Status("frostweaver.shackle", 1000 + 300 * l, ModifierFlags.Stunned))))));
             list.Add(Cast("frostweaver.glacier", "Glacier", AbilityTargeting.Point, TargetTeam.Enemy, 700, 300, Basic, Cd(12000, 11000, 10000, 9000), Mana(90, 100, 110, 120),
                 EffectDefinition.Area(300, AreaCenter.Point, TargetTeam.Enemy,
                     EffectDefinition.Damage(DamageType.Magical, 40, 70, 100, 130),
@@ -149,8 +150,9 @@ namespace Dynasty.MatchSimulation.Rules
             list.Add(Cast("hivecaller.brood", "Brood", AbilityTargeting.NoTarget, TargetTeam.Enemy, 0, 300, Basic, Cd(18000, 17000, 16000, 15000), Mana(90, 100, 110, 120),
                 EffectDefinition.Summon("swarmling", 25000, 2, 2, 3, 3)));
             list.Add(Cast("hivecaller.sting", "Sting", AbilityTargeting.Unit, TargetTeam.Enemy, 550, 200, Basic, Cd(10000, 9000, 8000, 7000), Mana(70, 80, 90, 100),
-                EffectDefinition.Damage(DamageType.Magical, 60, 90, 120, 150),
-                EffectDefinition.Modifier(Levels(4, l => new ModifierSpec("hivecaller.sting.slow", 2000, moveSpeedPercent: -15 - 5 * l)))));
+                EffectDefinition.Projectile(1100,
+                    EffectDefinition.Damage(DamageType.Magical, 60, 90, 120, 150),
+                    EffectDefinition.Modifier(Levels(4, l => new ModifierSpec("hivecaller.sting.slow", 2000, moveSpeedPercent: -15 - 5 * l))))));
             list.Add(Passive("hivecaller.chitin", "Chitin", Basic,
                 Levels(4, l => new ModifierSpec("hivecaller.chitin", -1, armorBonus: Fixed.FromInt(l), hpRegenBonus: Fixed.FromInt(l)))));
             list.Add(Cast("hivecaller.swarm_lord", "Swarm Lord", AbilityTargeting.NoTarget, TargetTeam.Enemy, 0, 500, Ultimate, Cd(70000, 60000), Mana(200, 275),
@@ -193,7 +195,7 @@ namespace Dynasty.MatchSimulation.Rules
 
             // Starborn — late scaler: star bolt, quickening, radiance, ascension.
             list.Add(Cast("starborn.star_bolt", "Star Bolt", AbilityTargeting.Unit, TargetTeam.Enemy, 650, 300, Basic, Cd(10000, 9000, 8000, 7000), Mana(80, 90, 100, 110),
-                EffectDefinition.Damage(DamageType.Magical, 70, 110, 150, 190)));
+                EffectDefinition.Projectile(1100, EffectDefinition.Damage(DamageType.Magical, 70, 110, 150, 190))));
             list.Add(Passive("starborn.quickening", "Quickening", Basic,
                 Levels(4, l => new ModifierSpec("starborn.quickening", -1, attackSpeedBonus: 10 * l))));
             list.Add(Passive("starborn.radiance", "Radiance", Basic,
@@ -282,7 +284,7 @@ namespace Dynasty.MatchSimulation.Rules
         {
             UnitStats stats = melee
                 ? Stats(hp, armor, speed, dmg, dmg + 6, range: 150, intervalMs: 1700, pointMs: 400, acquisition: 800, radius: 24, magicResist: 25, vision: 1200)
-                : Stats(hp, armor, speed, dmg, dmg + 6, range: 575, intervalMs: 1700, pointMs: 450, acquisition: 800, radius: 24, magicResist: 25, vision: 1200);
+                : Stats(hp, armor, speed, dmg, dmg + 6, range: 575, intervalMs: 1700, pointMs: 450, acquisition: 800, radius: 24, magicResist: 25, vision: 1200, projectileSpeed: 900);
             return new HeroDefinition(id, name, roles, stats, hpPerLevel, Fixed.FromRatio(3, 10), dmgPerLevel, mana, manaPerLevel,
                 hpRegenPerSecond: Fixed.FromRatio(5, 2), manaRegenPerSecond: Fixed.FromRatio(3, 2),
                 abilityIds: new[] { q, w, e, r }, itemBuild: build);
@@ -304,7 +306,7 @@ namespace Dynasty.MatchSimulation.Rules
         private static int[] Mana(params int[] values) => values;
 
         internal static UnitStats Stats(int hp, int armor, int speed, int dmgMin, int dmgMax, int range, int intervalMs, int pointMs, int acquisition, int radius,
-            int magicResist = 0, int vision = 800, int trueSight = 0, ModifierFlags innate = ModifierFlags.None) =>
-            new UnitStats(hp, Fixed.FromInt(armor), speed, dmgMin, dmgMax, range, intervalMs, pointMs, acquisition, radius, magicResist, vision, trueSight, innate);
+            int magicResist = 0, int vision = 800, int trueSight = 0, ModifierFlags innate = ModifierFlags.None, int projectileSpeed = 0) =>
+            new UnitStats(hp, Fixed.FromInt(armor), speed, dmgMin, dmgMax, range, intervalMs, pointMs, acquisition, radius, magicResist, vision, trueSight, innate, projectileSpeed);
     }
 }

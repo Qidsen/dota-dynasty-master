@@ -92,7 +92,8 @@ namespace Dynasty.MatchSimulation.Rules
                 b.MagicResistPercent,
                 b.VisionRange,
                 b.TrueSightRange,
-                b.InnateFlags);
+                b.InnateFlags,
+                b.ProjectileSpeed);
         }
 
         public int MaxManaAtLevel(int level) => BaseMana + ManaPerLevel * (level - 1);

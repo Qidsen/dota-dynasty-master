@@ -211,6 +211,13 @@ namespace Dynasty.MatchSimulation.Systems
                     break;
                 case EffectKind.Dash:
                     Dash(caster, target, point);
+                    DisjointProjectiles(context, caster);
+                    break;
+                case EffectKind.Projectile:
+                    Projectile projectile = context.State.LaunchProjectile(caster, target, effect.Speed);
+                    projectile.Effects = effect.Inner;
+                    projectile.Level = level;
+                    context.Emit(new ProjectileLaunched(projectile.Id, caster.Id, target.Id, isAbility: true));
                     break;
                 case EffectKind.Knockback:
                     Knockback(context.State, caster, target, effect.AmountAt(level));
@@ -220,6 +227,7 @@ namespace Dynasty.MatchSimulation.Systems
                     break;
                 case EffectKind.Teleport:
                     Teleport(context.State, caster, target);
+                    DisjointProjectiles(context, caster);
                     break;
                 case EffectKind.Dispel:
                     Dispel(context, caster, target, effect.Strong);
@@ -260,6 +268,13 @@ namespace Dynasty.MatchSimulation.Systems
 
             if (caster.Hero != null)
                 caster.Hero.Path = null;
+        }
+
+        /// <summary>Blinking or teleporting makes projectiles homing on the unit lose it.</summary>
+        private static void DisjointProjectiles(SimulationContext<MatchState> context, MatchUnit unit)
+        {
+            foreach (Projectile projectile in context.State.Disjoint(unit))
+                context.Emit(new ProjectileDodged(projectile.Id, projectile.Source, unit.Id));
         }
 
         /// <summary>Allies lose their dispellable debuffs, enemies their dispellable buffs; stuns need a strong dispel.</summary>

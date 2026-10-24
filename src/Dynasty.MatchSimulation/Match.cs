@@ -47,6 +47,7 @@ namespace Dynasty.MatchSimulation
             kernel.AddSystem(new NeutralSystem());
             kernel.AddSystem(new RuneSystem());
             kernel.AddSystem(new MovementSystem());
+            kernel.AddSystem(new ProjectileSystem());
             kernel.AddSystem(new AttackSystem());
             kernel.AddSystem(new CleanupSystem());
             return kernel;

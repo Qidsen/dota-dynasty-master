@@ -339,9 +339,73 @@ namespace Dynasty.MatchSimulation.Systems
             if (target.Kind == UnitKind.Structure && unit.StructureDamagePercent != 0)
                 damage = damage * Fixed.FromInt(100 + unit.StructureDamagePercent) / Fixed.FromInt(100);
 
-            Fixed dealt = Damage.Deal(context, unit.Id, target, damage, DamageType.Physical, critical);
-            if (unit.LifestealPercent > 0 && unit.IsAlive)
-                Damage.Heal(context, unit.Id, unit, dealt * Fixed.FromInt(unit.LifestealPercent) / Fixed.FromInt(100));
+            if (unit.Stats.ProjectileSpeed > 0)
+            {
+                // Ranged: the rolled hit travels; it lands (or is dodged) in the projectile system.
+                Projectile projectile = context.State.LaunchProjectile(unit, target, unit.Stats.ProjectileSpeed);
+                projectile.Damage = damage;
+                projectile.IsCritical = critical;
+                context.Emit(new ProjectileLaunched(projectile.Id, unit.Id, target.Id, isAbility: false));
+                return;
+            }
+
+            ApplyHit(context, unit, target, damage, critical);
+        }
+
+        internal static void ApplyHit(SimulationContext<MatchState> context, MatchUnit attacker, MatchUnit target, Fixed damage, bool critical)
+        {
+            Fixed dealt = Damage.Deal(context, attacker.Id, target, damage, DamageType.Physical, critical);
+            if (attacker.LifestealPercent > 0 && attacker.IsAlive)
+                Damage.Heal(context, attacker.Id, attacker, dealt * Fixed.FromInt(attacker.LifestealPercent) / Fixed.FromInt(100));
+        }
+    }
+
+    /// <summary>
+    /// Moves homing projectiles toward their targets and resolves arrivals. Runs after every unit
+    /// has moved, so it does not matter which side's units were processed first.
+    /// </summary>
+    internal sealed class ProjectileSystem : ISimulationSystem<MatchState>
+    {
+        public string Name => "projectiles";
+
+        public void Tick(SimulationContext<MatchState> context)
+        {
+            MatchState state = context.State;
+            if (state.Projectiles.Count == 0)
+                return;
+
+            foreach (Projectile projectile in state.Projectiles.ToList())
+            {
+                MatchUnit? target = state.Find(projectile.Target);
+                if (target == null || !target.IsAlive)
+                {
+                    state.RemoveProjectile(projectile);   // fizzles
+                    continue;
+                }
+
+                Fixed distance = FixedVector2.Distance(projectile.Position, target.Position);
+                if (distance > projectile.StepPerTick + Fixed.FromInt(target.BoundingRadius))
+                {
+                    projectile.Position = FixedVector2.MoveTowards(projectile.Position, target.Position, projectile.StepPerTick);
+                    continue;
+                }
+
+                state.RemoveProjectile(projectile);
+                MatchUnit? source = state.Find(projectile.Source);
+                if (projectile.IsAbility)
+                {
+                    if (source != null)
+                        Effects.Run(context, source, projectile.Effects!, projectile.Level, target, target.Position);
+                }
+                else if (source != null)
+                {
+                    AttackSystem.ApplyHit(context, source, target, projectile.Damage, projectile.IsCritical);
+                }
+                else
+                {
+                    Damage.Deal(context, projectile.Source, target, projectile.Damage, DamageType.Physical, projectile.IsCritical);
+                }
+            }
         }
     }
 

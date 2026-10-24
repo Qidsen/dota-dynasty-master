@@ -65,7 +65,7 @@ namespace Dynasty.HeroAI
                 Objective = state.Boss;
                 return;
             }
-            bool advantage = ownAlive - enemyAlive >= 2 || (ownAlive >= enemyAlive && ownAlive >= 3 && minute >= 20);
+            bool advantage = ownAlive - enemyAlive >= 2 || (ownAlive >= enemyAlive && ownAlive >= 3 && minute >= 15);
             if (advantage)
             {
                 FixedVector2 home = state.Ruleset.Map.FountainOf(Team)!.Position;
@@ -577,6 +577,7 @@ namespace Dynasty.HeroAI
                 long minute = _now / _ticksPerMinute;
                 if (_personality.Greed > 0.7 && minute < 18)
                     return false;
+                HeroDecision self = this;
 
                 MatchUnit? lastHit = FindLastHit(400);
                 if (lastHit != null)
@@ -585,8 +586,10 @@ namespace Dynasty.HeroAI
                     return true;
                 }
 
-                bool towerBusy = !objective.CanAttackAtAll || CreepsTanking(objective) || AlliedHeroesNear(objective.Position, 1200) >= 3;
-                if (towerBusy && _state.IsVulnerable(objective))
+                // Hit it together: wait at the gathering point until enough of the team has arrived.
+                int needed = System.Math.Min(3, _state.Heroes.Count(h => h.Team == self._hero.Team && h.IsAlive));
+                bool assembled = !objective.CanAttackAtAll || AlliedHeroesNear(objective.Position, Math.TowerReach(objective) + 700) >= needed;
+                if (assembled && _state.IsVulnerable(objective))
                 {
                     Issue(HeroOrder.Attack(objective.Id));
                     return true;

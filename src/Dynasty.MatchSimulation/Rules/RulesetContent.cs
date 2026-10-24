@@ -40,8 +40,10 @@ namespace Dynasty.MatchSimulation.Rules
             int magicResistPercent = 0,
             int visionRange = 800,
             int trueSightRange = 0,
-            ModifierFlags innateFlags = ModifierFlags.None)
+            ModifierFlags innateFlags = ModifierFlags.None,
+            int projectileSpeed = 0)
         {
+            ProjectileSpeed = projectileSpeed;
             MagicResistPercent = magicResistPercent;
             VisionRange = visionRange;
             TrueSightRange = trueSightRange;
@@ -92,8 +94,12 @@ namespace Dynasty.MatchSimulation.Rules
         /// <summary>Status flags the unit always has, e.g. <see cref="ModifierFlags.Invisible"/> for wards.</summary>
         public ModifierFlags InnateFlags { get; }
 
+        /// <summary>Speed of the attack projectile in units per second; 0 = the hit lands at the attack point (melee).</summary>
+        public int ProjectileSpeed { get; }
+
         internal void WriteCanonical(CanonicalWriter w)
         {
+            w.WriteInt64(ProjectileSpeed);
             w.WriteInt64(MagicResistPercent);
             w.WriteInt64(VisionRange);
             w.WriteInt64(TrueSightRange);
@@ -575,6 +581,8 @@ namespace Dynasty.MatchSimulation.Rules
                         errors.Add(owner + " has an area effect without a radius.");
                     if (effect.AtPoint && ability.Targeting != AbilityTargeting.Point)
                         errors.Add(owner + " summons at a point but is not point-targeted.");
+                    if (effect.Kind == EffectKind.Projectile && (ability.Targeting != AbilityTargeting.Unit || effect.Speed <= 0 || effect.Inner.Count == 0))
+                        errors.Add(owner + " has a projectile but is not unit-targeted, or lacks speed or on-hit effects.");
                     if (effect.Kind == EffectKind.Teleport && (ability.Targeting != AbilityTargeting.Unit || !ability.TargetsStructures))
                         errors.Add(owner + " teleports but does not target allied structures.");
                 }

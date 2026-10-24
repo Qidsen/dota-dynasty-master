@@ -307,6 +307,30 @@ namespace Dynasty.MatchSimulation
 
         internal List<CampState> Camps { get; } = new List<CampState>();
 
+        /// <summary>Projectiles currently in flight, in launch order.</summary>
+        public IReadOnlyList<Projectile> Projectiles => _projectiles;
+
+        private readonly List<Projectile> _projectiles = new List<Projectile>();
+        private long _nextProjectileId = 1;
+
+        internal Projectile LaunchProjectile(MatchUnit source, MatchUnit target, int speed)
+        {
+            var projectile = new Projectile(_nextProjectileId++, source.Id, target.Id, source.Position, Fixed.FromRatio(speed, Rate.TicksPerSecond));
+            _projectiles.Add(projectile);
+            return projectile;
+        }
+
+        internal void RemoveProjectile(Projectile projectile) => _projectiles.Remove(projectile);
+
+        /// <summary>Removes every projectile homing on the unit (blink, teleport); returns them for event reporting.</summary>
+        internal List<Projectile> Disjoint(MatchUnit unit)
+        {
+            List<Projectile> dodged = _projectiles.Where(p => p.Target == unit.Id).ToList();
+            foreach (Projectile projectile in dodged)
+                _projectiles.Remove(projectile);
+            return dodged;
+        }
+
         internal Navigation.NavGrid Nav { get; }
         internal Navigation.Pathfinder Pathfinder { get; }
 

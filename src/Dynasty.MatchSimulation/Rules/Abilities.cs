@@ -50,6 +50,9 @@ namespace Dynasty.MatchSimulation.Rules
 
         /// <summary>Removes debuffs from an ally or buffs from an enemy; stuns only with a strong dispel.</summary>
         Dispel = 8,
+
+        /// <summary>Launches a homing projectile at the target; the inner effects apply on arrival. Dodged by disjoints.</summary>
+        Projectile = 9,
     }
 
     public enum AreaCenter
@@ -78,8 +81,10 @@ namespace Dynasty.MatchSimulation.Rules
             int durationMs = 0,
             bool atPoint = false,
             bool heroesOnly = false,
-            bool strong = false)
+            bool strong = false,
+            int speed = 0)
         {
+            Speed = speed;
             AtPoint = atPoint;
             HeroesOnly = heroesOnly;
             Strong = strong;
@@ -120,6 +125,9 @@ namespace Dynasty.MatchSimulation.Rules
         /// <summary>Dispels only: also removes stuns.</summary>
         public bool Strong { get; }
 
+        /// <summary>Projectiles only: travel speed in units per second.</summary>
+        public int Speed { get; }
+
         public static EffectDefinition Damage(DamageType type, params int[] perLevel) =>
             new EffectDefinition(EffectKind.Damage, perLevel, type);
 
@@ -136,6 +144,9 @@ namespace Dynasty.MatchSimulation.Rules
             new EffectDefinition(EffectKind.Area, radius: radius, center: center, team: team, inner: inner, heroesOnly: heroesOnly);
 
         public static EffectDefinition Dash() => new EffectDefinition(EffectKind.Dash);
+
+        public static EffectDefinition Projectile(int speed, params EffectDefinition[] onHit) =>
+            new EffectDefinition(EffectKind.Projectile, inner: onHit, speed: speed);
 
         public static EffectDefinition Dispel(bool strong) => new EffectDefinition(EffectKind.Dispel, strong: strong);
 
@@ -186,6 +197,7 @@ namespace Dynasty.MatchSimulation.Rules
             w.WriteBool(AtPoint);
             w.WriteBool(HeroesOnly);
             w.WriteBool(Strong);
+            w.WriteInt64(Speed);
             w.WriteInt64(Inner.Count);
             foreach (EffectDefinition child in Inner)
                 child.WriteCanonical(w);

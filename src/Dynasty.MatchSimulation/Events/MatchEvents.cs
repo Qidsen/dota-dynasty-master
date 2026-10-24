@@ -695,6 +695,58 @@ namespace Dynasty.MatchSimulation.Events
         }
     }
 
+    public sealed class ProjectileLaunched : IDomainEvent
+    {
+        public ProjectileLaunched(long projectile, EntityId source, EntityId target, bool isAbility)
+        {
+            Projectile = projectile;
+            Source = source;
+            Target = target;
+            IsAbility = isAbility;
+        }
+
+        public long Projectile { get; }
+        public EntityId Source { get; }
+        public EntityId Target { get; }
+        public bool IsAbility { get; }
+
+        public string Type => "match.projectile_launched";
+        public int SchemaVersion => 1;
+
+        public void WritePayload(ref Fnv1a64 hash)
+        {
+            hash.AddInt64(Projectile);
+            hash.AddInt64(Source.Value);
+            hash.AddInt64(Target.Value);
+            hash.AddInt64(IsAbility ? 1 : 0);
+        }
+    }
+
+    /// <summary>A projectile lost its target to a disjoint (blink, teleport).</summary>
+    public sealed class ProjectileDodged : IDomainEvent
+    {
+        public ProjectileDodged(long projectile, EntityId source, EntityId target)
+        {
+            Projectile = projectile;
+            Source = source;
+            Target = target;
+        }
+
+        public long Projectile { get; }
+        public EntityId Source { get; }
+        public EntityId Target { get; }
+
+        public string Type => "match.projectile_dodged";
+        public int SchemaVersion => 1;
+
+        public void WritePayload(ref Fnv1a64 hash)
+        {
+            hash.AddInt64(Projectile);
+            hash.AddInt64(Source.Value);
+            hash.AddInt64(Target.Value);
+        }
+    }
+
     public sealed class MatchFinished : IDomainEvent
     {
         public MatchFinished(Team winner, string destroyedAncient)
