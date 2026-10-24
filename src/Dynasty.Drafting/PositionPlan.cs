@@ -71,7 +71,7 @@ namespace Dynasty.Drafting
         private HeroPick[] Picks() => _byPosition.Select((hero, i) => new HeroPick(hero, LaneFor(Team, i + 1))).ToArray();
 
         /// <summary>How well a hero's role tags suit a position.</summary>
-        internal static int Fit(HeroDefinition hero, int position)
+        public static int Fit(HeroDefinition hero, int position)
         {
             bool Has(string role) => hero.Roles.Contains(role);
             switch (position)
