@@ -42,6 +42,17 @@ public class PlayerSkillTests
     }
 
     [Fact]
+    public void Fatigue_MakesTheSamePlayerPlayWorse()
+    {
+        HeroSkill fresh = HeroSkill.FromPlayer(Player(14), "alpha");
+        HeroSkill tired = HeroSkill.FromPlayer(Player(14), "alpha", fatigue: 80);
+
+        Assert.True(tired.MisjudgementPercent > fresh.MisjudgementPercent);
+        Assert.True(tired.ReactionJitterTicks > fresh.ReactionJitterTicks);
+        Assert.True(tired.FightFumblePercent > fresh.FightFumblePercent);
+    }
+
+    [Fact]
     public void LastHitSkill_ChangesHowManyCreepsAnUncontestedCarryGets()
     {
         int LastHits(PlayerProfile player)

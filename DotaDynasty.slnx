@@ -6,6 +6,7 @@
     <Project Path="src/Dynasty.MatchSimulation/Dynasty.MatchSimulation.csproj" />
     <Project Path="src/Dynasty.Players/Dynasty.Players.csproj" />
     <Project Path="src/Dynasty.Presentation/Dynasty.Presentation.csproj" />
+    <Project Path="src/Dynasty.Training/Dynasty.Training.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Dynasty.Core.Tests/Dynasty.Core.Tests.csproj" />
@@ -13,6 +14,7 @@
     <Project Path="tests/Dynasty.MatchSimulation.Tests/Dynasty.MatchSimulation.Tests.csproj" />
     <Project Path="tests/Dynasty.Players.Tests/Dynasty.Players.Tests.csproj" />
     <Project Path="tests/Dynasty.Presentation.Tests/Dynasty.Presentation.Tests.csproj" />
+    <Project Path="tests/Dynasty.Training.Tests/Dynasty.Training.Tests.csproj" />
   </Folder>
   <Folder Name="/tools/">
     <Project Path="tools/Dynasty.MatchLab/Dynasty.MatchLab.csproj" />

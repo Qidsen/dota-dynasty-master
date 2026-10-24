@@ -55,10 +55,12 @@ namespace Dynasty.HeroAI
 
         /// <summary>
         /// The skill of <paramref name="player"/> on <paramref name="heroId"/>: attributes, scaled by the
-        /// player's readiness on that hero (an unfamiliar hero counts as low readiness).
+        /// player's readiness on that hero (an unfamiliar hero counts as low readiness). A tired player
+        /// (<paramref name="fatigue"/> 0–100, from training) reacts later, misjudges and fumbles more.
         /// </summary>
-        public static HeroSkill FromPlayer(PlayerProfile player, string heroId)
+        public static HeroSkill FromPlayer(PlayerProfile player, string heroId, int fatigue = 0)
         {
+            fatigue = System.Math.Max(0, System.Math.Min(100, fatigue));
             int readiness = player.Hero(heroId)?.Readiness ?? 25;
             AttributeSet a = player.Attributes;
             int Effective(Players.Attribute attribute) =>
@@ -69,13 +71,13 @@ namespace Dynasty.HeroAI
             return new HeroSkill
             {
                 DecisionIntervalTicks = 2 + Gap(Players.Attribute.Reaction) / 4,
-                ReactionJitterTicks = 1 + Gap(Players.Attribute.Reaction) / 4 + (Attributes.Max - a[Players.Attribute.Consistency]) / 6,
-                MisjudgementPercent = 4 + (Attributes.Max - composure) * 2,
+                ReactionJitterTicks = 1 + Gap(Players.Attribute.Reaction) / 4 + (Attributes.Max - a[Players.Attribute.Consistency]) / 6 + fatigue / 25,
+                MisjudgementPercent = 4 + (Attributes.Max - composure) * 2 + fatigue / 10,
                 LastHitMissPercent = Gap(Players.Attribute.LastHit) * 3,
                 SpellHesitationPercent = Gap(Players.Attribute.SpellAccuracy) * 2,
                 PointCastErrorUnits = Gap(Players.Attribute.SpellAccuracy) * 15,
                 FocusDisciplinePercent = 50 + a[Players.Attribute.TargetPriority] * 5 / 2,
-                FightFumblePercent = (Gap(Players.Attribute.Micro) + Gap(Players.Attribute.Movement)) * 3 / 2,
+                FightFumblePercent = (Gap(Players.Attribute.Micro) + Gap(Players.Attribute.Movement)) * 3 / 2 + fatigue / 10,
                 InitiationPatience = Effective(Players.Attribute.Initiation) >= 10,
                 AggressionPercent = 85 + a[Players.Attribute.Confidence],
                 RetreatShiftPercent = (a[Players.Attribute.MapAwareness] + a[Players.Attribute.Discipline]) / 2 - 12,
