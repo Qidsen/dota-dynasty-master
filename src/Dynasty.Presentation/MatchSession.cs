@@ -19,9 +19,10 @@ namespace Dynasty.Presentation
         private int _eventsRead;
         private Viewpoint _viewpoint = Viewpoint.Observer;
 
-        private MatchSession(SimulationKernel<MatchState> kernel)
+        private MatchSession(SimulationKernel<MatchState> kernel, HeroAiSettings? ai)
         {
             Kernel = kernel;
+            AiSettings = ai;
             Clock = new MatchClock(kernel.Config.TickRate.TicksPerSecond);
             Current = Capture();
             Previous = Current;
@@ -30,15 +31,23 @@ namespace Dynasty.Presentation
         public static MatchSession Start(RulesetContent ruleset, ulong seed, MatchLineup lineup, HeroAiSettings? ai = null)
         {
             SimulationKernel<MatchState> kernel = Match.Create(ruleset, seed, lineup);
+            HeroAiSettings? settings = null;
             if (lineup.Dawn.Count + lineup.Dusk.Count > 0)
-                HeroAi.Attach(kernel, ai ?? new HeroAiSettings());
-            return new MatchSession(kernel);
+            {
+                settings = ai ?? new HeroAiSettings();
+                HeroAi.Attach(kernel, settings);
+            }
+
+            return new MatchSession(kernel, settings);
         }
 
         /// <summary>The simulation; read it, never mutate it from the view.</summary>
         public SimulationKernel<MatchState> Kernel { get; }
 
         public MatchClock Clock { get; }
+
+        /// <summary>The AI settings the heroes play with (team strategies from the draft), if any.</summary>
+        public HeroAiSettings? AiSettings { get; }
         public MatchFrame Previous { get; private set; }
         public MatchFrame Current { get; private set; }
         public bool IsFinished => Kernel.IsFinished;

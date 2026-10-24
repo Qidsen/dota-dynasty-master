@@ -10,6 +10,7 @@
         "Dynasty.Core.dll",
         "Dynasty.MatchSimulation.dll",
         "Dynasty.HeroAI.dll",
+        "Dynasty.Drafting.dll",
         "Dynasty.Presentation.dll"
     ],
     "autoReferenced": true,

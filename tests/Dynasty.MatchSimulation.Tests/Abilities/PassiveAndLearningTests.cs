@@ -1,4 +1,4 @@
-using Dynasty.Core.Ids;
+﻿using Dynasty.Core.Ids;
 using Dynasty.Core.Kernel;
 using Dynasty.Core.Mathematics;
 using Dynasty.MatchSimulation.Combat;
@@ -125,6 +125,21 @@ public class PassiveAndLearningTests
         Assert.Equal(2, hero.AbilityLevel("quake"));
         Assert.Equal(1, hero.AbilityLevel("finale"));
         Assert.Equal(6, kernel.EventsOf<AbilityLearned>().Count());
+    }
+
+    [Fact]
+    public void SkillPoints_TakeOnePointInEveryAbilityBeforeMaxingOne()
+    {
+        var draft = Draft();
+        draft.WithHeroAbilities("alpha", "bolt", "quake", "mend", "finale");
+        var kernel = draft.StartWithHeroes(new[] { ("alpha", "mid") }, Array.Empty<(string, string)>());
+        kernel.AddSystem(new LambdaSystem(0, ctx => HeroProgression.GrantXp(ctx, H(ctx.State, "alpha"), 600)));   // level 3
+
+        kernel.RunTicks(2);
+
+        HeroState hero = H(kernel.State, "alpha").Hero!;
+        Assert.Equal(3, hero.Level);
+        Assert.Equal((1, 1, 1), (hero.AbilityLevel("bolt"), hero.AbilityLevel("quake"), hero.AbilityLevel("mend")));
     }
 
     [Fact]

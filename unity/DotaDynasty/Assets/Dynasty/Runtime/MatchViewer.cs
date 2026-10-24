@@ -31,11 +31,16 @@ namespace Dynasty.Unity
         private float _statisticsAge;
         private int _followIndex = -1;
 
-        public static MatchViewer Create(ulong seed)
+        /// <summary>The demo match (reference line-ups, no draft).</summary>
+        public static MatchViewer Create(ulong seed) =>
+            Create(MatchSession.Start(BaseRuleset.Create(), seed, DemoMatch.Lineup));
+
+        /// <summary>Watches a prepared session, e.g. one started from a draft.</summary>
+        public static MatchViewer Create(MatchSession session)
         {
             var go = new GameObject("Match Viewer");
             var viewer = go.AddComponent<MatchViewer>();
-            viewer.Begin(seed);
+            viewer.Begin(session);
             return viewer;
         }
 
@@ -44,10 +49,10 @@ namespace Dynasty.Unity
         /// <summary>Unit visuals currently on the 3D board.</summary>
         public int ShownUnits => _world.ShownUnits;
 
-        private void Begin(ulong seed)
+        private void Begin(MatchSession session)
         {
-            RulesetContent ruleset = BaseRuleset.Create();
-            _session = MatchSession.Start(ruleset, seed, DemoMatch.Lineup);
+            RulesetContent ruleset = session.Kernel.State.Ruleset;
+            _session = session;
             _statistics = new MatchStatistics();
             _map = MapLayout.From(ruleset);
             _world = new WorldView(_map, LoadMaterial());

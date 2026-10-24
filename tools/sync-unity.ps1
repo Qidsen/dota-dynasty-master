@@ -14,7 +14,7 @@ if ($LASTEXITCODE -ne 0) { throw 'Core build failed.' }
 New-Item -ItemType Directory -Force $plugins | Out-Null
 New-Item -ItemType Directory -Force $streaming | Out-Null
 $output = Join-Path $root 'src/Dynasty.Presentation/bin/Release/netstandard2.1'
-foreach ($name in 'Dynasty.Core', 'Dynasty.MatchSimulation', 'Dynasty.HeroAI', 'Dynasty.Presentation') {
+foreach ($name in 'Dynasty.Core', 'Dynasty.MatchSimulation', 'Dynasty.Drafting', 'Dynasty.HeroAI', 'Dynasty.Presentation') {
     Copy-Item (Join-Path $output "$name.dll") $plugins -Force
     Copy-Item (Join-Path $output "$name.xml") $plugins -Force
 }

@@ -13,8 +13,23 @@ using Dynasty.MatchSimulation.Rules;
 //   base   — base ruleset, creeps only
 //   lab    — Dawn-siege lab ruleset, creeps only
 //   probe [file] — determinism reference checksums of the demo match (see DeterminismProbe)
+//   profiles — draft profiles of the base heroes (control, burst, initiation, sustain, push, scaling...)
 
 string mode = args.Length > 0 ? args[0] : "heroes";
+if (mode == "profiles")
+{
+    // Draft profiles derived from the base ruleset (Dynasty.Drafting.HeroProfile).
+    RulesetContent rules = BaseRuleset.Create();
+    Console.WriteLine($"{"hero",-14}{"roles",-26}{"ctrl",5}{"burst",6}{"mag%",5}{"init",5}{"sust",5}{"push",5}{"scale",6}{"tempo",6}{"dura",5}{"mob",5}{"rng",4}{"disp",5}");
+    foreach (HeroDefinition hero in rules.Heroes)
+    {
+        var p = Dynasty.Drafting.HeroProfile.Of(rules, hero.Id);
+        Console.WriteLine($"{hero.Id,-14}{string.Join(",", hero.Roles),-26}{p.Control,5}{p.Burst,6}{p.MagicalPercent,5}{p.Initiation,5}{p.Sustain,5}{p.Push,5}{p.Scaling,6}{p.Tempo,6}{p.Durability,5}{p.Mobility,5}{(p.Ranged ? "R" : "M"),4}{(p.Dispel ? "y" : ""),5}");
+    }
+
+    return;
+}
+
 if (mode == "probe")
 {
     // Reference checksums for the runtime determinism check (tools/sync-unity.ps1 writes them into the Unity project).

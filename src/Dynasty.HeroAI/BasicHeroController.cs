@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
 using Dynasty.Core.Kernel;
 using Dynasty.Core.Mathematics;
@@ -68,8 +68,8 @@ namespace Dynasty.HeroAI
                 Objective = state.Boss;
                 return;
             }
-            int needed = minute < settings.LaningPhaseMinutes ? 3 : 2;   // the laning phase is for farming
-            bool advantage = ownAlive - enemyAlive >= needed || (ownAlive >= enemyAlive && ownAlive >= 3 && minute >= 15);
+            int needed = minute < settings.LaningPhaseFor(Team) ? 3 : 2;   // the laning phase is for farming
+            bool advantage = ownAlive - enemyAlive >= needed || (ownAlive >= enemyAlive && ownAlive >= 3 && minute >= settings.EvenPushFor(Team));
             if (advantage)
             {
                 FixedVector2 home = state.Ruleset.Map.FountainOf(Team)!.Position;
@@ -249,6 +249,32 @@ namespace Dynasty.HeroAI
 
         private bool Sees(MatchUnit unit) => _state.IsVisibleTo(_hero.Team, unit);
 
+        /// <summary>A greedy carry of a late-game line-up before its power spike: farm, do not gamble.</summary>
+        private bool ProtectingCarry => _personality.Greed > 0.7 && _now / _ticksPerMinute < _settings.StrategyFor(_hero.Team).ProtectCarriesUntilMinute;
+
+        /// <summary>
+        /// Siege plan: at an enemy structure that allied creeps are already tanking, call summons
+        /// so they join the attack (otherwise summons are only called in fights).
+        /// </summary>
+        private bool SiegeWithSummons()
+        {
+            if (!_settings.StrategyFor(_hero.Team).SiegeWithSummons || (_hero.Flags & ModifierFlags.Silenced) != 0)
+                return false;
+            HeroDecision self = this;
+            bool sieging = _state.Units.Any(u => u.Kind == UnitKind.Structure && u.Team != self._hero.Team && u.IsAlive && self._state.IsVulnerable(u) &&
+                                                 Math.Within(u.Position, self._hero.Position, 1000) && self.CreepsTanking(u));
+            if (!sieging)
+                return false;
+            AbilityState? summon = ReadyAbilities().FirstOrDefault(a => a.Definition.Targeting == AbilityTargeting.NoTarget && a.Definition.Effects.Any(e => e.Kind == EffectKind.Summon));
+            if (summon == null)
+                return false;
+            Issue(HeroOrder.CastNoTarget(summon.Definition.Id));
+            return true;
+        }
+
+        /// <summary>The hero's own aggression scaled by the team's strategy.</summary>
+        private double Aggression => _personality.Aggression * _settings.StrategyFor(_hero.Team).AggressionPercent / 100.0;
+
         public void Run()
         {
             Shop();
@@ -269,6 +295,8 @@ namespace Dynasty.HeroAI
             if (Cleanse())
                 return;
             if (Fight())
+                return;
+            if (SiegeWithSummons())
                 return;
             if (FollowPlan())
                 return;
@@ -391,7 +419,7 @@ namespace Dynasty.HeroAI
             double own = allies.Sum(PowerOf) + TowerSupport(_hero.Team, _hero.Position);
             double theirs = enemies.Sum(PowerOf) + TowerSupport(_hero.Team.Opponent(), _hero.Position);
             double noise = _settings.MisjudgementPercent > 0 ? _random.NextInt(-_settings.MisjudgementPercent, _settings.MisjudgementPercent + 1) / 100.0 : 0;
-            double odds = own / System.Math.Max(theirs, 1) * _personality.Aggression * (1 + noise);
+            double odds = own / System.Math.Max(theirs, 1) * Aggression * (1 + noise);
 
             if (odds < 0.85)
             {
@@ -399,7 +427,7 @@ namespace Dynasty.HeroAI
                 return true;
             }
 
-            if (odds < 1.15)
+            if (odds < (ProtectingCarry ? 1.4 : 1.15))
                 return Harass(enemies);
 
             MatchUnit? focus = _brain.FocusTarget(_state, _hero.Position, range) ?? enemies[0];
@@ -535,19 +563,20 @@ namespace Dynasty.HeroAI
         /// <summary>Kills an isolated visible enemy hero a little further away when the odds are clearly good.</summary>
         private bool Gank()
         {
-            if (Math.HpPercent(_hero) < 70)
+            if (Math.HpPercent(_hero) < 70 || ProtectingCarry)
                 return false;
 
             HeroDecision self = this;
-            MatchUnit? prey = VisibleEnemyHeroes(_hero.Position, 3000)
+            int gankRange = _settings.StrategyFor(_hero.Team).GankRange;
+            MatchUnit? prey = VisibleEnemyHeroes(_hero.Position, gankRange)
                 .Where(e => self.VisibleEnemyHeroes(e.Position, 1200).Count == 1 && !self.UnderEnemyTower(e.Position))
                 .OrderBy(e => e.Hp)
                 .FirstOrDefault();
             if (prey == null)
                 return false;
 
-            double own = _state.Heroes.Where(h => h.Team == self._hero.Team && h.IsAlive && Math.Within(h.Position, prey.Position, 3000)).Sum(PowerOf);
-            if (own * _personality.Aggression < PowerOf(prey) * 1.3)
+            double own = _state.Heroes.Where(h => h.Team == self._hero.Team && h.IsAlive && Math.Within(h.Position, prey.Position, gankRange)).Sum(PowerOf);
+            if (own * Aggression < PowerOf(prey) * 1.3)
                 return false;
 
             if (!Math.Within(_hero.Position, prey.Position, 1500) && TrySmoke())
@@ -590,7 +619,7 @@ namespace Dynasty.HeroAI
                     return false;
                 // While laning, and for a greedy carry, only heroes already close come to help.
                 long minute = _now / _ticksPerMinute;
-                int responseRange = minute < _settings.LaningPhaseMinutes || _personality.Greed > 0.7 ? 3000 : 7000;
+                int responseRange = minute < _settings.LaningPhaseFor(_hero.Team) || _personality.Greed > 0.7 ? 3000 : 7000;
                 if (responseRange > 4000 && !Math.Within(_hero.Position, objective.Position, 4000) && TryTeleportTo(objective))
                     return true;
                 if (!Math.Within(_hero.Position, objective.Position, responseRange))

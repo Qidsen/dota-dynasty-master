@@ -3,6 +3,7 @@
   <ItemGroup>
     <ProjectReference Include="..\Dynasty.MatchSimulation\Dynasty.MatchSimulation.csproj" />
     <ProjectReference Include="..\Dynasty.Core\Dynasty.Core.csproj" />
+    <ProjectReference Include="..\Dynasty.Drafting\Dynasty.Drafting.csproj" />
   </ItemGroup>
 
   <PropertyGroup>

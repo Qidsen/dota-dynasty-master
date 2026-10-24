@@ -1,4 +1,4 @@
-using Dynasty.Core.Mathematics;
+﻿using Dynasty.Core.Mathematics;
 using Dynasty.MatchSimulation.Rules;
 
 namespace Dynasty.MatchSimulation.Tests.Rules;
@@ -11,6 +11,18 @@ public class BaseRulesetTests
     public void BaseRuleset_IsValid()
     {
         Assert.Empty(BaseRuleset.Create().Validate());
+    }
+
+    [Fact]
+    public void BaseHeroPool_IsLargeEnoughForADraftWithBans()
+    {
+        // 10 picks and 8 bans leave a real choice only with a pool well above 18 heroes.
+        var heroes = BaseRuleset.Create().Heroes;
+
+        Assert.Equal(24, heroes.Count);
+        Assert.Equal(heroes.Count, heroes.Select(h => h.Id).Distinct().Count());
+        foreach (string role in new[] { "carry", "mid", "offlane", "support" })
+            Assert.True(heroes.Count(h => h.Roles.Contains(role)) >= 5, role + " heroes: " + heroes.Count(h => h.Roles.Contains(role)));
     }
 
     [Fact]
