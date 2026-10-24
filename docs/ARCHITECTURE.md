@@ -4,15 +4,19 @@
 
 ## Слои
 ```
-Presentation (Unity: 3D, 2D, UI)      — этап 04+, только читает снимки/события, отправляет команды
+unity/DotaDynasty (Unity 6.3, URP)    — просмотрщик: 3D-трансляция, Tactical 2D, HUD (этап 04, PRESENTATION.md)
+        │  ядро подключено DLL-файлами (tools/sync-unity.ps1, D-029)
+Dynasty.Presentation                  — без Unity: часы, кадры по точке зрения, сессия, лента, статистика, раскладка карты
         │
-tools/Dynasty.MatchLab                — консольная Match Laboratory (существует)
+tools/Dynasty.MatchLab                — консольная Match Laboratory
         │
-Dynasty.MatchSimulation               — правила, карта, юниты, бой, победа (этап 01, см. MATCH_SIMULATION.md)
+Dynasty.HeroAI                        — командный и тактический ИИ (HERO_AI.md)
         │
-Dynasty.Core                          — ядро (этап 00) + fixed-point математика (этап 01)
+Dynasty.MatchSimulation               — правила, карта, юниты, бой, победа (MATCH_SIMULATION.md)
+        │
+Dynasty.Core                          — ядро + fixed-point математика
 ```
-Зависимости направлены только вниз. Ядро не знает ни о Unity, ни о MOBA.
+Зависимости направлены только вниз. Ядро не знает ни о Unity, ни о MOBA. Представление только читает состояние и события; матч, который смотрят, идёт так же, как без показа (тест `WatchingDoesNotChangeTheMatch_*`).
 
 ## Dynasty.Core
 
@@ -38,10 +42,10 @@ Step():
 `EndSimulation()` завершает текущий тик полностью, после чего `Step()` запрещён.
 
 ## Гарантия воспроизводимости (текущая)
-Одинаковые `(seed, ruleset fingerprint, журнал команд, набор систем, сборка)` дают идентичный поток событий (равный `EventLog.Checksum`). Покрыто тестами `SameSeed_*` и `ReplayingRecordedCommands_ReproducesTheExactRun`. Кросс-рантаймовая гарантия (.NET ↔ Unity Mono/IL2CPP) держится, пока ядро целочисленное; см. D-003.
+Одинаковые `(seed, ruleset fingerprint, журнал команд, набор систем, сборка)` дают идентичный поток событий (равный `EventLog.Checksum`). Покрыто тестами `SameSeed_*` и `ReplayingRecordedCommands_ReproducesTheExactRun`. Кросс-рантаймовая гарантия проверена: демо-матчи дают одинаковые контрольные суммы в .NET, Unity Mono (EditMode-тест) и Unity IL2CPP (собранный Windows-плеер, `BuildTools.ProbeIl2Cpp`); см. D-003, D-029.
 
 | Математика | `Fixed`, `FixedVector2` | Q47.16 fixed-point для всего авторитетного состояния (D-003) |
 | Каноника | `CanonicalWriter` | Однозначная байтовая запись контента → SHA-256 fingerprint |
 
 ## Чего пока нет
-Герои, способности, предметы, ИИ, обзор, навграф, сериализация снимков/сохранений, JSON-импорт ruleset'ов, Unity-проект.
+Сериализация снимков и сохранений, реплеи с перемоткой, JSON-импорт ruleset'ов, меню и экраны менеджера.
