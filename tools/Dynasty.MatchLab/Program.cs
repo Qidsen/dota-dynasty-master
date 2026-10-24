@@ -16,6 +16,44 @@ using Dynasty.MatchSimulation.Rules;
 //   profiles — draft profiles of the base heroes (control, burst, initiation, sustain, push, scaling...)
 
 string mode = args.Length > 0 ? args[0] : "heroes";
+if (mode == "skill")
+{
+    // Player skill on the same heroes: Dawn players of quality A vs Dusk players of quality B, and swapped.
+    int qa = args.Length > 1 ? int.Parse(args[1]) : 17;
+    int qb = args.Length > 2 ? int.Parse(args[2]) : 7;
+    int n = args.Length > 3 ? int.Parse(args[3]) : 16;
+    MatchLineup line = MirrorLineup();   // the same heroes on both sides: only the players differ
+    foreach (bool swap in new[] { false, true })
+    {
+        int dawnQ = swap ? qb : qa, duskQ = swap ? qa : qb;
+        int sWins = 0, dawnK = 0, duskK = 0, dawnLh = 0, duskLh = 0;
+        for (ulong seed = 1; seed <= (ulong)n; seed++)
+        {
+            var settings = new HeroAiSettings();
+            var random = new Dynasty.Core.Randomness.DeterministicRandom(seed * 31);
+            foreach (var (team, picks, q) in new[] { (Team.Dawn, line.Dawn, dawnQ), (Team.Dusk, line.Dusk, duskQ) })
+                for (int i = 0; i < picks.Count; i++)
+                {
+                    var player = Dynasty.Players.PlayerGenerator.Generate(random, picks[i].HeroId, i + 1, q, new[] { picks[i].HeroId });
+                    settings.SkillsOf(team)[picks[i].HeroId] = HeroSkill.FromPlayer(player, picks[i].HeroId);
+                }
+
+            var k = Match.Create(BaseRuleset.Create(), seed, line);
+            HeroAi.Attach(k, settings);
+            k.RunUntilFinished(60L * 60 * 30);
+            if (k.State.Winner == Team.Dawn) sWins++;
+            dawnK += k.State.Heroes.Where(h => h.Team == Team.Dawn).Sum(h => h.Hero!.Kills);
+            duskK += k.State.Heroes.Where(h => h.Team == Team.Dusk).Sum(h => h.Hero!.Kills);
+            dawnLh += k.State.Heroes.Where(h => h.Team == Team.Dawn).Sum(h => h.Hero!.LastHits);
+            duskLh += k.State.Heroes.Where(h => h.Team == Team.Dusk).Sum(h => h.Hero!.LastHits);
+        }
+
+        Console.WriteLine($"Dawn q{dawnQ} vs Dusk q{duskQ}: Dawn wins {sWins}/{n}, kills {dawnK}:{duskK}, last hits {dawnLh}:{duskLh}");
+    }
+
+    return;
+}
+
 if (mode == "profiles")
 {
     // Draft profiles derived from the base ruleset (Dynasty.Drafting.HeroProfile).
