@@ -331,9 +331,13 @@ namespace Dynasty.HeroAI
         /// <summary>The player lets a good cast moment pass (spell accuracy); draws no random number for a sure player.</summary>
         private bool Hesitates() => _skill.SpellHesitationPercent > 0 && _random.NextInt(0, 100) < _skill.SpellHesitationPercent;
 
-        /// <summary>The hero's own aggression scaled by the team's strategy.</summary>
-        private double Aggression => _personality.Aggression * _settings.StrategyFor(_hero.Team).AggressionPercent / 100.0 * _skill.AggressionPercent / 100.0
-                                     * (Tilted ? 1 + _skill.TiltSusceptibility * 3 / 100.0 : 1.0);
+        /// <summary>
+        /// The hero's own aggression scaled by the team's strategy, the player's confidence and tilt, in
+        /// percent. The personality value is a configured number, turned into an integer once.
+        /// </summary>
+        private long AggressionPercent =>
+            (long)System.Math.Round(_personality.Aggression * 100) * _settings.StrategyFor(_hero.Team).AggressionPercent * _skill.AggressionPercent
+            * (Tilted ? 100 + _skill.TiltSusceptibility * 3 : 100) / 1000000;
 
         /// <summary>Two or more own deaths in the last five minutes rattle a susceptible player.</summary>
         private bool Tilted => _skill.TiltSusceptibility > 0 && _memory.RecentDeathTicks.Count >= 2;
@@ -490,19 +494,20 @@ namespace Dynasty.HeroAI
 
             HeroDecision self = this;
             List<MatchUnit> allies = _state.Heroes.Where(h => h.Team == self._hero.Team && h.IsAlive && Math.Within(h.Position, self._hero.Position, range)).ToList();
-            double own = allies.Sum(PowerOf) + TowerSupport(_hero.Team, _hero.Position);
-            double theirs = enemies.Sum(PowerOf) + TowerSupport(_hero.Team.Opponent(), _hero.Position);
+            // Integer arithmetic throughout: the decision feeds the authoritative match (backlog B-029).
+            long own = allies.Sum(PowerOf) + TowerSupport(_hero.Team, _hero.Position);
+            long theirs = enemies.Sum(PowerOf) + TowerSupport(_hero.Team.Opponent(), _hero.Position);
             int misjudgement = _skill.MisjudgementPercent + (Tilted ? _skill.TiltSusceptibility * 2 : 0);
-            double noise = misjudgement > 0 ? _random.NextInt(-misjudgement, misjudgement + 1) / 100.0 : 0;
-            double odds = own / System.Math.Max(theirs, 1) * Aggression * (1 + noise);
+            int noise = misjudgement > 0 ? _random.NextInt(-misjudgement, misjudgement + 1) : 0;
+            long oddsPercent = own * AggressionPercent * (100 + noise) / (System.Math.Max(theirs, 1) * 100);
 
-            if (odds < 0.85)
+            if (oddsPercent < 85)
             {
                 GoHome();
                 return true;
             }
 
-            if (odds < (ProtectingCarry ? 1.4 : 1.15))
+            if (oddsPercent < (ProtectingCarry ? 140 : 115))
                 return Harass(enemies);
 
             if (_skill.FightFumblePercent > 0 && _random.NextInt(0, 100) < _skill.FightFumblePercent)
@@ -536,9 +541,9 @@ namespace Dynasty.HeroAI
         /// Allies' cooldowns and mana are known; an enemy's learned ultimate is assumed ready,
         /// since its cooldown cannot be seen.
         /// </summary>
-        private double PowerOf(MatchUnit hero)
+        private long PowerOf(MatchUnit hero)
         {
-            double power = Math.Power(hero);
+            long power = Math.Power(hero);
             foreach (AbilityState ability in hero.Hero!.Abilities)
             {
                 if (ability.Level == 0 || !Math.IsUltimate(ability.Definition))
@@ -546,13 +551,13 @@ namespace Dynasty.HeroAI
                 bool ready = hero.Team != _hero.Team ||
                              (ability.IsReady(_now) && hero.Hero.Mana >= Fixed.FromInt(ability.Definition.ManaCostAt(ability.Level)));
                 if (ready)
-                    return power * UltimateReadyFactor;
+                    return power * UltimateReadyPercent / 100;
             }
 
             return power;
         }
 
-        private const double UltimateReadyFactor = 1.25;
+        private const int UltimateReadyPercent = 125;
 
         /// <summary>Even fight: poke with single-target nukes when not worse off than the target.</summary>
         private bool Harass(List<MatchUnit> enemies)
@@ -668,8 +673,8 @@ namespace Dynasty.HeroAI
             if (prey == null)
                 return false;
 
-            double own = _state.Heroes.Where(h => h.Team == self._hero.Team && h.IsAlive && Math.Within(h.Position, prey.Position, gankRange)).Sum(PowerOf);
-            if (own * Aggression < PowerOf(prey) * 1.3)
+            long own = _state.Heroes.Where(h => h.Team == self._hero.Team && h.IsAlive && Math.Within(h.Position, prey.Position, gankRange)).Sum(PowerOf);
+            if (own * AggressionPercent < PowerOf(prey) * 130)
                 return false;
 
             if (!Math.Within(_hero.Position, prey.Position, 1500) && TrySmoke())
@@ -1141,9 +1146,9 @@ namespace Dynasty.HeroAI
         }
 
         /// <summary>Extra fight power from living towers of <paramref name="team"/> covering the point.</summary>
-        private double TowerSupport(Team team, FixedVector2 point) =>
+        private long TowerSupport(Team team, FixedVector2 point) =>
             _state.Units.Count(u => u.Kind == UnitKind.Structure && u.Team == team && u.IsAlive && u.CanAttackAtAll &&
-                                    Math.Within(point, u.Position, Math.TowerReach(u) + 200)) * 25.0;
+                                    Math.Within(point, u.Position, Math.TowerReach(u) + 200)) * 2500L;   // 25 power points each
 
         private bool CreepsTanking(MatchUnit tower)
         {
@@ -1196,11 +1201,14 @@ namespace Dynasty.HeroAI
 
         public static int TowerReach(MatchUnit tower) => tower.AttackRange + tower.BoundingRadius + 24;
 
-        /// <summary>Rough fighting strength: level and item value, scaled by remaining health. Uses only information visible on a hero.</summary>
-        public static double Power(MatchUnit hero)
+        /// <summary>
+        /// Rough fighting strength in hundredths of a point: level ×10 plus item value / 100, scaled
+        /// by remaining health (40% at none to 100% at full). Uses only information visible on a hero.
+        /// </summary>
+        public static long Power(MatchUnit hero)
         {
-            double strength = hero.Hero!.Level * 10 + hero.Hero.Inventory.Sum(i => i.Definition.Cost) / 100.0;
-            return strength * (0.4 + 0.6 * HpPercent(hero) / 100.0);
+            long strength = hero.Hero!.Level * 1000L + hero.Hero.Inventory.Sum(i => i.Definition.Cost);
+            return strength * (4000 + 60 * HpPercent(hero)) / 10000;
         }
 
         public static bool IsTeleport(AbilityDefinition ability) => ability.Effects.Any(e => e.Kind == EffectKind.Teleport);

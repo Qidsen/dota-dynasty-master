@@ -5,3 +5,18 @@
 *.csproj text eol=lf
 *.props text eol=lf
 *.slnx text eol=lf
+*.ps1 text eol=lf
+*.txt text eol=lf
+*.xml text eol=lf
+# Unity YAML and metadata
+*.asset text eol=lf
+*.meta text eol=lf
+*.unity text eol=lf
+*.prefab text eol=lf
+*.mat text eol=lf
+*.asmdef text eol=lf
+# Binaries
+*.png binary
+*.jpg binary
+*.dll binary
+*.exe binary

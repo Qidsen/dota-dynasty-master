@@ -27,6 +27,15 @@ public class DeterminismProbeTests
 
         string text = DeterminismProbe.Format(results);
 
-        Assert.Equal(results.Select(r => (r.Seed, r.Ticks, r.Checksum, r.Ruleset)), DeterminismProbe.Parse(text).Select(r => (r.Seed, r.Ticks, r.Checksum, r.Ruleset)));
+        Assert.Equal(results.Select(r => (r.Kind, r.Seed, r.Ticks, r.Checksum, r.Ruleset)), DeterminismProbe.Parse(text).Select(r => (r.Kind, r.Seed, r.Ticks, r.Checksum, r.Ruleset)));
+    }
+
+    [Fact]
+    public void DraftedRun_IsReproducible_AndCoversDraftingAndPlayers()
+    {
+        ProbeResult first = DeterminismProbe.Run(ProbeKind.Drafted, 6, 3000);
+
+        Assert.Equal(first.Checksum, DeterminismProbe.Replay(first).Checksum);
+        Assert.NotEqual(DeterminismProbe.Run(ProbeKind.Demo, 6, 3000).Checksum, first.Checksum);
     }
 }
