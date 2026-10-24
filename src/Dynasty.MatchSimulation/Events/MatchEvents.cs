@@ -747,6 +747,21 @@ namespace Dynasty.MatchSimulation.Events
         }
     }
 
+    public sealed class DayNightChanged : IDomainEvent
+    {
+        public DayNightChanged(bool isNight)
+        {
+            IsNight = isNight;
+        }
+
+        public bool IsNight { get; }
+
+        public string Type => "match.day_night_changed";
+        public int SchemaVersion => 1;
+
+        public void WritePayload(ref Fnv1a64 hash) => hash.AddInt64(IsNight ? 1 : 0);
+    }
+
     public sealed class MatchFinished : IDomainEvent
     {
         public MatchFinished(Team winner, string destroyedAncient)

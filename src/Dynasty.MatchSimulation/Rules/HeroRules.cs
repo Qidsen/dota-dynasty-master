@@ -93,7 +93,8 @@ namespace Dynasty.MatchSimulation.Rules
                 b.VisionRange,
                 b.TrueSightRange,
                 b.InnateFlags,
-                b.ProjectileSpeed);
+                b.ProjectileSpeed,
+                b.NightVisionRange);
         }
 
         public int MaxManaAtLevel(int level) => BaseMana + ManaPerLevel * (level - 1);

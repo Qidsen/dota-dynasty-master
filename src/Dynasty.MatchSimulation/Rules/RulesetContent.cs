@@ -41,9 +41,11 @@ namespace Dynasty.MatchSimulation.Rules
             int visionRange = 800,
             int trueSightRange = 0,
             ModifierFlags innateFlags = ModifierFlags.None,
-            int projectileSpeed = 0)
+            int projectileSpeed = 0,
+            int nightVisionRange = -1)
         {
             ProjectileSpeed = projectileSpeed;
+            NightVisionRange = nightVisionRange < 0 ? visionRange : nightVisionRange;
             MagicResistPercent = magicResistPercent;
             VisionRange = visionRange;
             TrueSightRange = trueSightRange;
@@ -97,9 +99,13 @@ namespace Dynasty.MatchSimulation.Rules
         /// <summary>Speed of the attack projectile in units per second; 0 = the hit lands at the attack point (melee).</summary>
         public int ProjectileSpeed { get; }
 
+        /// <summary>Vision range at night (defaults to the day range).</summary>
+        public int NightVisionRange { get; }
+
         internal void WriteCanonical(CanonicalWriter w)
         {
             w.WriteInt64(ProjectileSpeed);
+            w.WriteInt64(NightVisionRange);
             w.WriteInt64(MagicResistPercent);
             w.WriteInt64(VisionRange);
             w.WriteInt64(TrueSightRange);
@@ -407,8 +413,10 @@ namespace Dynasty.MatchSimulation.Rules
             IReadOnlyList<AbilityDefinition>? abilities = null,
             IReadOnlyList<ItemDefinition>? items = null,
             BossDefinition? boss = null,
-            RuneRules? runes = null)
+            RuneRules? runes = null,
+            DayNightRules? dayNight = null)
         {
+            DayNight = dayNight;
             Boss = boss;
             Runes = runes;
             Abilities = (abilities ?? Array.Empty<AbilityDefinition>()).ToArray();
@@ -445,6 +453,9 @@ namespace Dynasty.MatchSimulation.Rules
 
         /// <summary>Optional power-up runes.</summary>
         public RuneRules? Runes { get; }
+
+        /// <summary>Optional day/night cycle; without it, it is always day.</summary>
+        public DayNightRules? DayNight { get; }
 
         public string Id { get; }
         public int Version { get; }
@@ -490,6 +501,9 @@ namespace Dynasty.MatchSimulation.Rules
             ValidateHeroes(errors);
             ValidateAbilities(errors);
             ValidateItems(errors);
+            if (DayNight != null && (DayNight.DayMs <= 0 || DayNight.NightMs <= 0))
+                errors.Add("Day and night phases must both be positive.");
+
             if (Runes != null)
             {
                 if (Runes.Types.Count == 0 || Runes.Spots.Count == 0)
@@ -735,6 +749,8 @@ namespace Dynasty.MatchSimulation.Rules
             Boss?.WriteCanonical(writer);
             writer.WriteBool(Runes != null);
             Runes?.WriteCanonical(writer);
+            writer.WriteBool(DayNight != null);
+            DayNight?.WriteCanonical(writer);
 
             writer.WriteInt64(Waves.FirstSpawnMs);
             writer.WriteInt64(Waves.IntervalMs);

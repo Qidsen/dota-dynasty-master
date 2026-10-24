@@ -131,7 +131,8 @@ namespace Dynasty.MatchSimulation.Rules
                 abilities: BaseContent.Abilities,
                 items: BaseContent.Items,
                 boss: BaseContent.Boss,
-                runes: BaseContent.Runes);
+                runes: BaseContent.Runes,
+                dayNight: new DayNightRules(dayMs: 300000, nightMs: 300000));
         }
 
         private static StructurePlacement MirrorToDusk(StructurePlacement dawn) => new StructurePlacement(
@@ -190,6 +191,7 @@ namespace Dynasty.MatchSimulation.Rules
                 visionRange: speed == 0 ? 900 : 800,
                 trueSightRange: speed == 0 && dmgMax > 0 ? 700 : 0,
                 // Ranged attackers (towers, ranged and siege creeps) fire projectiles; melee hits land at the attack point.
-                projectileSpeed: range >= 400 ? (speed == 0 ? 750 : 900) : 0);
+                projectileSpeed: range >= 400 ? (speed == 0 ? 750 : 900) : 0,
+                nightVisionRange: speed == 0 ? -1 : 600);
     }
 }

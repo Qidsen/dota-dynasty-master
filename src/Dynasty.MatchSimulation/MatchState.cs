@@ -364,6 +364,17 @@ namespace Dynasty.MatchSimulation
 
         public Vision.TeamKnowledge KnowledgeOf(Team team) => team == Team.Dawn ? _dawnKnowledge : _duskKnowledge;
 
+        /// <summary>Whether the given tick falls in a night phase (the cycle starts with day).</summary>
+        public bool IsNight(long tick)
+        {
+            DayNightRules? rules = Ruleset.DayNight;
+            if (rules == null)
+                return false;
+            long day = Rate.TicksFor(rules.DayMs);
+            long cycle = day + Rate.TicksFor(rules.NightMs);
+            return tick % cycle >= day;
+        }
+
         /// <summary>Ground level at a point (0 = low ground): the highest zone covering its grid cell center.</summary>
         public int ElevationAt(FixedVector2 point) => _elevation.Length == 0 ? 0 : _elevation[Nav.IndexOf(point)];
 

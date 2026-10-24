@@ -283,8 +283,8 @@ namespace Dynasty.MatchSimulation.Rules
             int hpPerLevel, int dmgPerLevel, int mana, int manaPerLevel, string q, string w, string e, string r, string[] build)
         {
             UnitStats stats = melee
-                ? Stats(hp, armor, speed, dmg, dmg + 6, range: 150, intervalMs: 1700, pointMs: 400, acquisition: 800, radius: 24, magicResist: 25, vision: 1200)
-                : Stats(hp, armor, speed, dmg, dmg + 6, range: 575, intervalMs: 1700, pointMs: 450, acquisition: 800, radius: 24, magicResist: 25, vision: 1200, projectileSpeed: 900);
+                ? Stats(hp, armor, speed, dmg, dmg + 6, range: 150, intervalMs: 1700, pointMs: 400, acquisition: 800, radius: 24, magicResist: 25, vision: 1200, nightVision: 800)
+                : Stats(hp, armor, speed, dmg, dmg + 6, range: 575, intervalMs: 1700, pointMs: 450, acquisition: 800, radius: 24, magicResist: 25, vision: 1200, projectileSpeed: 900, nightVision: 800);
             return new HeroDefinition(id, name, roles, stats, hpPerLevel, Fixed.FromRatio(3, 10), dmgPerLevel, mana, manaPerLevel,
                 hpRegenPerSecond: Fixed.FromRatio(5, 2), manaRegenPerSecond: Fixed.FromRatio(3, 2),
                 abilityIds: new[] { q, w, e, r }, itemBuild: build);
@@ -306,7 +306,7 @@ namespace Dynasty.MatchSimulation.Rules
         private static int[] Mana(params int[] values) => values;
 
         internal static UnitStats Stats(int hp, int armor, int speed, int dmgMin, int dmgMax, int range, int intervalMs, int pointMs, int acquisition, int radius,
-            int magicResist = 0, int vision = 800, int trueSight = 0, ModifierFlags innate = ModifierFlags.None, int projectileSpeed = 0) =>
-            new UnitStats(hp, Fixed.FromInt(armor), speed, dmgMin, dmgMax, range, intervalMs, pointMs, acquisition, radius, magicResist, vision, trueSight, innate, projectileSpeed);
+            int magicResist = 0, int vision = 800, int trueSight = 0, ModifierFlags innate = ModifierFlags.None, int projectileSpeed = 0, int nightVision = -1) =>
+            new UnitStats(hp, Fixed.FromInt(armor), speed, dmgMin, dmgMax, range, intervalMs, pointMs, acquisition, radius, magicResist, vision, trueSight, innate, projectileSpeed, nightVision);
     }
 }
