@@ -141,8 +141,14 @@ namespace Dynasty.MatchSimulation.Rules
             int respawnPerLevelMs,
             int goldLossPerLevel,
             int structureTeamGold,
-            int fountainHealPercentPerSecond)
+            int fountainHealPercentPerSecond,
+            int buybackBaseGold = 0,
+            int buybackGoldPerLevel = 0,
+            int buybackCooldownMs = 0)
         {
+            BuybackBaseGold = buybackBaseGold;
+            BuybackGoldPerLevel = buybackGoldPerLevel;
+            BuybackCooldownMs = buybackCooldownMs;
             XpForLevel = xpForLevel.ToArray();
             XpShareRadius = xpShareRadius;
             HeroKillXpBase = heroKillXpBase;
@@ -186,8 +192,20 @@ namespace Dynasty.MatchSimulation.Rules
 
         public int FountainHealPercentPerSecond { get; }
 
+        /// <summary>Buyback price = base + per level × hero level; buyback is disabled when both are 0.</summary>
+        public int BuybackBaseGold { get; }
+        public int BuybackGoldPerLevel { get; }
+        public int BuybackCooldownMs { get; }
+
+        public bool BuybackEnabled => BuybackBaseGold > 0 || BuybackGoldPerLevel > 0;
+
+        public int BuybackCost(int level) => BuybackBaseGold + BuybackGoldPerLevel * level;
+
         internal void WriteCanonical(CanonicalWriter w)
         {
+            w.WriteInt64(BuybackBaseGold);
+            w.WriteInt64(BuybackGoldPerLevel);
+            w.WriteInt64(BuybackCooldownMs);
             w.WriteInt64(XpForLevel.Count);
             foreach (int xp in XpForLevel)
                 w.WriteInt64(xp);

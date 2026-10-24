@@ -33,6 +33,12 @@ namespace Dynasty.MatchSimulation.Systems
 
                 hero.Gold += passiveGold;
 
+                if (hero.BuybackRequested)
+                {
+                    hero.BuybackRequested = false;
+                    TryBuyback(context, unit, hero, rules, now);
+                }
+
                 if (hero.IsDead)
                 {
                     if (now >= hero.RespawnTick)
@@ -61,12 +67,37 @@ namespace Dynasty.MatchSimulation.Systems
 
         private static void Respawn(SimulationContext<MatchState> context, MatchUnit unit, HeroState hero)
         {
+            Revive(context, unit, hero);
+            context.Emit(new HeroRespawned(unit.Id));
+        }
+
+        private static void TryBuyback(SimulationContext<MatchState> context, MatchUnit unit, HeroState hero, HeroRules rules, long now)
+        {
+            string? failure = !rules.BuybackEnabled ? "disabled"
+                : !hero.IsDead ? "not_dead"
+                : now < hero.BuybackReadyTick ? "cooldown"
+                : hero.Gold < Fixed.FromInt(rules.BuybackCost(hero.Level)) ? "gold"
+                : null;
+            if (failure != null)
+            {
+                context.Emit(new BuybackFailed(unit.Id, failure));
+                return;
+            }
+
+            int cost = rules.BuybackCost(hero.Level);
+            hero.Gold -= Fixed.FromInt(cost);
+            hero.BuybackReadyTick = now + context.TickRate.TicksFor(rules.BuybackCooldownMs);
+            Revive(context, unit, hero);
+            context.Emit(new HeroBoughtBack(unit.Id, cost));
+        }
+
+        private static void Revive(SimulationContext<MatchState> context, MatchUnit unit, HeroState hero)
+        {
             hero.RespawnTick = -1;
             unit.Position = context.State.Ruleset.Map.FountainOf(unit.Team)!.Position;
             unit.Hp = Fixed.FromInt(unit.MaxHp);
             hero.Mana = Fixed.FromInt(hero.MaxMana);
             unit.LastActiveTick = context.Tick.Value;
-            context.Emit(new HeroRespawned(unit.Id));
         }
     }
 

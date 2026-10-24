@@ -44,6 +44,12 @@ namespace Dynasty.HeroAI
         /// <summary>± percent error applied when a hero judges fight odds (plausible misjudgement).</summary>
         public int MisjudgementPercent { get; set; } = 15;
 
+        /// <summary>From this match minute on, heroes keep enough gold for a buyback when shopping.</summary>
+        public int BuybackReserveFromMinute { get; set; } = 25;
+
+        /// <summary>A dead hero buys back to defend only if its respawn is at least this far away.</summary>
+        public int BuybackMinWaitSeconds { get; set; } = 15;
+
         /// <summary>Radius around a hero within which allies and visible enemies count toward a fight.</summary>
         public int EngageRange { get; set; } = 1200;
 

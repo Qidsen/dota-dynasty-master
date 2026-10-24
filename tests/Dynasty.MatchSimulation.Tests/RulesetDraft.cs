@@ -81,13 +81,18 @@ public sealed class RulesetDraft
         new FountainPlacement(Team.Dusk, P(9800, 5000), 400),
     };
 
+    public int BuybackBaseGold { get; set; }
+    public int BuybackGoldPerLevel { get; set; }
+    public int BuybackCooldownMs { get; set; }
+
     public HeroRules BuildHeroRules() => new(
         XpTable, XpShareRadius,
         heroKillXpBase: 100, heroKillXpPerLevel: 20,
         heroKillGoldBase: 200, heroKillGoldPerLevel: 10,
         assistWindowMs: 10000, GoldPerMinute, StartingGold,
         RespawnBaseMs, RespawnPerLevelMs,
-        goldLossPerLevel: 30, structureTeamGold: 100, fountainHealPercentPerSecond: 5);
+        goldLossPerLevel: 30, structureTeamGold: 100, fountainHealPercentPerSecond: 5,
+        buybackBaseGold: BuybackBaseGold, buybackGoldPerLevel: BuybackGoldPerLevel, buybackCooldownMs: BuybackCooldownMs);
 
     public int FirstSpawnMs { get; set; } = 0;
     public int IntervalMs { get; set; } = 30000;

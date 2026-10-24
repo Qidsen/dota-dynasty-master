@@ -587,6 +587,49 @@ namespace Dynasty.MatchSimulation.Events
         }
     }
 
+    public sealed class HeroBoughtBack : IDomainEvent
+    {
+        public HeroBoughtBack(EntityId hero, int cost)
+        {
+            Hero = hero;
+            Cost = cost;
+        }
+
+        public EntityId Hero { get; }
+        public int Cost { get; }
+
+        public string Type => "match.hero_bought_back";
+        public int SchemaVersion => 1;
+
+        public void WritePayload(ref Fnv1a64 hash)
+        {
+            hash.AddInt64(Hero.Value);
+            hash.AddInt64(Cost);
+        }
+    }
+
+    /// <summary>Reasons: disabled, not_dead, cooldown, gold.</summary>
+    public sealed class BuybackFailed : IDomainEvent
+    {
+        public BuybackFailed(EntityId hero, string reason)
+        {
+            Hero = hero;
+            Reason = reason;
+        }
+
+        public EntityId Hero { get; }
+        public string Reason { get; }
+
+        public string Type => "match.buyback_failed";
+        public int SchemaVersion => 1;
+
+        public void WritePayload(ref Fnv1a64 hash)
+        {
+            hash.AddInt64(Hero.Value);
+            hash.AddString(Reason);
+        }
+    }
+
     public sealed class MatchFinished : IDomainEvent
     {
         public MatchFinished(Team winner, string destroyedAncient)

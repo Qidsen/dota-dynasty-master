@@ -609,12 +609,15 @@ namespace Dynasty.HeroAI
 
         private void Shop()
         {
+            if (_h.IsDead && TryBuyback())
+                return;
+
             FountainPlacement? fountain = _state.Ruleset.Map.FountainOf(_hero.Team);
             bool inShop = _h.IsDead || (fountain != null && Math.Within(_hero.Position, fountain.Position, fountain.Radius));
             if (!inShop)
                 return;
 
-            if (WantsWard() && _h.Gold >= Fixed.FromInt(_state.Ruleset.FindItem("observer_ward")!.Cost))
+            if (WantsWard() && CanSpend(_state.Ruleset.FindItem("observer_ward")!.Cost))
             {
                 HeroShop.QueuePurchase(_hero, "observer_ward");
                 return;
@@ -627,8 +630,33 @@ namespace Dynasty.HeroAI
 
             HeroDecision self = this;
             int ownedComponentCost = item.Components.Where(c => self._h.Inventory.Any(slot => slot.Definition.Id == c)).Sum(c => self._state.Ruleset.FindItem(c)!.Cost);
-            if (_h.Gold >= Fixed.FromInt(item.Cost - ownedComponentCost))
+            if (CanSpend(item.Cost - ownedComponentCost))
                 HeroShop.QueuePurchase(_hero, item.Id);
+        }
+
+        /// <summary>Whether the price is affordable while keeping a buyback in reserve in the late game.</summary>
+        private bool CanSpend(int price)
+        {
+            HeroRules? rules = _state.Ruleset.HeroRules;
+            bool reserve = rules != null && rules.BuybackEnabled && _now / _ticksPerMinute >= _settings.BuybackReserveFromMinute;
+            int keep = reserve ? rules!.BuybackCost(_h.Level) : 0;
+            return _h.Gold >= Fixed.FromInt(price + keep);
+        }
+
+        /// <summary>Buy back when the team is defending and the natural respawn is still far away.</summary>
+        private bool TryBuyback()
+        {
+            HeroRules? rules = _state.Ruleset.HeroRules;
+            if (rules == null || !rules.BuybackEnabled || _brain.Plan != TeamPlanKind.Defend || _now < _h.BuybackReadyTick)
+                return false;
+            long ticksPerSecond = _ticksPerMinute / 60;
+            if (_h.RespawnTick - _now < _settings.BuybackMinWaitSeconds * ticksPerSecond)
+                return false;
+            if (_h.Gold < Fixed.FromInt(rules.BuybackCost(_h.Level)))
+                return false;
+
+            HeroActions.QueueBuyback(_hero);
+            return true;
         }
 
         /// <summary>Supports keep an observer ward while the team has fewer than two placed.</summary>

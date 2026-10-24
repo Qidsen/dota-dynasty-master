@@ -57,7 +57,10 @@ namespace Dynasty.MatchSimulation.Rules
             respawnPerLevelMs: 2500,
             goldLossPerLevel: 20,
             structureTeamGold: 120,
-            fountainHealPercentPerSecond: 5);
+            fountainHealPercentPerSecond: 5,
+            buybackBaseGold: 150,
+            buybackGoldPerLevel: 40,
+            buybackCooldownMs: 480000);
 
         private static IReadOnlyList<AbilityDefinition> BuildAbilities()
         {
