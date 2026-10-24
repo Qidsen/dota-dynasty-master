@@ -10,7 +10,9 @@ Dynasty.Presentation                  — без Unity: часы, кадры п�
         │
 tools/Dynasty.MatchLab                — консольная Match Laboratory
         │
-Dynasty.HeroAI                        — командный и тактический ИИ (HERO_AI.md)
+Dynasty.HeroAI                        — командный и тактический ИИ, стратегия команды из драфта (HERO_AI.md)
+        │
+Dynasty.Drafting                      — правила и сессия драфта, профили героев, составы, драфт-ИИ, план на игру (DRAFTING.md)
         │
 Dynasty.MatchSimulation               — правила, карта, юниты, бой, победа (MATCH_SIMULATION.md)
         │

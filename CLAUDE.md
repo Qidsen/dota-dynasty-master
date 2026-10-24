@@ -13,9 +13,10 @@
 ## Команды
 ```
 dotnet build              # сборка всего решения (DotaDynasty.slnx)
-dotnet test               # все тесты (около 1,5 мин: приёмка гоняет матчи 5×5)
+dotnet test               # все тесты (около 3,5 мин: приёмка гоняет матчи 5×5)
 dotnet test --filter "Category!=Acceptance"   # быстрый набор (около 20 с)
 dotnet run --project tools/Dynasty.MatchLab -c Release -- [heroes|swapped|mirror|base|lab] [firstSeed] [count] [maxMinutes]
+dotnet run --project tools/Dynasty.MatchLab -c Release -- profiles   # профили героев для драфта
 # MATCHLAB_DEATHS=1 — печатать причины смертей героев по командам; MATCHLAB_PROFILE=1 — время по системам
 ```
 Unity (6000.3.27f1, проект `unity/DotaDynasty`), всё в batchmode:
@@ -26,6 +27,7 @@ Unity.exe -batchmode -projectPath unity/DotaDynasty -runTests -testPlatform Play
 Unity.exe -batchmode -nographics -projectPath unity/DotaDynasty -executeMethod Dynasty.Unity.Editor.BuildTools.ProbeIl2Cpp   # детерминизм IL2CPP
 Unity.exe -batchmode -nographics -projectPath unity/DotaDynasty -executeMethod Dynasty.Unity.Editor.BuildTools.BuildViewer   # Build/Viewer/DotaDynasty.exe
 DotaDynasty.exe -dynasty-seed N -dynasty-screenshots DIR -dynasty-minute M   # скриншоты 3D/тактики по точкам зрения
+DotaDynasty.exe -dynasty-seed N -dynasty-draft-screenshots DIR                # скриншоты экрана драфта
 ```
 Требуется .NET SDK 10.
 
@@ -44,7 +46,8 @@ DotaDynasty.exe -dynasty-seed N -dynasty-screenshots DIR -dynasty-minute M   # �
 ## Структура
 - `src/Dynasty.Core` — ID, тики, RNG, хеши, fixed-point, события, команды, ruleset-идентичность, ядро симуляции.
 - `src/Dynasty.MatchSimulation` — ruleset-схема, базовые правила и контент, навигация, бой, герои, способности, предметы, системы матча (`docs/MATCH_SIMULATION.md`).
-- `src/Dynasty.HeroAI` — командный и тактический ИИ (`docs/HERO_AI.md`).
+- `src/Dynasty.Drafting` — правила и сессия драфта, профили героев, составы, драфт-ИИ, план на игру (`docs/DRAFTING.md`).
+- `src/Dynasty.HeroAI` — командный и тактический ИИ, стратегия команды из драфта (`docs/HERO_AI.md`).
 - `src/Dynasty.Presentation` — слой представления без Unity: часы, кадры, сессия, статистика (`docs/PRESENTATION.md`).
 - `unity/DotaDynasty` — Unity-просмотрщик; ядро в нём — DLL из `tools/sync-unity.ps1` (D-029).
 - `tools/Dynasty.MatchLab` — консольный прогон матчей (net10.0, не для Unity).
