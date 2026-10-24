@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
 using Dynasty.MatchSimulation;
 using Dynasty.MatchSimulation.Rules;
@@ -65,6 +65,23 @@ namespace Dynasty.HeroAI
         /// <summary>Radius around a hero within which allies and visible enemies count toward a fight.</summary>
         public int EngageRange { get; set; } = 1200;
 
+        /// <summary>From this match minute a team of three or more pushes even without a numbers advantage.</summary>
+        public int EvenPushFromMinute { get; set; } = 15;
+
+        /// <summary>Dawn's game plan from its draft (no adjustment by default).</summary>
+        public TeamStrategy DawnStrategy { get; set; } = new TeamStrategy();
+
+        /// <summary>Dusk's game plan from its draft (no adjustment by default).</summary>
+        public TeamStrategy DuskStrategy { get; set; } = new TeamStrategy();
+
+        public TeamStrategy StrategyFor(Team team) => team == Team.Dawn ? DawnStrategy : DuskStrategy;
+
+        /// <summary>Laning phase length for a team: the default shifted by its strategy.</summary>
+        public int LaningPhaseFor(Team team) => System.Math.Max(0, LaningPhaseMinutes + StrategyFor(team).LaningShiftMinutes);
+
+        /// <summary>Minute a team starts pushing at even numbers: the default shifted by its strategy.</summary>
+        public int EvenPushFor(Team team) => System.Math.Max(0, EvenPushFromMinute + StrategyFor(team).EvenPushShiftMinutes);
+
         /// <summary>Per hero ID; heroes not listed use <see cref="HeroPersonality.ForRoles"/>.</summary>
         public Dictionary<string, HeroPersonality> Personalities { get; } = new Dictionary<string, HeroPersonality>();
 
@@ -93,5 +110,53 @@ namespace Dynasty.HeroAI
         public static TeamPerception Build(MatchState state, Team team, HeroAiSettings settings) => new TeamPerception(state, team);
 
         public bool CanSee(MatchUnit unit) => _state.IsVisibleTo(_team, unit);
+    }
+
+    /// <summary>
+    /// How a team plays its draft (spec §22: the draft changes the match's actions, not a pre-set
+    /// win chance). Adjustments to the shared AI settings, built from the team's <see cref="Dynasty.Drafting.GamePlan"/>.
+    /// </summary>
+    public sealed class TeamStrategy
+    {
+        /// <summary>Added to the laning phase: a push line-up leaves lanes early, a late-game one farms longer.</summary>
+        public int LaningShiftMinutes { get; set; }
+
+        /// <summary>Added to the minute the team starts pushing at even numbers.</summary>
+        public int EvenPushShiftMinutes { get; set; }
+
+        /// <summary>Scales every hero's fight odds and gank appetite (100 = unchanged).</summary>
+        public int AggressionPercent { get; set; } = 100;
+
+        /// <summary>How far heroes look for isolated enemies to gank.</summary>
+        public int GankRange { get; set; } = 3000;
+
+        public Dynasty.Drafting.GameArchetype Archetype { get; set; } = Dynasty.Drafting.GameArchetype.Balanced;
+
+        /// <summary>Summoners call their units at an enemy structure their creeps are already hitting.</summary>
+        public bool SiegeWithSummons { get; set; }
+
+        /// <summary>Until this minute greedy carries skip ganks and only take clearly favourable fights.</summary>
+        public int ProtectCarriesUntilMinute { get; set; }
+
+        public static TeamStrategy From(Dynasty.Drafting.GamePlan plan)
+        {
+            switch (plan.Archetype)
+            {
+                case Dynasty.Drafting.GameArchetype.Push:
+                    return new TeamStrategy { Archetype = plan.Archetype, LaningShiftMinutes = -3, EvenPushShiftMinutes = -4, AggressionPercent = 105, SiegeWithSummons = true };
+                case Dynasty.Drafting.GameArchetype.Teamfight:
+                    return new TeamStrategy { Archetype = plan.Archetype, LaningShiftMinutes = -1, EvenPushShiftMinutes = -2, AggressionPercent = 108 };
+                case Dynasty.Drafting.GameArchetype.LateGame:
+                    return new TeamStrategy
+                    {
+                        Archetype = plan.Archetype, LaningShiftMinutes = 3, EvenPushShiftMinutes = 9, AggressionPercent = 90, GankRange = 2500,
+                        ProtectCarriesUntilMinute = plan.PowerPeakMinute - 5,
+                    };
+                case Dynasty.Drafting.GameArchetype.Pickoff:
+                    return new TeamStrategy { Archetype = plan.Archetype, LaningShiftMinutes = -1, AggressionPercent = 105, GankRange = 4000 };
+                default:
+                    return new TeamStrategy { Archetype = plan.Archetype };
+            }
+        }
     }
 }
