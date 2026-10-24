@@ -554,6 +554,8 @@ namespace Dynasty.MatchSimulation.Rules
                         errors.Add(owner + " has an area effect without a radius.");
                     if (effect.AtPoint && ability.Targeting != AbilityTargeting.Point)
                         errors.Add(owner + " summons at a point but is not point-targeted.");
+                    if (effect.Kind == EffectKind.Teleport && (ability.Targeting != AbilityTargeting.Unit || !ability.TargetsStructures))
+                        errors.Add(owner + " teleports but does not target allied structures.");
                 }
             }
 

@@ -44,6 +44,9 @@ namespace Dynasty.MatchSimulation.Rules
 
         /// <summary>Spawns temporary units of a creep type that fight for the caster's team.</summary>
         Summon = 6,
+
+        /// <summary>Moves the caster next to the target (an allied structure), on its own base side.</summary>
+        Teleport = 7,
     }
 
     public enum AreaCenter
@@ -117,6 +120,9 @@ namespace Dynasty.MatchSimulation.Rules
 
         public static EffectDefinition Dash() => new EffectDefinition(EffectKind.Dash);
 
+        /// <summary>Use with a long cast point as the channel; stuns and silences interrupt it.</summary>
+        public static EffectDefinition Teleport() => new EffectDefinition(EffectKind.Teleport);
+
         public static EffectDefinition Knockback(params int[] distancePerLevel) =>
             new EffectDefinition(EffectKind.Knockback, distancePerLevel);
 
@@ -178,8 +184,10 @@ namespace Dynasty.MatchSimulation.Rules
             IReadOnlyList<int> manaCost,
             IReadOnlyList<int> requiredHeroLevel,
             IReadOnlyList<EffectDefinition> effects,
-            IReadOnlyList<ModifierSpec>? passiveModifiers = null)
+            IReadOnlyList<ModifierSpec>? passiveModifiers = null,
+            bool targetsStructures = false)
         {
+            TargetsStructures = targetsStructures;
             Id = id;
             Name = name;
             Targeting = targeting;
@@ -211,6 +219,9 @@ namespace Dynasty.MatchSimulation.Rules
         /// <summary>Permanent modifier per level for passive abilities.</summary>
         public IReadOnlyList<ModifierSpec> PassiveModifiers { get; }
 
+        /// <summary>Unit-target abilities only: allied structures are valid targets (teleports).</summary>
+        public bool TargetsStructures { get; }
+
         public int CooldownAt(int level) => EffectDefinition.ValueAt(CooldownMs, level);
 
         public int ManaCostAt(int level) => EffectDefinition.ValueAt(ManaCost, level);
@@ -236,6 +247,7 @@ namespace Dynasty.MatchSimulation.Rules
             w.WriteInt64(PassiveModifiers.Count);
             foreach (ModifierSpec modifier in PassiveModifiers)
                 modifier.WriteCanonical(w);
+            w.WriteBool(TargetsStructures);
         }
     }
 }

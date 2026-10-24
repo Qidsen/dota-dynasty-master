@@ -194,6 +194,9 @@ namespace Dynasty.MatchSimulation.Rules
             list.Add(Cast("item.place_sentry", "Place Sentry Ward", AbilityTargeting.Point, TargetTeam.Ally, 500, 0, new[] { 1 }, new[] { 1000 }, new[] { 0 },
                 EffectDefinition.SummonAtPoint("sentry_ward", 300000, 1)));
 
+            list.Add(new AbilityDefinition("item.teleport", "Teleport", AbilityTargeting.Unit, TargetTeam.Ally, 20000, 3000,
+                new[] { 60000 }, new[] { 0 }, new[] { 1 }, new[] { EffectDefinition.Teleport() }, targetsStructures: true));
+
             // Item active.
             list.Add(Cast("item.arc_pulse", "Arc Pulse", AbilityTargeting.NoTarget, TargetTeam.Enemy, 0, 0, new[] { 1 }, new[] { 25000 }, new[] { 50 },
                 EffectDefinition.Area(400, AreaCenter.Caster, TargetTeam.Enemy, EffectDefinition.Damage(DamageType.Magical, 150))));
@@ -208,6 +211,7 @@ namespace Dynasty.MatchSimulation.Rules
             new ItemDefinition("vital_orb", "Vital Orb", 450, new ModifierSpec("item.vital_orb", -1, maxHpBonus: 250)),
             new ItemDefinition("mana_crystal", "Mana Crystal", 400, new ModifierSpec("item.mana_crystal", -1, maxManaBonus: 200)),
             new ItemDefinition("swift_boots", "Swift Boots", 400, new ModifierSpec("item.swift_boots", -1, moveSpeedPercent: 15)),
+            new ItemDefinition("tp_scroll", "Teleport Scroll", 90, activeAbilityId: "item.teleport", charges: 1),
             new ItemDefinition("observer_ward", "Observer Ward", 75, activeAbilityId: "item.place_observer", charges: 1),
             new ItemDefinition("sentry_ward", "Sentry Ward", 100, activeAbilityId: "item.place_sentry", charges: 1),
             new ItemDefinition("crest_of_valor", "Crest of Valor", 1600,

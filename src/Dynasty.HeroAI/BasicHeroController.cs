@@ -473,7 +473,11 @@ namespace Dynasty.HeroAI
 
             if (_brain.Plan == TeamPlanKind.Defend)
             {
-                if (Math.HpPercent(_hero) < 50 || !Math.Within(_hero.Position, objective.Position, 7000))
+                if (Math.HpPercent(_hero) < 50)
+                    return false;
+                if (!Math.Within(_hero.Position, objective.Position, 4000) && TryTeleportTo(objective))
+                    return true;
+                if (!Math.Within(_hero.Position, objective.Position, 7000))
                     return false;
                 Issue(HeroOrder.Move(FixedVector2.MoveTowards(objective.Position, Home, Fixed.FromInt(250))));
                 return true;
@@ -517,6 +521,22 @@ namespace Dynasty.HeroAI
             }
 
             return false;
+        }
+
+        /// <summary>Channels a carried teleport onto an allied structure.</summary>
+        private bool TryTeleportTo(MatchUnit structure)
+        {
+            if (structure.Kind != UnitKind.Structure || structure.Team != _hero.Team)
+                return false;
+            AbilityState? teleport = _h.Inventory
+                .Where(i => i.Active != null && Math.IsTeleport(i.Active.Definition))
+                .Select(i => i.Active!)
+                .FirstOrDefault(a => a.IsReady(_now));
+            if (teleport == null)
+                return false;
+
+            Issue(HeroOrder.Cast(teleport.Definition.Id, structure.Id));
+            return true;
         }
 
         // ── Vision ───────────────────────────────────────────────────────────────
@@ -669,6 +689,15 @@ namespace Dynasty.HeroAI
             if (WantsWard() && CanSpend(_state.Ruleset.FindItem("observer_ward")!.Cost))
             {
                 HeroShop.QueuePurchase(_hero, "observer_ward");
+                return;
+            }
+
+            // Every hero keeps one teleport scroll.
+            ItemDefinition? scroll = _state.Ruleset.Items.FirstOrDefault(i =>
+                i.ActiveAbilityId != null && Math.IsTeleport(_state.Ruleset.FindAbility(i.ActiveAbilityId)!));
+            if (scroll != null && _h.Inventory.All(i => i.Definition.Id != scroll.Id) && _h.Inventory.Count < HeroShop.InventorySize && CanSpend(scroll.Cost))
+            {
+                HeroShop.QueuePurchase(_hero, scroll.Id);
                 return;
             }
 
@@ -842,6 +871,8 @@ namespace Dynasty.HeroAI
             double strength = hero.Hero!.Level * 10 + hero.Hero.Inventory.Sum(i => i.Definition.Cost) / 100.0;
             return strength * (0.4 + 0.6 * HpPercent(hero) / 100.0);
         }
+
+        public static bool IsTeleport(AbilityDefinition ability) => ability.Effects.Any(e => e.Kind == EffectKind.Teleport);
 
         public static bool IsUltimate(AbilityDefinition ability) => ability.RequiredHeroLevel.Count > 0 && ability.RequiredHeroLevel[0] >= 6;
 

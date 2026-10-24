@@ -91,7 +91,8 @@ namespace Dynasty.MatchSimulation.Systems
             if (ability.Definition.Targeting == AbilityTargeting.Unit)
             {
                 MatchUnit? target = state.Find(order.Target);
-                if (target == null || !Effects.Matches(state, caster, target, ability.Definition.TargetTeam) || !state.IsVisibleTo(caster.Team, target))
+                if (target == null || !Effects.Matches(state, caster, target, ability.Definition.TargetTeam, ability.Definition.TargetsStructures) ||
+                    !state.IsVisibleTo(caster.Team, target))
                     return "invalid_target";
             }
 
@@ -168,11 +169,16 @@ namespace Dynasty.MatchSimulation.Systems
                 RunOne(context, caster, effect, level, target, point);
         }
 
-        /// <summary>Whether <paramref name="unit"/> is a legal target for the team filter. Abilities never affect structures.</summary>
-        public static bool Matches(MatchState state, MatchUnit caster, MatchUnit unit, TargetTeam team)
+        /// <summary>
+        /// Whether <paramref name="unit"/> is a legal target for the team filter. Abilities never affect
+        /// structures, except allied ones for abilities that explicitly target structures (teleports).
+        /// </summary>
+        public static bool Matches(MatchState state, MatchUnit caster, MatchUnit unit, TargetTeam team, bool allowAlliedStructures = false)
         {
-            if (!unit.IsAlive || unit.Kind == UnitKind.Structure)
+            if (!unit.IsAlive)
                 return false;
+            if (unit.Kind == UnitKind.Structure)
+                return allowAlliedStructures && unit.Team == caster.Team && team != TargetTeam.Enemy;
             switch (team)
             {
                 case TargetTeam.Enemy:
@@ -210,6 +216,9 @@ namespace Dynasty.MatchSimulation.Systems
                 case EffectKind.Summon:
                     Summon(context, caster, effect, level, point);
                     break;
+                case EffectKind.Teleport:
+                    Teleport(context.State, caster, target);
+                    break;
             }
         }
 
@@ -243,6 +252,16 @@ namespace Dynasty.MatchSimulation.Systems
                     caster.Position = FixedVector2.MoveTowards(caster.Position, target.Position, distance - stopShort);
             }
 
+            if (caster.Hero != null)
+                caster.Hero.Path = null;
+        }
+
+        /// <summary>Arrives just outside the destination, on the side facing the caster's fountain.</summary>
+        private static void Teleport(MatchState state, MatchUnit caster, MatchUnit destination)
+        {
+            FixedVector2 home = state.Ruleset.Map.FountainOf(caster.Team)!.Position;
+            Fixed offset = Fixed.FromInt(destination.BoundingRadius + caster.BoundingRadius + 100);
+            caster.Position = FixedVector2.MoveTowards(destination.Position, home, offset);
             if (caster.Hero != null)
                 caster.Hero.Path = null;
         }
