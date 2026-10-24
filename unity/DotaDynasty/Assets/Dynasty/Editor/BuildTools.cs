@@ -23,6 +23,7 @@ namespace Dynasty.Unity.Editor
     {
         public const string BootstrapScene = "Assets/Dynasty/Scenes/Match.unity";
         private const string PipelineFolder = "Assets/Dynasty/Rendering";
+        private const string MaterialPath = "Assets/Resources/DynastyLit.mat";
 
         /// <summary>Creates the URP asset and renderer once and makes URP the active pipeline for every quality level.</summary>
         [MenuItem("Dynasty/Setup URP")]
@@ -47,6 +48,11 @@ namespace Dynasty.Unity.Editor
                     QualitySettings.SetQualityLevel(level, false);
                     QualitySettings.renderPipeline = asset;
                 }
+
+                // Placeholder art: every primitive shares this lit material, coloured per renderer.
+                Directory.CreateDirectory("Assets/Resources");
+                if (AssetDatabase.LoadAssetAtPath<Material>(MaterialPath) == null)
+                    AssetDatabase.CreateAsset(new Material(Shader.Find("Universal Render Pipeline/Lit")), MaterialPath);
 
                 EnsureBootstrapScene();
                 AssetDatabase.SaveAssets();
@@ -111,6 +117,35 @@ namespace Dynasty.Unity.Editor
                 if (expected != actual)
                     throw new InvalidOperationException("IL2CPP checksums differ from .NET.\nExpected:\n" + expected + "Actual:\n" + actual);
                 Debug.Log("IL2CPP determinism OK:\n" + actual);
+            });
+        }
+
+        /// <summary>Builds the Windows viewer player (Mono, fast to build) into Build/Viewer.</summary>
+        [MenuItem("Dynasty/Build Viewer (Mono)")]
+        public static void BuildViewer()
+        {
+            Run(() =>
+            {
+                EnsureBootstrapScene();
+                NamedBuildTarget target = NamedBuildTarget.Standalone;
+                ScriptingImplementation previous = PlayerSettings.GetScriptingBackend(target);
+                try
+                {
+                    PlayerSettings.SetScriptingBackend(target, ScriptingImplementation.Mono2x);
+                    BuildReport report = BuildPipeline.BuildPlayer(new BuildPlayerOptions
+                    {
+                        scenes = new[] { BootstrapScene },
+                        locationPathName = Path.GetFullPath("Build/Viewer/DotaDynasty.exe"),
+                        target = BuildTarget.StandaloneWindows64,
+                        options = BuildOptions.None,
+                    });
+                    if (report.summary.result != BuildResult.Succeeded)
+                        throw new InvalidOperationException("Viewer build failed: " + report.summary.result);
+                }
+                finally
+                {
+                    PlayerSettings.SetScriptingBackend(target, previous);
+                }
             });
         }
 
