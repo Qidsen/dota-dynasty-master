@@ -12,8 +12,19 @@ using Dynasty.MatchSimulation.Rules;
 //   swapped — same, with the two lineups exchanged between sides (separates side bias from draft strength)
 //   base   — base ruleset, creeps only
 //   lab    — Dawn-siege lab ruleset, creeps only
+//   probe [file] — determinism reference checksums of the demo match (see DeterminismProbe)
 
 string mode = args.Length > 0 ? args[0] : "heroes";
+if (mode == "probe")
+{
+    // Reference checksums for the runtime determinism check (tools/sync-unity.ps1 writes them into the Unity project).
+    string report = Dynasty.Presentation.DeterminismProbe.Format(Dynasty.Presentation.DeterminismProbe.RunDefault());
+    if (args.Length > 1)
+        File.WriteAllText(args[1], report);
+    Console.Write(report);
+    return;
+}
+
 ulong firstSeed = args.Length > 1 ? ulong.Parse(args[1]) : 1;
 int count = args.Length > 2 ? int.Parse(args[2]) : 1;
 int maxMinutes = args.Length > 3 ? int.Parse(args[3]) : 60;

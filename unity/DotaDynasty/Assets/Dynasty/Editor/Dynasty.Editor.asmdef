@@ -1,0 +1,25 @@
+{
+    "name": "Dynasty.Editor",
+    "rootNamespace": "Dynasty.Unity.Editor",
+    "references": [
+        "Dynasty.Unity",
+        "Unity.RenderPipelines.Universal.Runtime",
+        "Unity.RenderPipelines.Core.Runtime"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": true,
+    "precompiledReferences": [
+        "Dynasty.Core.dll",
+        "Dynasty.MatchSimulation.dll",
+        "Dynasty.HeroAI.dll",
+        "Dynasty.Presentation.dll"
+    ],
+    "autoReferenced": false,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
