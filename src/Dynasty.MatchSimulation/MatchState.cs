@@ -273,6 +273,7 @@ namespace Dynasty.MatchSimulation
             Nav = Navigation.NavGrid.FromMap(ruleset.Map);
             Pathfinder = new Navigation.Pathfinder(Nav);
             SightGrid = Navigation.NavGrid.Build(ruleset.Map.Width, ruleset.Map.Height, ruleset.Map.NavCellSize, ruleset.Map.Obstacles, clearance: 0);
+            _elevation = BuildElevation(Nav, ruleset.Map.Elevation);
             if (ruleset.Boss != null)
                 NextBossSpawnTick = rate.TicksFor(ruleset.Boss.FirstSpawnMs);
             foreach (NeutralCampDefinition camp in ruleset.Map.Camps)
@@ -313,6 +314,31 @@ namespace Dynasty.MatchSimulation
         public long NextBossSpawnTick { get; internal set; } = -1;
 
         public Vision.TeamKnowledge KnowledgeOf(Team team) => team == Team.Dawn ? _dawnKnowledge : _duskKnowledge;
+
+        /// <summary>Ground level at a point (0 = low ground): the highest zone covering its grid cell center.</summary>
+        public int ElevationAt(FixedVector2 point) => _elevation.Length == 0 ? 0 : _elevation[Nav.IndexOf(point)];
+
+        private readonly int[] _elevation;
+
+        private static int[] BuildElevation(Navigation.NavGrid grid, IReadOnlyList<ElevationZone> zones)
+        {
+            if (zones.Count == 0)
+                return Array.Empty<int>();
+
+            var levels = new int[grid.Columns * grid.Rows];
+            for (int i = 0; i < levels.Length; i++)
+            {
+                FixedVector2 center = grid.CenterOf(i);
+                foreach (ElevationZone zone in zones)
+                {
+                    Fixed r = Fixed.FromInt(zone.Radius);
+                    if (zone.Level > levels[i] && FixedVector2.DistanceSquared(center, zone.Center) <= r * r)
+                        levels[i] = zone.Level;
+                }
+            }
+
+            return levels;
+        }
 
         private readonly Vision.TeamKnowledge _dawnKnowledge = new Vision.TeamKnowledge(Team.Dawn);
         private readonly Vision.TeamKnowledge _duskKnowledge = new Vision.TeamKnowledge(Team.Dusk);

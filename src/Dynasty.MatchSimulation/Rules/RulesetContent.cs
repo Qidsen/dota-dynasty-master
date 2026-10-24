@@ -295,9 +295,11 @@ namespace Dynasty.MatchSimulation.Rules
             int navCellSize = 100,
             int navClearance = 24,
             IReadOnlyList<FountainPlacement>? fountains = null,
-            IReadOnlyList<NeutralCampDefinition>? camps = null)
+            IReadOnlyList<NeutralCampDefinition>? camps = null,
+            IReadOnlyList<ElevationZone>? elevation = null)
         {
             Camps = (camps ?? Array.Empty<NeutralCampDefinition>()).ToArray();
+            Elevation = (elevation ?? Array.Empty<ElevationZone>()).ToArray();
             Width = width;
             Height = height;
             Lanes = lanes.ToArray();
@@ -321,6 +323,9 @@ namespace Dynasty.MatchSimulation.Rules
 
         /// <summary>Neutral jungle camps.</summary>
         public IReadOnlyList<NeutralCampDefinition> Camps { get; }
+
+        /// <summary>Raised ground; units only see targets on their own level or below.</summary>
+        public IReadOnlyList<ElevationZone> Elevation { get; }
 
         /// <summary>Side of a navigation grid cell in map units.</summary>
         public int NavCellSize { get; }
@@ -675,6 +680,10 @@ namespace Dynasty.MatchSimulation.Rules
                 obstacle.WriteCanonical(writer);
             writer.WriteInt64(Map.NavCellSize);
             writer.WriteInt64(Map.NavClearance);
+            writer.WriteInt64(Map.Elevation.Count);
+            foreach (ElevationZone zone in Map.Elevation)
+                zone.WriteCanonical(writer);
+
             writer.WriteInt64(Map.Camps.Count);
             foreach (NeutralCampDefinition camp in Map.Camps)
                 camp.WriteCanonical(writer);
@@ -763,6 +772,13 @@ namespace Dynasty.MatchSimulation.Rules
                     else if (protectorId == placement.Id)
                         errors.Add("Structure '" + placement.Id + "' cannot protect itself.");
                 }
+            }
+
+            ReportDuplicates(errors, "elevation zone", Map.Elevation.Select(z => z.Id));
+            foreach (ElevationZone zone in Map.Elevation)
+            {
+                if (zone.Level < 0 || zone.Radius <= 0 || !IsInsideMap(zone.Center))
+                    errors.Add("Elevation zone '" + zone.Id + "' needs a non-negative level, a positive radius and a center inside the map.");
             }
 
             ReportDuplicates(errors, "camp", Map.Camps.Select(c => c.Id));

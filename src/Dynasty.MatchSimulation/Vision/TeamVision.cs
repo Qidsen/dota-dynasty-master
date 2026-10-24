@@ -82,7 +82,7 @@ namespace Dynasty.MatchSimulation.Vision
             foreach (MatchUnit unit in state.Units)
             {
                 if (unit.Team == knowledge.Team && unit.IsAlive && unit.Stats.VisionRange > 0)
-                    _observers.Add(new Observer(unit.Position, Square(unit.Stats.VisionRange), Square(unit.Stats.TrueSightRange)));
+                    _observers.Add(new Observer(unit.Position, Square(unit.Stats.VisionRange), Square(unit.Stats.TrueSightRange), state.ElevationAt(unit.Position)));
             }
 
             knowledge.Reset();
@@ -90,12 +90,12 @@ namespace Dynasty.MatchSimulation.Vision
             {
                 if (unit.Team == knowledge.Team || !unit.IsAlive)
                     continue;
-                if (IsSeen(state.SightGrid, unit))
+                if (IsSeen(state.SightGrid, unit, state.ElevationAt(unit.Position)))
                     knowledge.MarkVisible(unit, now);
             }
         }
 
-        private bool IsSeen(NavGrid sight, MatchUnit target)
+        private bool IsSeen(NavGrid sight, MatchUnit target, int targetLevel)
         {
             bool invisible = (target.Flags & ModifierFlags.Invisible) != 0;
             if (invisible)
@@ -114,9 +114,11 @@ namespace Dynasty.MatchSimulation.Vision
                     return false;
             }
 
+            // Low ground cannot see up onto high ground.
             foreach (Observer observer in _observers)
             {
-                if (FixedVector2.DistanceSquared(observer.Position, target.Position) <= observer.VisionSquared &&
+                if (observer.Level >= targetLevel &&
+                    FixedVector2.DistanceSquared(observer.Position, target.Position) <= observer.VisionSquared &&
                     sight.HasClearLine(observer.Position, target.Position))
                     return true;
             }
@@ -132,14 +134,16 @@ namespace Dynasty.MatchSimulation.Vision
 
         private readonly struct Observer
         {
-            public Observer(FixedVector2 position, Fixed visionSquared, Fixed trueSightSquared)
+            public Observer(FixedVector2 position, Fixed visionSquared, Fixed trueSightSquared, int level)
             {
                 Position = position;
                 VisionSquared = visionSquared;
                 TrueSightSquared = trueSightSquared;
+                Level = level;
             }
 
             public FixedVector2 Position { get; }
+            public int Level { get; }
             public Fixed VisionSquared { get; }
             public Fixed TrueSightSquared { get; }
         }

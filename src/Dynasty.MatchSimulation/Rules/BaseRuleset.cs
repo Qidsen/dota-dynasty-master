@@ -115,7 +115,12 @@ namespace Dynasty.MatchSimulation.Rules
                 {
                     new FountainPlacement(Team.Dawn, FixedVector2.FromInts(600, 600), 500),
                     new FountainPlacement(Team.Dusk, FixedVector2.FromInts(9400, 9400), 500),
-                }, camps: Camps()),
+                }, camps: Camps(), elevation: new[]
+                {
+                    // Base plateaus up to and including the T3 towers; lanes climb them implicitly.
+                    new ElevationZone("plateau.dawn", FixedVector2.FromInts(1500, 1500), 1700, 1),
+                    new ElevationZone("plateau.dusk", FixedVector2.FromInts(8500, 8500), 1700, 1),
+                }),
                 waves: new WaveRules(firstSpawnMs: 0, intervalMs: 30000, dawnWave, duskWave, new[]
                 {
                     new CreepUpgrade("melee", "melee_super"),
