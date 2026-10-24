@@ -131,9 +131,13 @@ namespace Dynasty.MatchSimulation
         internal Fixed StepPerTick { get; private set; }
         internal long AttackIntervalTicks { get; private set; }
         internal long AttackPointTicks { get; private set; }
-        internal long NextAttackTick { get; set; }
-        internal long PendingAttackTick { get; set; }
-        internal EntityId PendingTargetId { get; set; }
+        /// <summary>Earliest tick the next attack can start (attack cooldown); a player knows this of its own hero.</summary>
+        public long NextAttackTick { get; internal set; }
+        /// <summary>Tick the attack being wound up lands, or -1 (the wind-up is visible, like an animation).</summary>
+        public long PendingAttackTick { get; internal set; }
+
+        /// <summary>Target of the attack being wound up.</summary>
+        public EntityId PendingTargetId { get; internal set; }
         internal EntityId LastAttackerId { get; set; }
 
         internal ActiveModifier? FindModifier(string key, EntityId source)

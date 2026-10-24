@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
 using Dynasty.Core.Kernel;
 using Dynasty.Core.Mathematics;
@@ -654,14 +654,18 @@ namespace Dynasty.HeroAI
 
         private void Lane()
         {
+            MatchUnit? lastHit = FindLastHit(_hero.AttackRange + 400);
             if (_h.Order.Kind == HeroOrderKind.Attack)
             {
+                // Keep a swing at a creep only while it is still worth it; otherwise stop hitting the
+                // wave (that only helps the allied creeps take the kill) and wait for the next chance.
                 MatchUnit? current = _state.Find(_h.Order.Target);
-                if (current != null && current.IsAlive && current.Kind != UnitKind.Hero && current.Kind != UnitKind.Structure && Sees(current))
+                if (current != null && current.Kind == UnitKind.Structure && current.IsAlive)
+                    return;
+                if (current != null && current.IsAlive && current.Kind != UnitKind.Hero && Sees(current) && IsLastHitCandidate(current))
                     return;
             }
 
-            MatchUnit? lastHit = FindLastHit(_hero.AttackRange + 400);
             if (lastHit != null)
             {
                 Issue(HeroOrder.Attack(lastHit.Id));
@@ -683,7 +687,6 @@ namespace Dynasty.HeroAI
 
         private MatchUnit? FindLastHit(int reach)
         {
-            Fixed factor = _state.Ruleset.Combat.ArmorFactor;
             MatchUnit? best = null;
             foreach (MatchUnit unit in _state.Units)
             {
@@ -691,15 +694,86 @@ namespace Dynasty.HeroAI
                     continue;
                 if (!Math.Within(_hero.Position, unit.Position, reach) || UnderEnemyTower(unit.Position))
                     continue;
-
-                Fixed hit = Fixed.FromInt(_hero.AttackDamageMin) * CombatMath.ArmorMultiplier(unit.Armor, factor);
-                bool deny = unit.Team == _hero.Team && unit.Hp * Fixed.FromInt(2) < Fixed.FromInt(unit.MaxHp);
-                if (unit.Hp <= hit && (unit.Team != _hero.Team || deny) && (best == null || unit.Hp < best.Hp))
+                if (IsLastHitCandidate(unit) && (best == null || unit.Hp < best.Hp))
                     best = unit;
             }
 
             return best;
         }
+
+        /// <summary>
+        /// An enemy creep (or an allied one below half HP, a deny) that a swing started now finishes:
+        /// the hits already on their way to it (visible wind-ups and the attackers' rhythm) leave it
+        /// alive but within one hit by the time the swing lands.
+        /// </summary>
+        private bool IsLastHitCandidate(MatchUnit unit)
+        {
+            if (unit.Kind != UnitKind.Creep && unit.Kind != UnitKind.Summon)
+                return false;
+            bool deny = unit.Team == _hero.Team && unit.Hp * Fixed.FromInt(2) < Fixed.FromInt(unit.MaxHp);
+            if (unit.Team == _hero.Team && !deny)
+                return false;
+
+            Fixed factor = _state.Ruleset.Combat.ArmorFactor;
+            Fixed hit = Fixed.FromInt(_hero.AttackDamageMin) * CombatMath.ArmorMultiplier(unit.Armor, factor);
+            if (unit.Hp <= hit)
+                return true;
+            if (deny)
+                return false;   // a speculative deny would cost the cooldown a last hit needs
+            Fixed expected = unit.Hp - DamageLandingBefore(unit, _now + TicksUntilMyHitLands(unit), factor);
+            return expected <= hit && expected > Fixed.Zero;
+        }
+
+        /// <summary>Walk into range (while the attack cooldown runs out), then wind-up and projectile flight, in ticks.</summary>
+        private int TicksUntilMyHitLands(MatchUnit target)
+        {
+            Fixed distance = FixedVector2.Distance(_hero.Position, target.Position);
+            Fixed reach = Fixed.FromInt(_hero.AttackRange + _hero.BoundingRadius + target.BoundingRadius);
+            long walk = 0;
+            if (distance > reach && _hero.MoveSpeed > 0)
+                walk = ((distance - reach) * Fixed.FromInt(TicksPerSecond) / Fixed.FromInt(_hero.MoveSpeed)).ToIntFloor();
+            long swingStarts = System.Math.Max(walk, _hero.NextAttackTick - _now);
+            return (int)swingStarts + WindUpTicks(_hero) + FlightTicks(_hero, Fixed.Min(distance, reach));
+        }
+
+        /// <summary>
+        /// Damage the visible units attacking the target from within range will land before
+        /// <paramref name="tick"/>: a wind-up in progress, then one swing per attack interval.
+        /// </summary>
+        private Fixed DamageLandingBefore(MatchUnit target, long tick, Fixed armorFactor)
+        {
+            Fixed perHit = CombatMath.ArmorMultiplier(target.Armor, armorFactor);
+            Fixed total = Fixed.Zero;
+            foreach (MatchUnit attacker in _state.Units)
+            {
+                if (attacker.Team == target.Team || attacker.Kind == UnitKind.Hero || !attacker.IsAlive || !Sees(attacker))
+                    continue;
+                bool windingUp = attacker.PendingAttackTick >= 0 && attacker.PendingTargetId == target.Id;
+                if (!windingUp && attacker.TargetId != target.Id)
+                    continue;
+                if (!Math.Within(attacker.Position, target.Position, attacker.AttackRange + attacker.BoundingRadius + target.BoundingRadius + 25))
+                    continue;   // still walking up: not hitting yet
+
+                Fixed average = Fixed.FromRatio(attacker.AttackDamageMin + attacker.AttackDamageMax, 2) * perHit;
+                long flight = FlightTicks(attacker, FixedVector2.Distance(attacker.Position, target.Position));
+                int hits = 0;
+                if (windingUp && attacker.PendingAttackTick + flight < tick)
+                    hits++;
+                long interval = System.Math.Max(1, attacker.Stats.AttackIntervalMs * 100 / (100 + attacker.AttackSpeedBonus) * TicksPerSecond / 1000);
+                for (long start = System.Math.Max(_now, attacker.NextAttackTick); start + WindUpTicks(attacker) + flight < tick; start += interval)
+                    hits++;
+                total += average * Fixed.FromInt(hits);
+            }
+
+            return total;
+        }
+
+        private int TicksPerSecond => _ticksPerMinute / 60;
+
+        private int WindUpTicks(MatchUnit unit) => unit.Stats.AttackPointMs * 100 / (100 + unit.AttackSpeedBonus) * TicksPerSecond / 1000;
+
+        private int FlightTicks(MatchUnit unit, Fixed distance) =>
+            unit.Stats.ProjectileSpeed > 0 ? (distance * Fixed.FromInt(TicksPerSecond) / Fixed.FromInt(unit.Stats.ProjectileSpeed)).ToIntFloor() : 0;
 
         private MatchUnit? FindPushTarget()
         {
