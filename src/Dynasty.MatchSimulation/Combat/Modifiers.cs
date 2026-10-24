@@ -62,8 +62,10 @@ namespace Dynasty.MatchSimulation.Combat
             int maxManaBonus = 0,
             Fixed hpRegenBonus = default,
             bool breakOnAction = false,
-            int breakRadius = 0)
+            int breakRadius = 0,
+            bool dispellable = true)
         {
+            Dispellable = dispellable;
             BreakOnAction = breakOnAction;
             BreakRadius = breakRadius;
             MaxHpBonus = maxHpBonus;
@@ -135,6 +137,18 @@ namespace Dynasty.MatchSimulation.Combat
         /// <summary>Removed when an enemy hero or tower comes this close to the bearer; 0 = never.</summary>
         public int BreakRadius { get; }
 
+        /// <summary>Whether dispels may remove it (permanent modifiers never are, regardless).</summary>
+        public bool Dispellable { get; }
+
+        /// <summary>
+        /// Harmful to its bearer: a disabling status, any negative stat change, or damage over time.
+        /// Invisibility counts as a buff. Dispels on allies remove debuffs, on enemies buffs.
+        /// </summary>
+        public bool IsDebuff =>
+            (Flags & (ModifierFlags.Stunned | ModifierFlags.Rooted | ModifierFlags.Silenced | ModifierFlags.Disarmed)) != 0 ||
+            MoveSpeedPercent < 0 || AttackSpeedBonus < 0 || ArmorBonus < Fixed.Zero || DamageBonus < 0 || MagicResistBonus < 0 ||
+            DamagePerSecond > Fixed.Zero;
+
         public bool IsPeriodic => DamagePerSecond > Fixed.Zero || HealPerSecond > Fixed.Zero;
 
         public bool IsPermanent => DurationMs < 0;
@@ -162,6 +176,7 @@ namespace Dynasty.MatchSimulation.Combat
             w.WriteFixed(HpRegenBonus);
             w.WriteBool(BreakOnAction);
             w.WriteInt64(BreakRadius);
+            w.WriteBool(Dispellable);
         }
 
         public static ModifierSpec Status(string key, int durationMs, ModifierFlags flags) => new ModifierSpec(key, durationMs, flags);

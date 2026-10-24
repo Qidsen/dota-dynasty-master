@@ -47,6 +47,9 @@ namespace Dynasty.MatchSimulation.Rules
 
         /// <summary>Moves the caster next to the target (an allied structure), on its own base side.</summary>
         Teleport = 7,
+
+        /// <summary>Removes debuffs from an ally or buffs from an enemy; stuns only with a strong dispel.</summary>
+        Dispel = 8,
     }
 
     public enum AreaCenter
@@ -74,10 +77,12 @@ namespace Dynasty.MatchSimulation.Rules
             string? summonTypeId = null,
             int durationMs = 0,
             bool atPoint = false,
-            bool heroesOnly = false)
+            bool heroesOnly = false,
+            bool strong = false)
         {
             AtPoint = atPoint;
             HeroesOnly = heroesOnly;
+            Strong = strong;
             Kind = kind;
             Amounts = amounts ?? Array.Empty<int>();
             DamageType = damageType;
@@ -112,6 +117,9 @@ namespace Dynasty.MatchSimulation.Rules
         /// <summary>Area effects only: affect heroes, not creeps or summons.</summary>
         public bool HeroesOnly { get; }
 
+        /// <summary>Dispels only: also removes stuns.</summary>
+        public bool Strong { get; }
+
         public static EffectDefinition Damage(DamageType type, params int[] perLevel) =>
             new EffectDefinition(EffectKind.Damage, perLevel, type);
 
@@ -128,6 +136,8 @@ namespace Dynasty.MatchSimulation.Rules
             new EffectDefinition(EffectKind.Area, radius: radius, center: center, team: team, inner: inner, heroesOnly: heroesOnly);
 
         public static EffectDefinition Dash() => new EffectDefinition(EffectKind.Dash);
+
+        public static EffectDefinition Dispel(bool strong) => new EffectDefinition(EffectKind.Dispel, strong: strong);
 
         /// <summary>Use with a long cast point as the channel; stuns and silences interrupt it.</summary>
         public static EffectDefinition Teleport() => new EffectDefinition(EffectKind.Teleport);
@@ -175,6 +185,7 @@ namespace Dynasty.MatchSimulation.Rules
             w.WriteInt64(DurationMs);
             w.WriteBool(AtPoint);
             w.WriteBool(HeroesOnly);
+            w.WriteBool(Strong);
             w.WriteInt64(Inner.Count);
             foreach (EffectDefinition child in Inner)
                 child.WriteCanonical(w);

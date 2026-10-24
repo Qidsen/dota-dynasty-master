@@ -210,6 +210,8 @@ namespace Dynasty.MatchSimulation.Rules
             list.Add(Cast("item.smoke", "Smoke of Veiling", AbilityTargeting.NoTarget, TargetTeam.Ally, 0, 0, new[] { 1 }, new[] { 1000 }, new[] { 0 },
                 EffectDefinition.Area(1200, AreaCenter.Caster, TargetTeam.Ally, heroesOnly: true,
                     EffectDefinition.Modifier(new ModifierSpec("smoke", 35000, ModifierFlags.Invisible, moveSpeedPercent: 15, breakOnAction: true, breakRadius: 1025)))));
+            list.Add(Cast("item.cleanse", "Cleanse", AbilityTargeting.Unit, TargetTeam.Any, 700, 0, new[] { 1 }, new[] { 18000 }, new[] { 40 },
+                EffectDefinition.Dispel(strong: false)));
             list.Add(new AbilityDefinition("item.teleport", "Teleport", AbilityTargeting.Unit, TargetTeam.Ally, 20000, 3000,
                 new[] { 60000 }, new[] { 0 }, new[] { 1 }, new[] { EffectDefinition.Teleport() }, targetsStructures: true));
 
@@ -237,6 +239,8 @@ namespace Dynasty.MatchSimulation.Rules
                 new ModifierSpec("item.storm_edge", -1, damageBonus: 35, attackSpeedBonus: 40, critChancePercent: 20, critMultiplierPercent: 170), new[] { "iron_blade", "swift_gloves" }),
             new ItemDefinition("aegis_heart", "Aegis Heart", 2600,
                 new ModifierSpec("item.aegis_heart", -1, maxHpBonus: 500, armorBonus: Fixed.FromInt(8), hpRegenBonus: Fixed.FromInt(6)), new[] { "vital_orb", "warden_plate" }),
+            new ItemDefinition("cleansing_charm", "Cleansing Charm", 1300,
+                new ModifierSpec("item.cleansing_charm", -1, maxManaBonus: 150, magicResistBonus: 10), new[] { "mana_crystal" }, "item.cleanse"),
             new ItemDefinition("spellshard", "Spellshard", 2000,
                 new ModifierSpec("item.spellshard", -1, maxManaBonus: 300, maxHpBonus: 250, magicResistBonus: 15), new[] { "mana_crystal", "vital_orb" }, "item.arc_pulse"),
         };
@@ -245,6 +249,7 @@ namespace Dynasty.MatchSimulation.Rules
         {
             string[] carry = { "swift_boots", "storm_edge", "crest_of_valor" };
             string[] caster = { "swift_boots", "spellshard", "aegis_heart" };
+            string[] support = { "swift_boots", "cleansing_charm", "spellshard", "aegis_heart" };
             string[] tank = { "swift_boots", "aegis_heart", "crest_of_valor" };
 
             return new[]
@@ -258,7 +263,7 @@ namespace Dynasty.MatchSimulation.Rules
                 Hero("frostweaver", "Frostweaver", new[] { "mid", "control" }, melee: false, hp: 500, armor: 1, speed: 295, dmg: 44, hpPerLevel: 70, dmgPerLevel: 2, mana: 380, manaPerLevel: 50,
                     "frostweaver.frost_shackle", "frostweaver.glacier", "frostweaver.frost_mantle", "frostweaver.deep_winter", caster),
                 Hero("dawnmender", "Dawnmender", new[] { "support", "healer" }, melee: false, hp: 520, armor: 1, speed: 300, dmg: 42, hpPerLevel: 75, dmgPerLevel: 2, mana: 360, manaPerLevel: 45,
-                    "dawnmender.mend", "dawnmender.sanctuary", "dawnmender.smite", "dawnmender.renewal", caster),
+                    "dawnmender.mend", "dawnmender.sanctuary", "dawnmender.smite", "dawnmender.renewal", support),
                 Hero("hivecaller", "Hivecaller", new[] { "offlane", "summoner" }, melee: false, hp: 540, armor: 2, speed: 300, dmg: 44, hpPerLevel: 80, dmgPerLevel: 2, mana: 330, manaPerLevel: 40,
                     "hivecaller.brood", "hivecaller.sting", "hivecaller.chitin", "hivecaller.swarm_lord", tank),
                 Hero("shadeblade", "Shadeblade", new[] { "mid", "assassin" }, melee: true, hp: 540, armor: 2, speed: 320, dmg: 54, hpPerLevel: 80, dmgPerLevel: 3, mana: 270, manaPerLevel: 30,
@@ -266,7 +271,7 @@ namespace Dynasty.MatchSimulation.Rules
                 Hero("siegewright", "Siegewright", new[] { "offlane", "pusher" }, melee: false, hp: 560, armor: 2, speed: 295, dmg: 48, hpPerLevel: 80, dmgPerLevel: 3, mana: 300, manaPerLevel: 35,
                     "siegewright.demolition", "siegewright.mortar", "siegewright.construct", "siegewright.bombardment", tank),
                 Hero("thornkeeper", "Thornkeeper", new[] { "support" }, melee: false, hp: 530, armor: 2, speed: 300, dmg: 43, hpPerLevel: 75, dmgPerLevel: 2, mana: 340, manaPerLevel: 40,
-                    "thornkeeper.bramble", "thornkeeper.thorn_ward", "thornkeeper.barkskin", "thornkeeper.overgrowth", caster),
+                    "thornkeeper.bramble", "thornkeeper.thorn_ward", "thornkeeper.barkskin", "thornkeeper.overgrowth", support),
                 Hero("starborn", "Starborn", new[] { "carry", "late" }, melee: false, hp: 480, armor: 1, speed: 300, dmg: 46, hpPerLevel: 70, dmgPerLevel: 5, mana: 280, manaPerLevel: 30,
                     "starborn.star_bolt", "starborn.quickening", "starborn.radiance", "starborn.ascension", carry),
             };

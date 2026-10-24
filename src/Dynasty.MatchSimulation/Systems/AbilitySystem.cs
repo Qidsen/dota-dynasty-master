@@ -221,6 +221,9 @@ namespace Dynasty.MatchSimulation.Systems
                 case EffectKind.Teleport:
                     Teleport(context.State, caster, target);
                     break;
+                case EffectKind.Dispel:
+                    Dispel(context, caster, target, effect.Strong);
+                    break;
             }
         }
 
@@ -257,6 +260,21 @@ namespace Dynasty.MatchSimulation.Systems
 
             if (caster.Hero != null)
                 caster.Hero.Path = null;
+        }
+
+        /// <summary>Allies lose their dispellable debuffs, enemies their dispellable buffs; stuns need a strong dispel.</summary>
+        private static void Dispel(SimulationContext<MatchState> context, MatchUnit caster, MatchUnit target, bool strong)
+        {
+            bool ally = target.Team == caster.Team;
+            foreach (ActiveModifier modifier in target.Modifiers.ToList())
+            {
+                ModifierSpec spec = modifier.Spec;
+                if (spec.IsPermanent || !spec.Dispellable || spec.IsDebuff != ally)
+                    continue;
+                if ((spec.Flags & ModifierFlags.Stunned) != 0 && !strong)
+                    continue;
+                Modifiers.Remove(context, target, modifier, "dispelled");
+            }
         }
 
         /// <summary>Arrives just outside the destination, on the side facing the caster's fountain.</summary>

@@ -254,6 +254,8 @@ namespace Dynasty.HeroAI
                 return;
             }
 
+            if (Cleanse())
+                return;
             if (Fight())
                 return;
             if (FollowPlan())
@@ -330,6 +332,36 @@ namespace Dynasty.HeroAI
 
             Issue(HeroOrder.Attack(creep.Id));
             return true;
+        }
+
+        // ── Support ──────────────────────────────────────────────────────────────
+
+        /// <summary>Dispels a disabled or slowed allied hero in range.</summary>
+        private bool Cleanse()
+        {
+            if ((_hero.Flags & ModifierFlags.Silenced) != 0)
+                return false;
+            HeroDecision self = this;
+            foreach (AbilityState ability in ReadyAbilities())
+            {
+                AbilityDefinition def = ability.Definition;
+                EffectDefinition? dispel = def.Effects.FirstOrDefault(e => e.Kind == EffectKind.Dispel);
+                if (dispel == null || def.Targeting != AbilityTargeting.Unit || def.TargetTeam == TargetTeam.Enemy)
+                    continue;
+
+                MatchUnit? ally = _state.Heroes
+                    .Where(h => h.Team == self._hero.Team && h.IsAlive && Math.Within(h.Position, self._hero.Position, def.CastRange + 200) &&
+                                h.Modifiers.Any(m => Math.WorthCleansing(m.Spec, dispel.Strong)))
+                    .OrderBy(h => h.Hp)
+                    .FirstOrDefault();
+                if (ally != null)
+                {
+                    Issue(HeroOrder.Cast(def.Id, ally.Id));
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         // ── Fighting ─────────────────────────────────────────────────────────────
@@ -441,6 +473,9 @@ namespace Dynasty.HeroAI
                     return hurt != null ? HeroOrder.Cast(def.Id, hurt.Id) : null;
 
                 case AbilityTargeting.Unit:
+                    // A dispel on an enemy is only worth it when there is a buff to strip.
+                    if (def.Effects.Any(e => e.Kind == EffectKind.Dispel) && !focus.Modifiers.Any(m => !m.Spec.IsPermanent && m.Spec.Dispellable && !m.Spec.IsDebuff))
+                        return null;
                     return Math.Within(_hero.Position, focus.Position, reach) ? HeroOrder.Cast(def.Id, focus.Id) : null;
 
                 case AbilityTargeting.Point:
@@ -928,6 +963,16 @@ namespace Dynasty.HeroAI
         }
 
         public static bool IsTeleport(AbilityDefinition ability) => ability.Effects.Any(e => e.Kind == EffectKind.Teleport);
+
+        /// <summary>A removable debuff that hampers an ally: a disable (stun only with a strong dispel) or a slow.</summary>
+        public static bool WorthCleansing(ModifierSpec spec, bool strong)
+        {
+            if (spec.IsPermanent || !spec.Dispellable || !spec.IsDebuff)
+                return false;
+            if ((spec.Flags & ModifierFlags.Stunned) != 0)
+                return strong;
+            return (spec.Flags & (ModifierFlags.Rooted | ModifierFlags.Silenced | ModifierFlags.Disarmed)) != 0 || spec.MoveSpeedPercent < 0;
+        }
 
         /// <summary>A group-invisibility ability: a heroes-only allied area that grants invisibility.</summary>
         public static bool IsSmoke(AbilityDefinition ability) =>
