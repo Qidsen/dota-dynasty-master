@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using System.Linq;
 using Dynasty.MatchSimulation;
 using Dynasty.MatchSimulation.Rules;
@@ -82,6 +82,21 @@ namespace Dynasty.HeroAI
         /// <summary>Minute a team starts pushing at even numbers: the default shifted by its strategy.</summary>
         public int EvenPushFor(Team team) => System.Math.Max(0, EvenPushFromMinute + StrategyFor(team).EvenPushShiftMinutes);
 
+        private readonly Dictionary<string, HeroSkill> _dawnSkills = new Dictionary<string, HeroSkill>();
+        private readonly Dictionary<string, HeroSkill> _duskSkills = new Dictionary<string, HeroSkill>();
+
+        /// <summary>
+        /// A team's player skills by hero ID (<see cref="HeroSkill.FromPlayer"/>); per team, since both
+        /// sides may play the same hero. Heroes not listed play the standard way with this object's
+        /// reaction and misjudgement values.
+        /// </summary>
+        public Dictionary<string, HeroSkill> SkillsOf(Team team) => team == Team.Dawn ? _dawnSkills : _duskSkills;
+
+        public HeroSkill SkillFor(Team team, string heroId) =>
+            SkillsOf(team).TryGetValue(heroId, out HeroSkill? skill)
+                ? skill
+                : new HeroSkill { DecisionIntervalTicks = DecisionIntervalTicks, ReactionJitterTicks = ReactionJitterTicks, MisjudgementPercent = MisjudgementPercent };
+
         /// <summary>Per hero ID; heroes not listed use <see cref="HeroPersonality.ForRoles"/>.</summary>
         public Dictionary<string, HeroPersonality> Personalities { get; } = new Dictionary<string, HeroPersonality>();
 
@@ -131,6 +146,12 @@ namespace Dynasty.HeroAI
         public int GankRange { get; set; } = 3000;
 
         public Dynasty.Drafting.GameArchetype Archetype { get; set; } = Dynasty.Drafting.GameArchetype.Balanced;
+
+        /// <summary>
+        /// Ticks before the heroes act on a new team plan (communication: teamwork, leadership, a common
+        /// language; see <see cref="TeamCommunication"/>). Until then each keeps doing what it was doing.
+        /// </summary>
+        public int CallDelayTicks { get; set; }
 
         /// <summary>Summoners call their units at an enemy structure their creeps are already hitting.</summary>
         public bool SiegeWithSummons { get; set; }

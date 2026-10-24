@@ -47,7 +47,8 @@ public class Phase05AcceptanceTests
         return new Run(kernel, presence);
     }
 
-    private static List<Run> Runs(string[] dawn, bool followPlan) => Seeds.Select(seed => Play(dawn, followPlan, seed)).ToList();
+    private static List<Run> Runs(string[] dawn, bool followPlan) =>
+        Seeds.AsParallel().AsOrdered().Select(seed => Play(dawn, followPlan, seed)).ToList();   // independent deterministic matches
 
     private static readonly Lazy<(List<Run> Plan, List<Run> Neutral)> Late = new(() => (Runs(LateDraft, true), Runs(LateDraft, false)));
     private static readonly Lazy<(List<Run> Plan, List<Run> Neutral)> Push = new(() => (Runs(PushDraft, true), Runs(PushDraft, false)));

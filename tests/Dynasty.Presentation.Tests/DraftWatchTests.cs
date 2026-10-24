@@ -15,6 +15,7 @@ public class DraftWatchTests
 
         Assert.NotEqual(dawn.Name, dusk.Name);
         Assert.All(new[] { dawn, dusk }, r => Assert.All(r.Players, p => Assert.True(p.Pool.Count() >= 3, p.Name)));
+        Assert.All(DemoMatch.Players().Dawn, p => Assert.Contains(p.HeroPool, h => h.Mastery >= 90));   // a signature hero each
         Assert.Equal(DemoMatch.Rosters().Dawn.At(1).Pool.Select(e => (e.HeroId, e.Mastery)), dawn.At(1).Pool.Select(e => (e.HeroId, e.Mastery)));   // deterministic
     }
 
@@ -44,6 +45,23 @@ public class DraftWatchTests
         var dawnHeroes = match.Kernel.State.Heroes.Where(h => h.Team == Team.Dawn).Select(h => h.Hero!.Definition.Id).ToHashSet();
         Assert.Equal(watch.Session.PicksOf(Team.Dawn).ToHashSet(), dawnHeroes);
         Assert.Equal(TeamStrategy.From(watch.DawnPlan!).Archetype, match.AiSettings!.DawnStrategy.Archetype);
+    }
+
+    [Fact]
+    public void Match_IsPlayedByTheTeamsPlayersOnTheirPositions()
+    {
+        var watch = DraftWatch.Start(BaseRuleset.Create(), seed: 2, secondsPerStep: 0.5);
+        watch.Finish();
+
+        MatchSession match = watch.StartMatch(seed: 5);
+
+        PositionPlan plan = PositionPlan.For(BaseRuleset.Create(), Team.Dusk, watch.Session.PicksOf(Team.Dusk));
+        string carry = plan.HeroAt(1);
+        Assert.Equal(watch.DuskPlayers[0].Handle, match.PlayerHandle(Team.Dusk, carry));
+        HeroSkill expected = HeroSkill.FromPlayer(watch.DuskPlayers[0], carry);
+        Assert.Equal(expected.LastHitMissPercent, match.AiSettings!.SkillsOf(Team.Dusk)[carry].LastHitMissPercent);
+        Assert.Equal(TeamCommunication.CallDelayTicks(watch.DawnPlayers), match.AiSettings.DawnStrategy.CallDelayTicks);
+        Assert.Equal(10, match.AiSettings.SkillsOf(Team.Dawn).Count + match.AiSettings.SkillsOf(Team.Dusk).Count);
     }
 
     [Fact]

@@ -19,6 +19,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\..\src\Dynasty.Players\Dynasty.Players.csproj" />
     <ProjectReference Include="..\..\src\Dynasty.MatchSimulation\Dynasty.MatchSimulation.csproj" />
     <ProjectReference Include="..\..\src\Dynasty.Core\Dynasty.Core.csproj" />
     <ProjectReference Include="..\..\src\Dynasty.HeroAI\Dynasty.HeroAI.csproj" />

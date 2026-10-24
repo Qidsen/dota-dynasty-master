@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using System.Linq;
 using Dynasty.Core.Kernel;
 using Dynasty.Core.Mathematics;
@@ -45,7 +45,19 @@ namespace Dynasty.HeroAI
         public TeamPlanKind Plan { get; private set; }
         public MatchUnit? Objective { get; private set; }
 
+        /// <summary>Tick the current plan (or its objective) was called.</summary>
+        public long PlanSince { get; private set; }
+
         public void UpdatePlan(MatchState state, long now, int ticksPerMinute, HeroAiSettings settings)
+        {
+            TeamPlanKind previousPlan = Plan;
+            MatchUnit? previousObjective = Objective;
+            Decide(state, now, ticksPerMinute, settings);
+            if (Plan != previousPlan || Objective != previousObjective)
+                PlanSince = now;
+        }
+
+        private void Decide(MatchState state, long now, int ticksPerMinute, HeroAiSettings settings)
         {
             MatchUnit? threatened = FindThreatenedStructure(state);
             if (threatened != null)
@@ -159,6 +171,11 @@ namespace Dynasty.HeroAI
         public long NextDecisionTick { get; set; }
         public bool Retreating { get; set; }
 
+        /// <summary>Own deaths already noticed, and the ticks of those in the last five minutes (tilt).</summary>
+        public int SeenDeaths { get; set; }
+
+        public List<long> RecentDeathTicks { get; } = new List<long>();
+
         /// <summary>Camps this hero found empty, with the tick they are expected back.</summary>
         public Dictionary<string, long> CampEmptyUntil { get; } = new Dictionary<string, long>();
     }
@@ -210,8 +227,9 @@ namespace Dynasty.HeroAI
 
                 if (now < memory.NextDecisionTick)
                     continue;
-                memory.NextDecisionTick = now + _settings.DecisionIntervalTicks +
-                                          (_settings.ReactionJitterTicks > 0 ? random.NextInt(0, _settings.ReactionJitterTicks + 1) : 0);
+                HeroSkill skill = _settings.SkillFor(hero.Team, hero.Hero.Definition.Id);
+                memory.NextDecisionTick = now + skill.DecisionIntervalTicks +
+                                          (skill.ReactionJitterTicks > 0 ? random.NextInt(0, skill.ReactionJitterTicks + 1) : 0);
 
                 TeamBrain brain = hero.Team == Team.Dawn ? _dawn : _dusk;
                 new HeroDecision(state, hero, brain, memory, _settings, random, now, ticksPerMinute).Run();
@@ -229,6 +247,7 @@ namespace Dynasty.HeroAI
         private readonly HeroMemory _memory;
         private readonly HeroAiSettings _settings;
         private readonly HeroPersonality _personality;
+        private readonly HeroSkill _skill;
         private readonly DeterministicRandom _random;
         private readonly long _now;
         private readonly int _ticksPerMinute;
@@ -242,6 +261,7 @@ namespace Dynasty.HeroAI
             _memory = memory;
             _settings = settings;
             _personality = settings.PersonalityFor(hero.Hero!.Definition);
+            _skill = settings.SkillFor(hero.Team, hero.Hero!.Definition.Id);
             _random = random;
             _now = now;
             _ticksPerMinute = ticksPerMinute;
@@ -272,8 +292,59 @@ namespace Dynasty.HeroAI
             return true;
         }
 
+        /// <summary>
+        /// The player gets this creep's last-hit timing wrong (last-hit skill). Fixed per creep and hero
+        /// (a hash, no random draw), so the miss is a whole missed chance, not a coin flip every decision.
+        /// </summary>
+        private bool MissesTiming(MatchUnit creep)
+        {
+            if (_skill.LastHitMissPercent <= 0)
+                return false;
+            ulong h = (ulong)creep.Id.Value * 0x9E3779B97F4A7C15UL ^ (ulong)_hero.Id.Value * 0xC2B2AE3D27D4EB4FUL;
+            h ^= h >> 31;
+            return (int)(h % 100) < _skill.LastHitMissPercent;
+        }
+
+        /// <summary>
+        /// Map awareness: deep on the enemy side (near an enemy structure), hurt, with neither allied
+        /// creeps nor allied heroes around, while three or more enemy heroes are missing from the map
+        /// (alive but unseen), a gank is likely — fall back to the own outer tower. Pushing with a wave
+        /// or with the team is not interrupted.
+        /// </summary>
+        private bool SenseDanger()
+        {
+            if (!_skill.DangerSense || Math.HpPercent(_hero) >= 80)
+                return false;
+            HeroDecision self = this;
+            bool deep = _state.Units.Any(u => u.Kind == UnitKind.Structure && u.Team != self._hero.Team && u.IsAlive && Math.Within(u.Position, self._hero.Position, 2500));
+            if (!deep || AlliedHeroesNear(_hero.Position, 1200) > 1)
+                return false;
+            if (_state.Units.Any(u => u.Team == self._hero.Team && u.Kind == UnitKind.Creep && u.IsAlive && Math.Within(u.Position, self._hero.Position, 1000)))
+                return false;
+            int missing = _state.Heroes.Count(h => h.Team != self._hero.Team && !h.Hero!.IsDead && !self.Sees(h));
+            if (missing < 3)
+                return false;
+            Issue(HeroOrder.Move(LaneRally()));
+            return true;
+        }
+
+        /// <summary>The player lets a good cast moment pass (spell accuracy); draws no random number for a sure player.</summary>
+        private bool Hesitates() => _skill.SpellHesitationPercent > 0 && _random.NextInt(0, 100) < _skill.SpellHesitationPercent;
+
         /// <summary>The hero's own aggression scaled by the team's strategy.</summary>
-        private double Aggression => _personality.Aggression * _settings.StrategyFor(_hero.Team).AggressionPercent / 100.0;
+        private double Aggression => _personality.Aggression * _settings.StrategyFor(_hero.Team).AggressionPercent / 100.0 * _skill.AggressionPercent / 100.0
+                                     * (Tilted ? 1 + _skill.TiltSusceptibility * 3 / 100.0 : 1.0);
+
+        /// <summary>Two or more own deaths in the last five minutes rattle a susceptible player.</summary>
+        private bool Tilted => _skill.TiltSusceptibility > 0 && _memory.RecentDeathTicks.Count >= 2;
+
+        /// <summary>Records own deaths (public scoreboard information) and forgets those older than five minutes.</summary>
+        private void NoticeDeaths()
+        {
+            for (; _memory.SeenDeaths < _h.Deaths; _memory.SeenDeaths++)
+                _memory.RecentDeathTicks.Add(_now);
+            _memory.RecentDeathTicks.RemoveAll(t => _now - t > 5L * _ticksPerMinute);
+        }
 
         public void Run()
         {
@@ -281,10 +352,11 @@ namespace Dynasty.HeroAI
             if (_h.IsDead || _h.IsCasting || !_hero.IsAlive)
                 return;
 
+            NoticeDeaths();
             int hpPercent = Math.HpPercent(_hero);
             if (_memory.Retreating && hpPercent >= _personality.ReturnHpPercent)
                 _memory.Retreating = false;
-            else if (!_memory.Retreating && hpPercent < _personality.RetreatHpPercent)
+            else if (!_memory.Retreating && hpPercent < _personality.RetreatHpPercent + _skill.RetreatShiftPercent)
                 _memory.Retreating = true;
             if (_memory.Retreating)
             {
@@ -297,6 +369,8 @@ namespace Dynasty.HeroAI
             if (Fight())
                 return;
             if (SiegeWithSummons())
+                return;
+            if (SenseDanger())
                 return;
             if (FollowPlan())
                 return;
@@ -418,7 +492,8 @@ namespace Dynasty.HeroAI
             List<MatchUnit> allies = _state.Heroes.Where(h => h.Team == self._hero.Team && h.IsAlive && Math.Within(h.Position, self._hero.Position, range)).ToList();
             double own = allies.Sum(PowerOf) + TowerSupport(_hero.Team, _hero.Position);
             double theirs = enemies.Sum(PowerOf) + TowerSupport(_hero.Team.Opponent(), _hero.Position);
-            double noise = _settings.MisjudgementPercent > 0 ? _random.NextInt(-_settings.MisjudgementPercent, _settings.MisjudgementPercent + 1) / 100.0 : 0;
+            int misjudgement = _skill.MisjudgementPercent + (Tilted ? _skill.TiltSusceptibility * 2 : 0);
+            double noise = misjudgement > 0 ? _random.NextInt(-misjudgement, misjudgement + 1) / 100.0 : 0;
             double odds = own / System.Math.Max(theirs, 1) * Aggression * (1 + noise);
 
             if (odds < 0.85)
@@ -430,7 +505,20 @@ namespace Dynasty.HeroAI
             if (odds < (ProtectingCarry ? 1.4 : 1.15))
                 return Harass(enemies);
 
+            if (_skill.FightFumblePercent > 0 && _random.NextInt(0, 100) < _skill.FightFumblePercent)
+            {
+                Hold();   // fumbles the moment: no swing, no spell
+                return true;
+            }
+
             MatchUnit? focus = _brain.FocusTarget(_state, _hero.Position, range) ?? enemies[0];
+            if (_skill.FocusDisciplinePercent < 100 && _random.NextInt(0, 100) >= _skill.FocusDisciplinePercent)
+            {
+                // An undisciplined hero hits whoever is closest instead of the team's target.
+                HeroDecision me = this;
+                focus = enemies.OrderBy(e => FixedVector2.DistanceSquared(e.Position, me._hero.Position)).First();
+            }
+
             if (TryCastInFight(focus, enemies, allies))
                 return true;
             if (ShouldWaitForInitiation(enemies, allies))
@@ -470,7 +558,7 @@ namespace Dynasty.HeroAI
         private bool Harass(List<MatchUnit> enemies)
         {
             MatchUnit target = enemies.OrderBy(e => e.Hp).First();
-            if (Math.HpPercent(_hero) < Math.HpPercent(target))
+            if (Math.HpPercent(_hero) < Math.HpPercent(target) || Hesitates())
                 return false;
 
             foreach (AbilityState ability in ReadyAbilities())
@@ -510,6 +598,8 @@ namespace Dynasty.HeroAI
         {
             if ((_hero.Flags & ModifierFlags.Silenced) != 0)
                 return false;
+            if (Hesitates())
+                return false;
 
             // Disables first, then everything else, in definition order.
             foreach (AbilityState ability in ReadyAbilities().OrderBy(a => Math.IsDisable(a.Definition) ? 0 : 1))
@@ -528,7 +618,7 @@ namespace Dynasty.HeroAI
         private HeroOrder? ChooseFightCast(AbilityDefinition def, MatchUnit focus, List<MatchUnit> enemies, List<MatchUnit> allies)
         {
             int reach = def.CastRange + 200;
-            int minTargets = Math.IsUltimate(def) && enemies.Count > 1 ? 2 : 1;
+            int minTargets = Math.IsUltimate(def) && enemies.Count > 1 && _skill.InitiationPatience ? 2 : 1;
             switch (def.Targeting)
             {
                 case AbilityTargeting.Unit when def.TargetTeam == TargetTeam.Ally:
@@ -544,9 +634,12 @@ namespace Dynasty.HeroAI
                 case AbilityTargeting.Point:
                     int radius = Math.AreaRadius(def);
                     FixedVector2 point = focus.Position;
-                    return Math.Within(_hero.Position, point, reach) && enemies.Count(e => Math.Within(e.Position, point, radius)) >= minTargets
-                        ? HeroOrder.CastAtPoint(def.Id, point)
-                        : null;
+                    if (!Math.Within(_hero.Position, point, reach) || enemies.Count(e => Math.Within(e.Position, point, radius)) < minTargets)
+                        return null;
+                    int error = _skill.PointCastErrorUnits;
+                    if (error > 0)
+                        point = point + FixedVector2.FromInts(_random.NextInt(-error, error + 1), _random.NextInt(-error, error + 1));
+                    return HeroOrder.CastAtPoint(def.Id, point);
 
                 default:
                     if (def.Effects.Any(e => e.Kind == EffectKind.Summon))
@@ -612,6 +705,8 @@ namespace Dynasty.HeroAI
             MatchUnit? objective = _brain.Objective;
             if (objective == null || !objective.IsAlive)
                 return false;
+            if (_now < _brain.PlanSince + _settings.StrategyFor(_hero.Team).CallDelayTicks)
+                return false;   // the call has not got through yet
 
             if (_brain.Plan == TeamPlanKind.Defend)
             {
@@ -771,6 +866,8 @@ namespace Dynasty.HeroAI
                 return false;
             bool deny = unit.Team == _hero.Team && unit.Hp * Fixed.FromInt(2) < Fixed.FromInt(unit.MaxHp);
             if (unit.Team == _hero.Team && !deny)
+                return false;
+            if (MissesTiming(unit))
                 return false;
 
             Fixed factor = _state.Ruleset.Combat.ArmorFactor;

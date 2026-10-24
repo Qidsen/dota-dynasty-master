@@ -152,7 +152,7 @@ namespace Dynasty.Unity
             _hud.DrawFeed(_feed, _session.Kernel.Config.TickRate.TicksPerSecond);
             _hud.DrawHelp();
             if (Input.GetKey(KeyCode.Tab))
-                _hud.DrawScoreboard(_statistics.Heroes, frame.Viewpoint);
+                _hud.DrawScoreboard(_statistics.Heroes, frame.Viewpoint, line => _session.PlayerHandle(line.Team, line.DefinitionId));
         }
 
         /// <summary>

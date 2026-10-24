@@ -60,14 +60,14 @@ namespace Dynasty.Unity
             GUI.color = Color.white;
         }
 
-        public void DrawScoreboard(IReadOnlyList<HeroLine> heroes, Viewpoint viewpoint)
+        public void DrawScoreboard(IReadOnlyList<HeroLine> heroes, Viewpoint viewpoint, System.Func<HeroLine, string?>? playerOf = null)
         {
             Styles();
             float w = 860f;
             float h = 60f + heroes.Count * 24f;
             var area = new Rect((Screen.width - w) / 2f, (Screen.height - h) / 2f, w, h);
             GUI.Box(area, GUIContent.none, _panel);
-            string header = "Hero              Lvl   K / D / A    LH / DN   Net worth   GPM   XPM   Hero dmg   Heal   Wards";
+            string header = "Player     Hero           Lvl   K / D / A    LH / DN   Net worth   GPM   XPM   Hero dmg   Heal   Wards";
             GUI.Label(new Rect(area.x + 14f, area.y + 12f, w, 22f), header, _label);
             float y = area.y + 40f;
             foreach (HeroLine line in heroes)
@@ -76,7 +76,7 @@ namespace Dynasty.Unity
                 string economy = hidden ? $"{"?",9}   {"?",3}   {"?",3}" : $"{line.NetWorth,9}   {line.GoldPerMinute,3}   {line.XpPerMinute,3}";
                 GUI.color = Palette.Of(line.Team);
                 GUI.Label(new Rect(area.x + 14f, y, w, 22f),
-                    $"{line.Name,-16}  {line.Level,3}   {line.Kills,2} / {line.Deaths,2} / {line.Assists,2}   {line.LastHits,3} / {line.Denies,-3}  {economy}   {line.HeroDamage,8}   {line.Healing,5}   {line.WardsPlaced,4}",
+                    $"{(playerOf?.Invoke(line) ?? "-"),-10} {line.Name,-13}  {line.Level,3}   {line.Kills,2} / {line.Deaths,2} / {line.Assists,2}   {line.LastHits,3} / {line.Denies,-3}  {economy}   {line.HeroDamage,8}   {line.Healing,5}   {line.WardsPlaced,4}",
                     _label);
                 y += 24f;
             }

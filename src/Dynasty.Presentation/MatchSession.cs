@@ -19,16 +19,20 @@ namespace Dynasty.Presentation
         private int _eventsRead;
         private Viewpoint _viewpoint = Viewpoint.Observer;
 
-        private MatchSession(SimulationKernel<MatchState> kernel, HeroAiSettings? ai)
+        private readonly IReadOnlyDictionary<(Team, string), string> _handles;
+
+        private MatchSession(SimulationKernel<MatchState> kernel, HeroAiSettings? ai, IReadOnlyDictionary<(Team, string), string>? handles)
         {
             Kernel = kernel;
             AiSettings = ai;
+            _handles = handles ?? new Dictionary<(Team, string), string>();
             Clock = new MatchClock(kernel.Config.TickRate.TicksPerSecond);
             Current = Capture();
             Previous = Current;
         }
 
-        public static MatchSession Start(RulesetContent ruleset, ulong seed, MatchLineup lineup, HeroAiSettings? ai = null)
+        public static MatchSession Start(RulesetContent ruleset, ulong seed, MatchLineup lineup, HeroAiSettings? ai = null,
+            IReadOnlyDictionary<(Team, string), string>? playerHandles = null)
         {
             SimulationKernel<MatchState> kernel = Match.Create(ruleset, seed, lineup);
             HeroAiSettings? settings = null;
@@ -38,13 +42,16 @@ namespace Dynasty.Presentation
                 HeroAi.Attach(kernel, settings);
             }
 
-            return new MatchSession(kernel, settings);
+            return new MatchSession(kernel, settings, playerHandles);
         }
 
         /// <summary>The simulation; read it, never mutate it from the view.</summary>
         public SimulationKernel<MatchState> Kernel { get; }
 
         public MatchClock Clock { get; }
+
+        /// <summary>The handle of the player on a team's hero, if the match was set up with players.</summary>
+        public string? PlayerHandle(Team team, string heroId) => _handles.TryGetValue((team, heroId), out string? handle) ? handle : null;
 
         /// <summary>The AI settings the heroes play with (team strategies from the draft), if any.</summary>
         public HeroAiSettings? AiSettings { get; }
