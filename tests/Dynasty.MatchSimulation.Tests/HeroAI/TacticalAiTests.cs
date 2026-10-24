@@ -256,6 +256,35 @@ public class TacticalAiTests
     }
 
     [Fact]
+    public void ReadyUltimate_MakesAnEvenFightWorthTaking()
+    {
+        bool AlphaEngages(bool ultimateReady)
+        {
+            var draft = TestAbilities.Draft().WithHeroAbilities("alpha", "finale");
+            var settings = new HeroAiSettings { ReactionJitterTicks = 0, MisjudgementPercent = 0 };
+            settings.Personalities["alpha"] = new HeroPersonality { Aggression = 1.0 };
+            settings.Uncontrolled.Add("beta");
+            var kernel = Skirmish(new[] { ("alpha", 5000, 2000) }, new[] { ("beta", 5700, 2000) }, settings, draft: draft, setup: ctx =>
+            {
+                Pin(ctx, "beta");
+                HeroProgression.GrantXp(ctx, H(ctx.State, "alpha"), 2000);   // level 6 each: an even fight on paper
+                HeroProgression.GrantXp(ctx, H(ctx.State, "beta"), 2000);
+            });
+            At(kernel, 2, ctx =>
+            {
+                if (!ultimateReady)
+                    H(ctx.State, "alpha").Hero!.Ability("finale")!.CooldownReadyTick = 100000;
+            });
+            kernel.RunTicks(120);
+            EntityId alpha = H(kernel.State, "alpha").Id;
+            return kernel.EventsOf<AttackStarted>().Any(a => a.Attacker == alpha) || kernel.EventsOf<AbilityCast>().Any(c => c.Caster == alpha);
+        }
+
+        Assert.True(AlphaEngages(ultimateReady: true), "with its ultimate ready alpha should take the even fight");
+        Assert.False(AlphaEngages(ultimateReady: false), "with its ultimate on cooldown alpha should not");
+    }
+
+    [Fact]
     public void ReactionJitter_ChangesTimingAcrossSeedsButNotWithinASeed()
     {
         long FirstAttack(ulong seed)

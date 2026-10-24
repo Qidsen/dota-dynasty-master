@@ -257,7 +257,8 @@ namespace Dynasty.MatchSimulation.Rules
 
         public int CooldownAt(int level) => EffectDefinition.ValueAt(CooldownMs, level);
 
-        public int ManaCostAt(int level) => EffectDefinition.ValueAt(ManaCost, level);
+        /// <summary>Mana needed to cast at the given level; passives (no costs listed) need none.</summary>
+        public int ManaCostAt(int level) => ManaCost.Count == 0 ? 0 : EffectDefinition.ValueAt(ManaCost, level);
 
         internal void WriteCanonical(CanonicalWriter w)
         {

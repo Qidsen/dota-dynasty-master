@@ -56,6 +56,12 @@ namespace Dynasty.HeroAI
         /// </summary>
         public int LaningPhaseMinutes { get; set; } = 10;
 
+        /// <summary>
+        /// From this match minute on, a team of four or more takes the boss without a numbers
+        /// advantage, as long as no enemy hero is seen near the pit.
+        /// </summary>
+        public int BossAtEvenNumbersFromMinute { get; set; } = 20;
+
         /// <summary>Radius around a hero within which allies and visible enemies count toward a fight.</summary>
         public int EngageRange { get; set; } = 1200;
 

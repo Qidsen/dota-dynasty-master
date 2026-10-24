@@ -45,7 +45,7 @@ namespace Dynasty.HeroAI
         public TeamPlanKind Plan { get; private set; }
         public MatchUnit? Objective { get; private set; }
 
-        public void UpdatePlan(MatchState state, long now, int ticksPerMinute, int laningPhaseMinutes)
+        public void UpdatePlan(MatchState state, long now, int ticksPerMinute, HeroAiSettings settings)
         {
             MatchUnit? threatened = FindThreatenedStructure(state);
             if (threatened != null)
@@ -59,13 +59,16 @@ namespace Dynasty.HeroAI
             int enemyAlive = state.Heroes.Count(h => h.Team != Team && !h.Hero!.IsDead);
             long minute = now / ticksPerMinute;
 
-            if (state.Boss != null && ownAlive >= 3 && ownAlive - enemyAlive >= 2)
+            MatchUnit? boss = state.Boss;
+            bool bossUncontested = boss != null && minute >= settings.BossAtEvenNumbersFromMinute && ownAlive >= 4 && ownAlive >= enemyAlive &&
+                                   !state.Heroes.Any(h => h.Team != Team && h.IsAlive && state.IsVisibleTo(Team, h) && Math.Within(h.Position, boss.Position, 2500));
+            if (boss != null && ((ownAlive >= 3 && ownAlive - enemyAlive >= 2) || bossUncontested))
             {
                 Plan = TeamPlanKind.Boss;
                 Objective = state.Boss;
                 return;
             }
-            int needed = minute < laningPhaseMinutes ? 3 : 2;   // the laning phase is for farming
+            int needed = minute < settings.LaningPhaseMinutes ? 3 : 2;   // the laning phase is for farming
             bool advantage = ownAlive - enemyAlive >= needed || (ownAlive >= enemyAlive && ownAlive >= 3 && minute >= 15);
             if (advantage)
             {
@@ -189,8 +192,8 @@ namespace Dynasty.HeroAI
             int ticksPerMinute = context.TickRate.TicksPerSecond * 60;
             if (now % PlanIntervalTicks == 0)
             {
-                _dawn.UpdatePlan(state, now, ticksPerMinute, _settings.LaningPhaseMinutes);
-                _dusk.UpdatePlan(state, now, ticksPerMinute, _settings.LaningPhaseMinutes);
+                _dawn.UpdatePlan(state, now, ticksPerMinute, _settings);
+                _dusk.UpdatePlan(state, now, ticksPerMinute, _settings);
             }
 
             DeterministicRandom random = context.Random("ai");
@@ -385,8 +388,8 @@ namespace Dynasty.HeroAI
 
             HeroDecision self = this;
             List<MatchUnit> allies = _state.Heroes.Where(h => h.Team == self._hero.Team && h.IsAlive && Math.Within(h.Position, self._hero.Position, range)).ToList();
-            double own = allies.Sum(Math.Power) + TowerSupport(_hero.Team, _hero.Position);
-            double theirs = enemies.Sum(Math.Power) + TowerSupport(_hero.Team.Opponent(), _hero.Position);
+            double own = allies.Sum(PowerOf) + TowerSupport(_hero.Team, _hero.Position);
+            double theirs = enemies.Sum(PowerOf) + TowerSupport(_hero.Team.Opponent(), _hero.Position);
             double noise = _settings.MisjudgementPercent > 0 ? _random.NextInt(-_settings.MisjudgementPercent, _settings.MisjudgementPercent + 1) / 100.0 : 0;
             double odds = own / System.Math.Max(theirs, 1) * _personality.Aggression * (1 + noise);
 
@@ -411,6 +414,29 @@ namespace Dynasty.HeroAI
             Issue(HeroOrder.Attack(focus.Id));
             return true;
         }
+
+        /// <summary>
+        /// Fighting strength as this team judges it: an ultimate ready to cast counts for a lot.
+        /// Allies' cooldowns and mana are known; an enemy's learned ultimate is assumed ready,
+        /// since its cooldown cannot be seen.
+        /// </summary>
+        private double PowerOf(MatchUnit hero)
+        {
+            double power = Math.Power(hero);
+            foreach (AbilityState ability in hero.Hero!.Abilities)
+            {
+                if (ability.Level == 0 || !Math.IsUltimate(ability.Definition))
+                    continue;
+                bool ready = hero.Team != _hero.Team ||
+                             (ability.IsReady(_now) && hero.Hero.Mana >= Fixed.FromInt(ability.Definition.ManaCostAt(ability.Level)));
+                if (ready)
+                    return power * UltimateReadyFactor;
+            }
+
+            return power;
+        }
+
+        private const double UltimateReadyFactor = 1.25;
 
         /// <summary>Even fight: poke with single-target nukes when not worse off than the target.</summary>
         private bool Harass(List<MatchUnit> enemies)
@@ -520,8 +546,8 @@ namespace Dynasty.HeroAI
             if (prey == null)
                 return false;
 
-            double own = _state.Heroes.Where(h => h.Team == self._hero.Team && h.IsAlive && Math.Within(h.Position, prey.Position, 3000)).Sum(Math.Power);
-            if (own * _personality.Aggression < Math.Power(prey) * 1.3)
+            double own = _state.Heroes.Where(h => h.Team == self._hero.Team && h.IsAlive && Math.Within(h.Position, prey.Position, 3000)).Sum(PowerOf);
+            if (own * _personality.Aggression < PowerOf(prey) * 1.3)
                 return false;
 
             if (!Math.Within(_hero.Position, prey.Position, 1500) && TrySmoke())

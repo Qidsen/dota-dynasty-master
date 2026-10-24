@@ -1,4 +1,4 @@
-using Dynasty.Core.Ids;
+﻿using Dynasty.Core.Ids;
 using Dynasty.Core.Kernel;
 using Dynasty.Core.Mathematics;
 using Dynasty.MatchSimulation.Combat;
@@ -125,6 +125,14 @@ public class PassiveAndLearningTests
         Assert.Equal(2, hero.AbilityLevel("quake"));
         Assert.Equal(1, hero.AbilityLevel("finale"));
         Assert.Equal(6, kernel.EventsOf<AbilityLearned>().Count());
+    }
+
+    [Fact]
+    public void PassiveAbility_CostsNoMana()
+    {
+        AbilityDefinition passive = TestAbilities.Passive("aura", new ModifierSpec("aura", -1, damageBonus: 10));
+
+        Assert.Equal(0, passive.ManaCostAt(1));
     }
 
     [Fact]
