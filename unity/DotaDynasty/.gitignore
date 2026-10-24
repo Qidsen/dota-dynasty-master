@@ -1,0 +1,27 @@
+# The repository root .gitignore is a .NET template: Unity needs its .meta files and package manifest.
+!*.meta
+!/Packages/
+!/Packages/manifest.json
+!/Packages/packages-lock.json
+
+# Unity generated
+/[Ll]ibrary/
+/[Tt]emp/
+/[Oo]bj/
+/[Bb]uild/
+/[Bb]uilds/
+/[Ll]ogs/
+/[Uu]ser[Ss]ettings/
+/[Mm]emoryCaptures/
+*.csproj
+*.sln
+*.slnx
+.vs/
+.vscode/
+.idea/
+
+# Core libraries and determinism reference: produced by tools/sync-unity.ps1 from src/ (D-029)
+/Assets/Plugins/Dynasty/
+/Assets/Plugins/Dynasty.meta
+/Assets/StreamingAssets/determinism-reference.txt
+/Assets/StreamingAssets/determinism-reference.txt.meta

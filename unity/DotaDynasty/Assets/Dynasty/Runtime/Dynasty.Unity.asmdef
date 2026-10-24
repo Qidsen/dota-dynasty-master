@@ -1,0 +1,19 @@
+{
+    "name": "Dynasty.Unity",
+    "rootNamespace": "Dynasty.Unity",
+    "references": [],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": true,
+    "precompiledReferences": [
+        "Dynasty.Core.dll",
+        "Dynasty.MatchSimulation.dll",
+        "Dynasty.HeroAI.dll",
+        "Dynasty.Presentation.dll"
+    ],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

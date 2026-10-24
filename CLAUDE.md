@@ -18,7 +18,16 @@ dotnet test --filter "Category!=Acceptance"   # быстрый набор (ок�
 dotnet run --project tools/Dynasty.MatchLab -c Release -- [heroes|swapped|mirror|base|lab] [firstSeed] [count] [maxMinutes]
 # MATCHLAB_DEATHS=1 — печатать причины смертей героев по командам; MATCHLAB_PROFILE=1 — время по системам
 ```
-Требуется .NET SDK 10. Unity 6.3 LTS (6000.3.x) понадобится с этапа 04.
+Unity (6000.3.27f1, проект `unity/DotaDynasty`), всё в batchmode:
+```
+powershell -ExecutionPolicy Bypass -File tools/sync-unity.ps1      # после изменений в src/: DLL ядра + эталон детерминизма
+Unity.exe -batchmode -projectPath unity/DotaDynasty -runTests -testPlatform EditMode -testResults r.xml   # детерминизм Mono
+Unity.exe -batchmode -projectPath unity/DotaDynasty -runTests -testPlatform PlayMode -testResults r.xml   # просмотрщик
+Unity.exe -batchmode -nographics -projectPath unity/DotaDynasty -executeMethod Dynasty.Unity.Editor.BuildTools.ProbeIl2Cpp   # детерминизм IL2CPP
+Unity.exe -batchmode -nographics -projectPath unity/DotaDynasty -executeMethod Dynasty.Unity.Editor.BuildTools.BuildViewer   # Build/Viewer/DotaDynasty.exe
+DotaDynasty.exe -dynasty-seed N -dynasty-screenshots DIR -dynasty-minute M   # скриншоты 3D/тактики по точкам зрения
+```
+Требуется .NET SDK 10.
 
 ## Жёсткие правила
 - Код симуляции (`src/`) не зависит от Unity: `netstandard2.1`, **C# 9** (ограничение Unity). Без file-scoped namespaces, records, `init`, global usings. Настройки — в `Directory.Build.props`.
@@ -36,6 +45,8 @@ dotnet run --project tools/Dynasty.MatchLab -c Release -- [heroes|swapped|mirror
 - `src/Dynasty.Core` — ID, тики, RNG, хеши, fixed-point, события, команды, ruleset-идентичность, ядро симуляции.
 - `src/Dynasty.MatchSimulation` — ruleset-схема, базовые правила и контент, навигация, бой, герои, способности, предметы, системы матча (`docs/MATCH_SIMULATION.md`).
 - `src/Dynasty.HeroAI` — командный и тактический ИИ (`docs/HERO_AI.md`).
+- `src/Dynasty.Presentation` — слой представления без Unity: часы, кадры, сессия, статистика (`docs/PRESENTATION.md`).
+- `unity/DotaDynasty` — Unity-просмотрщик; ядро в нём — DLL из `tools/sync-unity.ps1` (D-029).
 - `tools/Dynasty.MatchLab` — консольный прогон матчей (net10.0, не для Unity).
 - `tests/*` — xUnit, net10.0. Тестовые ruleset'ы собираются через `RulesetDraft`.
 - `docs/` — архитектура, решения, статус, журнал.
