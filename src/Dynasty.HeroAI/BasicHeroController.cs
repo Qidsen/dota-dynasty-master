@@ -69,9 +69,11 @@ namespace Dynasty.HeroAI
             if (advantage)
             {
                 FixedVector2 home = state.Ruleset.Map.FountainOf(Team)!.Position;
+                // Join the siege already under way: a structure our creeps are at beats a closer one.
                 Objective = state.Units
                     .Where(u => u.Kind == UnitKind.Structure && u.Team != Team && u.IsAlive && state.IsVulnerable(u))
-                    .OrderBy(u => FixedVector2.DistanceSquared(u.Position, home))
+                    .OrderByDescending(u => AlliedCreepsAt(state, u))
+                    .ThenBy(u => FixedVector2.DistanceSquared(u.Position, home))
                     .FirstOrDefault();
                 Plan = Objective != null ? TeamPlanKind.Push : TeamPlanKind.Lane;
                 return;
@@ -79,6 +81,12 @@ namespace Dynasty.HeroAI
 
             Plan = TeamPlanKind.Lane;
             Objective = null;
+        }
+
+        private int AlliedCreepsAt(MatchState state, MatchUnit structure)
+        {
+            int reach = Math.TowerReach(structure) + 300;
+            return state.Units.Count(u => u.Kind == UnitKind.Creep && u.Team == Team && u.IsAlive && Math.Within(u.Position, structure.Position, reach));
         }
 
         /// <summary>An own structure with a visible enemy hero in or near its attack range.</summary>

@@ -20,6 +20,9 @@ namespace Dynasty.MatchSimulation.Systems
         /// <summary>Heroes this close to the boss provoke it even without attacking.</summary>
         private const int BossProvokeRadius = 300;
 
+        /// <summary>Idle neutrals stop this close to home (camp members push each other apart there).</summary>
+        private const int HomeTolerance = 50;
+
         public string Name => "neutrals";
 
         public void Tick(SimulationContext<MatchState> context)
@@ -42,7 +45,7 @@ namespace Dynasty.MatchSimulation.Systems
 
                 if (target != null)
                     MovementSystem.Approach(unit, target, unit.AttackRange);
-                else if (unit.Position != unit.NeutralHome)
+                else if (!Geometry.WithinRange(unit.Position, unit.NeutralHome, HomeTolerance))
                     unit.Position = FixedVector2.MoveTowards(unit.Position, unit.NeutralHome, unit.StepPerTick);
             }
         }

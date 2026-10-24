@@ -49,6 +49,9 @@ namespace Dynasty.MatchSimulation
             kernel.AddSystem(new MovementSystem());
             kernel.AddSystem(new ProjectileSystem());
             kernel.AddSystem(new AttackSystem());
+            // After attacks: a push must not move a unit out of the range it just walked into
+            // before its attack is checked; the next tick's movement walks it back.
+            kernel.AddSystem(new SeparationSystem());
             kernel.AddSystem(new CleanupSystem());
             return kernel;
         }

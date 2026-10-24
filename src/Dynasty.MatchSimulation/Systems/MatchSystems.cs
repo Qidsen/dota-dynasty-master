@@ -255,6 +255,9 @@ namespace Dynasty.MatchSimulation.Systems
                 return false;
 
             unit.Position = FixedVector2.MoveTowards(unit.Position, unit.WaypointAt(unit.NextWaypoint), unit.StepPerTick);
+            // Count the waypoint as reached now, before separation may nudge the unit off it.
+            if (unit.Position == unit.WaypointAt(unit.NextWaypoint))
+                unit.NextWaypoint++;
             return true;
         }
 

@@ -137,6 +137,45 @@ public class TacticalAiTests
     }
 
     [Fact]
+    public void Push_JoinsTheSiegeOurCreepsAlreadyHave()
+    {
+        var draft = TestAbilities.Draft();
+        draft.DuskWave.Clear();
+        draft.DawnWave.Add(new WaveEntry("melee", 2));
+        draft.Lanes.Add(new LaneDefinition("side", new[] { P(1000, 2000), P(9000, 2000) }));
+        draft.StructureTypes[0] = new StructureType("tower", TowerStats(dmg: 1));   // the sieging creeps must survive
+        // Closer to the Dawn fountain than the mid tower, so a plain "nearest structure" choice picks it.
+        draft.Placements.Add(new StructurePlacement("dusk.side.t1", Team.Dusk, "tower", P(5500, 2000), false, Array.Empty<string>(), VulnerabilityRule.AnyProtectorDestroyed));
+        var settings = new HeroAiSettings { ReactionJitterTicks = 0, MisjudgementPercent = 0 };
+        settings.Personalities["alpha"] = new HeroPersonality { Greed = 0.3 };   // not a carry holding out for farm
+        settings.Personalities["gamma"] = new HeroPersonality { Greed = 0.3 };
+        var kernel = Skirmish(
+            new[] { ("alpha", 3000, 3500), ("gamma", 3000, 3600) },
+            Array.Empty<(string, int, int)>(),
+            settings,
+            draft: draft,
+            lane: "side");
+        At(kernel, 1, ctx =>
+        {
+            // Mid creeps are sieging the mid tower; the side wave (alpha's own lane) holds near its spawn.
+            int i = 0;
+            foreach (MatchUnit creep in ctx.State.Creeps(Team.Dawn))
+            {
+                Modifiers.Apply(ctx, creep, ModifierSpec.Status("test.pin", -1, ModifierFlags.Rooted), EntityId.None);
+                if (creep.Position.Y > Fixed.FromInt(3500))
+                    creep.Position = P(6500, 4900 + 60 * i++);
+            }
+        });
+
+        kernel.RunTicks(240);
+
+        FixedVector2 alpha = H(kernel.State, "alpha").Position;
+        double toMid = FixedVector2.Distance(alpha, P(7000, 5000)).ToDouble();
+        double toSide = FixedVector2.Distance(alpha, P(5500, 2000)).ToDouble();
+        Assert.True(toMid < toSide, $"alpha should push the sieged mid tower (mid {toMid:0}, side {toSide:0})");
+    }
+
+    [Fact]
     public void Support_PlacesObserverWardsAtWardSpots()
     {
         var draft = TestAbilities.Draft();

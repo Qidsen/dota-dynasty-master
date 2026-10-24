@@ -31,6 +31,8 @@ for (ulong seed = firstSeed; seed < firstSeed + (ulong)count; seed++)
     SimulationKernel<MatchState> kernel = Match.Create(ruleset, seed, lineup);
     if (lineup.Dawn.Count + lineup.Dusk.Count > 0)
         HeroAi.Attach(kernel);
+    var pushes = new GroupedPushCounter();
+    kernel.AddSystem(pushes);
 
     int tps = kernel.Config.TickRate.TicksPerSecond;
     var clock = Stopwatch.StartNew();
@@ -70,7 +72,7 @@ for (ulong seed = firstSeed; seed < firstSeed + (ulong)count; seed++)
 
     dawnKills += kernel.State.Heroes.Where(h => h.Team == Team.Dawn).Sum(h => h.Hero!.Kills);
     duskKills += kernel.State.Heroes.Where(h => h.Team == Team.Dusk).Sum(h => h.Hero!.Kills);
-    Console.WriteLine($"   structures lost: Dawn {structures.Count(r => ((StructureDestroyed)r.Event).Team == Team.Dawn)}, Dusk {structures.Count(r => ((StructureDestroyed)r.Event).Team == Team.Dusk)}");
+    Console.WriteLine($"   structures lost: Dawn {structures.Count(r => ((StructureDestroyed)r.Event).Team == Team.Dawn)}, Dusk {structures.Count(r => ((StructureDestroyed)r.Event).Team == Team.Dusk)}; taken by 3+ heroes together: {pushes.Grouped}");
     var bossKills = records.Select(r => r.Event).OfType<BossKilled>().ToList();
     var wards = records.Select(r => r.Event).OfType<UnitSummoned>().Count(s => s.CreepTypeId == "observer_ward");
     Console.WriteLine($"   boss kills: Dawn {bossKills.Count(b => b.Team == Team.Dawn)}, Dusk {bossKills.Count(b => b.Team == Team.Dusk)}; observer wards placed: {wards}");
@@ -127,4 +129,28 @@ static MatchLineup DefaultLineup(bool swapped)
     };
     HeroPick[] Relane(HeroPick[] picks) => picks.Select(p => new HeroPick(p.HeroId, Lane(p.LaneId))).ToArray();
     return swapped ? new MatchLineup(Relane(b), Relane(a)) : new MatchLineup(a, b);
+}
+
+/// <summary>Counts structures destroyed with three or more enemy heroes within 1500 (a grouped push).</summary>
+sealed class GroupedPushCounter : ISimulationSystem<MatchState>
+{
+    private int _seen;
+
+    public string Name => "matchlab-grouped-pushes";
+    public int Grouped { get; private set; }
+
+    public void Tick(SimulationContext<MatchState> context)
+    {
+        MatchState state = context.State;
+        var destroyed = state.DestroyedStructures.ToList();
+        for (; _seen < destroyed.Count; _seen++)
+        {
+            StructurePlacement placement = state.Ruleset.Map.Structures.Single(s => s.Id == destroyed[_seen]);
+            Dynasty.Core.Mathematics.Fixed reach = Dynasty.Core.Mathematics.Fixed.FromInt(1500);
+            int near = state.Heroes.Count(h => h.Team != placement.Team && h.IsAlive &&
+                                               Dynasty.Core.Mathematics.FixedVector2.DistanceSquared(h.Position, placement.Position) <= reach * reach);
+            if (near >= 3)
+                Grouped++;
+        }
+    }
 }
