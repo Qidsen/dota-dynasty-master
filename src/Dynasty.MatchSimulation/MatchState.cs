@@ -114,6 +114,11 @@ namespace Dynasty.MatchSimulation
         /// <summary>Last tick the unit moved or started an attack; used to detect stuck units.</summary>
         public long LastActiveTick { get; internal set; }
 
+        /// <summary>Neutral units only: where they return to and how far they may chase.</summary>
+        internal FixedVector2 NeutralHome { get; set; }
+        internal int LeashRadius { get; set; }
+        internal CampState? Camp { get; set; }
+
         internal LaneDefinition? Lane { get; set; }
         internal int NextWaypoint { get; set; }
         internal Fixed StepPerTick { get; private set; }
@@ -233,6 +238,24 @@ namespace Dynasty.MatchSimulation
         }
     }
 
+    /// <summary>Runtime state of a neutral camp.</summary>
+    internal sealed class CampState
+    {
+        public CampState(NeutralCampDefinition definition, long nextSpawnTick)
+        {
+            Definition = definition;
+            NextSpawnTick = nextSpawnTick;
+        }
+
+        public NeutralCampDefinition Definition { get; }
+
+        /// <summary>Creeps of the current spawn (dead ones stay listed until the next spawn).</summary>
+        public List<MatchUnit> Members { get; } = new List<MatchUnit>();
+
+        /// <summary>Tick of the next spawn; -1 while creeps of the current spawn are alive.</summary>
+        public long NextSpawnTick { get; set; }
+    }
+
     /// <summary>Authoritative state of one match (world truth).</summary>
     public sealed class MatchState
     {
@@ -252,7 +275,11 @@ namespace Dynasty.MatchSimulation
             SightGrid = Navigation.NavGrid.Build(ruleset.Map.Width, ruleset.Map.Height, ruleset.Map.NavCellSize, ruleset.Map.Obstacles, clearance: 0);
             if (ruleset.Boss != null)
                 NextBossSpawnTick = rate.TicksFor(ruleset.Boss.FirstSpawnMs);
+            foreach (NeutralCampDefinition camp in ruleset.Map.Camps)
+                Camps.Add(new CampState(camp, rate.TicksFor(camp.FirstSpawnMs)));
         }
+
+        internal List<CampState> Camps { get; } = new List<CampState>();
 
         internal Navigation.NavGrid Nav { get; }
         internal Navigation.Pathfinder Pathfinder { get; }
@@ -371,10 +398,27 @@ namespace Dynasty.MatchSimulation
             return unit;
         }
 
+        internal MatchUnit SpawnCampCreep(EntityId id, CampState camp, CreepType type)
+        {
+            var unit = new MatchUnit(id, Team.Neutral, UnitKind.Creep, type.Id, type.Stats, camp.Definition.Position, Rate)
+            {
+                NeutralHome = camp.Definition.Position,
+                LeashRadius = camp.Definition.LeashRadius,
+                Camp = camp,
+            };
+            Add(unit);
+            camp.Members.Add(unit);
+            return unit;
+        }
+
         internal MatchUnit SpawnBoss(EntityId id, BossDefinition boss)
         {
             CreepType type = Ruleset.FindCreepType(boss.CreepTypeId)!;
-            var unit = new MatchUnit(id, Team.Neutral, UnitKind.Boss, type.Id, type.Stats, boss.Position, Rate);
+            var unit = new MatchUnit(id, Team.Neutral, UnitKind.Boss, type.Id, type.Stats, boss.Position, Rate)
+            {
+                NeutralHome = boss.Position,
+                LeashRadius = boss.LeashRadius,
+            };
             Add(unit);
             Boss = unit;
             NextBossSpawnTick = -1;

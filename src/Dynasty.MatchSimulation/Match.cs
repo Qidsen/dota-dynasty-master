@@ -44,7 +44,7 @@ namespace Dynasty.MatchSimulation
             kernel.AddSystem(new TargetingSystem());
             kernel.AddSystem(new HeroOrderSystem());
             kernel.AddSystem(new AbilitySystem());
-            kernel.AddSystem(new BossSystem());
+            kernel.AddSystem(new NeutralSystem());
             kernel.AddSystem(new MovementSystem());
             kernel.AddSystem(new AttackSystem());
             kernel.AddSystem(new CleanupSystem());

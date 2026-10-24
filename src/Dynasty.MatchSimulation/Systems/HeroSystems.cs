@@ -237,9 +237,13 @@ namespace Dynasty.MatchSimulation.Systems
                 }
             }
 
-            // Denied creeps give no XP to the enemy.
-            if (!denied && type != null && type.Bounty.Xp > 0)
-                ShareXp(context, creep, type.Bounty.Xp);
+            // Denied creeps give no XP to the enemy. Neutral creeps reward the killer's team.
+            if (denied || type == null || type.Bounty.Xp <= 0)
+                return;
+            if (creep.Team != Team.Neutral)
+                ShareXp(context, creep, creep.Team.Opponent(), type.Bounty.Xp);
+            else if (killer != null && killer.Team != Team.Neutral)
+                ShareXp(context, creep, killer.Team, type.Bounty.Xp);
         }
 
         public static void HeroDied(SimulationContext<MatchState> context, MatchUnit victim)
@@ -275,7 +279,7 @@ namespace Dynasty.MatchSimulation.Systems
                 assists.Add(helper.Id);
             }
 
-            ShareXp(context, victim, rules.HeroKillXpBase + rules.HeroKillXpPerLevel * hero.Level);
+            ShareXp(context, victim, victim.Team.Opponent(), rules.HeroKillXpBase + rules.HeroKillXpPerLevel * hero.Level);
 
             hero.RecentHeroAttackers.Clear();
             hero.Path = null;
@@ -295,12 +299,12 @@ namespace Dynasty.MatchSimulation.Systems
                 HeroProgression.GrantGold(context, hero, rules.StructureTeamGold, "structure");
         }
 
-        /// <summary>Living enemy heroes within the share radius split the XP equally (remainder dropped).</summary>
-        private static void ShareXp(SimulationContext<MatchState> context, MatchUnit dead, int xp)
+        /// <summary>Living heroes of the receiving team within the share radius split the XP equally (remainder dropped).</summary>
+        private static void ShareXp(SimulationContext<MatchState> context, MatchUnit dead, Team receivingTeam, int xp)
         {
             int radius = context.State.Ruleset.HeroRules!.XpShareRadius;
             List<MatchUnit> receivers = context.State.Heroes
-                .Where(h => h.Team != dead.Team && h.IsAlive && Geometry.WithinRange(h.Position, dead.Position, radius))
+                .Where(h => h.Team == receivingTeam && h.IsAlive && Geometry.WithinRange(h.Position, dead.Position, radius))
                 .ToList();
             if (receivers.Count == 0)
                 return;

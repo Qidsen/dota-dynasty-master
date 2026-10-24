@@ -630,6 +630,21 @@ namespace Dynasty.MatchSimulation.Events
         }
     }
 
+    public sealed class CampSpawned : IDomainEvent
+    {
+        public CampSpawned(string campId)
+        {
+            CampId = campId;
+        }
+
+        public string CampId { get; }
+
+        public string Type => "match.camp_spawned";
+        public int SchemaVersion => 1;
+
+        public void WritePayload(ref Fnv1a64 hash) => hash.AddString(CampId);
+    }
+
     public sealed class MatchFinished : IDomainEvent
     {
         public MatchFinished(Team winner, string destroyedAncient)

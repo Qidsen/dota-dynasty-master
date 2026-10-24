@@ -10,60 +10,109 @@ using Dynasty.MatchSimulation.Rules;
 namespace Dynasty.MatchSimulation.Systems
 {
     /// <summary>
-    /// Spawns the neutral boss and drives it: it fights whoever last hurt it or stands next to it,
-    /// never leaves its leash circle, and walks back to its pit when it has nobody to fight.
-    /// Creeps, towers and summons ignore it (see the targeting system).
+    /// Spawns and drives neutral units (jungle camps and the boss). Neutrals fight whoever hurt
+    /// them (a whole camp answers a hit on any member; the boss also answers heroes standing next
+    /// to it), never chase beyond their leash circle, forget the attacker once it leaves, and walk
+    /// home when idle. Creeps, towers and summons ignore neutrals (see the targeting system).
     /// </summary>
-    internal sealed class BossSystem : ISimulationSystem<MatchState>
+    internal sealed class NeutralSystem : ISimulationSystem<MatchState>
     {
         /// <summary>Heroes this close to the boss provoke it even without attacking.</summary>
-        private const int ProvokeRadius = 300;
+        private const int BossProvokeRadius = 300;
 
-        public string Name => "boss";
+        public string Name => "neutrals";
 
         public void Tick(SimulationContext<MatchState> context)
         {
             MatchState state = context.State;
-            BossDefinition? definition = state.Ruleset.Boss;
-            if (definition == null)
-                return;
-
             long now = context.Tick.Value;
-            if (state.Boss == null && state.NextBossSpawnTick >= 0 && now >= state.NextBossSpawnTick)
+            SpawnBoss(context, state, now);
+            foreach (CampState camp in state.Camps)
+                UpdateCamp(context, state, camp, now);
+
+            foreach (MatchUnit unit in state.Units)
+            {
+                if (unit.Team != Team.Neutral || !unit.IsAlive)
+                    continue;
+
+                MatchUnit? target = ChooseTarget(state, unit);
+                unit.TargetId = target?.Id ?? EntityId.None;
+                if (!unit.CanMove)
+                    continue;
+
+                if (target != null)
+                    MovementSystem.Approach(unit, target, unit.AttackRange);
+                else if (unit.Position != unit.NeutralHome)
+                    unit.Position = FixedVector2.MoveTowards(unit.Position, unit.NeutralHome, unit.StepPerTick);
+            }
+        }
+
+        private static void SpawnBoss(SimulationContext<MatchState> context, MatchState state, long now)
+        {
+            BossDefinition? definition = state.Ruleset.Boss;
+            if (definition != null && state.Boss == null && state.NextBossSpawnTick >= 0 && now >= state.NextBossSpawnTick)
             {
                 MatchUnit spawned = state.SpawnBoss(context.Ids.Allocate(), definition);
                 context.Emit(new BossSpawned(spawned.Id, definition.Id));
             }
-
-            MatchUnit? boss = state.Boss;
-            if (boss == null || !boss.IsAlive)
-                return;
-
-            MatchUnit? target = ChooseTarget(state, boss, definition);
-            boss.TargetId = target?.Id ?? EntityId.None;
-            if (!boss.CanMove)
-                return;
-
-            if (target != null)
-                MovementSystem.Approach(boss, target, boss.AttackRange);
-            else if (boss.Position != definition.Position)
-                boss.Position = FixedVector2.MoveTowards(boss.Position, definition.Position, boss.StepPerTick);
         }
 
-        private static MatchUnit? ChooseTarget(MatchState state, MatchUnit boss, BossDefinition definition)
+        private static void UpdateCamp(SimulationContext<MatchState> context, MatchState state, CampState camp, long now)
         {
-            MatchUnit? attacker = state.Find(boss.LastAttackerId);
-            if (attacker != null && InLeash(attacker, definition) && state.CanAttack(boss, attacker))
-                return attacker;
+            if (camp.NextSpawnTick < 0)
+            {
+                if (camp.Members.All(m => !m.IsAlive))
+                    camp.NextSpawnTick = now + context.TickRate.TicksFor(camp.Definition.RespawnMs);
+                return;
+            }
 
+            if (now < camp.NextSpawnTick)
+                return;
+
+            camp.Members.Clear();
+            foreach (WaveEntry entry in camp.Definition.Creeps)
+            {
+                CreepType type = state.Ruleset.FindCreepType(entry.CreepTypeId)!;
+                for (int i = 0; i < entry.Count; i++)
+                    state.SpawnCampCreep(context.Ids.Allocate(), camp, type);
+            }
+
+            camp.NextSpawnTick = -1;
+            context.Emit(new CampSpawned(camp.Definition.Id));
+        }
+
+        private static MatchUnit? ChooseTarget(MatchState state, MatchUnit unit)
+        {
+            // A camp shares its aggression: any member's attacker is everyone's target.
+            var aggressors = unit.Camp != null ? unit.Camp.Members.Where(m => m.IsAlive).Select(m => m.LastAttackerId) : new[] { unit.LastAttackerId };
+            foreach (EntityId id in aggressors)
+            {
+                MatchUnit? attacker = state.Find(id);
+                if (attacker != null && state.CanAttack(unit, attacker) && InLeash(unit, attacker))
+                    return attacker;
+            }
+
+            // The attacker left the leash (or died): forget it.
+            if (unit.Camp != null)
+            {
+                foreach (MatchUnit member in unit.Camp.Members)
+                    member.LastAttackerId = EntityId.None;
+            }
+            else
+            {
+                unit.LastAttackerId = EntityId.None;
+            }
+
+            if (unit.Kind != UnitKind.Boss)
+                return null;
             return state.Units
-                .Where(u => u.Kind == UnitKind.Hero && state.CanAttack(boss, u) && InLeash(u, definition) && Geometry.WithinRange(u.Position, boss.Position, ProvokeRadius))
-                .OrderBy(u => FixedVector2.DistanceSquared(u.Position, boss.Position))
+                .Where(u => u.Kind == UnitKind.Hero && state.CanAttack(unit, u) && InLeash(unit, u) && Geometry.WithinRange(u.Position, unit.Position, BossProvokeRadius))
+                .OrderBy(u => FixedVector2.DistanceSquared(u.Position, unit.Position))
                 .FirstOrDefault();
         }
 
-        private static bool InLeash(MatchUnit unit, BossDefinition definition) =>
-            Geometry.WithinRange(unit.Position, definition.Position, definition.LeashRadius);
+        private static bool InLeash(MatchUnit neutral, MatchUnit other) =>
+            Geometry.WithinRange(other.Position, neutral.NeutralHome, neutral.LeashRadius);
     }
 
     internal static class BossRewards

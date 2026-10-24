@@ -67,7 +67,8 @@ public class FullMatchTests
                 Assert.InRange(unit.Position.X.Raw, 0, mapSize.Raw);
                 Assert.InRange(unit.Position.Y.Raw, 0, mapSize.Raw);
                 Assert.True(unit.Hp > Fixed.Zero && unit.Hp <= Fixed.FromInt(unit.MaxHp), unit.TypeId + " has invalid HP " + unit.Hp);
-                if (unit.Kind == UnitKind.Creep)
+                // Lane creeps must keep moving or fighting; neutral camp creeps idle in their camp by design.
+                if (unit.Kind == UnitKind.Creep && unit.Team != Team.Neutral)
                     Assert.True(now - unit.LastActiveTick <= stuckLimit, unit.TypeId + " " + unit.Id + " is stuck at " + unit.Position);
             }
         }

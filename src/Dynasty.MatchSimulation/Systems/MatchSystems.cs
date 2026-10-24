@@ -113,8 +113,8 @@ namespace Dynasty.MatchSimulation.Systems
             MatchState state = context.State;
             foreach (MatchUnit unit in state.Units)
             {
-                // Heroes get targets from orders, the boss from its own system.
-                if (!unit.CanAttackAtAll || !unit.IsAlive || unit.Kind == UnitKind.Hero || unit.Kind == UnitKind.Boss)
+                // Heroes get targets from orders, neutrals from the neutral system.
+                if (!unit.CanAttackAtAll || !unit.IsAlive || unit.Kind == UnitKind.Hero || unit.Team == Team.Neutral)
                     continue;
 
                 int searchRange = unit.Kind == UnitKind.Structure ? unit.AttackRange : unit.AcquisitionRange;
@@ -164,7 +164,7 @@ namespace Dynasty.MatchSimulation.Systems
             long now = context.Tick.Value;
             foreach (MatchUnit unit in state.Units)
             {
-                if ((unit.Kind != UnitKind.Creep && unit.Kind != UnitKind.Summon) || !unit.CanMove)
+                if ((unit.Kind != UnitKind.Creep && unit.Kind != UnitKind.Summon) || unit.Team == Team.Neutral || !unit.CanMove)
                     continue;
 
                 MatchUnit? target = state.Find(unit.TargetId);

@@ -276,8 +276,10 @@ namespace Dynasty.MatchSimulation.Rules
             IReadOnlyList<ObstacleDefinition>? obstacles = null,
             int navCellSize = 100,
             int navClearance = 24,
-            IReadOnlyList<FountainPlacement>? fountains = null)
+            IReadOnlyList<FountainPlacement>? fountains = null,
+            IReadOnlyList<NeutralCampDefinition>? camps = null)
         {
+            Camps = (camps ?? Array.Empty<NeutralCampDefinition>()).ToArray();
             Width = width;
             Height = height;
             Lanes = lanes.ToArray();
@@ -298,6 +300,9 @@ namespace Dynasty.MatchSimulation.Rules
         public IReadOnlyList<FountainPlacement> Fountains { get; }
 
         public FountainPlacement? FountainOf(Team team) => Fountains.FirstOrDefault(f => f.Team == team);
+
+        /// <summary>Neutral jungle camps.</summary>
+        public IReadOnlyList<NeutralCampDefinition> Camps { get; }
 
         /// <summary>Side of a navigation grid cell in map units.</summary>
         public int NavCellSize { get; }
@@ -644,6 +649,10 @@ namespace Dynasty.MatchSimulation.Rules
                 obstacle.WriteCanonical(writer);
             writer.WriteInt64(Map.NavCellSize);
             writer.WriteInt64(Map.NavClearance);
+            writer.WriteInt64(Map.Camps.Count);
+            foreach (NeutralCampDefinition camp in Map.Camps)
+                camp.WriteCanonical(writer);
+
             writer.WriteInt64(Map.Fountains.Count);
             foreach (FountainPlacement fountain in Map.Fountains)
             {
@@ -722,6 +731,21 @@ namespace Dynasty.MatchSimulation.Rules
                     else if (protectorId == placement.Id)
                         errors.Add("Structure '" + placement.Id + "' cannot protect itself.");
                 }
+            }
+
+            ReportDuplicates(errors, "camp", Map.Camps.Select(c => c.Id));
+            foreach (NeutralCampDefinition camp in Map.Camps)
+            {
+                foreach (WaveEntry entry in camp.Creeps)
+                {
+                    if (FindCreepType(entry.CreepTypeId) == null || entry.Count <= 0)
+                        errors.Add("Camp '" + camp.Id + "' uses unknown creep type '" + entry.CreepTypeId + "' or a non-positive count.");
+                }
+
+                if (!IsInsideMap(camp.Position) || Map.Obstacles.Any(o => o.Contains(camp.Position, 0)))
+                    errors.Add("Camp '" + camp.Id + "' must be inside the map and outside obstacles.");
+                if (camp.Creeps.Count == 0 || camp.RespawnMs <= 0 || camp.LeashRadius <= 0 || camp.FirstSpawnMs < 0)
+                    errors.Add("Camp '" + camp.Id + "' needs creeps, a positive respawn time and leash radius.");
             }
 
             if (Map.NavCellSize <= 0 || Map.NavClearance < 0)

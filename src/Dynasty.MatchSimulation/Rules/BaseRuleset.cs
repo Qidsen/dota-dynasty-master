@@ -107,7 +107,7 @@ namespace Dynasty.MatchSimulation.Rules
                 {
                     new FountainPlacement(Team.Dawn, FixedVector2.FromInts(600, 600), 500),
                     new FountainPlacement(Team.Dusk, FixedVector2.FromInts(9400, 9400), 500),
-                }),
+                }, camps: Camps()),
                 waves: new WaveRules(firstSpawnMs: 0, intervalMs: 30000, dawnWave, duskWave),
                 heroes: BaseContent.Heroes,
                 heroRules: BaseContent.Rules,
@@ -141,6 +141,23 @@ namespace Dynasty.MatchSimulation.Rules
 
         private static StructurePlacement Placement(string id, string type, int x, int y, bool isAncient, string[] protectedBy, VulnerabilityRule rule) =>
             new StructurePlacement(id, Team.Dawn, type, FixedVector2.FromInts(x, y), isAncient, protectedBy, rule);
+
+        /// <summary>Four camps per half (two small, two large), mirrored through the map center.</summary>
+        private static IReadOnlyList<NeutralCampDefinition> Camps()
+        {
+            WaveEntry[] small = { new WaveEntry("jungle_small", 2) };
+            WaveEntry[] large = { new WaveEntry("jungle_large", 1), new WaveEntry("jungle_small", 1) };
+            var dawnHalf = new[]
+            {
+                new NeutralCampDefinition("camp.dawn.small.1", FixedVector2.FromInts(4500, 1900), small, 30000, 60000, 600),
+                new NeutralCampDefinition("camp.dawn.small.2", FixedVector2.FromInts(1900, 4500), small, 30000, 60000, 600),
+                new NeutralCampDefinition("camp.dawn.large.1", FixedVector2.FromInts(4300, 2700), large, 30000, 60000, 600),
+                new NeutralCampDefinition("camp.dawn.large.2", FixedVector2.FromInts(2700, 4300), large, 30000, 60000, 600),
+            };
+            return dawnHalf
+                .Concat(dawnHalf.Select(c => new NeutralCampDefinition(c.Id.Replace(".dawn.", ".dusk."), c.Position.ReflectThrough(Center), c.Creeps, c.FirstSpawnMs, c.RespawnMs, c.LeashRadius)))
+                .ToArray();
+        }
 
         private static ObstacleDefinition Obstacle(string id, int x, int y, int radius) =>
             ObstacleDefinition.Circle(id, FixedVector2.FromInts(x, y), radius);

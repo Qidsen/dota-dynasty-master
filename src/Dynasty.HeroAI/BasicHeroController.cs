@@ -146,6 +146,9 @@ namespace Dynasty.HeroAI
     {
         public long NextDecisionTick { get; set; }
         public bool Retreating { get; set; }
+
+        /// <summary>Camps this hero found empty, with the tick they are expected back.</summary>
+        public Dictionary<string, long> CampEmptyUntil { get; } = new Dictionary<string, long>();
     }
 
     /// <summary>
@@ -259,7 +262,53 @@ namespace Dynasty.HeroAI
                 return;
             if (Gank())
                 return;
+            if (FarmJungle())
+                return;
             Lane();
+        }
+
+        // ── Jungle ───────────────────────────────────────────────────────────────
+
+        /// <summary>
+        /// With no allied creeps in its lane, a healthy hero farms the nearest own-half camp it has
+        /// not recently found empty. Camp positions are static map knowledge; creeps must be seen.
+        /// </summary>
+        private bool FarmJungle()
+        {
+            if (Math.HpPercent(_hero) < 50 || _state.Ruleset.Map.Camps.Count == 0)
+                return false;
+            HeroDecision self = this;
+            bool laneHasCreeps = _state.Units.Any(u => u.Team == self._hero.Team && u.Kind == UnitKind.Creep && u.IsAlive && u.LaneId == self._h.AssignedLane);
+            if (laneHasCreeps)
+                return false;
+
+            FixedVector2 enemyHome = _state.Ruleset.Map.FountainOf(_hero.Team.Opponent())!.Position;
+            NeutralCampDefinition? camp = _state.Ruleset.Map.Camps
+                .Where(c => FixedVector2.DistanceSquared(c.Position, self.Home) < FixedVector2.DistanceSquared(c.Position, enemyHome))
+                .Where(c => !self._memory.CampEmptyUntil.TryGetValue(c.Id, out long until) || self._now >= until)
+                .OrderBy(c => FixedVector2.DistanceSquared(c.Position, self._hero.Position))
+                .FirstOrDefault();
+            if (camp == null)
+                return false;
+
+            if (!Math.Within(_hero.Position, camp.Position, 500))
+            {
+                Issue(HeroOrder.Move(camp.Position));
+                return true;
+            }
+
+            MatchUnit? creep = _state.Units
+                .Where(u => u.Team == Team.Neutral && u.Kind == UnitKind.Creep && u.IsAlive && self.Sees(u) && Math.Within(u.Position, camp.Position, camp.LeashRadius))
+                .OrderBy(u => u.Hp)
+                .FirstOrDefault();
+            if (creep == null)
+            {
+                _memory.CampEmptyUntil[camp.Id] = _now + camp.RespawnMs * (_ticksPerMinute / 60) / 1000;
+                return false;
+            }
+
+            Issue(HeroOrder.Attack(creep.Id));
+            return true;
         }
 
         // ── Fighting ─────────────────────────────────────────────────────────────

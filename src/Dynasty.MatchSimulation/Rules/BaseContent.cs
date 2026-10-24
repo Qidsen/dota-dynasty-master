@@ -20,6 +20,8 @@ namespace Dynasty.MatchSimulation.Rules
             new CreepType("swarmling", Stats(hp: 220, armor: 0, speed: 350, dmgMin: 14, dmgMax: 16, range: 100, intervalMs: 1000, pointMs: 400, acquisition: 600, radius: 12), new Bounty(18, 22, 20)),
             new CreepType("hive_guard", Stats(hp: 650, armor: 3, speed: 330, dmgMin: 34, dmgMax: 40, range: 120, intervalMs: 1200, pointMs: 400, acquisition: 600, radius: 20), new Bounty(30, 36, 40)),
             new CreepType("golem", Stats(hp: 700, armor: 4, speed: 300, dmgMin: 30, dmgMax: 36, range: 120, intervalMs: 1300, pointMs: 400, acquisition: 600, radius: 24), new Bounty(30, 36, 40)),
+            new CreepType("jungle_small", Stats(hp: 420, armor: 1, speed: 320, dmgMin: 16, dmgMax: 19, range: 100, intervalMs: 1100, pointMs: 400, acquisition: 400, radius: 16), new Bounty(32, 38, 42)),
+            new CreepType("jungle_large", Stats(hp: 850, armor: 3, speed: 300, dmgMin: 30, dmgMax: 36, range: 120, intervalMs: 1300, pointMs: 400, acquisition: 400, radius: 24), new Bounty(55, 65, 80)),
             new CreepType("colossus", Stats(hp: 6000, armor: 15, speed: 270, dmgMin: 75, dmgMax: 85, range: 150, intervalMs: 1200, pointMs: 300, acquisition: 400, radius: 60,
                 magicResist: 50, vision: 600)),
             new CreepType("observer_ward", Stats(hp: 4, armor: 0, speed: 0, dmgMin: 0, dmgMax: 0, range: 0, intervalMs: 1000, pointMs: 0, acquisition: 0, radius: 8,
