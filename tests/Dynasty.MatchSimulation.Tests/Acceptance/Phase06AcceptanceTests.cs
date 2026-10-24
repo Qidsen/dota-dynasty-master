@@ -76,8 +76,9 @@ public class Phase06AcceptanceTests
     [Fact]
     public void SwappingOnePlayer_ChangesThatHerosPlay()
     {
-        // Everyone average; only Dawn's Ironvow player changes.
-        (double LastHits, double Deaths) Carry(int quality)
+        // Everyone average; only Dawn's Ironvow player changes. A weak player does not simply farm
+        // less: he fumbles and misjudges fights, so his hero takes much less part in them.
+        (double LastHits, double HeroDamage, double Takedowns) Carry(int quality)
         {
             var runs = Seeds.Take(4).AsParallel().AsOrdered().Select(seed =>
             {
@@ -86,14 +87,20 @@ public class Phase06AcceptanceTests
                 AddPlayers(settings, Team.Dusk, 12, 8);
                 PlayerProfile carry = PlayerGenerator.Generate(new DeterministicRandom(9), "carry", 1, quality, new[] { "ironvow" });
                 settings.SkillsOf(Team.Dawn)["ironvow"] = HeroSkill.FromPlayer(carry, "ironvow");
-                return Play(seed, settings, 20).State.Heroes.Single(h => h.Team == Team.Dawn && h.Hero!.Definition.Id == "ironvow").Hero!;
+                var kernel = Play(seed, settings, 20);
+                MatchUnit hero = kernel.State.Heroes.Single(h => h.Team == Team.Dawn && h.Hero!.Definition.Id == "ironvow");
+                var heroIds = kernel.State.Heroes.Select(h => h.Id).ToHashSet();
+                double damage = kernel.Events.Records.Select(r => r.Event).OfType<Dynasty.MatchSimulation.Events.DamageDealt>()
+                    .Where(d => d.Attacker == hero.Id && heroIds.Contains(d.Target)).Sum(d => d.Amount.ToDouble());
+                return (hero.Hero!.LastHits, damage, hero.Hero.Kills + hero.Hero.Assists);
             }).ToList();
-            return (runs.Average(h => h.LastHits), runs.Average(h => h.Deaths));
+            return (runs.Average(r => r.LastHits), runs.Average(r => r.damage), runs.Average(r => r.Item3));
         }
 
         var good = Carry(18);
         var bad = Carry(4);
-        Assert.True(good.LastHits > bad.LastHits * 1.2 || good.Deaths < bad.Deaths * 0.8,
-            $"carry by 20 min: good {good.LastHits:0.0} LH / {good.Deaths:0.0} deaths, bad {bad.LastHits:0.0} LH / {bad.Deaths:0.0} deaths");
+        Assert.True(good.HeroDamage > bad.HeroDamage * 1.5,
+            $"carry by 20 min: good {good.HeroDamage:0} hero damage / {good.Takedowns:0.0} takedowns / {good.LastHits:0.0} LH, " +
+            $"bad {bad.HeroDamage:0} / {bad.Takedowns:0.0} / {bad.LastHits:0.0}");
     }
 }

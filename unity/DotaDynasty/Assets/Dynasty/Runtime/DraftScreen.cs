@@ -99,6 +99,11 @@ namespace Dynasty.Unity
             y += 36;
             GUI.Label(new Rect(x, y, w, 44), "Bans: " + string.Join(", ", session.BansOf(team).Select(Name)), Wrapped(_label!));
             y += 50;
+            if (session.PicksOf(team).Count < 5)
+            {
+                GUI.Label(new Rect(x, y, w, 44), "Picks: " + string.Join(", ", session.PicksOf(team).Select(Name)), Wrapped(_label!));
+                y += 50;
+            }
 
             PositionPlan? positions = session.PicksOf(team).Count == 5 ? PositionPlan.For(_ruleset, team, session.PicksOf(team)) : null;
             for (int i = 0; i < 5; i++)
@@ -113,10 +118,9 @@ namespace Dynasty.Unity
                 }
                 else
                 {
-                    // Before the picks settle: the players and their mechanics / macro / mind averages.
+                    // Before the picks settle on positions: the players with mechanics / macro / mind averages.
                     Dynasty.Players.AttributeSet a = players[i].Attributes;
-                    string pick = i < session.PicksOf(team).Count ? Name(session.PicksOf(team)[i]) : "—";
-                    line = $"{players[i].Handle,-8} {a.Average(Dynasty.Players.AttributeGroup.Mechanics),2}/{a.Average(Dynasty.Players.AttributeGroup.Macro),2}/{a.Average(Dynasty.Players.AttributeGroup.Psychology),2}  {pick}";
+                    line = $"pos {i + 1}  {players[i].Handle,-8} {a.Average(Dynasty.Players.AttributeGroup.Mechanics),2}/{a.Average(Dynasty.Players.AttributeGroup.Macro),2}/{a.Average(Dynasty.Players.AttributeGroup.Psychology),2}";
                 }
 
                 GUI.Label(new Rect(x, y, w, 22), line, _label);
