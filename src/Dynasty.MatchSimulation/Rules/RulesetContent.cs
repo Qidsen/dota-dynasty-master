@@ -158,8 +158,10 @@ namespace Dynasty.MatchSimulation.Rules
             FixedVector2 position,
             bool isAncient,
             IReadOnlyList<string> protectedBy,
-            VulnerabilityRule vulnerability)
+            VulnerabilityRule vulnerability,
+            string? barracksLane = null)
         {
+            BarracksLane = barracksLane;
             Id = id;
             Team = team;
             StructureTypeId = structureTypeId;
@@ -183,6 +185,22 @@ namespace Dynasty.MatchSimulation.Rules
         public IReadOnlyList<string> ProtectedBy { get; }
 
         public VulnerabilityRule Vulnerability { get; }
+
+        /// <summary>For barracks: the lane whose enemy waves are upgraded once this structure falls.</summary>
+        public string? BarracksLane { get; }
+    }
+
+    /// <summary>Wave creep replacement applied to a team's waves on a lane whose enemy barracks fell.</summary>
+    public sealed class CreepUpgrade
+    {
+        public CreepUpgrade(string fromCreepTypeId, string toCreepTypeId)
+        {
+            FromCreepTypeId = fromCreepTypeId;
+            ToCreepTypeId = toCreepTypeId;
+        }
+
+        public string FromCreepTypeId { get; }
+        public string ToCreepTypeId { get; }
     }
 
     public sealed class LaneDefinition
@@ -326,8 +344,10 @@ namespace Dynasty.MatchSimulation.Rules
     /// <summary>Creep waves spawned on every lane. Compositions are per team so sandbox/lab rulesets can be asymmetric.</summary>
     public sealed class WaveRules
     {
-        public WaveRules(int firstSpawnMs, int intervalMs, IReadOnlyList<WaveEntry> dawnComposition, IReadOnlyList<WaveEntry> duskComposition)
+        public WaveRules(int firstSpawnMs, int intervalMs, IReadOnlyList<WaveEntry> dawnComposition, IReadOnlyList<WaveEntry> duskComposition,
+            IReadOnlyList<CreepUpgrade>? superUpgrades = null)
         {
+            SuperUpgrades = (superUpgrades ?? Array.Empty<CreepUpgrade>()).ToArray();
             FirstSpawnMs = firstSpawnMs;
             IntervalMs = intervalMs;
             DawnComposition = dawnComposition.ToArray();
@@ -340,6 +360,9 @@ namespace Dynasty.MatchSimulation.Rules
         public IReadOnlyList<WaveEntry> DuskComposition { get; }
 
         public IReadOnlyList<WaveEntry> CompositionFor(Team team) => team == Team.Dawn ? DawnComposition : DuskComposition;
+
+        /// <summary>Creep replacements for waves on lanes where the enemy barracks are destroyed.</summary>
+        public IReadOnlyList<CreepUpgrade> SuperUpgrades { get; }
     }
 
     public sealed class CombatRules
@@ -642,6 +665,7 @@ namespace Dynasty.MatchSimulation.Rules
                 foreach (string protector in placement.ProtectedBy)
                     writer.WriteString(protector);
                 writer.WriteInt64((int)placement.Vulnerability);
+                writer.WriteString(placement.BarracksLane ?? "");
             }
 
             writer.WriteInt64(Map.Obstacles.Count);
@@ -679,6 +703,12 @@ namespace Dynasty.MatchSimulation.Rules
             writer.WriteInt64(Waves.IntervalMs);
             WriteComposition(writer, Waves.DawnComposition);
             WriteComposition(writer, Waves.DuskComposition);
+            writer.WriteInt64(Waves.SuperUpgrades.Count);
+            foreach (CreepUpgrade upgrade in Waves.SuperUpgrades)
+            {
+                writer.WriteString(upgrade.FromCreepTypeId);
+                writer.WriteString(upgrade.ToCreepTypeId);
+            }
         }
 
         /// <summary>Identity of this exact snapshot. Throws if the content is invalid.</summary>
@@ -785,6 +815,24 @@ namespace Dynasty.MatchSimulation.Rules
                     errors.Add("Wave uses unknown creep type '" + entry.CreepTypeId + "'.");
                 if (entry.Count <= 0)
                     errors.Add("Wave entry '" + entry.CreepTypeId + "' must have a positive count.");
+            }
+
+            foreach (CreepUpgrade upgrade in Waves.SuperUpgrades)
+            {
+                foreach (string id in new[] { upgrade.FromCreepTypeId, upgrade.ToCreepTypeId })
+                {
+                    CreepType? type = FindCreepType(id);
+                    if (type == null)
+                        errors.Add("Super creep upgrade uses unknown creep type '" + id + "'.");
+                    else if (type.Stats.MoveSpeed <= 0)
+                        errors.Add("Super creep upgrade type '" + id + "' must be able to walk a lane.");
+                }
+            }
+
+            foreach (StructurePlacement barracks in Map.Structures.Where(s => s.BarracksLane != null))
+            {
+                if (Map.Lanes.All(l => l.Id != barracks.BarracksLane))
+                    errors.Add("Barracks '" + barracks.Id + "' refers to unknown lane '" + barracks.BarracksLane + "'.");
             }
         }
 

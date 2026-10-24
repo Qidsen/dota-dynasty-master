@@ -26,9 +26,13 @@ namespace Dynasty.MatchSimulation.Systems
             {
                 foreach (Team team in new[] { Team.Dawn, Team.Dusk })
                 {
+                    bool super = EnemyBarracksDestroyed(state, team, lane.Id);
                     foreach (WaveEntry entry in waves.CompositionFor(team))
                     {
-                        CreepType type = state.Ruleset.FindCreepType(entry.CreepTypeId)!;
+                        string typeId = entry.CreepTypeId;
+                        if (super)
+                            typeId = waves.SuperUpgrades.FirstOrDefault(u => u.FromCreepTypeId == typeId)?.ToCreepTypeId ?? typeId;
+                        CreepType type = state.Ruleset.FindCreepType(typeId)!;
                         for (int i = 0; i < entry.Count; i++)
                         {
                             MatchUnit creep = state.SpawnCreep(context.Ids.Allocate(), team, type, lane, now);
@@ -40,6 +44,10 @@ namespace Dynasty.MatchSimulation.Systems
 
             state.NextWaveTick += state.Rate.TicksFor(waves.IntervalMs);
         }
+
+        /// <summary>Whether the opponent's barracks for this lane have fallen (the team's waves there become super creeps).</summary>
+        private static bool EnemyBarracksDestroyed(MatchState state, Team team, string laneId) =>
+            state.Ruleset.Map.Structures.Any(s => s.Team != team && s.BarracksLane == laneId && state.DestroyedStructures.Contains(s.Id));
     }
 
     /// <summary>

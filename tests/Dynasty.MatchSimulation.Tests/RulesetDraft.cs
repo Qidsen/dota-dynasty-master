@@ -100,6 +100,7 @@ public sealed class RulesetDraft
     public int IntervalMs { get; set; } = 30000;
     public List<WaveEntry> DawnWave { get; } = new() { new WaveEntry("melee", 1) };
     public List<WaveEntry> DuskWave { get; } = new() { new WaveEntry("melee", 1) };
+    public List<CreepUpgrade> SuperUpgrades { get; } = new();
 
     public RulesetDraft WithoutStructures()
     {
@@ -122,7 +123,7 @@ public sealed class RulesetDraft
         Creeps,
         StructureTypes,
         new MapDefinition(Width, Height, Lanes, Placements, Obstacles, fountains: Fountains, camps: Camps),
-        new WaveRules(FirstSpawnMs, IntervalMs, DawnWave, DuskWave),
+        new WaveRules(FirstSpawnMs, IntervalMs, DawnWave, DuskWave, SuperUpgrades),
         Heroes,
         BuildHeroRules(),
         Abilities,

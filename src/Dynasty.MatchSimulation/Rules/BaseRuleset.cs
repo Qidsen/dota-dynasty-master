@@ -43,6 +43,8 @@ namespace Dynasty.MatchSimulation.Rules
                 new CreepType("melee", Stats(hp: 550, armor: 2, speed: 325, dmgMin: 19, dmgMax: 23, range: 100, intervalMs: 1000, pointMs: 500, acquisition: 500, radius: 16), new Bounty(38, 46, 57)),
                 new CreepType("ranged", Stats(hp: 300, armor: 0, speed: 325, dmgMin: 21, dmgMax: 26, range: 500, intervalMs: 1000, pointMs: 300, acquisition: 500, radius: 16), new Bounty(45, 52, 69)),
                 new CreepType("siege", Stats(hp: 900, armor: 0, speed: 325, dmgMin: 140, dmgMax: 170, range: 690, intervalMs: 2700, pointMs: 700, acquisition: 800, radius: 24), new Bounty(70, 80, 88)),
+                new CreepType("melee_super", Stats(hp: 700, armor: 3, speed: 325, dmgMin: 36, dmgMax: 44, range: 100, intervalMs: 1000, pointMs: 500, acquisition: 500, radius: 16), new Bounty(20, 26, 30)),
+                new CreepType("ranged_super", Stats(hp: 475, armor: 1, speed: 325, dmgMin: 40, dmgMax: 46, range: 500, intervalMs: 1000, pointMs: 300, acquisition: 500, radius: 16), new Bounty(20, 26, 30)),
             }.Concat(BaseContent.SummonTypes).ToArray();
 
             var structureTypes = new[]
@@ -52,6 +54,7 @@ namespace Dynasty.MatchSimulation.Rules
                 new StructureType("tower.t3", Stats(hp: 2500, armor: 16, speed: 0, dmgMin: 140, dmgMax: 160, range: 700, intervalMs: 1000, pointMs: 300, acquisition: 700, radius: 100)),
                 new StructureType("tower.t4", Stats(hp: 2600, armor: 18, speed: 0, dmgMin: 140, dmgMax: 160, range: 700, intervalMs: 1000, pointMs: 300, acquisition: 700, radius: 100)),
                 new StructureType("ancient", Stats(hp: 4500, armor: 15, speed: 0, dmgMin: 0, dmgMax: 0, range: 0, intervalMs: 1000, pointMs: 0, acquisition: 0, radius: 200)),
+                new StructureType("barracks", Stats(hp: 1500, armor: 10, speed: 0, dmgMin: 0, dmgMax: 0, range: 0, intervalMs: 1000, pointMs: 0, acquisition: 0, radius: 120)),
             };
 
             var lanes = new[]
@@ -74,6 +77,11 @@ namespace Dynasty.MatchSimulation.Rules
                     : new[] { "dawn." + lane + "." + (tier == "t2" ? "t1" : "t2") };
                 dawnStructures.Add(Placement("dawn." + lane + "." + tier, "tower." + tier, x, y, false, protectors, VulnerabilityRule.AnyProtectorDestroyed));
             }
+
+            // Barracks sit just behind each lane's T3; losing them upgrades the enemy waves on that lane.
+            foreach ((string lane, int x, int y) in new[] { ("top", 1550, 2450), ("mid", 2100, 2250), ("bot", 2450, 1550) })
+                dawnStructures.Add(new StructurePlacement("dawn." + lane + ".barracks", Team.Dawn, "barracks", FixedVector2.FromInts(x, y), false,
+                    new[] { "dawn." + lane + ".t3" }, VulnerabilityRule.AnyProtectorDestroyed, barracksLane: lane));
 
             string[] laneT3s = { "dawn.top.t3", "dawn.mid.t3", "dawn.bot.t3" };
             dawnStructures.Add(Placement("dawn.base.t4a", "tower.t4", 1700, 1350, false, laneT3s, VulnerabilityRule.AnyProtectorDestroyed));
@@ -108,7 +116,11 @@ namespace Dynasty.MatchSimulation.Rules
                     new FountainPlacement(Team.Dawn, FixedVector2.FromInts(600, 600), 500),
                     new FountainPlacement(Team.Dusk, FixedVector2.FromInts(9400, 9400), 500),
                 }, camps: Camps()),
-                waves: new WaveRules(firstSpawnMs: 0, intervalMs: 30000, dawnWave, duskWave),
+                waves: new WaveRules(firstSpawnMs: 0, intervalMs: 30000, dawnWave, duskWave, new[]
+                {
+                    new CreepUpgrade("melee", "melee_super"),
+                    new CreepUpgrade("ranged", "ranged_super"),
+                }),
                 heroes: BaseContent.Heroes,
                 heroRules: BaseContent.Rules,
                 abilities: BaseContent.Abilities,
@@ -123,7 +135,9 @@ namespace Dynasty.MatchSimulation.Rules
             dawn.Position.ReflectThrough(Center),
             dawn.IsAncient,
             dawn.ProtectedBy.Select(ToDusk).ToArray(),
-            dawn.Vulnerability);
+            dawn.Vulnerability,
+            // Point reflection maps the top lane onto the bot lane.
+            dawn.BarracksLane == "top" ? "bot" : dawn.BarracksLane == "bot" ? "top" : dawn.BarracksLane);
 
         /// <summary>
         /// Dusk ID of a mirrored Dawn placement. Point reflection maps the Dawn top lane onto the
