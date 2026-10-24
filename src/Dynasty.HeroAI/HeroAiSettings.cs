@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using System.Linq;
 using Dynasty.MatchSimulation;
 using Dynasty.MatchSimulation.Rules;
@@ -146,6 +146,12 @@ namespace Dynasty.HeroAI
         public int GankRange { get; set; } = 3000;
 
         public Dynasty.Drafting.GameArchetype Archetype { get; set; } = Dynasty.Drafting.GameArchetype.Balanced;
+
+        /// <summary>
+        /// Ticks before the heroes act on a new team plan (communication: teamwork, leadership, a common
+        /// language; see <see cref="TeamCommunication"/>). Until then each keeps doing what it was doing.
+        /// </summary>
+        public int CallDelayTicks { get; set; }
 
         /// <summary>Summoners call their units at an enemy structure their creeps are already hitting.</summary>
         public bool SiegeWithSummons { get; set; }

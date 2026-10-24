@@ -48,6 +48,12 @@ namespace Dynasty.HeroAI
         public bool DangerSense { get; set; }
 
         /// <summary>
+        /// How much two or more deaths in five minutes unsettle the player (low tilt resistance), 0 = not at all:
+        /// a tilted hero fights more recklessly and misjudges more.
+        /// </summary>
+        public int TiltSusceptibility { get; set; }
+
+        /// <summary>
         /// The skill of <paramref name="player"/> on <paramref name="heroId"/>: attributes, scaled by the
         /// player's readiness on that hero (an unfamiliar hero counts as low readiness).
         /// </summary>
@@ -74,6 +80,7 @@ namespace Dynasty.HeroAI
                 AggressionPercent = 85 + a[Players.Attribute.Confidence],
                 RetreatShiftPercent = (a[Players.Attribute.MapAwareness] + a[Players.Attribute.Discipline]) / 2 - 12,
                 DangerSense = Effective(Players.Attribute.MapAwareness) >= 12,
+                TiltSusceptibility = System.Math.Max(0, 12 - a[Players.Attribute.TiltResistance]),
             };
         }
     }

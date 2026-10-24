@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using System.Linq;
 using Dynasty.Core.Kernel;
 using Dynasty.Core.Mathematics;
@@ -45,7 +45,19 @@ namespace Dynasty.HeroAI
         public TeamPlanKind Plan { get; private set; }
         public MatchUnit? Objective { get; private set; }
 
+        /// <summary>Tick the current plan (or its objective) was called.</summary>
+        public long PlanSince { get; private set; }
+
         public void UpdatePlan(MatchState state, long now, int ticksPerMinute, HeroAiSettings settings)
+        {
+            TeamPlanKind previousPlan = Plan;
+            MatchUnit? previousObjective = Objective;
+            Decide(state, now, ticksPerMinute, settings);
+            if (Plan != previousPlan || Objective != previousObjective)
+                PlanSince = now;
+        }
+
+        private void Decide(MatchState state, long now, int ticksPerMinute, HeroAiSettings settings)
         {
             MatchUnit? threatened = FindThreatenedStructure(state);
             if (threatened != null)
@@ -158,6 +170,11 @@ namespace Dynasty.HeroAI
     {
         public long NextDecisionTick { get; set; }
         public bool Retreating { get; set; }
+
+        /// <summary>Own deaths already noticed, and the ticks of those in the last five minutes (tilt).</summary>
+        public int SeenDeaths { get; set; }
+
+        public List<long> RecentDeathTicks { get; } = new List<long>();
 
         /// <summary>Camps this hero found empty, with the tick they are expected back.</summary>
         public Dictionary<string, long> CampEmptyUntil { get; } = new Dictionary<string, long>();
@@ -315,7 +332,19 @@ namespace Dynasty.HeroAI
         private bool Hesitates() => _skill.SpellHesitationPercent > 0 && _random.NextInt(0, 100) < _skill.SpellHesitationPercent;
 
         /// <summary>The hero's own aggression scaled by the team's strategy.</summary>
-        private double Aggression => _personality.Aggression * _settings.StrategyFor(_hero.Team).AggressionPercent / 100.0 * _skill.AggressionPercent / 100.0;
+        private double Aggression => _personality.Aggression * _settings.StrategyFor(_hero.Team).AggressionPercent / 100.0 * _skill.AggressionPercent / 100.0
+                                     * (Tilted ? 1 + _skill.TiltSusceptibility * 3 / 100.0 : 1.0);
+
+        /// <summary>Two or more own deaths in the last five minutes rattle a susceptible player.</summary>
+        private bool Tilted => _skill.TiltSusceptibility > 0 && _memory.RecentDeathTicks.Count >= 2;
+
+        /// <summary>Records own deaths (public scoreboard information) and forgets those older than five minutes.</summary>
+        private void NoticeDeaths()
+        {
+            for (; _memory.SeenDeaths < _h.Deaths; _memory.SeenDeaths++)
+                _memory.RecentDeathTicks.Add(_now);
+            _memory.RecentDeathTicks.RemoveAll(t => _now - t > 5L * _ticksPerMinute);
+        }
 
         public void Run()
         {
@@ -323,6 +352,7 @@ namespace Dynasty.HeroAI
             if (_h.IsDead || _h.IsCasting || !_hero.IsAlive)
                 return;
 
+            NoticeDeaths();
             int hpPercent = Math.HpPercent(_hero);
             if (_memory.Retreating && hpPercent >= _personality.ReturnHpPercent)
                 _memory.Retreating = false;
@@ -462,7 +492,8 @@ namespace Dynasty.HeroAI
             List<MatchUnit> allies = _state.Heroes.Where(h => h.Team == self._hero.Team && h.IsAlive && Math.Within(h.Position, self._hero.Position, range)).ToList();
             double own = allies.Sum(PowerOf) + TowerSupport(_hero.Team, _hero.Position);
             double theirs = enemies.Sum(PowerOf) + TowerSupport(_hero.Team.Opponent(), _hero.Position);
-            double noise = _skill.MisjudgementPercent > 0 ? _random.NextInt(-_skill.MisjudgementPercent, _skill.MisjudgementPercent + 1) / 100.0 : 0;
+            int misjudgement = _skill.MisjudgementPercent + (Tilted ? _skill.TiltSusceptibility * 2 : 0);
+            double noise = misjudgement > 0 ? _random.NextInt(-misjudgement, misjudgement + 1) / 100.0 : 0;
             double odds = own / System.Math.Max(theirs, 1) * Aggression * (1 + noise);
 
             if (odds < 0.85)
@@ -674,6 +705,8 @@ namespace Dynasty.HeroAI
             MatchUnit? objective = _brain.Objective;
             if (objective == null || !objective.IsAlive)
                 return false;
+            if (_now < _brain.PlanSince + _settings.StrategyFor(_hero.Team).CallDelayTicks)
+                return false;   // the call has not got through yet
 
             if (_brain.Plan == TeamPlanKind.Defend)
             {
