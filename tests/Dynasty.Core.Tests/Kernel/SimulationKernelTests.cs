@@ -1,4 +1,4 @@
-﻿using Dynasty.Core.Kernel;
+using Dynasty.Core.Kernel;
 using Dynasty.Core.Commands;
 using Dynasty.Core.Events;
 using Dynasty.Core.Time;

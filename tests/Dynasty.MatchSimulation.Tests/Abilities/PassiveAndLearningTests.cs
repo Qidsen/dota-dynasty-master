@@ -1,4 +1,4 @@
-﻿using Dynasty.Core.Ids;
+using Dynasty.Core.Ids;
 using Dynasty.Core.Kernel;
 using Dynasty.Core.Mathematics;
 using Dynasty.MatchSimulation.Combat;

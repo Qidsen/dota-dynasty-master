@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using Dynasty.Core.Mathematics;
 using Dynasty.MatchSimulation.Rules;
 

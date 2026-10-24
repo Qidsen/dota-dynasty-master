@@ -13,10 +13,10 @@
 ## Команды
 ```
 dotnet build              # сборка всего решения (DotaDynasty.slnx)
-dotnet test               # все тесты (около 2 мин: приёмка гоняет матчи 5×5)
-dotnet test --filter "Category!=Acceptance"   # быстрый набор (около 11 с)
+dotnet test               # все тесты (около 1,5 мин: приёмка гоняет матчи 5×5)
+dotnet test --filter "Category!=Acceptance"   # быстрый набор (около 20 с)
 dotnet run --project tools/Dynasty.MatchLab -c Release -- [heroes|swapped|mirror|base|lab] [firstSeed] [count] [maxMinutes]
-# MATCHLAB_DEATHS=1 — печатать причины смертей героев по командам
+# MATCHLAB_DEATHS=1 — печатать причины смертей героев по командам; MATCHLAB_PROFILE=1 — время по системам
 ```
 Требуется .NET SDK 10. Unity 6.3 LTS (6000.3.x) понадобится с этапа 04.
 
