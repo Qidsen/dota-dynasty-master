@@ -6,6 +6,7 @@ using System.Text;
 using Dynasty.Core.Kernel;
 using Dynasty.Core.Randomness;
 using Dynasty.Drafting;
+using Dynasty.Players;
 using Dynasty.HeroAI;
 using Dynasty.MatchSimulation;
 using Dynasty.MatchSimulation.Rules;
@@ -19,28 +20,40 @@ namespace Dynasty.Presentation
         private static readonly string[] DuskHandles = { "Cinder", "Hollow", "Rook", "Wisp", "Thistle" };
 
         /// <summary>
-        /// Two original demo teams. Each player covers the heroes that suit their position with a
-        /// seeded mastery (35–80) and one signature hero (90+). Deterministic.
+        /// Two original demo teams of professional players (Northwind a little stronger than Ember Pact),
+        /// one per position, each with a hero pool over the heroes that suit the position and one
+        /// signature hero (mastery 90+). Deterministic.
         /// </summary>
-        public static (TeamRoster Dawn, TeamRoster Dusk) Rosters()
+        public static (IReadOnlyList<PlayerProfile> Dawn, IReadOnlyList<PlayerProfile> Dusk) Players()
         {
             RulesetContent ruleset = BaseRuleset.Create();
-            return (Roster(ruleset, "Northwind", DawnHandles, 11), Roster(ruleset, "Ember Pact", DuskHandles, 23));
+            return (Team(ruleset, "northwind", DawnHandles, 15, 11), Team(ruleset, "emberpact", DuskHandles, 12, 23));
         }
 
-        private static TeamRoster Roster(RulesetContent ruleset, string name, string[] handles, ulong seed)
+        /// <summary>The demo teams as the draft sees them.</summary>
+        public static (TeamRoster Dawn, TeamRoster Dusk) Rosters()
+        {
+            var (dawn, dusk) = Players();
+            return (new TeamRoster("Northwind", dawn.Select((p, i) => RosterPlayer.From(p, i + 1)).ToList()),
+                    new TeamRoster("Ember Pact", dusk.Select((p, i) => RosterPlayer.From(p, i + 1)).ToList()));
+        }
+
+        private static IReadOnlyList<PlayerProfile> Team(RulesetContent ruleset, string team, string[] handles, int quality, ulong seed)
         {
             DeterministicRandom random = new RandomStreams(seed).Get("roster");
-            var players = new List<RosterPlayer>();
+            var players = new List<PlayerProfile>();
             for (int position = 1; position <= 5; position++)
             {
                 var suited = ruleset.Heroes.Where(h => PositionPlan.Fit(h, position) >= 9).Select(h => h.Id).ToList();
+                PlayerProfile generated = PlayerGenerator.Generate(random, team + "." + position, position, quality, suited, handles[position - 1]);
                 string signature = suited[random.NextInt(0, suited.Count)];
-                var pool = suited.Select(id => new HeroPoolEntry(id, id == signature ? random.NextInt(90, 101) : random.NextInt(35, 81), random.NextInt(40, 91))).ToList();
-                players.Add(new RosterPlayer(name + "." + position, handles[position - 1], position, pool));
+                var pool = generated.HeroPool.Select(h => h.HeroId != signature ? h :
+                    new HeroPoolRecord(h.HeroId, random.NextInt(90, 101), 80, 85, h.PatchFamiliarity, 80, 90, h.GamesPlayed, h.Wins)).ToList();
+                players.Add(new PlayerProfile(generated.Id, generated.Handle, generated.Name, generated.Nationality, generated.BirthYear, generated.Languages,
+                    generated.Region, generated.PositionProficiency, generated.Attributes, generated.Hidden, pool));
             }
 
-            return new TeamRoster(name, players);
+            return players;
         }
 
         public static readonly MatchLineup Lineup = new MatchLineup(

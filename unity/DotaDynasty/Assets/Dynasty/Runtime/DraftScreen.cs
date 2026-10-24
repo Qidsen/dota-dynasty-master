@@ -81,14 +81,14 @@ namespace Dynasty.Unity
             GUI.Label(new Rect(0, 46, Screen.width, 22), $"first pick: {first}    {state}", Centered(_label!));
 
             float column = 360f;
-            DrawTeam(new Rect(20, 90, column, Screen.height - 140), Team.Dawn, _watch.DawnRoster, _watch.DawnPlan);
-            DrawTeam(new Rect(Screen.width - column - 20, 90, column, Screen.height - 140), Team.Dusk, _watch.DuskRoster, _watch.DuskPlan);
+            DrawTeam(new Rect(20, 90, column, Screen.height - 140), Team.Dawn, _watch.DawnRoster, _watch.DawnPlan, _watch.DawnPlayers);
+            DrawTeam(new Rect(Screen.width - column - 20, 90, column, Screen.height - 140), Team.Dusk, _watch.DuskRoster, _watch.DuskPlan, _watch.DuskPlayers);
             DrawCenter(new Rect(column + 40, 90, Screen.width - 2 * column - 80, Screen.height - 140));
 
             GUI.Label(new Rect(12, Screen.height - 26, Screen.width, 22), "Space pause   1-3 pace   Enter skip to the end / start the match", _label);
         }
 
-        private void DrawTeam(Rect area, Team team, TeamRoster roster, GamePlan? plan)
+        private void DrawTeam(Rect area, Team team, TeamRoster roster, GamePlan? plan, System.Collections.Generic.IReadOnlyList<Dynasty.Players.PlayerProfile> players)
         {
             GUI.Box(area, GUIContent.none, _panel);
             DraftSession session = _watch.Session;
@@ -113,7 +113,10 @@ namespace Dynasty.Unity
                 }
                 else
                 {
-                    line = i < session.PicksOf(team).Count ? $"pick {i + 1}  {Name(session.PicksOf(team)[i])}" : $"pick {i + 1}  —";
+                    // Before the picks settle: the players and their mechanics / macro / mind averages.
+                    Dynasty.Players.AttributeSet a = players[i].Attributes;
+                    string pick = i < session.PicksOf(team).Count ? Name(session.PicksOf(team)[i]) : "—";
+                    line = $"{players[i].Handle,-8} {a.Average(Dynasty.Players.AttributeGroup.Mechanics),2}/{a.Average(Dynasty.Players.AttributeGroup.Macro),2}/{a.Average(Dynasty.Players.AttributeGroup.Psychology),2}  {pick}";
                 }
 
                 GUI.Label(new Rect(x, y, w, 22), line, _label);

@@ -43,6 +43,10 @@ namespace Dynasty.Drafting
             _pool = pool.ToDictionary(e => e.HeroId);
         }
 
+        /// <summary>The draft's view of a professional player: mastery and confidence from the hero pool records.</summary>
+        public static RosterPlayer From(Dynasty.Players.PlayerProfile player, int position) =>
+            new RosterPlayer(player.Id, player.Handle, position, player.HeroPool.Select(h => new HeroPoolEntry(h.HeroId, h.Mastery, h.Confidence)).ToList());
+
         public string Id { get; }
         public string Name { get; }
 

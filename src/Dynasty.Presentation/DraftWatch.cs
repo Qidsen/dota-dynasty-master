@@ -22,8 +22,11 @@ namespace Dynasty.Presentation
         private readonly double _secondsPerStep;
         private double _elapsed;
 
-        private DraftWatch(RulesetContent ruleset, DraftSession session, TeamRoster dawn, TeamRoster dusk, DraftAi dawnAi, DraftAi duskAi, double secondsPerStep)
+        private DraftWatch(RulesetContent ruleset, DraftSession session, TeamRoster dawn, TeamRoster dusk, DraftAi dawnAi, DraftAi duskAi, double secondsPerStep,
+            IReadOnlyList<Dynasty.Players.PlayerProfile> dawnPlayers, IReadOnlyList<Dynasty.Players.PlayerProfile> duskPlayers)
         {
+            DawnPlayers = dawnPlayers;
+            DuskPlayers = duskPlayers;
             _ruleset = ruleset;
             Session = session;
             DawnRoster = dawn;
@@ -38,16 +41,22 @@ namespace Dynasty.Presentation
             if (secondsPerStep <= 0)
                 throw new ArgumentOutOfRangeException(nameof(secondsPerStep));
             var (dawn, dusk) = DemoMatch.Rosters();
+            var (dawnPlayers, duskPlayers) = DemoMatch.Players();
             Team firstPick = seed % 2 == 0 ? Team.Dusk : Team.Dawn;   // the coin flip
             var session = DraftSession.Start(ruleset, firstPick);
             var dawnAi = new DraftAi(ruleset, Team.Dawn, dawn, dusk, new DraftAiSettings(), seed * 2 + 1);
             var duskAi = new DraftAi(ruleset, Team.Dusk, dusk, dawn, new DraftAiSettings(), seed * 2 + 2);
-            return new DraftWatch(ruleset, session, dawn, dusk, dawnAi, duskAi, secondsPerStep);
+            return new DraftWatch(ruleset, session, dawn, dusk, dawnAi, duskAi, secondsPerStep, dawnPlayers, duskPlayers);
         }
 
         public DraftSession Session { get; }
         public TeamRoster DawnRoster { get; }
         public TeamRoster DuskRoster { get; }
+
+        /// <summary>The players, ordered by position (index 0 = position 1).</summary>
+        public IReadOnlyList<Dynasty.Players.PlayerProfile> DawnPlayers { get; }
+
+        public IReadOnlyList<Dynasty.Players.PlayerProfile> DuskPlayers { get; }
 
         /// <summary>The last ban or pick and why (its score parts).</summary>
         public DraftCandidate? LastChoice { get; private set; }
@@ -76,20 +85,36 @@ namespace Dynasty.Presentation
                 Step();
         }
 
-        /// <summary>Starts the match: drafted heroes on their positions, each team playing its game plan.</summary>
+        /// <summary>
+        /// Starts the match: drafted heroes on their positions, each played by the team's player on that
+        /// position (their skill on the hero), each team playing its game plan with its communication delay.
+        /// </summary>
         public MatchSession StartMatch(ulong seed)
         {
             if (!Session.IsComplete)
                 throw new InvalidOperationException("The draft is not finished.");
-            MatchLineup lineup = PositionPlan.Lineup(
-                PositionPlan.For(_ruleset, Team.Dawn, Session.PicksOf(Team.Dawn)),
-                PositionPlan.For(_ruleset, Team.Dusk, Session.PicksOf(Team.Dusk)));
+            PositionPlan dawn = PositionPlan.For(_ruleset, Team.Dawn, Session.PicksOf(Team.Dawn));
+            PositionPlan dusk = PositionPlan.For(_ruleset, Team.Dusk, Session.PicksOf(Team.Dusk));
             var settings = new HeroAiSettings
             {
                 DawnStrategy = TeamStrategy.From(DawnPlan!),
                 DuskStrategy = TeamStrategy.From(DuskPlan!),
             };
-            return MatchSession.Start(_ruleset, seed, lineup, settings);
+            settings.DawnStrategy.CallDelayTicks = TeamCommunication.CallDelayTicks(DawnPlayers);
+            settings.DuskStrategy.CallDelayTicks = TeamCommunication.CallDelayTicks(DuskPlayers);
+            var handles = new Dictionary<(Team, string), string>();
+            foreach (var (team, plan, players) in new[] { (Team.Dawn, dawn, DawnPlayers), (Team.Dusk, dusk, DuskPlayers) })
+            {
+                for (int position = 1; position <= 5; position++)
+                {
+                    string hero = plan.HeroAt(position);
+                    Dynasty.Players.PlayerProfile player = players[position - 1];
+                    settings.SkillsOf(team)[hero] = HeroSkill.FromPlayer(player, hero);
+                    handles[(team, hero)] = player.Handle;
+                }
+            }
+
+            return MatchSession.Start(_ruleset, seed, PositionPlan.Lineup(dawn, dusk), settings, handles);
         }
 
         private void Step()

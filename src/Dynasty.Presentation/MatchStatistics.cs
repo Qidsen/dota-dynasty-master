@@ -39,7 +39,7 @@ namespace Dynasty.Presentation
             {
                 foreach (MatchUnit hero in state.Heroes)
                 {
-                    var line = new HeroLine(hero.Id.Value, hero.Team, hero.Hero!.Definition.Name);
+                    var line = new HeroLine(hero.Id.Value, hero.Team, hero.Hero!.Definition.Name, hero.Hero.Definition.Id);
                     _lines.Add(hero.Id.Value, line);
                     _ordered.Add(line);
                 }
@@ -150,16 +150,22 @@ namespace Dynasty.Presentation
     /// <summary>One hero's analyst line.</summary>
     public sealed class HeroLine
     {
-        internal HeroLine(long heroId, Team team, string name)
+        internal HeroLine(long heroId, Team team, string name, string definitionId)
         {
             HeroId = heroId;
             Team = team;
             Name = name;
+            DefinitionId = definitionId;
         }
 
         public long HeroId { get; }
         public Team Team { get; }
+
+        /// <summary>Hero display name.</summary>
         public string Name { get; }
+
+        /// <summary>Hero definition ID (e.g. to look up the player on it).</summary>
+        public string DefinitionId { get; }
         public int Kills { get; internal set; }
         public int Deaths { get; internal set; }
         public int Assists { get; internal set; }

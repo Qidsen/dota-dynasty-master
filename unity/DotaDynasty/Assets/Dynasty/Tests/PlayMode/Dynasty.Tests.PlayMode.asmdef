@@ -15,6 +15,7 @@
         "Dynasty.Core.dll",
         "Dynasty.MatchSimulation.dll",
         "Dynasty.HeroAI.dll",
+        "Dynasty.Players.dll",
         "Dynasty.Drafting.dll",
         "Dynasty.Presentation.dll"
     ],
