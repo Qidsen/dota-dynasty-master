@@ -42,8 +42,10 @@ namespace Dynasty.MatchSimulation.Rules
             int trueSightRange = 0,
             ModifierFlags innateFlags = ModifierFlags.None,
             int projectileSpeed = 0,
-            int nightVisionRange = -1)
+            int nightVisionRange = -1,
+            AttackClass attackClass = AttackClass.Basic)
         {
+            AttackClass = attackClass;
             ProjectileSpeed = projectileSpeed;
             NightVisionRange = nightVisionRange < 0 ? visionRange : nightVisionRange;
             MagicResistPercent = magicResistPercent;
@@ -102,8 +104,12 @@ namespace Dynasty.MatchSimulation.Rules
         /// <summary>Vision range at night (defaults to the day range).</summary>
         public int NightVisionRange { get; }
 
+        /// <summary>Attack class of a non-hero, non-structure unit (heroes and structures have fixed classes).</summary>
+        public AttackClass AttackClass { get; }
+
         internal void WriteCanonical(CanonicalWriter w)
         {
+            w.WriteInt64((int)AttackClass);
             w.WriteInt64(ProjectileSpeed);
             w.WriteInt64(NightVisionRange);
             w.WriteInt64(MagicResistPercent);
@@ -384,10 +390,11 @@ namespace Dynasty.MatchSimulation.Rules
 
     public sealed class CombatRules
     {
-        public CombatRules(Fixed armorFactor, bool heroAggro = false)
+        public CombatRules(Fixed armorFactor, bool heroAggro = false, AttackClassTable? attackClasses = null)
         {
             ArmorFactor = armorFactor;
             HeroAggro = heroAggro;
+            AttackClasses = attackClasses ?? AttackClassTable.Uniform;
         }
 
         /// <summary>Damage multiplier = 1 - f·armor / (1 + f·|armor|).</summary>
@@ -398,6 +405,9 @@ namespace Dynasty.MatchSimulation.Rules
         /// any other enemy unit before enemy heroes (otherwise simply the nearest attackable enemy).
         /// </summary>
         public bool HeroAggro { get; }
+
+        /// <summary>Attack damage percent by attack class and defense class (decision log D-043).</summary>
+        public AttackClassTable AttackClasses { get; }
     }
 
     /// <summary>
@@ -683,6 +693,7 @@ namespace Dynasty.MatchSimulation.Rules
             writer.WriteInt64(TicksPerSecond);
             writer.WriteFixed(Combat.ArmorFactor);
             writer.WriteBool(Combat.HeroAggro);
+            Combat.AttackClasses.WriteCanonical(writer);
 
             writer.WriteInt64(CreepTypes.Count);
             foreach (CreepType creep in CreepTypes)

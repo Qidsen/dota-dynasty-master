@@ -103,6 +103,12 @@ namespace Dynasty.HeroAI
         /// <summary>Hero IDs the AI must leave alone (scripted or human-controlled).</summary>
         public HashSet<string> Uncontrolled { get; } = new HashSet<string>();
 
+        /// <summary>
+        /// Diagnostics: called with the hero, the tick and the branch that decided ("Fight", "FarmJungle",
+        /// "Lane", ... with "/Push", "/Defend" or "/Boss" under a team plan). Does not affect the match.
+        /// </summary>
+        public System.Action<MatchUnit, long, string>? DecisionTrace { get; set; }
+
         public HeroPersonality PersonalityFor(HeroDefinition hero) =>
             Personalities.TryGetValue(hero.Id, out HeroPersonality? p) ? p : HeroPersonality.ForRoles(hero.Roles);
     }
@@ -157,14 +163,18 @@ namespace Dynasty.HeroAI
         public bool SiegeWithSummons { get; set; }
 
         /// <summary>Until this minute greedy carries skip ganks and only take clearly favourable fights.</summary>
-        public int ProtectCarriesUntilMinute { get; set; }
+        public int ProtectCarriesUntilMinute { get; set; } = 20;
 
         public static TeamStrategy From(Dynasty.Drafting.GamePlan plan)
         {
             switch (plan.Archetype)
             {
                 case Dynasty.Drafting.GameArchetype.Push:
-                    return new TeamStrategy { Archetype = plan.Archetype, LaningShiftMinutes = -3, EvenPushShiftMinutes = -4, AggressionPercent = 105, SiegeWithSummons = true };
+                    return new TeamStrategy
+                    {
+                        Archetype = plan.Archetype, LaningShiftMinutes = -3, EvenPushShiftMinutes = -4, AggressionPercent = 105, SiegeWithSummons = true,
+                        ProtectCarriesUntilMinute = 0,   // a push line-up groups up with its carry
+                    };
                 case Dynasty.Drafting.GameArchetype.Teamfight:
                     return new TeamStrategy { Archetype = plan.Archetype, LaningShiftMinutes = -1, EvenPushShiftMinutes = -2, AggressionPercent = 108 };
                 case Dynasty.Drafting.GameArchetype.LateGame:

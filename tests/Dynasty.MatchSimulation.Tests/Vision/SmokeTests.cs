@@ -133,6 +133,7 @@ public class SmokeTests
         });
         var settings = new HeroAiSettings { ReactionJitterTicks = 0, MisjudgementPercent = 0, LaningPhaseMinutes = 0 };
         settings.Uncontrolled.Add("beta");
+        settings.DawnStrategy = new TeamStrategy { ProtectCarriesUntilMinute = 0 };   // the carries may gank
         HeroAi.Attach(kernel, settings);
 
         kernel.RunTicks(60);

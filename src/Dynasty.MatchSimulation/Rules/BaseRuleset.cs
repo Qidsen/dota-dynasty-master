@@ -43,11 +43,11 @@ namespace Dynasty.MatchSimulation.Rules
         {
             var creeps = new[]
             {
-                new CreepType("melee", Stats(hp: 550, armor: 2, speed: 325, dmgMin: 19, dmgMax: 23, range: 100, intervalMs: 1000, pointMs: 500, acquisition: 500, radius: 16), new Bounty(38, 46, 57)),
-                new CreepType("ranged", Stats(hp: 300, armor: 0, speed: 325, dmgMin: 21, dmgMax: 26, range: 500, intervalMs: 1000, pointMs: 300, acquisition: 500, radius: 16), new Bounty(45, 52, 69)),
-                new CreepType("siege", Stats(hp: 900, armor: 0, speed: 325, dmgMin: 140, dmgMax: 170, range: 690, intervalMs: 2700, pointMs: 700, acquisition: 800, radius: 24), new Bounty(70, 80, 88)),
-                new CreepType("melee_super", Stats(hp: 700, armor: 3, speed: 325, dmgMin: 36, dmgMax: 44, range: 100, intervalMs: 1000, pointMs: 500, acquisition: 500, radius: 16), new Bounty(20, 26, 30)),
-                new CreepType("ranged_super", Stats(hp: 475, armor: 1, speed: 325, dmgMin: 40, dmgMax: 46, range: 500, intervalMs: 1000, pointMs: 300, acquisition: 500, radius: 16), new Bounty(20, 26, 30)),
+                new CreepType("melee", Stats(hp: 550, armor: 2, speed: 325, dmgMin: 19, dmgMax: 23, range: 100, intervalMs: 1000, pointMs: 500, acquisition: 500, radius: 16, attackClass: AttackClass.Runty), new Bounty(38, 46, 57)),
+                new CreepType("ranged", Stats(hp: 300, armor: 0, speed: 325, dmgMin: 21, dmgMax: 26, range: 500, intervalMs: 1000, pointMs: 300, acquisition: 500, radius: 16, attackClass: AttackClass.Piercing), new Bounty(45, 52, 69)),
+                new CreepType("siege", Stats(hp: 900, armor: 0, speed: 325, dmgMin: 140, dmgMax: 170, range: 690, intervalMs: 2700, pointMs: 700, acquisition: 800, radius: 24, attackClass: AttackClass.Reinforced), new Bounty(70, 80, 88)),
+                new CreepType("melee_super", Stats(hp: 700, armor: 3, speed: 325, dmgMin: 36, dmgMax: 44, range: 100, intervalMs: 1000, pointMs: 500, acquisition: 500, radius: 16, attackClass: AttackClass.Runty), new Bounty(20, 26, 30)),
+                new CreepType("ranged_super", Stats(hp: 475, armor: 1, speed: 325, dmgMin: 40, dmgMax: 46, range: 500, intervalMs: 1000, pointMs: 300, acquisition: 500, radius: 16, attackClass: AttackClass.Piercing), new Bounty(20, 26, 30)),
             }.Concat(BaseContent.SummonTypes).ToArray();
 
             var structureTypes = new[]
@@ -111,7 +111,7 @@ namespace Dynasty.MatchSimulation.Rules
                 id,
                 version,
                 ticksPerSecond: 30,
-                combat: new CombatRules(Fixed.FromRatio(6, 100), heroAggro: true),
+                combat: new CombatRules(Fixed.FromRatio(6, 100), heroAggro: true, attackClasses: AttackClassTable.Dota),
                 creepTypes: creeps,
                 structureTypes: structureTypes,
                 map: new MapDefinition(10000, 10000, lanes, structures, obstacles, fountains: new[]
@@ -167,20 +167,32 @@ namespace Dynasty.MatchSimulation.Rules
         private static StructurePlacement Placement(string id, string type, int x, int y, bool isAncient, string[] protectedBy, VulnerabilityRule rule) =>
             new StructurePlacement(id, Team.Dawn, type, FixedVector2.FromInts(x, y), isAncient, protectedBy, rule);
 
-        /// <summary>Four camps per half (two small, two large), mirrored through the map center.</summary>
+        /// <summary>
+        /// Dota's jungle per half: two small, four medium, four large and two ancient camps, mirrored through
+        /// the map center; each spawns on the clock every minute from 1:00 when cleared. Half of them sit
+        /// between the safe lane and mid, the other half (x and y swapped) between mid and the off lane.
+        /// </summary>
         private static IReadOnlyList<NeutralCampDefinition> Camps()
         {
-            WaveEntry[] small = { new WaveEntry("jungle_small", 2) };
-            WaveEntry[] large = { new WaveEntry("jungle_large", 1), new WaveEntry("jungle_small", 1) };
-            var dawnHalf = new[]
+            WaveEntry[] small = { new WaveEntry("jungle_small", 3) };
+            WaveEntry[] medium = { new WaveEntry("jungle_medium", 3) };
+            WaveEntry[] large = { new WaveEntry("jungle_large", 2) };
+            WaveEntry[] ancient = { new WaveEntry("jungle_ancient", 2) };
+            var safeSide = new[]
             {
-                new NeutralCampDefinition("camp.dawn.small.1", FixedVector2.FromInts(4500, 1900), small, 30000, 60000, 600),
-                new NeutralCampDefinition("camp.dawn.small.2", FixedVector2.FromInts(1900, 4500), small, 30000, 60000, 600),
-                new NeutralCampDefinition("camp.dawn.large.1", FixedVector2.FromInts(4300, 2700), large, 30000, 60000, 600),
-                new NeutralCampDefinition("camp.dawn.large.2", FixedVector2.FromInts(2700, 4300), large, 30000, 60000, 600),
+                ("small", 4500, 1900, small),
+                ("medium", 6300, 1900, medium),
+                ("medium", 4900, 3700, medium),
+                ("large", 4300, 2700, large),
+                ("large", 5600, 3500, large),
+                ("ancient", 6800, 2700, ancient),
             };
+            var dawnHalf = safeSide
+                .Select((c, i) => new NeutralCampDefinition($"camp.dawn.{c.Item1}.s{i}", FixedVector2.FromInts(c.Item2, c.Item3), c.Item4, 60000, 60000, 600, alignedToClock: true))
+                .Concat(safeSide.Select((c, i) => new NeutralCampDefinition($"camp.dawn.{c.Item1}.o{i}", FixedVector2.FromInts(c.Item3, c.Item2), c.Item4, 60000, 60000, 600, alignedToClock: true)))
+                .ToArray();
             return dawnHalf
-                .Concat(dawnHalf.Select(c => new NeutralCampDefinition(c.Id.Replace(".dawn.", ".dusk."), c.Position.ReflectThrough(Center), c.Creeps, c.FirstSpawnMs, c.RespawnMs, c.LeashRadius)))
+                .Concat(dawnHalf.Select(c => new NeutralCampDefinition(c.Id.Replace(".dawn.", ".dusk."), c.Position.ReflectThrough(Center), c.Creeps, c.FirstSpawnMs, c.RespawnMs, c.LeashRadius, c.AlignedToClock)))
                 .ToArray();
         }
 
@@ -190,8 +202,9 @@ namespace Dynasty.MatchSimulation.Rules
         private static FixedVector2[] Points(params (int X, int Y)[] points) =>
             points.Select(p => FixedVector2.FromInts(p.X, p.Y)).ToArray();
 
-        private static UnitStats Stats(int hp, int armor, int speed, int dmgMin, int dmgMax, int range, int intervalMs, int pointMs, int acquisition, int radius) =>
-            new UnitStats(hp, Fixed.FromInt(armor), speed, dmgMin, dmgMax, range, intervalMs, pointMs, acquisition, radius,
+        private static UnitStats Stats(int hp, int armor, int speed, int dmgMin, int dmgMax, int range, int intervalMs, int pointMs, int acquisition, int radius,
+            AttackClass attackClass = AttackClass.Basic) =>
+            new UnitStats(hp, Fixed.FromInt(armor), speed, dmgMin, dmgMax, range, intervalMs, pointMs, acquisition, radius, attackClass: attackClass,
                 visionRange: speed == 0 ? 900 : 800,
                 trueSightRange: speed == 0 && dmgMax > 0 ? 700 : 0,
                 // Ranged attackers (towers, ranged and siege creeps) fire projectiles; melee hits land at the attack point.

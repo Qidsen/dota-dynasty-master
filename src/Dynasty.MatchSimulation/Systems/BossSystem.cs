@@ -65,7 +65,7 @@ namespace Dynasty.MatchSimulation.Systems
             if (camp.NextSpawnTick < 0)
             {
                 if (camp.Members.All(m => !m.IsAlive))
-                    camp.NextSpawnTick = now + context.TickRate.TicksFor(camp.Definition.RespawnMs);
+                    camp.NextSpawnTick = NextSpawnAfterClear(context, camp.Definition, now);
                 return;
             }
 
@@ -82,6 +82,15 @@ namespace Dynasty.MatchSimulation.Systems
 
             camp.NextSpawnTick = -1;
             context.Emit(new CampSpawned(camp.Definition.Id));
+        }
+
+        private static long NextSpawnAfterClear(SimulationContext<MatchState> context, NeutralCampDefinition camp, long now)
+        {
+            long interval = context.TickRate.TicksFor(camp.RespawnMs);
+            if (!camp.AlignedToClock)
+                return now + interval;
+            long first = context.TickRate.TicksFor(camp.FirstSpawnMs);
+            return first + ((now - first) / interval + 1) * interval;
         }
 
         private static MatchUnit? ChooseTarget(MatchState state, MatchUnit unit)

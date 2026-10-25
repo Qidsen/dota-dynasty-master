@@ -7,12 +7,14 @@ namespace Dynasty.MatchSimulation.Rules
 {
     /// <summary>
     /// A neutral jungle camp: its creeps ignore passers-by, fight back together when one of them is
-    /// hit, never leave the leash circle, and the camp respawns a fixed time after being cleared.
+    /// hit, never leave the leash circle, and the camp respawns a fixed time after being cleared — or,
+    /// aligned to the clock (Dota), at the next spawn time: first spawn plus whole respawn intervals.
     /// </summary>
     public sealed class NeutralCampDefinition
     {
-        public NeutralCampDefinition(string id, FixedVector2 position, IReadOnlyList<WaveEntry> creeps, int firstSpawnMs, int respawnMs, int leashRadius)
+        public NeutralCampDefinition(string id, FixedVector2 position, IReadOnlyList<WaveEntry> creeps, int firstSpawnMs, int respawnMs, int leashRadius, bool alignedToClock = false)
         {
+            AlignedToClock = alignedToClock;
             Id = id;
             Position = position;
             Creeps = creeps.ToArray();
@@ -31,6 +33,9 @@ namespace Dynasty.MatchSimulation.Rules
 
         public int LeashRadius { get; }
 
+        /// <summary>A cleared camp spawns at the next first-spawn-plus-intervals mark instead of an interval after clearing.</summary>
+        public bool AlignedToClock { get; }
+
         internal void WriteCanonical(CanonicalWriter w)
         {
             w.WriteString(Id);
@@ -45,6 +50,7 @@ namespace Dynasty.MatchSimulation.Rules
             w.WriteInt64(FirstSpawnMs);
             w.WriteInt64(RespawnMs);
             w.WriteInt64(LeashRadius);
+            w.WriteBool(AlignedToClock);
         }
     }
 }

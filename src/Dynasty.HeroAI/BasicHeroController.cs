@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Linq;
+using Dynasty.Core.Ids;
 using Dynasty.Core.Kernel;
 using Dynasty.Core.Mathematics;
 using Dynasty.Core.Randomness;
@@ -50,6 +51,9 @@ namespace Dynasty.HeroAI
 
         /// <summary>Tick the current plan (or its objective) was called.</summary>
         public long PlanSince { get; private set; }
+
+        /// <summary>Camps a hero of this team found empty, with the tick they are expected back (shared by the team).</summary>
+        public Dictionary<string, long> CampEmptyUntil { get; } = new Dictionary<string, long>();
 
         public void UpdatePlan(MatchState state, long now, int ticksPerMinute, HeroAiSettings settings)
         {
@@ -181,8 +185,16 @@ namespace Dynasty.HeroAI
 
         public List<long> RecentDeathTicks { get; } = new List<long>();
 
-        /// <summary>Camps this hero found empty, with the tick they are expected back.</summary>
-        public Dictionary<string, long> CampEmptyUntil { get; } = new Dictionary<string, long>();
+        /// <summary>The enemy hero being chased, the closest it has been and when, and the last decision of the chase.</summary>
+        public EntityId ChaseTarget { get; set; }
+        public Fixed ChaseClosest { get; set; }
+        public long ChaseClosestTick { get; set; }
+        public long ChaseLastTick { get; set; }
+
+        /// <summary>A chase given up: this target is not chased again until the tick.</summary>
+        public EntityId GaveUpOn { get; set; }
+        public long GaveUpUntil { get; set; }
+
     }
 
     /// <summary>
@@ -355,6 +367,17 @@ namespace Dynasty.HeroAI
             _memory.RecentDeathTicks.RemoveAll(t => _now - t > 5L * _ticksPerMinute);
         }
 
+        /// <summary>Reports the branch that decided (with the team plan when it is not laning) to <see cref="HeroAiSettings.DecisionTrace"/>.</summary>
+        private void Trace(string branch) =>
+            _settings.DecisionTrace?.Invoke(_hero, _now, _brain.Plan == TeamPlanKind.Lane ? branch : branch + "/" + _brain.Plan);
+
+        private bool Decided(bool acted, string branch)
+        {
+            if (acted)
+                Trace(branch);
+            return acted;
+        }
+
         public void Run()
         {
             Shop();
@@ -374,28 +397,30 @@ namespace Dynasty.HeroAI
                 _memory.Retreating = true;
             if (_memory.Retreating)
             {
+                Trace("Retreat");
                 GoHome();
                 return;
             }
 
-            if (Cleanse())
+            if (Decided(Cleanse(), "Cleanse"))
                 return;
-            if (Fight())
+            if (Decided(Fight(), "Fight"))
                 return;
-            if (SiegeWithSummons())
+            if (Decided(SiegeWithSummons(), "SiegeWithSummons"))
                 return;
-            if (SenseDanger())
+            if (Decided(SenseDanger(), "SenseDanger"))
                 return;
-            if (FollowPlan())
+            if (Decided(FollowPlan(), "FollowPlan"))
                 return;
-            if (PlaceWard())
+            if (Decided(PlaceWard(), "PlaceWard"))
                 return;
-            if (Gank())
+            if (Decided(Gank(), "Gank"))
                 return;
-            if (PickUpRune())
+            if (Decided(PickUpRune(), "PickUpRune"))
                 return;
-            if (FarmJungle())
+            if (Decided(FarmJungle(), "FarmJungle"))
                 return;
+            Trace("Lane");
             Lane();
         }
 
@@ -457,21 +482,34 @@ namespace Dynasty.HeroAI
 
         /// <summary>
         /// With no allied creeps in its lane, a healthy hero farms the nearest own-half camp it has
-        /// not recently found empty. Camp positions are static map knowledge; creeps must be seen.
+        /// not recently found empty. After the laning phase a core farms camps near its lane between
+        /// waves instead: whenever no enemy wave is at its lane front (backlog B-108). Camp positions
+        /// are static map knowledge; creeps must be seen.
         /// </summary>
         private bool FarmJungle()
         {
             if (Math.HpPercent(_hero) < 50 || _state.Ruleset.Map.Camps.Count == 0)
                 return false;
             HeroDecision self = this;
-            bool laneHasCreeps = _state.Units.Any(u => u.Team == self._hero.Team && u.Kind == UnitKind.Creep && u.IsAlive && u.LaneId == self._h.AssignedLane);
-            if (laneHasCreeps)
+            bool core = !Laning && _personality.Greed >= CoreGreed;
+            FixedVector2 front = LaneFront();
+            FixedVector2 rally = LaneRally();   // a wave pushed into the enemy half is not followed: farm near the own tower
+            if (core)
+            {
+                if (FinishingCamp())
+                    return true;
+                if (EnemyWaveAt(front))
+                    return false;
+            }
+            else if (_state.Units.Any(u => u.Team == self._hero.Team && u.Kind == UnitKind.Creep && u.IsAlive && u.LaneId == self._h.AssignedLane))
                 return false;
 
             FixedVector2 enemyHome = _state.Ruleset.Map.FountainOf(_hero.Team.Opponent())!.Position;
             NeutralCampDefinition? camp = _state.Ruleset.Map.Camps
                 .Where(c => FixedVector2.DistanceSquared(c.Position, self.Home) < FixedVector2.DistanceSquared(c.Position, enemyHome))
-                .Where(c => !self._memory.CampEmptyUntil.TryGetValue(c.Id, out long until) || self._now >= until)
+                .Where(c => !core || (Math.Within(c.Position, front, CampReachFromLane) && Math.Within(c.Position, self._hero.Position, CampReachFromHero)) ||
+                            Math.Within(c.Position, rally, CampReachFromLane))
+                .Where(c => !self._brain.CampEmptyUntil.TryGetValue(c.Id, out long until) || self._now >= until)
                 .OrderBy(c => FixedVector2.DistanceSquared(c.Position, self._hero.Position))
                 .FirstOrDefault();
             if (camp == null)
@@ -489,12 +527,43 @@ namespace Dynasty.HeroAI
                 .FirstOrDefault();
             if (creep == null)
             {
-                _memory.CampEmptyUntil[camp.Id] = _now + camp.RespawnMs * (_ticksPerMinute / 60) / 1000;
+                _brain.CampEmptyUntil[camp.Id] = ExpectedRespawn(camp);
                 return false;
             }
-
             Issue(HeroOrder.Attack(creep.Id));
             return true;
+        }
+
+        /// <summary>When an empty camp is back: the next spawn mark of a camp on the clock (the game clock is public), else a full interval.</summary>
+        private long ExpectedRespawn(NeutralCampDefinition camp)
+        {
+            long interval = (long)camp.RespawnMs * TicksPerSecond / 1000;
+            if (!camp.AlignedToClock)
+                return _now + interval;
+            long first = (long)camp.FirstSpawnMs * TicksPerSecond / 1000;
+            return _now < first ? first : first + ((_now - first) / interval + 1) * interval;
+        }
+
+        private const double CoreGreed = 0.5;
+        private const int CampReachFromHero = 2000;
+        private const int CampReachFromLane = 3000;
+        private const int WaveReach = 1500;
+
+        /// <summary>Already hitting a camp: finish it rather than leave the creeps half dead.</summary>
+        private bool FinishingCamp()
+        {
+            if (_h.Order.Kind != HeroOrderKind.Attack)
+                return false;
+            MatchUnit? target = _state.Find(_h.Order.Target);
+            return target != null && target.IsAlive && target.Team == Team.Neutral && target.Kind == UnitKind.Creep && Sees(target);
+        }
+
+        /// <summary>A visible enemy creep of the hero's lane near its lane front, outside enemy tower range.</summary>
+        private bool EnemyWaveAt(FixedVector2 front)
+        {
+            HeroDecision self = this;
+            return _state.Units.Any(u => u.Team == self._hero.Team.Opponent() && u.Kind == UnitKind.Creep && u.IsAlive && u.LaneId == self._h.AssignedLane &&
+                                         self.Sees(u) && Math.Within(u.Position, front, WaveReach) && !self.UnderEnemyTower(u.Position));
         }
 
         // ── Support ──────────────────────────────────────────────────────────────
@@ -553,9 +622,10 @@ namespace Dynasty.HeroAI
                 GoHome();
                 return true;
             }
-
             if (oddsPercent < CommitOddsPercent(enemies))
+            {
                 return Harass(enemies);
+            }
 
             if (_skill.FightFumblePercent > 0 && _random.NextInt(0, 100) < _skill.FightFumblePercent)
             {
@@ -592,8 +662,55 @@ namespace Dynasty.HeroAI
                 return true;
             }
 
+            if (!Catchable(focus))
+            {
+                return false;   // it gets away: back to farming
+            }
+
             Issue(HeroOrder.Attack(focus.Id));
             return true;
+        }
+
+        private const int ChaseGiveUpTicks = 60;
+        private const int ChaseForgetTicks = 150;
+
+        /// <summary>
+        /// An enemy hero out of attack reach that is not slower, not held in place, and has not come any
+        /// closer for two seconds of chasing gets away: the chase is given up for a few seconds. Judged
+        /// from seen positions only.
+        /// </summary>
+        private bool Catchable(MatchUnit target)
+        {
+            Fixed distance = FixedVector2.Distance(_hero.Position, target.Position);
+            Fixed reach = Fixed.FromInt(_hero.AttackRange + _hero.BoundingRadius + target.BoundingRadius + 100);
+            bool held = (target.Flags & (ModifierFlags.Stunned | ModifierFlags.Rooted)) != 0 || target.MoveSpeed < _hero.MoveSpeed;
+            if (distance <= reach || held)
+            {
+                _memory.ChaseTarget = EntityId.None;
+                return true;
+            }
+
+            if (_memory.GaveUpOn == target.Id && _now < _memory.GaveUpUntil)
+                return false;
+            if (_memory.ChaseTarget != target.Id || _now - _memory.ChaseLastTick > ChaseGiveUpTicks / 2)
+            {
+                _memory.ChaseTarget = target.Id;
+                _memory.ChaseClosest = distance;
+                _memory.ChaseClosestTick = _now;
+            }
+            else if (distance < _memory.ChaseClosest - Fixed.FromInt(50))
+            {
+                _memory.ChaseClosest = distance;
+                _memory.ChaseClosestTick = _now;
+            }
+
+            _memory.ChaseLastTick = _now;
+            if (_now - _memory.ChaseClosestTick <= ChaseGiveUpTicks)
+                return true;
+            _memory.GaveUpOn = target.Id;
+            _memory.GaveUpUntil = _now + ChaseForgetTicks;
+            _memory.ChaseTarget = EntityId.None;
+            return false;
         }
 
         /// <summary>An enemy hero within reach of an enemy tower and not nearly dead: attacking him is a dive.</summary>
@@ -616,10 +733,22 @@ namespace Dynasty.HeroAI
         {
             if (_personality.Greed >= 0.5 && Laning && enemies.All(e => Math.HpPercent(e) > LaneKillHpPercent))
                 return int.MaxValue;   // a farming core fights in lane only for a kill
+            if (ProtectingCarry && !KillLikely(enemies))
+                return int.MaxValue;   // a carry farming toward its items fights only for a likely kill
             if (ProtectingCarry || LaningCore)
                 return 140;
             bool laning = _now / _ticksPerMinute < _settings.LaningPhaseFor(_hero.Team);
             return laning && enemies.All(e => Math.HpPercent(e) > LaneKillHpPercent) ? LaneCommitOddsPercent : 115;
+        }
+
+        /// <summary>A kill is likely: an enemy is low or held in place, or the own side has two heroes more around.</summary>
+        private bool KillLikely(List<MatchUnit> enemies)
+        {
+            if (enemies.Any(e => Math.HpPercent(e) <= LaneKillHpPercent || (e.Flags & (ModifierFlags.Stunned | ModifierFlags.Rooted)) != 0))
+                return true;
+            HeroDecision self = this;
+            int allies = _state.Heroes.Count(h => h.Team == self._hero.Team && h.IsAlive && Math.Within(h.Position, self._hero.Position, self._settings.EngageRange));
+            return allies >= enemies.Count + 2;
         }
 
         private const int LaneCommitOddsPercent = 150;
@@ -790,6 +919,8 @@ namespace Dynasty.HeroAI
 
             if (!Math.Within(_hero.Position, prey.Position, 1500) && TrySmoke())
                 return true;
+            if (!Catchable(prey))
+                return false;
 
             Issue(HeroOrder.Attack(prey.Id));
             return true;
@@ -831,6 +962,8 @@ namespace Dynasty.HeroAI
                 // While laning, and for a greedy carry, only heroes already close come to help.
                 long minute = _now / _ticksPerMinute;
                 int responseRange = minute < _settings.LaningPhaseFor(_hero.Team) || _personality.Greed > 0.7 ? 3000 : 7000;
+                if (responseRange > NearbyDefenseRange && !Math.Within(_hero.Position, objective.Position, NearbyDefenseRange) && !AmongNearestDefenders(objective))
+                    return false;   // others answer this threat; keep farming
                 if (responseRange > 4000 && !Math.Within(_hero.Position, objective.Position, 4000) && TryTeleportTo(objective))
                     return true;
                 if (!Math.Within(_hero.Position, objective.Position, responseRange))
@@ -888,6 +1021,25 @@ namespace Dynasty.HeroAI
         }
 
         private const int CarryJoinsPushWithin = 3000;
+        private const int NearbyDefenseRange = 3000;
+
+        /// <summary>
+        /// A threat is answered by one more hero than the visible attackers: the nearest living ones
+        /// (ties by ID, so the choice does not depend on processing order).
+        /// </summary>
+        private bool AmongNearestDefenders(MatchUnit structure)
+        {
+            HeroDecision self = this;
+            int attackers = _state.Heroes.Count(h => h.Team != self._hero.Team && h.IsAlive && self.Sees(h) &&
+                                                     Math.Within(h.Position, structure.Position, Math.TowerReach(structure) + 300));
+            int rank = _state.Heroes
+                .Where(h => h.Team == self._hero.Team && h.IsAlive)
+                .OrderBy(h => FixedVector2.DistanceSquared(h.Position, structure.Position))
+                .ThenBy(h => h.Id.Value)
+                .TakeWhile(h => h != self._hero)
+                .Count();
+            return rank <= attackers;
+        }
 
         /// <summary>Channels a carried teleport onto an allied structure.</summary>
         private bool TryTeleportTo(MatchUnit structure)

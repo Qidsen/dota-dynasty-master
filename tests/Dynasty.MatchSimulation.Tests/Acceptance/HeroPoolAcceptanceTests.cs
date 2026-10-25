@@ -29,7 +29,7 @@ public class HeroPoolAcceptanceTests
     {
         var kernel = Match.Create(BaseRuleset.Create(), seed, lineup);
         HeroAi.Attach(kernel);
-        kernel.RunUntilFinished(40L * 60 * 30);
+        kernel.RunUntilFinished(60L * 60 * 30);   // Dota-like length: about 40 min on average, with a long tail
         return kernel;
     }
 

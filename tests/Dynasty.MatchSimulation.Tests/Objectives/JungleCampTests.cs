@@ -125,6 +125,34 @@ public class JungleCampTests
         Assert.Equal(2, kernel.EventsOf<CampSpawned>().Count());
     }
 
+    /// <summary>
+    /// Dota's camps spawn on the clock: a cleared camp comes back at the next spawn time
+    /// (first spawn + whole intervals), not a full interval after it was cleared.
+    /// </summary>
+    [Fact]
+    public void ClockCamp_RespawnsAtTheNextIntervalMark()
+    {
+        var draft = new RulesetDraft().WithoutWaves();
+        draft.Creeps.Add(new CreepType("wolf", MeleeStats(hp: 300, armor: 0, dmgMin: 15, dmgMax: 15, speed: 320), new Bounty(30, 30, 40)));
+        draft.Camps.Add(new NeutralCampDefinition("camp.a", P(3000, 2500), new[] { new WaveEntry("wolf", 2) },
+            firstSpawnMs: 0, respawnMs: 10000, leashRadius: 600, alignedToClock: true));
+        var kernel = draft.StartWithHeroes(new[] { ("alpha", "mid") }, Array.Empty<(string, string)>());
+        void ClearAt(long tick) => At(kernel, tick, ctx =>
+        {
+            foreach (MatchUnit creep in CampCreeps(ctx.State).Where(c => c.IsAlive).ToList())
+                Damage.Deal(ctx, H(ctx.State, "alpha").Id, creep, Fixed.FromInt(9999), DamageType.Pure);
+        });
+        ClearAt(250);   // cleared late in the first interval: back at tick 300, not 550
+        ClearAt(310);   // cleared early in the second: back at tick 600
+
+        kernel.RunTicks(302);
+        Assert.Equal(2, kernel.EventsOf<CampSpawned>().Count());
+        kernel.RunTicks(297);   // up to tick 599
+        Assert.Equal(2, kernel.EventsOf<CampSpawned>().Count());
+        kernel.RunTicks(3);
+        Assert.Equal(3, kernel.EventsOf<CampSpawned>().Count());
+    }
+
     [Fact]
     public void Validation_RejectsCampsWithUnknownCreepsOrInsideObstacles()
     {
@@ -148,5 +176,32 @@ public class JungleCampTests
         kernel.RunTicks(30 * 60);
 
         Assert.True(H(kernel.State, "alpha").Hero!.LastHits >= 2, "alpha should have cleared the camp");
+    }
+
+    /// <summary>
+    /// After the laning phase a core farms the jungle between waves (backlog B-108): its lane always has
+    /// allied creeps, yet with no enemy wave at the front it clears a nearby camp, and it is back for the waves.
+    /// </summary>
+    [Fact]
+    public void Ai_CoreFarmsANearbyCampBetweenWaves_AfterLaning()
+    {
+        var draft = new RulesetDraft();
+        draft.Creeps[0] = new CreepType("melee", MeleeStats(hp: 250), new Bounty(40, 40, 60));   // waves die fast: time between them
+        draft.Creeps.Add(new CreepType("wolf", MeleeStats(hp: 300, armor: 0, dmgMin: 15, dmgMax: 15, speed: 320), new Bounty(30, 30, 40)));
+        draft.Camps.Add(new NeutralCampDefinition("camp.a", P(4000, 3900), new[] { new WaveEntry("wolf", 2) },
+            firstSpawnMs: 0, respawnMs: 30000, leashRadius: 600));
+        var kernel = draft.StartWithHeroes(new[] { ("alpha", "mid") }, Array.Empty<(string, string)>());
+        var settings = new HeroAiSettings { ReactionJitterTicks = 0, MisjudgementPercent = 0, LaningPhaseMinutes = 0 };
+        settings.Personalities["alpha"] = new HeroPersonality { Greed = 0.8 };
+        HeroAi.Attach(kernel, settings);
+
+        kernel.RunTicks(30 * 60 * 4);
+
+        EntityId alpha = H(kernel.State, "alpha").Id;
+        var kills = kernel.EventsOf<UnitKilled>().Where(e => e.Killer == alpha).ToList();
+        int neutrals = kills.Count(e => e.VictimTeam == Team.Neutral);
+        int laneCreeps = kills.Count(e => e.VictimTeam == Team.Dusk);
+        Assert.True(neutrals >= 4, $"alpha killed {neutrals} camp creeps, {laneCreeps} lane creeps");
+        Assert.True(laneCreeps >= 5, $"alpha killed {laneCreeps} lane creeps of 8 waves, {neutrals} camp creeps");
     }
 }

@@ -85,6 +85,31 @@ public class BaseRulesetTests
         return Math.Sqrt(Math.Pow(px - (ax + t * dx), 2) + Math.Pow(py - (ay + t * dy), 2));
     }
 
+    /// <summary>
+    /// The jungle is Dota's: per half two small, four medium, four large and two ancient camps that
+    /// spawn on the clock every minute from 1:00, worth about 1100 gold a minute per half when all are
+    /// cleared, and placed clear of the lanes and towers.
+    /// </summary>
+    [Fact]
+    public void BaseJungle_HasDotaCampsOnTheClock()
+    {
+        RulesetContent ruleset = BaseRuleset.Create();
+        var dawn = ruleset.Map.Camps.Where(c => c.Id.StartsWith("camp.dawn.")).ToList();
+
+        Assert.Equal(new[] { ("ancient", 2), ("large", 4), ("medium", 4), ("small", 2) },
+            dawn.GroupBy(c => c.Id.Split('.')[2]).OrderBy(g => g.Key).Select(g => (g.Key, g.Count())));
+        Assert.All(ruleset.Map.Camps, c => Assert.True(c.AlignedToClock && c.FirstSpawnMs == 60000 && c.RespawnMs == 60000, c.Id));
+        double gold = dawn.Sum(c => c.Creeps.Sum(e => e.Count * (ruleset.FindCreepType(e.CreepTypeId)!.Bounty.GoldMin + ruleset.FindCreepType(e.CreepTypeId)!.Bounty.GoldMax) / 2.0));
+        Assert.InRange(gold, 1000, 1300);
+        foreach (NeutralCampDefinition camp in ruleset.Map.Camps)
+        {
+            Assert.All(ruleset.Map.Structures, s => Assert.True(FixedVector2.Distance(s.Position, camp.Position) > Fixed.FromInt(800), camp.Id + " near " + s.Id));
+            foreach (LaneDefinition lane in ruleset.Map.Lanes)
+                for (int i = 0; i + 1 < lane.Waypoints.Count; i++)
+                    Assert.True(DistanceToSegment(camp.Position, lane.Waypoints[i], lane.Waypoints[i + 1]) > 700, camp.Id + " near lane " + lane.Id);
+        }
+    }
+
     [Fact]
     public void BaseCamps_AreMirroredBetweenTheHalves()
     {

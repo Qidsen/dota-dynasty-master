@@ -1,4 +1,7 @@
-"""Per-position gold and last hits at 10/20 minutes from recent pro matches (OpenDota public API)."""
+"""Per-position gold, last hits and experience at 10/20 minutes from recent pro matches (OpenDota public API).
+
+Usage: python -I opendota_stats.py out.json [count] [--cached]   (--cached re-reads out.json instead of downloading)
+"""
 import json
 import statistics
 import sys
@@ -22,16 +25,19 @@ def get(url):
     return None
 
 
-pro = get(f"{API}/proMatches")
-matches = []
-for m in pro[:LIMIT]:
-    d = get(f"{API}/matches/{m['match_id']}")
-    time.sleep(1.1)  # free tier: 60 requests per minute
-    if not d or not d.get("players") or not d["players"][0].get("gold_t"):
-        continue  # not parsed
-    matches.append(d)
-json.dump(matches, open(OUT, "w"))
-print(f"parsed matches: {len(matches)} of {min(LIMIT, len(pro))}")
+if "--cached" in sys.argv:
+    matches = json.load(open(OUT))
+else:
+    pro = get(f"{API}/proMatches")
+    matches = []
+    for m in pro[:LIMIT]:
+        d = get(f"{API}/matches/{m['match_id']}")
+        time.sleep(1.1)  # free tier: 60 requests per minute
+        if not d or not d.get("players") or not d["players"][0].get("gold_t"):
+            continue  # not parsed
+        matches.append(d)
+    json.dump(matches, open(OUT, "w"))
+    print(f"parsed matches: {len(matches)} of {min(LIMIT, len(pro))}")
 
 
 def positions(team):
@@ -47,7 +53,7 @@ def positions(team):
     return None  # unusual lanes (trilane, jungle): skip
 
 
-rows = {pos: {"g10": [], "g20": [], "lh10": [], "lh20": [], "k": [], "d": []} for pos in range(1, 6)}
+rows = {pos: {"g10": [], "g20": [], "lh10": [], "lh20": [], "xp10": [], "xp20": [], "k": [], "d": []} for pos in range(1, 6)}
 kills, durations, skipped = [], [], 0
 for d in matches:
     durations.append(d["duration"] / 60)
@@ -63,14 +69,14 @@ for d in matches:
             r["k"].append(p["kills"])
             r["d"].append(p["deaths"])
             if len(p["gold_t"]) > 10:
-                r["g10"].append(p["gold_t"][10]); r["lh10"].append(p["lh_t"][10])
+                r["g10"].append(p["gold_t"][10]); r["lh10"].append(p["lh_t"][10]); r["xp10"].append(p["xp_t"][10])
             if len(p["gold_t"]) > 20:
-                r["g20"].append(p["gold_t"][20]); r["lh20"].append(p["lh_t"][20])
+                r["g20"].append(p["gold_t"][20]); r["lh20"].append(p["lh_t"][20]); r["xp20"].append(p["xp_t"][20])
 
 med = lambda xs: statistics.median(xs) if xs else float("nan")
 avg = lambda xs: statistics.mean(xs) if xs else float("nan")
 print(f"matches {len(matches)}, teams skipped (unusual lanes) {skipped}")
 print(f"kills per match: mean {avg(kills):.1f}, median {med(kills):.0f}; duration: mean {avg(durations):.1f} min, median {med(durations):.1f}")
-print("pos  gold@10  gold@20   LH@10  LH@20   kills deaths  (means; gold = total earned, ~net worth)")
+print("pos  gold@10  gold@20   LH@10  LH@20   XP@10  XP@20   kills deaths  (means; gold = total earned, ~net worth)")
 for pos, r in rows.items():
-    print(f"{pos:>3} {avg(r['g10']):8.0f} {avg(r['g20']):8.0f} {avg(r['lh10']):7.1f} {avg(r['lh20']):6.1f} {avg(r['k']):7.1f} {avg(r['d']):6.1f}   n={len(r['g10'])}")
+    print(f"{pos:>3} {avg(r['g10']):8.0f} {avg(r['g20']):8.0f} {avg(r['lh10']):7.1f} {avg(r['lh20']):6.1f} {avg(r['xp10']):7.0f} {avg(r['xp20']):6.0f} {avg(r['k']):7.1f} {avg(r['d']):6.1f}   n={len(r['g10'])}")

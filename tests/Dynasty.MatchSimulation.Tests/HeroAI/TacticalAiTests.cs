@@ -136,6 +136,60 @@ public class TacticalAiTests
         Assert.True(now < start - 1500, $"alpha should rotate to defend (distance {start:0} -> {now:0})");
     }
 
+    /// <summary>
+    /// A target that runs away just as fast cannot be caught: after a short chase without closing in the
+    /// heroes give it up instead of following it across the map (nothing slows or holds it).
+    /// </summary>
+    [Fact]
+    public void FleeingEqualSpeedTarget_IsNotChasedAcrossTheMap()
+    {
+        var settings = Idle("beta");
+        foreach (string hero in new[] { "alpha", "gamma" })
+            settings.Personalities[hero] = new HeroPersonality();
+        var kernel = Skirmish(
+            new[] { ("alpha", 4000, 8000), ("gamma", 4000, 8150) },
+            new[] { ("beta", 4700, 8000) },
+            settings,
+            setup: ctx => HeroOrders.Issue(H(ctx.State, "beta"), HeroOrder.Move(P(9800, 8000))));
+
+        kernel.RunTicks(300);
+
+        Assert.True(H(kernel.State, "beta").Position.X > Fixed.FromInt(7000), "beta should have run");
+        Assert.True(H(kernel.State, "alpha").Position.X < Fixed.FromInt(6000), $"alpha followed to x={H(kernel.State, "alpha").Position.X.ToDouble():0}");
+        Assert.True(H(kernel.State, "gamma").Position.X < Fixed.FromInt(6000), $"gamma followed to x={H(kernel.State, "gamma").Position.X.ToDouble():0}");
+    }
+
+    /// <summary>
+    /// One enemy hero at a tower is answered by the nearest heroes, one more than the attackers, not by
+    /// the whole team from across the map: the farthest of three keeps doing its own thing.
+    /// </summary>
+    [Fact]
+    public void LoneThreat_DrawsOnlyTheNearestDefenders()
+    {
+        var draft = TestAbilities.Draft();
+        draft.Lanes.Add(new LaneDefinition("side", new[] { P(1000, 1000), P(9000, 1000) }));
+        draft.StructureTypes[0] = new StructureType("tower", TowerStats(dmg: 1));
+        var settings = new HeroAiSettings { ReactionJitterTicks = 0, MisjudgementPercent = 0, LaningPhaseMinutes = 0 };
+        settings.Uncontrolled.Add("beta");
+        foreach (string hero in new[] { "alpha", "gamma", "delta" })
+            settings.Personalities[hero] = new HeroPersonality();   // not greedy carries: those defend only nearby
+        var kernel = Skirmish(
+            new[] { ("alpha", 2500, 1000), ("gamma", 4500, 1000), ("delta", 8500, 1000) },
+            new[] { ("beta", 3300, 5000) },
+            settings,
+            draft: draft,
+            lane: "side",
+            setup: ctx => HeroOrders.Issue(H(ctx.State, "beta"), HeroOrder.Attack(ctx.State.FindStructure("dawn.mid.t1")!.Id)));
+        FixedVector2 tower = P(3000, 5000);
+
+        kernel.RunTicks(60);
+
+        bool Defends(string hero) => H(kernel.State, hero).Hero!.Order.Kind == HeroOrderKind.Move &&
+                                     FixedVector2.Distance(H(kernel.State, hero).Hero!.Order.Point, tower) < Fixed.FromInt(400);
+        Assert.True(Defends("alpha") && Defends("gamma"), "the two nearest should come");
+        Assert.False(Defends("delta"), "the farthest should not cross the map for one attacker");
+    }
+
     /// <summary>Two Dawn heroes against nobody, Dawn mid creeps sieging the Dusk mid tower, alpha's own lane wave holding near its spawn.</summary>
     private static SimulationKernel<MatchState> SiegeScenario(HeroAiSettings settings)
     {

@@ -157,7 +157,7 @@ public class TeamStrategyTests
             HeroAiSettings settings = Calm();
             settings.Uncontrolled.Add("beta");
             settings.Uncontrolled.Add("delta");
-            settings.DawnStrategy = new TeamStrategy { GankRange = gankRange };
+            settings.DawnStrategy = new TeamStrategy { GankRange = gankRange, ProtectCarriesUntilMinute = 0 };   // the carries may gank
             HeroAi.Attach(kernel, settings);
             kernel.RunTicks(90);
             return FixedVector2.Distance(H(kernel.State, "alpha").Position, H(kernel.State, "beta").Position).ToDouble();
@@ -219,6 +219,36 @@ public class TeamStrategyTests
 
         Assert.True(CarryAttacks(0) > 0);
         Assert.Equal(0, CarryAttacks(30));
+    }
+
+    /// <summary>
+    /// By default a greedy carry farms until minute 20, as in Dota: even with overwhelming odds it fights
+    /// only for a kill (a target low enough to finish), not a healthy hero.
+    /// </summary>
+    [Fact]
+    public void DefaultStrategy_ProtectedCarryFightsOnlyForAKill()
+    {
+        int CarryAttacks(int betaHpPercent)
+        {
+            var draft = TestAbilities.Draft();
+            var kernel = draft.StartWithHeroes(new[] { ("alpha", "mid") }, new[] { ("beta", "mid") });
+            kernel.AddSystem(new LambdaSystem(0, ctx =>
+            {
+                H(ctx.State, "alpha").Position = P(5000, 2000);
+                H(ctx.State, "beta").Position = P(5700, 2000);
+                H(ctx.State, "beta").Hp = Fixed.FromInt(H(ctx.State, "beta").MaxHp * betaHpPercent / 100);   // beta stands still (uncontrolled)
+            }));
+            HeroAiSettings settings = Calm();
+            settings.Personalities["alpha"] = new HeroPersonality { Aggression = 3.0, Greed = 0.8 };   // overwhelming odds
+            settings.Uncontrolled.Add("beta");
+            HeroAi.Attach(kernel, settings);
+            kernel.RunTicks(120);
+            return kernel.EventsOf<AttackStarted>().Count(a => a.Attacker == H(kernel.State, "alpha").Id);
+        }
+
+        Assert.Equal(20, new TeamStrategy().ProtectCarriesUntilMinute);
+        Assert.Equal(0, CarryAttacks(100));
+        Assert.True(CarryAttacks(30) > 0);
     }
 
     [Fact]

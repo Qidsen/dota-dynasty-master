@@ -387,6 +387,9 @@ namespace Dynasty.MatchSimulation.Systems
             bool critical = unit.CritChancePercent > 0 && context.Random("combat").NextInt(0, 100) < unit.CritChancePercent;
             if (critical)
                 damage = damage * Fixed.FromInt(unit.CritMultiplierPercent) / Fixed.FromInt(100);
+            int classPercent = context.State.Ruleset.Combat.AttackClasses.Percent(AttackClassOf(unit), DefenseClassOf(target));
+            if (classPercent != 100)
+                damage = damage * Fixed.FromInt(classPercent) / Fixed.FromInt(100);
             if (target.Kind == UnitKind.Structure && unit.StructureDamagePercent != 0)
                 damage = damage * Fixed.FromInt(100 + unit.StructureDamagePercent) / Fixed.FromInt(100);
 
@@ -402,6 +405,14 @@ namespace Dynasty.MatchSimulation.Systems
 
             ApplyHit(context, unit, target, damage, critical);
         }
+
+        private static AttackClass AttackClassOf(MatchUnit unit) =>
+            unit.Kind == UnitKind.Hero ? AttackClass.Hero : unit.Kind == UnitKind.Structure ? AttackClass.Reinforced : unit.Stats.AttackClass;
+
+        private static DefenseClass DefenseClassOf(MatchUnit unit) =>
+            unit.Kind == UnitKind.Hero ? DefenseClass.Hero
+            : unit.Kind == UnitKind.Structure || unit.Stats.AttackClass == AttackClass.Reinforced ? DefenseClass.Reinforced
+            : DefenseClass.Unit;
 
         internal static void ApplyHit(SimulationContext<MatchState> context, MatchUnit attacker, MatchUnit target, Fixed damage, bool critical)
         {
