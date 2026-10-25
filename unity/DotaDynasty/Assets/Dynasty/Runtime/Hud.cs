@@ -32,7 +32,7 @@ namespace Dynasty.Unity
             GUI.Label(new Rect(area.xMax - 166f, area.y + 6f, 150f, 32f), frame.DuskKills + "  Dusk", RightAligned(_big!));
             GUI.color = Color.white;
             GUI.Label(new Rect(area.x, area.y + 4f, w, 30f), $"{minutes:00}:{seconds:00}  {(frame.IsNight ? "night" : "day")}", Centered(_big!));
-            GUI.Label(new Rect(area.x, area.y + 34f, w, 20f), $"{speed}   view: {frame.Viewpoint}   {mode}", Centered(_label!));
+            GUI.Label(new Rect(area.x, area.y + 34f, w, 20f), $"{speed}   view: {frame.Viewpoint}   {mode}   seed {ViewerBootstrap.Seed}", Centered(_label!));
             if (frame.Winner is Team winner)
             {
                 GUI.color = Palette.Of(winner);

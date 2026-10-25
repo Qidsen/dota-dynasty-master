@@ -78,7 +78,7 @@ namespace Dynasty.Unity
             string state = session.IsComplete ? "draft complete — Enter: start the match" :
                 $"step {session.StepIndex + 1}/{session.Rules.Steps.Count}: {(session.TeamToAct == Team.Dawn ? _watch.DawnRoster.Name : _watch.DuskRoster.Name)} {session.ActionToTake?.ToString().ToLowerInvariant()}s{(_paused ? "  (paused)" : "")}";
             GUI.Label(new Rect(0, 12, Screen.width, 34), $"DRAFT   {_watch.DawnRoster.Name}  vs  {_watch.DuskRoster.Name}", Centered(_title!));
-            GUI.Label(new Rect(0, 46, Screen.width, 22), $"first pick: {first}    {state}", Centered(_label!));
+            GUI.Label(new Rect(0, 46, Screen.width, 22), $"first pick: {first}    {state}    seed {_seed}", Centered(_label!));
 
             float column = 360f;
             DrawTeam(new Rect(20, 90, column, Screen.height - 140), Team.Dawn, _watch.DawnRoster, _watch.DawnPlan, _watch.DawnPlayers);

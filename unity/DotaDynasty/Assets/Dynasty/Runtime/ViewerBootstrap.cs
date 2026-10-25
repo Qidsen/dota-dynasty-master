@@ -9,9 +9,14 @@ namespace Dynasty.Unity
     /// Starts the draft room (then the match) when the scene loads, unless the player runs the determinism probe.
     /// Command line: <c>-dynasty-seed N</c>, <c>-dynasty-skip-draft</c>; for automated checks
     /// <c>-dynasty-screenshots DIR [-dynasty-minute M]</c> (demo match) and <c>-dynasty-draft-screenshots DIR</c>.
+    /// Without a seed an interactive run picks a random one (shown on screen, so a match can be replayed);
+    /// the automated checks default to seed 1.
     /// </summary>
     public static class ViewerBootstrap
     {
+        /// <summary>Seed of the draft and the match on screen.</summary>
+        public static ulong Seed { get; private set; } = 1;
+
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         private static void Start()
         {
@@ -19,9 +24,13 @@ namespace Dynasty.Unity
             if (Value(args, DeterminismRunner.Argument) != null || UnityEngine.Object.FindAnyObjectByType<MatchViewer>() != null)
                 return;
 
-            ulong seed = ulong.TryParse(Value(args, "-dynasty-seed"), NumberStyles.Integer, CultureInfo.InvariantCulture, out ulong s) ? s : 1;
-
             string? draftShots = Value(args, "-dynasty-draft-screenshots");
+            string? screenshots = Value(args, "-dynasty-screenshots");
+            bool automated = draftShots != null || screenshots != null;
+            ulong seed = ulong.TryParse(Value(args, "-dynasty-seed"), NumberStyles.Integer, CultureInfo.InvariantCulture, out ulong s) ? s
+                : automated ? 1UL : (ulong)new System.Random().Next(1, 1000000);   // the viewer, not the simulation: the seed is its input
+            Seed = seed;
+
             if (draftShots != null)
             {
                 DraftScreen draft = DraftScreen.Create(seed);
@@ -29,7 +38,6 @@ namespace Dynasty.Unity
                 return;
             }
 
-            string? screenshots = Value(args, "-dynasty-screenshots");
             if (screenshots == null && !Has(args, "-dynasty-skip-draft"))
             {
                 DraftScreen.Create(seed);   // the draft first; it starts the match
