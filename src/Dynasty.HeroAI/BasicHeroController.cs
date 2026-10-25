@@ -83,7 +83,7 @@ namespace Dynasty.HeroAI
                 Objective = state.Boss;
                 return;
             }
-            int needed = minute < settings.LaningPhaseFor(Team) ? 3 : 2;   // the laning phase is for farming
+            int needed = minute < settings.LaningPhaseFor(Team) ? 3 : 1;   // the laning phase is for farming
             bool numbers = ownAlive - enemyAlive >= needed;
             bool advantage = numbers || (ownAlive >= enemyAlive && ownAlive >= 3 && minute >= settings.EvenPushFor(Team));
             PushAtEvenNumbers = !numbers;
@@ -885,6 +885,27 @@ namespace Dynasty.HeroAI
                 return;
             }
 
+            MatchUnit? victim = LaneTradeTarget();
+            if (victim != null)
+            {
+                Issue(HeroOrder.Attack(victim.Id));
+                return;
+            }
+
+            MatchUnit? sieger = FindWaveAtOwnStructure();
+            if (sieger != null)
+            {
+                Issue(HeroOrder.Attack(sieger.Id));
+                return;
+            }
+
+            MatchUnit? creep = WaveToShove();
+            if (creep != null)
+            {
+                Issue(HeroOrder.Attack(creep.Id));
+                return;
+            }
+
             MatchUnit? structure = FindPushTarget();
             if (structure != null)
             {
@@ -1011,6 +1032,81 @@ namespace Dynasty.HeroAI
 
         private int FlightTicks(MatchUnit unit, Fixed distance) =>
             unit.Stats.ProjectileSpeed > 0 ? (distance * Fixed.FromInt(TicksPerSecond) / Fixed.FromInt(unit.Stats.ProjectileSpeed)).ToIntFloor() : 0;
+
+        /// <summary>
+        /// Trading in the laning phase: with nothing to last hit, hit the enemy laner in range — when no enemy
+        /// creep is close enough to answer with aggro, or carelessly anyway (lane aggro, D-040).
+        /// </summary>
+        private MatchUnit? LaneTradeTarget()
+        {
+            if (_now / _ticksPerMinute >= _settings.LaningPhaseFor(_hero.Team) || _skill.LaneHarassPercent <= 0 || Math.HpPercent(_hero) < TradeHpPercent)
+                return null;
+            HeroDecision self = this;
+            MatchUnit? victim = VisibleEnemyHeroes(_hero.Position, _hero.AttackRange + TradeReach)
+                .Where(e => !self.UnderEnemyTower(e.Position))
+                .OrderBy(e => e.Hp)
+                .FirstOrDefault();
+            if (victim == null || !Rolls(_skill.LaneHarassPercent))
+                return null;
+            bool drawsAggro = _state.Units.Any(u => u.Team == self._hero.Team.Opponent() && (u.Kind == UnitKind.Creep || u.Kind == UnitKind.Summon) &&
+                                                    u.IsAlive && self.Sees(u) && Math.Within(u.Position, self._hero.Position, u.AcquisitionRange + 100));
+            return drawsAggro && !Rolls(_skill.CarelessTradePercent) ? null : victim;
+        }
+
+        private const int TradeHpPercent = 50;
+        private const int TradeReach = 150;
+
+        /// <summary>A percent chance; draws no random number when the outcome is certain.</summary>
+        private bool Rolls(int percent) => percent >= 100 || (percent > 0 && _random.NextInt(0, 100) < percent);
+
+        /// <summary>
+        /// After the laning phase, with no enemy hero in sight, a player who plays for objectives shoves the
+        /// wave in front of him (the weakest creep in reach) instead of waiting for last hits (backlog B-060).
+        /// </summary>
+        private MatchUnit? WaveToShove()
+        {
+            if (_now / _ticksPerMinute < _settings.LaningPhaseFor(_hero.Team) || _skill.WavePushPercent <= 0 ||
+                VisibleEnemyHeroes(_hero.Position, _settings.EngageRange).Count > 0)
+                return null;
+            if (_skill.WavePushPercent < 100 && _random.NextInt(0, 100) >= _skill.WavePushPercent)
+                return null;
+            HeroDecision self = this;
+            return _state.Units
+                .Where(u => u.Team == self._hero.Team.Opponent() && (u.Kind == UnitKind.Creep || u.Kind == UnitKind.Summon) && u.IsAlive && self.Sees(u) &&
+                            Math.Within(u.Position, self._hero.Position, self._hero.AttackRange + 400) && !self.UnderEnemyTower(u.Position))
+                .OrderBy(u => u.Hp)
+                .ThenBy(u => u.Id.Value)
+                .FirstOrDefault();
+        }
+
+        /// <summary>
+        /// An enemy creep at an own structure the hero stands near: the wave is cleared, not only last hit,
+        /// or left alone it takes the structure. The weakest such creep first.
+        /// </summary>
+        private MatchUnit? FindWaveAtOwnStructure()
+        {
+            HeroDecision self = this;
+            MatchUnit? best = null;
+            foreach (MatchUnit structure in _state.Units)
+            {
+                if (structure.Kind != UnitKind.Structure || structure.Team != _hero.Team || !structure.IsAlive ||
+                    !Math.Within(_hero.Position, structure.Position, DefendWaveRange))
+                    continue;
+                int reach = Math.TowerReach(structure) + 300;
+                foreach (MatchUnit creep in _state.Units)
+                {
+                    if (creep.Team != self._hero.Team.Opponent() || (creep.Kind != UnitKind.Creep && creep.Kind != UnitKind.Summon) || !creep.IsAlive ||
+                        !Sees(creep) || !Math.Within(creep.Position, structure.Position, reach))
+                        continue;
+                    if (best == null || creep.Hp < best.Hp)
+                        best = creep;
+                }
+            }
+
+            return best;
+        }
+
+        private const int DefendWaveRange = 1200;
 
         private MatchUnit? FindPushTarget()
         {

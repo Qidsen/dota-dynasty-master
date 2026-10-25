@@ -208,41 +208,121 @@ if (mode == "pushplan")
     return;
 }
 
+if (mode == "skilldiag")
+{
+    // Elite (Dawn, q17) against poor (Dusk, q7) players on the mirrored line-up: where each team's hero time goes.
+    int n = args.Length > 1 ? int.Parse(args[1]) : 8;
+    var time = new Dictionary<(Team, string), long>();
+    var structureDamage = new Dictionary<Team, double>();
+    Dynasty.Core.Mathematics.Fixed R(int v) => Dynasty.Core.Mathematics.Fixed.FromInt(v);
+    MatchLineup line = MirrorLineup();
+    var runs = Enumerable.Range(1, n).AsParallel().AsOrdered().Select(i =>
+    {
+        ulong seed = (ulong)i;
+        var settings = new HeroAiSettings();
+        var random = new Dynasty.Core.Randomness.DeterministicRandom(seed * 31);
+        foreach (var (team, picks, q) in new[] { (Team.Dawn, line.Dawn, 17), (Team.Dusk, line.Dusk, 7) })
+            for (int j = 0; j < picks.Count; j++)
+            {
+                var player = Dynasty.Players.PlayerGenerator.Generate(random, picks[j].HeroId, j + 1, q, new[] { picks[j].HeroId });
+                settings.SkillsOf(team)[picks[j].HeroId] = HeroSkill.FromPlayer(player, picks[j].HeroId);
+            }
+
+        var k = Match.Create(BaseRuleset.Create(), seed, line);
+        HeroAi.Attach(k, settings);
+        var local = new Dictionary<(Team, string), long>();
+        while (!k.IsFinished && k.CurrentTick.Value < 60L * 60 * 30)
+        {
+            k.RunUntilFinished(15);
+            foreach (MatchUnit h in k.State.Heroes)
+            {
+                var home = k.State.Ruleset.Map.FountainOf(h.Team)!.Position;
+                string c;
+                if (h.Hero!.IsDead) c = "dead";
+                else if (Dynasty.Core.Mathematics.FixedVector2.Distance(h.Position, home) < R(1500)) c = "base";
+                else if (k.State.Heroes.Any(e => e.Team != h.Team && e.IsAlive && Dynasty.Core.Mathematics.FixedVector2.Distance(e.Position, h.Position) < R(1200))) c = "near enemy heroes";
+                else if (k.State.Units.Any(u => u.Kind == UnitKind.Structure && u.Team != h.Team && u.IsAlive && Dynasty.Core.Mathematics.FixedVector2.Distance(u.Position, h.Position) < R(1200))) c = "at enemy structure";
+                else if (k.State.Units.Any(u => u.Kind == UnitKind.Creep && u.Team != h.Team && u.IsAlive && Dynasty.Core.Mathematics.FixedVector2.Distance(u.Position, h.Position) < R(800))) c = "at enemy creeps";
+                else c = "elsewhere";
+                local[(h.Team, c)] = local.GetValueOrDefault((h.Team, c)) + 1;
+            }
+        }
+
+        return (k, local);
+    }).ToList();
+    foreach (var (k, local) in runs)
+    {
+        foreach (var kv in local)
+            time[kv.Key] = time.GetValueOrDefault(kv.Key) + kv.Value;
+        var heroTeam = k.State.Heroes.ToDictionary(h => h.Id, h => h.Team);
+        var structures = k.State.Units.Where(u => u.Kind == UnitKind.Structure).Select(u => u.Id).ToHashSet();
+        foreach (var d in k.Events.Records.Select(r => r.Event).OfType<DamageDealt>())
+            if (heroTeam.TryGetValue(d.Attacker, out Team t) && (structures.Contains(d.Target) || k.State.Find(d.Target) == null && !heroTeam.ContainsKey(d.Target) && false))
+                structureDamage[t] = structureDamage.GetValueOrDefault(t) + d.Amount.ToDouble();
+    }
+
+    foreach (Team team in new[] { Team.Dawn, Team.Dusk })
+    {
+        long total = time.Where(kv => kv.Key.Item1 == team).Sum(kv => kv.Value);
+        Console.WriteLine($"{(team == Team.Dawn ? "elite" : "poor ")}: " + string.Join(", ", time.Where(kv => kv.Key.Item1 == team).OrderByDescending(kv => kv.Value)
+            .Select(kv => $"{kv.Key.Item2} {kv.Value * 100.0 / total:0}%")) + $"; hero damage to living structures {structureDamage.GetValueOrDefault(team) / n:0} per match");
+    }
+
+    Console.WriteLine($"elite wins {runs.Count(r => r.k.State.Winner == Team.Dawn)}/{n}");
+    return;
+}
+
 if (mode == "skill")
 {
     // Player skill on the same heroes: Dawn players of quality A vs Dusk players of quality B, and swapped.
+    // MATCHLAB_EQUALIZE=Prop1,Prop2 gives the weaker players the stronger players' value of those HeroSkill
+    // properties (ablation: how much of the gap each part of skill makes).
     int qa = args.Length > 1 ? int.Parse(args[1]) : 17;
     int qb = args.Length > 2 ? int.Parse(args[2]) : 7;
     int n = args.Length > 3 ? int.Parse(args[3]) : 16;
+    string[] equalize = (Environment.GetEnvironmentVariable("MATCHLAB_EQUALIZE") ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries);
     MatchLineup line = MirrorLineup();   // the same heroes on both sides: only the players differ
+    int strongerWins = 0;
     foreach (bool swap in new[] { false, true })
     {
         int dawnQ = swap ? qb : qa, duskQ = swap ? qa : qb;
-        int sWins = 0, dawnK = 0, duskK = 0, dawnLh = 0, duskLh = 0;
-        for (ulong seed = 1; seed <= (ulong)n; seed++)
+        Team stronger = dawnQ >= duskQ ? Team.Dawn : Team.Dusk;
+        var runs = Enumerable.Range(1, n).AsParallel().AsOrdered().Select(i =>
         {
+            ulong seed = (ulong)i;
             var settings = new HeroAiSettings();
             var random = new Dynasty.Core.Randomness.DeterministicRandom(seed * 31);
             foreach (var (team, picks, q) in new[] { (Team.Dawn, line.Dawn, dawnQ), (Team.Dusk, line.Dusk, duskQ) })
-                for (int i = 0; i < picks.Count; i++)
+                for (int j = 0; j < picks.Count; j++)
                 {
-                    var player = Dynasty.Players.PlayerGenerator.Generate(random, picks[i].HeroId, i + 1, q, new[] { picks[i].HeroId });
-                    settings.SkillsOf(team)[picks[i].HeroId] = HeroSkill.FromPlayer(player, picks[i].HeroId);
+                    var player = Dynasty.Players.PlayerGenerator.Generate(random, picks[j].HeroId, j + 1, q, new[] { picks[j].HeroId });
+                    settings.SkillsOf(team)[picks[j].HeroId] = HeroSkill.FromPlayer(player, picks[j].HeroId);
                 }
+
+            foreach (string property in equalize)
+            {
+                var info = typeof(HeroSkill).GetProperty(property) ?? throw new ArgumentException("No HeroSkill property " + property);
+                foreach (var pick in line.Dawn)
+                    info.SetValue(settings.SkillsOf(stronger.Opponent())[pick.HeroId], info.GetValue(settings.SkillsOf(stronger)[pick.HeroId]));
+            }
 
             var k = Match.Create(BaseRuleset.Create(), seed, line);
             HeroAi.Attach(k, settings);
             k.RunUntilFinished(60L * 60 * 30);
-            if (k.State.Winner == Team.Dawn) sWins++;
-            dawnK += k.State.Heroes.Where(h => h.Team == Team.Dawn).Sum(h => h.Hero!.Kills);
-            duskK += k.State.Heroes.Where(h => h.Team == Team.Dusk).Sum(h => h.Hero!.Kills);
-            dawnLh += k.State.Heroes.Where(h => h.Team == Team.Dawn).Sum(h => h.Hero!.LastHits);
-            duskLh += k.State.Heroes.Where(h => h.Team == Team.Dusk).Sum(h => h.Hero!.LastHits);
-        }
+            return k;
+        }).ToList();
 
-        Console.WriteLine($"Dawn q{dawnQ} vs Dusk q{duskQ}: Dawn wins {sWins}/{n}, kills {dawnK}:{duskK}, last hits {dawnLh}:{duskLh}");
+        int Sum(Team team, Func<Dynasty.MatchSimulation.Heroes.HeroState, int> value) => runs.Sum(k => k.State.Heroes.Where(h => h.Team == team).Sum(h => value(h.Hero!)));
+        int early(Team lost) => runs.Sum(k => k.Events.Records.Count(r => r.Tick.Value < 12 * 1800 && r.Event is StructureDestroyed sd && sd.Team == lost));
+        int lh10(Team team) => runs.Sum(k => k.Events.Records.Count(r => r.Tick.Value < 10 * 1800 && r.Event is GoldEarned g && g.Reason == "last_hit" &&
+                                                                       k.State.Heroes.Any(h => h.Id == g.Hero && h.Team == team)));
+        int wins = runs.Count(k => k.State.Winner == Team.Dawn);
+        strongerWins += stronger == Team.Dawn ? wins : n - wins;
+        Console.WriteLine($"Dawn q{dawnQ} vs Dusk q{duskQ}: Dawn wins {wins}/{n}, kills {Sum(Team.Dawn, h => h.Kills)}:{Sum(Team.Dusk, h => h.Kills)}, " +
+                          $"last hits {Sum(Team.Dawn, h => h.LastHits)}:{Sum(Team.Dusk, h => h.LastHits)}, structures lost before 12 min {early(Team.Dawn)}:{early(Team.Dusk)}, last hits by 10 min {lh10(Team.Dawn)}:{lh10(Team.Dusk)}");
     }
 
+    Console.WriteLine($"stronger players win {strongerWins}/{2 * n}" + (equalize.Length > 0 ? $" (equalized: {string.Join(",", equalize)})" : ""));
     return;
 }
 

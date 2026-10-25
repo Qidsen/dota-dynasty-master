@@ -255,6 +255,84 @@ public class TacticalAiTests
         Assert.Equal(0, AlphaAttacks(0.6));
     }
 
+    /// <summary>
+    /// Laning, nothing to last hit, the enemy laner in attack range; the Dusk creep stands either far away
+    /// or next to alpha (hitting the enemy hero there draws its aggro). Beta is pinned and not controlled.
+    /// </summary>
+    private static bool AlphaTrades(int harassPercent, int carelessPercent, bool creepNear)
+    {
+        var kernel = new RulesetDraft().StartWithHeroes(new[] { ("alpha", "mid") }, new[] { ("beta", "mid") });
+        At(kernel, 0, ctx =>
+        {
+            ctx.State.Creeps(Team.Dusk).Single().Position = creepNear ? P(5250, 5300) : P(9000, 9000);
+            ctx.State.Creeps(Team.Dawn).Single().Position = P(500, 9500);
+            H(ctx.State, "alpha").Position = P(5000, 5000);
+            H(ctx.State, "beta").Position = P(5140, 5000);
+            Pin(ctx, "beta");
+        });
+        var settings = Idle("beta");
+        settings.Personalities["alpha"] = new HeroPersonality();   // even odds: no fight, nothing to poke with
+        settings.SkillsOf(Team.Dawn)["alpha"] = new HeroSkill { ReactionJitterTicks = 0, MisjudgementPercent = 0, LaneHarassPercent = harassPercent, CarelessTradePercent = carelessPercent };
+        HeroAi.Attach(kernel, settings);
+        kernel.RunTicks(30);
+        EntityId alpha = H(kernel.State, "alpha").Id, beta = H(kernel.State, "beta").Id;
+        return kernel.EventsOf<AttackStarted>().Any(a => a.Attacker == alpha && a.Target == beta);
+    }
+
+    [Theory]
+    [InlineData(100, 0, false, true)]    // a free trade is taken
+    [InlineData(0, 0, false, false)]     // ... only by a player who looks for it
+    [InlineData(100, 0, true, false)]    // a disciplined player does not trade into creep aggro
+    [InlineData(100, 100, true, true)]   // a careless one does
+    public void Laner_TradesHitsWithTheEnemyLaner_MindingCreepAggro(int harassPercent, int carelessPercent, bool creepNear, bool trades)
+    {
+        Assert.Equal(trades, AlphaTrades(harassPercent, carelessPercent, creepNear));
+    }
+
+    [Theory]
+    [InlineData(100, true)]
+    [InlineData(0, false)]
+    public void FreeHeroAfterLaning_PushesTheWave_AsOftenAsThePlayerDoes(int wavePushPercent, bool pushes)
+    {
+        // A Dusk creep at full health mid-lane, no enemy hero around, laning over: a player who plays
+        // for objectives shoves the wave instead of waiting for last hits (ObjectiveControl).
+        var kernel = new RulesetDraft().StartWithHeroes(new[] { ("alpha", "mid") }, Array.Empty<(string, string)>());
+        At(kernel, 0, ctx =>
+        {
+            ctx.State.Creeps(Team.Dusk).Single().Position = P(5000, 5000);
+            ctx.State.Creeps(Team.Dawn).Single().Position = P(500, 9500);
+            H(ctx.State, "alpha").Position = P(4800, 5000);
+        });
+        var settings = new HeroAiSettings { ReactionJitterTicks = 0, MisjudgementPercent = 0, LaningPhaseMinutes = 0 };
+        settings.SkillsOf(Team.Dawn)["alpha"] = new HeroSkill { ReactionJitterTicks = 0, MisjudgementPercent = 0, WavePushPercent = wavePushPercent };
+        HeroAi.Attach(kernel, settings);
+
+        kernel.RunTicks(30);
+
+        EntityId alpha = H(kernel.State, "alpha").Id;
+        Assert.Equal(pushes, kernel.EventsOf<AttackStarted>().Any(a => a.Attacker == alpha));
+    }
+
+    [Fact]
+    public void HeroNearAnOwnTower_ClearsTheEnemyWaveHittingIt()
+    {
+        // A Dusk creep at full health at the Dawn tower, no Dawn creep around: not a last hit yet, but
+        // left alone the wave takes the tower. The hero beside the tower clears it.
+        var kernel = new RulesetDraft().StartWithHeroes(new[] { ("alpha", "mid") }, Array.Empty<(string, string)>());
+        At(kernel, 0, ctx =>
+        {
+            ctx.State.Creeps(Team.Dusk).Single().Position = P(3300, 5000);
+            ctx.State.Creeps(Team.Dawn).Single().Position = P(500, 9500);   // far away: nobody tanks
+            H(ctx.State, "alpha").Position = P(2900, 5000);
+        });
+        HeroAi.Attach(kernel, Idle());
+
+        kernel.RunTicks(30);
+
+        EntityId alpha = H(kernel.State, "alpha").Id;
+        Assert.Contains(kernel.EventsOf<AttackStarted>(), a => a.Attacker == alpha);   // the creep is the only enemy around
+    }
+
     [Theory]
     [InlineData(0.8, false, false)]
     [InlineData(0.5, false, true)]

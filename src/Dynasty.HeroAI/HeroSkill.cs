@@ -35,6 +35,21 @@ namespace Dynasty.HeroAI
         /// <summary>Chance per fight decision to fumble — stand still instead of acting (micro, movement), percent.</summary>
         public int FightFumblePercent { get; set; }
 
+        /// <summary>
+        /// Chance per decision in the laning phase, with nothing to last hit, to hit the enemy laner in range
+        /// when that draws no creep aggro (trading, micro), percent.
+        /// </summary>
+        public int LaneHarassPercent { get; set; } = 50;
+
+        /// <summary>Chance to make such a trade even next to enemy creeps, drawing their aggro (lack of discipline), percent.</summary>
+        public int CarelessTradePercent { get; set; }
+
+        /// <summary>
+        /// Chance per decision, after the laning phase and with no enemy hero in sight, to shove the wave
+        /// in front of the hero instead of waiting for last hits (objective control), percent.
+        /// </summary>
+        public int WavePushPercent { get; set; } = 100;
+
         /// <summary>Waits for two or more enemies before spending an area ultimate (initiation).</summary>
         public bool InitiationPatience { get; set; } = true;
 
@@ -78,6 +93,9 @@ namespace Dynasty.HeroAI
                 PointCastErrorUnits = Gap(Players.Attribute.SpellAccuracy) * 15,
                 FocusDisciplinePercent = 50 + a[Players.Attribute.TargetPriority] * 5 / 2,
                 FightFumblePercent = (Gap(Players.Attribute.Micro) + Gap(Players.Attribute.Movement)) * 3 / 2 + fatigue / 10,
+                LaneHarassPercent = System.Math.Min(100, Effective(Players.Attribute.Micro) * 5),
+                CarelessTradePercent = (Attributes.Max - a[Players.Attribute.Discipline]) * 4,
+                WavePushPercent = System.Math.Min(100, Effective(Players.Attribute.ObjectiveControl) * 5),
                 InitiationPatience = Effective(Players.Attribute.Initiation) >= 10,
                 AggressionPercent = 85 + a[Players.Attribute.Confidence],
                 RetreatShiftPercent = (a[Players.Attribute.MapAwareness] + a[Players.Attribute.Discipline]) / 2 - 12,
