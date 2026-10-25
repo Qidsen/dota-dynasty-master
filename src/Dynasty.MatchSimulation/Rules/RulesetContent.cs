@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using Dynasty.Core.Hashing;
@@ -384,13 +384,20 @@ namespace Dynasty.MatchSimulation.Rules
 
     public sealed class CombatRules
     {
-        public CombatRules(Fixed armorFactor)
+        public CombatRules(Fixed armorFactor, bool heroAggro = false)
         {
             ArmorFactor = armorFactor;
+            HeroAggro = heroAggro;
         }
 
         /// <summary>Damage multiplier = 1 - f·armor / (1 + f·|armor|).</summary>
         public Fixed ArmorFactor { get; }
+
+        /// <summary>
+        /// Lane aggro: creeps and towers pick enemy heroes that attack one of their heroes first, then
+        /// any other enemy unit before enemy heroes (otherwise simply the nearest attackable enemy).
+        /// </summary>
+        public bool HeroAggro { get; }
     }
 
     /// <summary>
@@ -675,6 +682,7 @@ namespace Dynasty.MatchSimulation.Rules
             writer.WriteInt64(Version);
             writer.WriteInt64(TicksPerSecond);
             writer.WriteFixed(Combat.ArmorFactor);
+            writer.WriteBool(Combat.HeroAggro);
 
             writer.WriteInt64(CreepTypes.Count);
             foreach (CreepType creep in CreepTypes)

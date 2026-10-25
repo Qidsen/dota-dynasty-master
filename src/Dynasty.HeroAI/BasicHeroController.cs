@@ -45,6 +45,9 @@ namespace Dynasty.HeroAI
         public TeamPlanKind Plan { get; private set; }
         public MatchUnit? Objective { get; private set; }
 
+        /// <summary>The push was called at even numbers (by the clock), not on a numbers advantage.</summary>
+        public bool PushAtEvenNumbers { get; private set; }
+
         /// <summary>Tick the current plan (or its objective) was called.</summary>
         public long PlanSince { get; private set; }
 
@@ -81,7 +84,9 @@ namespace Dynasty.HeroAI
                 return;
             }
             int needed = minute < settings.LaningPhaseFor(Team) ? 3 : 2;   // the laning phase is for farming
-            bool advantage = ownAlive - enemyAlive >= needed || (ownAlive >= enemyAlive && ownAlive >= 3 && minute >= settings.EvenPushFor(Team));
+            bool numbers = ownAlive - enemyAlive >= needed;
+            bool advantage = numbers || (ownAlive >= enemyAlive && ownAlive >= 3 && minute >= settings.EvenPushFor(Team));
+            PushAtEvenNumbers = !numbers;
             if (advantage)
             {
                 FixedVector2 home = state.Ruleset.Map.FountainOf(Team)!.Position;
@@ -358,9 +363,14 @@ namespace Dynasty.HeroAI
 
             NoticeDeaths();
             int hpPercent = Math.HpPercent(_hero);
-            if (_memory.Retreating && hpPercent >= _personality.ReturnHpPercent)
+            if (DrinkConsumable(hpPercent))
+                return;
+            // Healing over time that will bring the hero back to a fighting state replaces the trip home.
+            bool patchedUp = Healing && ExpectedHpPercent() >= _personality.ReturnHpPercent - PatchedUpMarginPercent &&
+                             VisibleEnemyHeroes(_hero.Position, _settings.EngageRange).Count == 0;
+            if (_memory.Retreating && (hpPercent >= _personality.ReturnHpPercent || patchedUp))
                 _memory.Retreating = false;
-            else if (!_memory.Retreating && hpPercent < _personality.RetreatHpPercent + _skill.RetreatShiftPercent)
+            else if (!_memory.Retreating && hpPercent < _personality.RetreatHpPercent + _skill.RetreatShiftPercent && !patchedUp)
                 _memory.Retreating = true;
             if (_memory.Retreating)
             {
@@ -387,6 +397,40 @@ namespace Dynasty.HeroAI
             if (FarmJungle())
                 return;
             Lane();
+        }
+
+        // ── Consumables ──────────────────────────────────────────────────────────
+
+        private const int ConsumableHpPercent = 55;
+        private const int PatchedUpMarginPercent = 30;
+
+        /// <summary>Drinks a carried healing consumable when hurt and not already healing (backlog B-024).</summary>
+        private bool DrinkConsumable(int hpPercent)
+        {
+            if (hpPercent >= ConsumableHpPercent || Healing || VisibleEnemyHeroes(_hero.Position, _settings.EngageRange).Count > 0)
+                return false;
+            AbilityState? potion = _h.Inventory
+                .Where(i => i.Active != null && Math.IsHealingConsumable(i.Definition, i.Active.Definition))
+                .Select(i => i.Active!)
+                .FirstOrDefault(a => a.IsReady(_now));
+            if (potion == null)
+                return false;
+
+            Issue(HeroOrder.CastNoTarget(potion.Definition.Id));
+            return true;
+        }
+
+        /// <summary>Healing over time is running on the hero (a consumable, an ally's spell, a rune).</summary>
+        private bool Healing => _hero.Modifiers.Any(m => m.Spec.HealPerSecond > Fixed.Zero && !m.Spec.IsPermanent && m.ExpiresTick > _now);
+
+        /// <summary>Health in percent once the healing over time running on the hero has landed.</summary>
+        private int ExpectedHpPercent()
+        {
+            Fixed pending = Fixed.Zero;
+            foreach (ActiveModifier modifier in _hero.Modifiers)
+                if (modifier.Spec.HealPerSecond > Fixed.Zero && !modifier.Spec.IsPermanent && modifier.ExpiresTick > _now)
+                    pending += modifier.Spec.HealPerSecond * Fixed.FromInt((int)(modifier.ExpiresTick - _now)) / Fixed.FromInt(TicksPerSecond);
+            return System.Math.Min(100, ((_hero.Hp + pending) * Fixed.FromInt(100) / Fixed.FromInt(_hero.MaxHp)).ToIntFloor());
         }
 
         // ── Runes ────────────────────────────────────────────────────────────────
@@ -507,7 +551,7 @@ namespace Dynasty.HeroAI
                 return true;
             }
 
-            if (oddsPercent < (ProtectingCarry ? 140 : 115))
+            if (oddsPercent < (ProtectingCarry || LaningCore ? 140 : 115))
                 return Harass(enemies);
 
             if (_skill.FightFumblePercent > 0 && _random.NextInt(0, 100) < _skill.FightFumblePercent)
@@ -535,6 +579,9 @@ namespace Dynasty.HeroAI
             Issue(HeroOrder.Attack(focus.Id));
             return true;
         }
+
+        /// <summary>A greedy carry in the laning phase: last hits first, fights only clearly won.</summary>
+        private bool LaningCore => _personality.Greed > 0.7 && _now / _ticksPerMinute < _settings.LaningPhaseFor(_hero.Team);
 
         /// <summary>
         /// Fighting strength as this team judges it: an ultimate ready to cast counts for a lot.
@@ -744,6 +791,11 @@ namespace Dynasty.HeroAI
                 long minute = _now / _ticksPerMinute;
                 if (_personality.Greed > 0.7 && minute < 18)
                     return false;
+                // A greedy carry keeps farming through a push at even numbers on a low-ground tower far away;
+                // it joins a push on numbers, on the high ground, or one that comes to it (backlog B-020).
+                if (_personality.Greed > 0.7 && _brain.PushAtEvenNumbers && _state.ElevationAt(objective.Position) == 0 &&
+                    !Math.Within(_hero.Position, objective.Position, CarryJoinsPushWithin))
+                    return false;
                 HeroDecision self = this;
 
                 MatchUnit? lastHit = FindLastHit(400);
@@ -770,6 +822,8 @@ namespace Dynasty.HeroAI
 
             return false;
         }
+
+        private const int CarryJoinsPushWithin = 3000;
 
         /// <summary>Channels a carried teleport onto an allied structure.</summary>
         private bool TryTeleportTo(MatchUnit structure)
@@ -841,8 +895,30 @@ namespace Dynasty.HeroAI
             FixedVector2 front = LaneFront();
             if (UnderEnemyTower(front))
                 front = LaneRally();
+            if (TeleportBackToLane(front))
+                return;
             Issue(HeroOrder.Move(front));
         }
+
+        /// <summary>
+        /// Healed up at the base with a long walk ahead: teleport to the own lane tower nearest the lane
+        /// front instead of walking (backlog B-024).
+        /// </summary>
+        private bool TeleportBackToLane(FixedVector2 front)
+        {
+            if (!Math.Within(_hero.Position, Home, AtBaseRange) || Math.Within(_hero.Position, front, TeleportWorthDistance))
+                return false;
+            HeroDecision self = this;
+            MatchUnit? tower = _state.Units
+                .Where(u => u.Kind == UnitKind.Structure && u.Team == self._hero.Team && u.IsAlive && u.CanAttackAtAll &&
+                            !Math.Within(u.Position, self.Home, TeleportWorthDistance))
+                .OrderBy(u => FixedVector2.DistanceSquared(u.Position, front))
+                .FirstOrDefault();
+            return tower != null && TryTeleportTo(tower);
+        }
+
+        private const int AtBaseRange = 1500;
+        private const int TeleportWorthDistance = 4000;
 
         private MatchUnit? FindLastHit(int reach)
         {
@@ -1025,6 +1101,16 @@ namespace Dynasty.HeroAI
             if (smokeItem != null && isSupport && !teamHasSmoke && _h.Inventory.Count < HeroShop.InventorySize && CanSpend(smokeItem.Cost))
             {
                 HeroShop.QueuePurchase(_hero, smokeItem.Id);
+                return;
+            }
+
+            // In the laning phase every hero carries a healing consumable.
+            ItemDefinition? potionItem = _state.Ruleset.Items.FirstOrDefault(i =>
+                i.ActiveAbilityId != null && Math.IsHealingConsumable(i, _state.Ruleset.FindAbility(i.ActiveAbilityId)));
+            if (potionItem != null && _now / _ticksPerMinute < _settings.LaningPhaseFor(_hero.Team) && _h.Inventory.All(i => i.Definition.Id != potionItem.Id) &&
+                _h.Inventory.Count < HeroShop.InventorySize && CanSpend(potionItem.Cost))
+            {
+                HeroShop.QueuePurchase(_hero, potionItem.Id);
                 return;
             }
 
@@ -1212,6 +1298,11 @@ namespace Dynasty.HeroAI
         }
 
         public static bool IsTeleport(AbilityDefinition ability) => ability.Effects.Any(e => e.Kind == EffectKind.Teleport);
+
+        /// <summary>A healing consumable: a no-target item ability with charges that only applies healing over time.</summary>
+        public static bool IsHealingConsumable(ItemDefinition item, AbilityDefinition? ability) =>
+            item.Charges > 0 && ability != null && ability.Targeting == AbilityTargeting.NoTarget && ability.Effects.Count > 0 &&
+            ability.Effects.All(e => e.Kind == EffectKind.ApplyModifier && e.Modifiers.Count > 0 && e.Modifiers.All(m => m.HealPerSecond > Fixed.Zero));
 
         /// <summary>A removable debuff that hampers an ally: a disable (stun only with a strong dispel) or a slow.</summary>
         public static bool WorthCleansing(ModifierSpec spec, bool strong)

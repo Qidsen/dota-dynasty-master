@@ -144,12 +144,60 @@ namespace Dynasty.MatchSimulation.Systems
 
                 int searchRange = unit.Kind == UnitKind.Structure ? unit.AttackRange : unit.AcquisitionRange;
                 MatchUnit? current = state.Find(unit.TargetId);
-                if (current != null && current.Team != Team.Neutral && state.CanAttack(unit, current) && state.IsVisibleTo(unit.Team, current) &&
-                    Geometry.WithinEdgeRange(unit, current, searchRange))
+                bool keep = current != null && current.Team != Team.Neutral && state.CanAttack(unit, current) && state.IsVisibleTo(unit.Team, current) &&
+                            Geometry.WithinEdgeRange(unit, current, searchRange);
+                if (state.Ruleset.Combat.HeroAggro)
+                {
+                    unit.TargetId = PickByAggro(state, unit, searchRange, keep ? current : null);
+                    continue;
+                }
+
+                if (keep)
                     continue;
 
                 unit.TargetId = FindNearest(state, unit, searchRange);
             }
+        }
+
+        /// <summary>
+        /// Lane aggro (<see cref="CombatRules.HeroAggro"/>): an enemy hero attacking one of the unit's heroes
+        /// first, then other enemy units, enemy heroes last; nearest within a class (ties by lower ID).
+        /// The current target is kept unless a better class is in range. Reads only what the previous
+        /// tick left (hero attack targets), so the order units are processed in does not matter.
+        /// </summary>
+        private static EntityId PickByAggro(MatchState state, MatchUnit unit, int range, MatchUnit? current)
+        {
+            int keepClass = current != null ? AggroClass(state, unit, current) : int.MaxValue;
+            EntityId best = EntityId.None;
+            int bestClass = keepClass;
+            Fixed bestDistance = Fixed.Zero;
+            foreach (MatchUnit candidate in state.Units)
+            {
+                if (!Geometry.WithinEdgeRange(unit, candidate, range) || candidate.Team == Team.Neutral || !state.CanAttack(unit, candidate) ||
+                    !state.IsVisibleTo(unit.Team, candidate))
+                    continue;
+
+                int candidateClass = AggroClass(state, unit, candidate);
+                if (candidateClass > bestClass || (candidateClass == bestClass && !best.IsValid))
+                    continue;   // worse, or no better than the kept target
+                Fixed distance = Geometry.EdgeDistance(unit, candidate);
+                if (candidateClass == bestClass && distance >= bestDistance)
+                    continue;
+                best = candidate.Id;
+                bestClass = candidateClass;
+                bestDistance = distance;
+            }
+
+            return best.IsValid ? best : current?.Id ?? EntityId.None;
+        }
+
+        /// <summary>0: an enemy hero attacking one of the unit's heroes; 1: any other non-hero; 2: an enemy hero.</summary>
+        private static int AggroClass(MatchState state, MatchUnit unit, MatchUnit candidate)
+        {
+            if (candidate.Hero == null)
+                return 1;
+            MatchUnit? victim = state.Find(candidate.TargetId);
+            return victim != null && victim.Hero != null && victim.Team == unit.Team ? 0 : 2;
         }
 
         internal static EntityId FindNearest(MatchState state, MatchUnit unit, int range)

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using Dynasty.Core.Mathematics;
@@ -111,7 +111,7 @@ namespace Dynasty.MatchSimulation.Rules
                 id,
                 version,
                 ticksPerSecond: 30,
-                combat: new CombatRules(Fixed.FromRatio(6, 100)),
+                combat: new CombatRules(Fixed.FromRatio(6, 100), heroAggro: true),
                 creepTypes: creeps,
                 structureTypes: structureTypes,
                 map: new MapDefinition(10000, 10000, lanes, structures, obstacles, fountains: new[]
