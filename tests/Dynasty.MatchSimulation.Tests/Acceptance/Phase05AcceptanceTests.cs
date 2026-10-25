@@ -19,7 +19,6 @@ public class Phase05AcceptanceTests
     private static readonly string[] Opponent = { "starborn", "shadeblade", "frostweaver", "hivecaller", "thornkeeper" };
     private static readonly string[] PushDraft = { "duskrunner", "siegewright", "wildheart", "stormcaller", "spiritwarden" };
     private static readonly string[] LateDraft = { "gunwright", "ironvow", "bulwark", "lumenpriest", "dawnmender" };
-    private static readonly ulong[] Seeds = { 1, 2, 3, 4 };
 
     private sealed class Run
     {
@@ -47,11 +46,13 @@ public class Phase05AcceptanceTests
         return new Run(kernel, presence);
     }
 
-    private static List<Run> Runs(string[] dawn, bool followPlan) =>
-        Seeds.AsParallel().AsOrdered().Select(seed => Play(dawn, followPlan, seed)).ToList();   // independent deterministic matches
+    // Seeds 1..n, independent deterministic matches played in parallel. The push comparison needs 12: on 4 the
+    // difference was within the noise between seeds (backlog B-104).
+    private static List<Run> Runs(string[] dawn, bool followPlan, int seeds = 4) =>
+        Enumerable.Range(1, seeds).Select(i => (ulong)i).AsParallel().AsOrdered().Select(seed => Play(dawn, followPlan, seed)).ToList();
 
     private static readonly Lazy<(List<Run> Plan, List<Run> Neutral)> Late = new(() => (Runs(LateDraft, true), Runs(LateDraft, false)));
-    private static readonly Lazy<(List<Run> Plan, List<Run> Neutral)> Push = new(() => (Runs(PushDraft, true), Runs(PushDraft, false)));
+    private static readonly Lazy<(List<Run> Plan, List<Run> Neutral)> Push = new(() => (Runs(PushDraft, true, 12), Runs(PushDraft, false, 12)));
 
     private static IEnumerable<T> Events<T>(Run run) => run.Kernel.Events.Records.Select(r => r.Event).OfType<T>();
 
@@ -70,12 +71,15 @@ public class Phase05AcceptanceTests
     }
 
     [Fact]
-    public void PushDraft_SpendsMoreTimeAtEnemyStructuresBeforeMinute15WhenItPlaysItsPlan()
+    public void PushDraft_SpendsMoreTimeAtEnemyStructuresAndTakesMoreBeforeMinute15WhenItPlaysItsPlan()
     {
         var (plan, neutral) = Push.Value;
         double Presence(List<Run> runs) => runs.Average(r => r.Presence.HeroSeconds);
 
+        double Taken(List<Run> runs) => runs.Average(r => Events<StructureDestroyed>(r).Count(e => e.Team == Team.Dusk));
+
         Assert.True(Presence(plan) > Presence(neutral) * 1.2, $"Dawn hero-seconds near Dusk structures, minutes 7-15: plan {Presence(plan):0}, neutral {Presence(neutral):0}");
+        Assert.True(Taken(plan) > Taken(neutral) * 1.1, $"Dusk structures taken by 15 min: plan {Taken(plan):0.00}, neutral {Taken(neutral):0.00}");   // backlog B-023
     }
 
     [Fact]

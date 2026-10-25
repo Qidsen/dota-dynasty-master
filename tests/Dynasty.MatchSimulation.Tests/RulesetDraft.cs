@@ -1,4 +1,4 @@
-﻿using Dynasty.Core.Mathematics;
+using Dynasty.Core.Mathematics;
 using Dynasty.MatchSimulation.Rules;
 
 namespace Dynasty.MatchSimulation.Tests;
@@ -26,6 +26,7 @@ public sealed class RulesetDraft
     public int Version { get; set; } = 1;
     public int TicksPerSecond { get; set; } = 30;
     public Fixed ArmorFactor { get; set; } = Fixed.FromRatio(6, 100);
+    public bool HeroAggro { get; set; }
     public int Width { get; set; } = 10000;
     public int Height { get; set; } = 10000;
 
@@ -127,7 +128,7 @@ public sealed class RulesetDraft
         Id,
         Version,
         TicksPerSecond,
-        new CombatRules(ArmorFactor),
+        new CombatRules(ArmorFactor, HeroAggro),
         Creeps,
         StructureTypes,
         new MapDefinition(Width, Height, Lanes, Placements, Obstacles, fountains: Fountains, camps: Camps, elevation: Elevation),

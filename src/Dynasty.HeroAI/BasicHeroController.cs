@@ -45,6 +45,9 @@ namespace Dynasty.HeroAI
         public TeamPlanKind Plan { get; private set; }
         public MatchUnit? Objective { get; private set; }
 
+        /// <summary>The push was called at even numbers (by the clock), not on a numbers advantage.</summary>
+        public bool PushAtEvenNumbers { get; private set; }
+
         /// <summary>Tick the current plan (or its objective) was called.</summary>
         public long PlanSince { get; private set; }
 
@@ -81,7 +84,9 @@ namespace Dynasty.HeroAI
                 return;
             }
             int needed = minute < settings.LaningPhaseFor(Team) ? 3 : 2;   // the laning phase is for farming
-            bool advantage = ownAlive - enemyAlive >= needed || (ownAlive >= enemyAlive && ownAlive >= 3 && minute >= settings.EvenPushFor(Team));
+            bool numbers = ownAlive - enemyAlive >= needed;
+            bool advantage = numbers || (ownAlive >= enemyAlive && ownAlive >= 3 && minute >= settings.EvenPushFor(Team));
+            PushAtEvenNumbers = !numbers;
             if (advantage)
             {
                 FixedVector2 home = state.Ruleset.Map.FountainOf(Team)!.Position;
@@ -331,9 +336,13 @@ namespace Dynasty.HeroAI
         /// <summary>The player lets a good cast moment pass (spell accuracy); draws no random number for a sure player.</summary>
         private bool Hesitates() => _skill.SpellHesitationPercent > 0 && _random.NextInt(0, 100) < _skill.SpellHesitationPercent;
 
-        /// <summary>The hero's own aggression scaled by the team's strategy.</summary>
-        private double Aggression => _personality.Aggression * _settings.StrategyFor(_hero.Team).AggressionPercent / 100.0 * _skill.AggressionPercent / 100.0
-                                     * (Tilted ? 1 + _skill.TiltSusceptibility * 3 / 100.0 : 1.0);
+        /// <summary>
+        /// The hero's own aggression scaled by the team's strategy, the player's confidence and tilt, in
+        /// percent. The personality value is a configured number, turned into an integer once.
+        /// </summary>
+        private long AggressionPercent =>
+            (long)System.Math.Round(_personality.Aggression * 100) * _settings.StrategyFor(_hero.Team).AggressionPercent * _skill.AggressionPercent
+            * (Tilted ? 100 + _skill.TiltSusceptibility * 3 : 100) / 1000000;
 
         /// <summary>Two or more own deaths in the last five minutes rattle a susceptible player.</summary>
         private bool Tilted => _skill.TiltSusceptibility > 0 && _memory.RecentDeathTicks.Count >= 2;
@@ -354,9 +363,14 @@ namespace Dynasty.HeroAI
 
             NoticeDeaths();
             int hpPercent = Math.HpPercent(_hero);
-            if (_memory.Retreating && hpPercent >= _personality.ReturnHpPercent)
+            if (DrinkConsumable(hpPercent))
+                return;
+            // Healing over time that will bring the hero back to a fighting state replaces the trip home.
+            bool patchedUp = Healing && ExpectedHpPercent() >= _personality.ReturnHpPercent - PatchedUpMarginPercent &&
+                             VisibleEnemyHeroes(_hero.Position, _settings.EngageRange).Count == 0;
+            if (_memory.Retreating && (hpPercent >= _personality.ReturnHpPercent || patchedUp))
                 _memory.Retreating = false;
-            else if (!_memory.Retreating && hpPercent < _personality.RetreatHpPercent + _skill.RetreatShiftPercent)
+            else if (!_memory.Retreating && hpPercent < _personality.RetreatHpPercent + _skill.RetreatShiftPercent && !patchedUp)
                 _memory.Retreating = true;
             if (_memory.Retreating)
             {
@@ -383,6 +397,40 @@ namespace Dynasty.HeroAI
             if (FarmJungle())
                 return;
             Lane();
+        }
+
+        // ── Consumables ──────────────────────────────────────────────────────────
+
+        private const int ConsumableHpPercent = 55;
+        private const int PatchedUpMarginPercent = 30;
+
+        /// <summary>Drinks a carried healing consumable when hurt and not already healing (backlog B-024).</summary>
+        private bool DrinkConsumable(int hpPercent)
+        {
+            if (hpPercent >= ConsumableHpPercent || Healing || VisibleEnemyHeroes(_hero.Position, _settings.EngageRange).Count > 0)
+                return false;
+            AbilityState? potion = _h.Inventory
+                .Where(i => i.Active != null && Math.IsHealingConsumable(i.Definition, i.Active.Definition))
+                .Select(i => i.Active!)
+                .FirstOrDefault(a => a.IsReady(_now));
+            if (potion == null)
+                return false;
+
+            Issue(HeroOrder.CastNoTarget(potion.Definition.Id));
+            return true;
+        }
+
+        /// <summary>Healing over time is running on the hero (a consumable, an ally's spell, a rune).</summary>
+        private bool Healing => _hero.Modifiers.Any(m => m.Spec.HealPerSecond > Fixed.Zero && !m.Spec.IsPermanent && m.ExpiresTick > _now);
+
+        /// <summary>Health in percent once the healing over time running on the hero has landed.</summary>
+        private int ExpectedHpPercent()
+        {
+            Fixed pending = Fixed.Zero;
+            foreach (ActiveModifier modifier in _hero.Modifiers)
+                if (modifier.Spec.HealPerSecond > Fixed.Zero && !modifier.Spec.IsPermanent && modifier.ExpiresTick > _now)
+                    pending += modifier.Spec.HealPerSecond * Fixed.FromInt((int)(modifier.ExpiresTick - _now)) / Fixed.FromInt(TicksPerSecond);
+            return System.Math.Min(100, ((_hero.Hp + pending) * Fixed.FromInt(100) / Fixed.FromInt(_hero.MaxHp)).ToIntFloor());
         }
 
         // ── Runes ────────────────────────────────────────────────────────────────
@@ -490,19 +538,20 @@ namespace Dynasty.HeroAI
 
             HeroDecision self = this;
             List<MatchUnit> allies = _state.Heroes.Where(h => h.Team == self._hero.Team && h.IsAlive && Math.Within(h.Position, self._hero.Position, range)).ToList();
-            double own = allies.Sum(PowerOf) + TowerSupport(_hero.Team, _hero.Position);
-            double theirs = enemies.Sum(PowerOf) + TowerSupport(_hero.Team.Opponent(), _hero.Position);
+            // Integer arithmetic throughout: the decision feeds the authoritative match (backlog B-029).
+            long own = allies.Sum(PowerOf) + TowerSupport(_hero.Team, _hero.Position);
+            long theirs = enemies.Sum(PowerOf) + TowerSupport(_hero.Team.Opponent(), _hero.Position);
             int misjudgement = _skill.MisjudgementPercent + (Tilted ? _skill.TiltSusceptibility * 2 : 0);
-            double noise = misjudgement > 0 ? _random.NextInt(-misjudgement, misjudgement + 1) / 100.0 : 0;
-            double odds = own / System.Math.Max(theirs, 1) * Aggression * (1 + noise);
+            int noise = misjudgement > 0 ? _random.NextInt(-misjudgement, misjudgement + 1) : 0;
+            long oddsPercent = own * AggressionPercent * (100 + noise) / (System.Math.Max(theirs, 1) * 100);
 
-            if (odds < 0.85)
+            if (oddsPercent < 85)
             {
                 GoHome();
                 return true;
             }
 
-            if (odds < (ProtectingCarry ? 1.4 : 1.15))
+            if (oddsPercent < (ProtectingCarry || LaningCore ? 140 : 115))
                 return Harass(enemies);
 
             if (_skill.FightFumblePercent > 0 && _random.NextInt(0, 100) < _skill.FightFumblePercent)
@@ -519,6 +568,16 @@ namespace Dynasty.HeroAI
                 focus = enemies.OrderBy(e => FixedVector2.DistanceSquared(e.Position, me._hero.Position)).First();
             }
 
+            if (DiveUnderTower(focus))
+            {
+                // Hitting a hero beside an enemy tower draws its fire: pick one out of its reach, or only cast.
+                HeroDecision me = this;
+                MatchUnit? safe = enemies.Where(e => !me.DiveUnderTower(e)).OrderBy(e => e.Hp).FirstOrDefault();
+                if (safe == null)
+                    return TryCastInFight(focus, enemies, allies);
+                focus = safe;
+            }
+
             if (TryCastInFight(focus, enemies, allies))
                 return true;
             if (ShouldWaitForInitiation(enemies, allies))
@@ -531,14 +590,29 @@ namespace Dynasty.HeroAI
             return true;
         }
 
+        /// <summary>An enemy hero within reach of an enemy tower and not nearly dead: attacking him is a dive.</summary>
+        private bool DiveUnderTower(MatchUnit enemy)
+        {
+            if (Math.HpPercent(enemy) <= DiveForKillHpPercent)
+                return false;
+            HeroDecision self = this;
+            return _state.Units.Any(u => u.Kind == UnitKind.Structure && u.Team != self._hero.Team && u.IsAlive && u.CanAttackAtAll &&
+                                         Math.Within(enemy.Position, u.Position, Math.TowerReach(u) + 100));
+        }
+
+        private const int DiveForKillHpPercent = 30;
+
+        /// <summary>A greedy carry in the laning phase: last hits first, fights only clearly won.</summary>
+        private bool LaningCore => _personality.Greed > 0.7 && _now / _ticksPerMinute < _settings.LaningPhaseFor(_hero.Team);
+
         /// <summary>
         /// Fighting strength as this team judges it: an ultimate ready to cast counts for a lot.
         /// Allies' cooldowns and mana are known; an enemy's learned ultimate is assumed ready,
         /// since its cooldown cannot be seen.
         /// </summary>
-        private double PowerOf(MatchUnit hero)
+        private long PowerOf(MatchUnit hero)
         {
-            double power = Math.Power(hero);
+            long power = Math.Power(hero);
             foreach (AbilityState ability in hero.Hero!.Abilities)
             {
                 if (ability.Level == 0 || !Math.IsUltimate(ability.Definition))
@@ -546,13 +620,13 @@ namespace Dynasty.HeroAI
                 bool ready = hero.Team != _hero.Team ||
                              (ability.IsReady(_now) && hero.Hero.Mana >= Fixed.FromInt(ability.Definition.ManaCostAt(ability.Level)));
                 if (ready)
-                    return power * UltimateReadyFactor;
+                    return power * UltimateReadyPercent / 100;
             }
 
             return power;
         }
 
-        private const double UltimateReadyFactor = 1.25;
+        private const int UltimateReadyPercent = 125;
 
         /// <summary>Even fight: poke with single-target nukes when not worse off than the target.</summary>
         private bool Harass(List<MatchUnit> enemies)
@@ -662,14 +736,14 @@ namespace Dynasty.HeroAI
             HeroDecision self = this;
             int gankRange = _settings.StrategyFor(_hero.Team).GankRange;
             MatchUnit? prey = VisibleEnemyHeroes(_hero.Position, gankRange)
-                .Where(e => self.VisibleEnemyHeroes(e.Position, 1200).Count == 1 && !self.UnderEnemyTower(e.Position))
+                .Where(e => self.VisibleEnemyHeroes(e.Position, 1200).Count == 1 && !self.DiveUnderTower(e))
                 .OrderBy(e => e.Hp)
                 .FirstOrDefault();
             if (prey == null)
                 return false;
 
-            double own = _state.Heroes.Where(h => h.Team == self._hero.Team && h.IsAlive && Math.Within(h.Position, prey.Position, gankRange)).Sum(PowerOf);
-            if (own * Aggression < PowerOf(prey) * 1.3)
+            long own = _state.Heroes.Where(h => h.Team == self._hero.Team && h.IsAlive && Math.Within(h.Position, prey.Position, gankRange)).Sum(PowerOf);
+            if (own * AggressionPercent < PowerOf(prey) * 130)
                 return false;
 
             if (!Math.Within(_hero.Position, prey.Position, 1500) && TrySmoke())
@@ -739,6 +813,11 @@ namespace Dynasty.HeroAI
                 long minute = _now / _ticksPerMinute;
                 if (_personality.Greed > 0.7 && minute < 18)
                     return false;
+                // A greedy carry keeps farming through a push at even numbers on a low-ground tower far away;
+                // it joins a push on numbers, on the high ground, or one that comes to it (backlog B-020).
+                if (_personality.Greed > 0.7 && _brain.PushAtEvenNumbers && _state.ElevationAt(objective.Position) == 0 &&
+                    !Math.Within(_hero.Position, objective.Position, CarryJoinsPushWithin))
+                    return false;
                 HeroDecision self = this;
 
                 MatchUnit? lastHit = FindLastHit(400);
@@ -765,6 +844,8 @@ namespace Dynasty.HeroAI
 
             return false;
         }
+
+        private const int CarryJoinsPushWithin = 3000;
 
         /// <summary>Channels a carried teleport onto an allied structure.</summary>
         private bool TryTeleportTo(MatchUnit structure)
@@ -826,6 +907,13 @@ namespace Dynasty.HeroAI
                 return;
             }
 
+            MatchUnit? creep = WaveToShove();
+            if (creep != null)
+            {
+                Issue(HeroOrder.Attack(creep.Id));
+                return;
+            }
+
             MatchUnit? structure = FindPushTarget();
             if (structure != null)
             {
@@ -836,8 +924,30 @@ namespace Dynasty.HeroAI
             FixedVector2 front = LaneFront();
             if (UnderEnemyTower(front))
                 front = LaneRally();
+            if (TeleportBackToLane(front))
+                return;
             Issue(HeroOrder.Move(front));
         }
+
+        /// <summary>
+        /// Healed up at the base with a long walk ahead: teleport to the own lane tower nearest the lane
+        /// front instead of walking (backlog B-024).
+        /// </summary>
+        private bool TeleportBackToLane(FixedVector2 front)
+        {
+            if (!Math.Within(_hero.Position, Home, AtBaseRange) || Math.Within(_hero.Position, front, TeleportWorthDistance))
+                return false;
+            HeroDecision self = this;
+            MatchUnit? tower = _state.Units
+                .Where(u => u.Kind == UnitKind.Structure && u.Team == self._hero.Team && u.IsAlive && u.CanAttackAtAll &&
+                            !Math.Within(u.Position, self.Home, TeleportWorthDistance))
+                .OrderBy(u => FixedVector2.DistanceSquared(u.Position, front))
+                .FirstOrDefault();
+            return tower != null && TryTeleportTo(tower);
+        }
+
+        private const int AtBaseRange = 1500;
+        private const int TeleportWorthDistance = 4000;
 
         private MatchUnit? FindLastHit(int reach)
         {
@@ -931,6 +1041,29 @@ namespace Dynasty.HeroAI
         private int FlightTicks(MatchUnit unit, Fixed distance) =>
             unit.Stats.ProjectileSpeed > 0 ? (distance * Fixed.FromInt(TicksPerSecond) / Fixed.FromInt(unit.Stats.ProjectileSpeed)).ToIntFloor() : 0;
 
+        /// <summary>A percent chance; draws no random number when the outcome is certain.</summary>
+        private bool Rolls(int percent) => percent >= 100 || (percent > 0 && _random.NextInt(0, 100) < percent);
+
+        /// <summary>
+        /// After the laning phase, with no enemy hero in sight, a player who plays for objectives shoves the
+        /// wave in front of him (the weakest creep in reach) instead of waiting for last hits (backlog B-060).
+        /// </summary>
+        private MatchUnit? WaveToShove()
+        {
+            if (_now / _ticksPerMinute < _settings.LaningPhaseFor(_hero.Team) || _skill.WavePushPercent <= 0 ||
+                VisibleEnemyHeroes(_hero.Position, _settings.EngageRange).Count > 0)
+                return null;
+            if (!Rolls(_skill.WavePushPercent))
+                return null;
+            HeroDecision self = this;
+            return _state.Units
+                .Where(u => u.Team == self._hero.Team.Opponent() && (u.Kind == UnitKind.Creep || u.Kind == UnitKind.Summon) && u.IsAlive && self.Sees(u) &&
+                            Math.Within(u.Position, self._hero.Position, self._hero.AttackRange + 400) && !self.UnderEnemyTower(u.Position))
+                .OrderBy(u => u.Hp)
+                .ThenBy(u => u.Id.Value)
+                .FirstOrDefault();
+        }
+
         private MatchUnit? FindPushTarget()
         {
             HeroDecision self = this;
@@ -1020,6 +1153,16 @@ namespace Dynasty.HeroAI
             if (smokeItem != null && isSupport && !teamHasSmoke && _h.Inventory.Count < HeroShop.InventorySize && CanSpend(smokeItem.Cost))
             {
                 HeroShop.QueuePurchase(_hero, smokeItem.Id);
+                return;
+            }
+
+            // In the laning phase every hero carries a healing consumable.
+            ItemDefinition? potionItem = _state.Ruleset.Items.FirstOrDefault(i =>
+                i.ActiveAbilityId != null && Math.IsHealingConsumable(i, _state.Ruleset.FindAbility(i.ActiveAbilityId)));
+            if (potionItem != null && _now / _ticksPerMinute < _settings.LaningPhaseFor(_hero.Team) && _h.Inventory.All(i => i.Definition.Id != potionItem.Id) &&
+                _h.Inventory.Count < HeroShop.InventorySize && CanSpend(potionItem.Cost))
+            {
+                HeroShop.QueuePurchase(_hero, potionItem.Id);
                 return;
             }
 
@@ -1141,9 +1284,9 @@ namespace Dynasty.HeroAI
         }
 
         /// <summary>Extra fight power from living towers of <paramref name="team"/> covering the point.</summary>
-        private double TowerSupport(Team team, FixedVector2 point) =>
+        private long TowerSupport(Team team, FixedVector2 point) =>
             _state.Units.Count(u => u.Kind == UnitKind.Structure && u.Team == team && u.IsAlive && u.CanAttackAtAll &&
-                                    Math.Within(point, u.Position, Math.TowerReach(u) + 200)) * 25.0;
+                                    Math.Within(point, u.Position, Math.TowerReach(u) + 200)) * 2500L;   // 25 power points each
 
         private bool CreepsTanking(MatchUnit tower)
         {
@@ -1196,14 +1339,22 @@ namespace Dynasty.HeroAI
 
         public static int TowerReach(MatchUnit tower) => tower.AttackRange + tower.BoundingRadius + 24;
 
-        /// <summary>Rough fighting strength: level and item value, scaled by remaining health. Uses only information visible on a hero.</summary>
-        public static double Power(MatchUnit hero)
+        /// <summary>
+        /// Rough fighting strength in hundredths of a point: level ×10 plus item value / 100, scaled
+        /// by remaining health (40% at none to 100% at full). Uses only information visible on a hero.
+        /// </summary>
+        public static long Power(MatchUnit hero)
         {
-            double strength = hero.Hero!.Level * 10 + hero.Hero.Inventory.Sum(i => i.Definition.Cost) / 100.0;
-            return strength * (0.4 + 0.6 * HpPercent(hero) / 100.0);
+            long strength = hero.Hero!.Level * 1000L + hero.Hero.Inventory.Sum(i => i.Definition.Cost);
+            return strength * (4000 + 60 * HpPercent(hero)) / 10000;
         }
 
         public static bool IsTeleport(AbilityDefinition ability) => ability.Effects.Any(e => e.Kind == EffectKind.Teleport);
+
+        /// <summary>A healing consumable: a no-target item ability with charges that only applies healing over time.</summary>
+        public static bool IsHealingConsumable(ItemDefinition item, AbilityDefinition? ability) =>
+            item.Charges > 0 && ability != null && ability.Targeting == AbilityTargeting.NoTarget && ability.Effects.Count > 0 &&
+            ability.Effects.All(e => e.Kind == EffectKind.ApplyModifier && e.Modifiers.Count > 0 && e.Modifiers.All(m => m.HealPerSecond > Fixed.Zero));
 
         /// <summary>A removable debuff that hampers an ally: a disable (stun only with a strong dispel) or a slow.</summary>
         public static bool WorthCleansing(ModifierSpec spec, bool strong)

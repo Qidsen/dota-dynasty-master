@@ -82,7 +82,7 @@ public class MatchFrameTests
         Assert.Equal(unseen.Select(h => h.Id.Value).ToHashSet(), frame.Ghosts.Select(g => g.HeroId).ToHashSet());
         GhostFrame ghost = frame.Ghosts.First();
         var seen = state.KnowledgeOf(Team.Dawn).LastSeenOf(new Dynasty.Core.Ids.EntityId(ghost.HeroId))!;
-        Assert.Equal(seen.Position.X.ToDouble(), ghost.X, 3);
+        Assert.Equal(seen.Position.X.ToDouble(), ghost.X, 0.01);   // frames hold floats: about 7 significant digits
         Assert.Equal(seen.Tick, ghost.SeenAtTick);
     }
 

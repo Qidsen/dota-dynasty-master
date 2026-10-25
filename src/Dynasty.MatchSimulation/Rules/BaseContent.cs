@@ -402,6 +402,10 @@ namespace Dynasty.MatchSimulation.Rules
             list.Add(new AbilityDefinition("item.teleport", "Teleport", AbilityTargeting.Unit, TargetTeam.Ally, 20000, 3000,
                 new[] { 60000 }, new[] { 0 }, new[] { 1 }, new[] { EffectDefinition.Teleport() }, targetsStructures: true));
 
+            // Healing consumable: health over time, not interrupted by damage (backlog B-024).
+            list.Add(Cast("item.salve", "Healing Salve", AbilityTargeting.NoTarget, TargetTeam.Ally, 0, 0, new[] { 1 }, new[] { 1000 }, new[] { 0 },
+                EffectDefinition.Modifier(new ModifierSpec("item.salve", 10000, healPerSecond: Fixed.FromInt(30)))));
+
             // Item active.
             list.Add(Cast("item.arc_pulse", "Arc Pulse", AbilityTargeting.NoTarget, TargetTeam.Enemy, 0, 0, new[] { 1 }, new[] { 25000 }, new[] { 50 },
                 EffectDefinition.Area(400, AreaCenter.Caster, TargetTeam.Enemy, EffectDefinition.Damage(DamageType.Magical, 150))));
@@ -418,6 +422,7 @@ namespace Dynasty.MatchSimulation.Rules
             new ItemDefinition("swift_boots", "Swift Boots", 400, new ModifierSpec("item.swift_boots", -1, moveSpeedPercent: 15)),
             new ItemDefinition("tp_scroll", "Teleport Scroll", 90, activeAbilityId: "item.teleport", charges: 1),
             new ItemDefinition("smoke", "Smoke of Veiling", 80, activeAbilityId: "item.smoke", charges: 1),
+            new ItemDefinition("healing_salve", "Healing Salve", 110, activeAbilityId: "item.salve", charges: 1),
             new ItemDefinition("observer_ward", "Observer Ward", 75, activeAbilityId: "item.place_observer", charges: 1),
             new ItemDefinition("sentry_ward", "Sentry Ward", 100, activeAbilityId: "item.place_sentry", charges: 1),
             new ItemDefinition("crest_of_valor", "Crest of Valor", 1600,

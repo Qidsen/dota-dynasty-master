@@ -1,4 +1,4 @@
-﻿using Dynasty.Core.Ids;
+using Dynasty.Core.Ids;
 using Dynasty.Core.Kernel;
 using Dynasty.Core.Mathematics;
 using Dynasty.HeroAI;
@@ -253,6 +253,106 @@ public class TacticalAiTests
 
         Assert.True(AlphaAttacks(1.6) > 0);
         Assert.Equal(0, AlphaAttacks(0.6));
+    }
+
+    [Theory]
+    [InlineData(60, false)]
+    [InlineData(20, true)]
+    public void WinningHero_DivesUnderAnEnemyTowerOnlyForAKill(int betaHpPercent, bool dives)
+    {
+        // Alpha is far stronger, beta stands beside the Dusk tower: hitting him there draws the tower (lane
+        // aggro). Only a nearly dead beta is worth it.
+        var settings = Idle("beta");
+        settings.Personalities["alpha"] = new HeroPersonality();
+        settings.SkillsOf(Team.Dawn)["alpha"] = new HeroSkill { ReactionJitterTicks = 0, MisjudgementPercent = 0, };
+        var draft = new RulesetDraft().WithoutWaves();
+        draft.HeroAggro = true;
+        var kernel = Skirmish(new[] { ("alpha", 6100, 5000) }, new[] { ("beta", 6750, 5000) }, settings, draft: draft, setup: ctx =>
+        {
+            HeroProgression.GrantXp(ctx, H(ctx.State, "alpha"), 2000);
+            Pin(ctx, "beta");
+            H(ctx.State, "beta").Hp = Fixed.FromInt(H(ctx.State, "beta").MaxHp * betaHpPercent / 100);
+        });
+
+        kernel.RunTicks(90);
+
+        EntityId alpha = H(kernel.State, "alpha").Id, beta = H(kernel.State, "beta").Id;
+        Assert.Equal(dives, kernel.EventsOf<AttackStarted>().Any(a => a.Attacker == alpha && a.Target == beta));
+    }
+
+    [Theory]
+    [InlineData(100, true)]
+    [InlineData(0, false)]
+    public void FreeHeroAfterLaning_PushesTheWave_AsOftenAsThePlayerDoes(int wavePushPercent, bool pushes)
+    {
+        // A Dusk creep at full health mid-lane, no enemy hero around, laning over: a player who plays
+        // for objectives shoves the wave instead of waiting for last hits (ObjectiveControl).
+        var kernel = new RulesetDraft().StartWithHeroes(new[] { ("alpha", "mid") }, Array.Empty<(string, string)>());
+        At(kernel, 0, ctx =>
+        {
+            ctx.State.Creeps(Team.Dusk).Single().Position = P(5000, 5000);
+            ctx.State.Creeps(Team.Dawn).Single().Position = P(500, 9500);
+            H(ctx.State, "alpha").Position = P(4800, 5000);
+        });
+        var settings = new HeroAiSettings { ReactionJitterTicks = 0, MisjudgementPercent = 0, LaningPhaseMinutes = 0 };
+        settings.SkillsOf(Team.Dawn)["alpha"] = new HeroSkill { ReactionJitterTicks = 0, MisjudgementPercent = 0, WavePushPercent = wavePushPercent };
+        HeroAi.Attach(kernel, settings);
+
+        kernel.RunTicks(30);
+
+        EntityId alpha = H(kernel.State, "alpha").Id;
+        Assert.Equal(pushes, kernel.EventsOf<AttackStarted>().Any(a => a.Attacker == alpha));
+    }
+
+    [Theory]
+    [InlineData(0.8, false, false)]
+    [InlineData(0.5, false, true)]
+    [InlineData(0.8, true, true)]
+    public void GreedyCarry_KeepsFarmingThroughAFarPushAtEvenNumbers_ButJoinsOnTheHighGround(double greed, bool highGround, bool joins)
+    {
+        // Minute 18, three against two (unseen at their fountain): the team pushes the far tower by the
+        // clock. A greedy carry stays in its lane unless the tower is on high ground; others go (backlog B-020).
+        const long Minute18 = 18L * 60 * 30;
+        var draft = TestAbilities.Draft();
+        if (highGround)
+            draft.Elevation.Add(new ElevationZone("plateau.dusk", P(7500, 5000), 1000, 1));
+        var kernel = draft.StartWithHeroes(new[] { ("alpha", "mid"), ("gamma", "mid"), ("delta", "mid") }, new[] { ("beta", "mid"), ("epsilon", "mid") });
+        var settings = Idle("beta", "epsilon");
+        settings.EvenPushFromMinute = 0;
+        settings.Personalities["alpha"] = new HeroPersonality { Greed = greed };
+        settings.Personalities["gamma"] = new HeroPersonality();   // test heroes are carries by role
+        settings.Personalities["delta"] = new HeroPersonality();
+        At(kernel, Minute18, ctx =>
+        {
+            H(ctx.State, "alpha").Position = P(2500, 5000);
+            H(ctx.State, "gamma").Position = P(2600, 5100);
+            H(ctx.State, "delta").Position = P(2600, 4900);
+        });
+        HeroAi.Attach(kernel, settings);
+
+        kernel.RunTicks(Minute18 + 1 + 450);   // fifteen seconds: enough to walk most of the lane
+
+        Assert.Equal(joins, H(kernel.State, "alpha").Position.X > Fixed.FromInt(4000));
+        Assert.True(H(kernel.State, "gamma").Position.X > Fixed.FromInt(4000), "the rest of the team pushes");
+    }
+
+    [Theory]
+    [InlineData(0.8, false)]
+    [InlineData(0.5, true)]
+    public void GreedyCarry_TakesOnlyClearlyWonFightsInTheLaningPhase(double greed, bool engages)
+    {
+        var settings = Idle("beta");
+        settings.Personalities["alpha"] = new HeroPersonality { Aggression = 1.0, Greed = greed };
+        var kernel = Skirmish(new[] { ("alpha", 5000, 2000) }, new[] { ("beta", 5450, 2000) }, settings, setup: ctx =>
+        {
+            Pin(ctx, "beta");
+            H(ctx.State, "beta").Hp = Fixed.FromInt(H(ctx.State, "beta").MaxHp * 75 / 100);   // odds about 117%: worth it, not clearly won
+        });
+
+        kernel.RunTicks(120);
+
+        EntityId alpha = H(kernel.State, "alpha").Id;
+        Assert.Equal(engages, kernel.EventsOf<AttackStarted>().Any(a => a.Attacker == alpha));
     }
 
     [Fact]

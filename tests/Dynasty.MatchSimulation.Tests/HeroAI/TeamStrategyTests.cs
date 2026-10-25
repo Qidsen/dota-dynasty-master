@@ -81,6 +81,33 @@ public class TeamStrategyTests
     }
 
     [Fact]
+    public void Gank_SkipsAnEnemyBesideHisTower_EvenWithOwnCreepsTankingIt()
+    {
+        // Lane aggro: hitting a hero within a tower's reach draws the tower even while our creeps tank it,
+        // so even a team strong enough for the fight does not dive a healthy hero there.
+        var draft = new RulesetDraft { HeroAggro = true };
+        var kernel = draft.StartWithHeroes(new[] { ("alpha", "mid"), ("gamma", "mid") }, new[] { ("beta", "mid") });
+        kernel.AddSystem(new LambdaSystem(0, ctx =>
+        {
+            ctx.State.Creeps(Team.Dusk).Single().Position = P(9000, 9000);
+            ctx.State.Creeps(Team.Dawn).Single().Position = P(6650, 5000);   // tanking the Dusk tower, keeps beta in sight
+            H(ctx.State, "alpha").Position = P(4800, 4000);
+            H(ctx.State, "gamma").Position = P(4800, 4200);
+            H(ctx.State, "beta").Position = P(6850, 5000);   // beside the tower, full health, alone
+            Dynasty.MatchSimulation.Heroes.HeroProgression.GrantXp(ctx, H(ctx.State, "alpha"), 2000);   // strong enough to take on beta and his tower
+            Dynasty.MatchSimulation.Heroes.HeroProgression.GrantXp(ctx, H(ctx.State, "gamma"), 2000);
+        }));
+        HeroAiSettings settings = Calm();
+        settings.Uncontrolled.Add("beta");
+        settings.Uncontrolled.Add("gamma");
+        HeroAi.Attach(kernel, settings);
+
+        kernel.RunTicks(330);   // time to walk the 2300 to beta
+
+        Assert.DoesNotContain(kernel.EventsOf<AttackStarted>(), a => a.Attacker == H(kernel.State, "alpha").Id && a.Target == H(kernel.State, "beta").Id);
+    }
+
+    [Fact]
     public void GankRange_ReachesIsolatedEnemiesFurtherAway()
     {
         double Approach(int gankRange)

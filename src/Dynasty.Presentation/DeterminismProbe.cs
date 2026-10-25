@@ -69,39 +69,79 @@ namespace Dynasty.Presentation
             });
     }
 
+    /// <summary>What a probe run plays.</summary>
+    public enum ProbeKind
+    {
+        /// <summary>The demo line-ups for a fixed number of ticks.</summary>
+        Demo,
+
+        /// <summary>The demo line-ups to the end of the match (late game, high ground, ancient).</summary>
+        Full,
+
+        /// <summary>Two AI teams draft, then their players play the match to the end (drafting, player skill, strategies).</summary>
+        Drafted,
+    }
+
     /// <summary>
-    /// Plays demo matches headless and reports their event checksums, so the same build of the core
-    /// can be compared across runtimes (.NET, Unity Mono, Unity IL2CPP). Different checksums for the
-    /// same seed, tick count and ruleset mean the simulation is not deterministic there.
+    /// Plays matches headless and reports their event checksums, so the same build of the core can be
+    /// compared across runtimes (.NET, Unity Mono, Unity IL2CPP). Different checksums for the same
+    /// kind, seed, tick count and ruleset mean the simulation is not deterministic there.
     /// </summary>
     public static class DeterminismProbe
     {
         public static readonly ulong[] DefaultSeeds = { 1, 2, 3 };
         public const long DefaultTicks = 9000;   // five minutes: laning, fights, first objectives
+        private const long MatchCap = 60L * 60 * 30;
 
-        public static ProbeResult Run(ulong seed, long ticks)
-        {
-            RulesetContent ruleset = BaseRuleset.Create();
-            SimulationKernel<MatchState> kernel = Match.Create(ruleset, seed, DemoMatch.Lineup);
-            HeroAi.Attach(kernel);
-            kernel.RunTicks(ticks);
-            return new ProbeResult(seed, kernel.CurrentTick.Value, kernel.Events.Checksum, ruleset.ToDescriptor().ToString());
-        }
-
+        /// <summary>Three five-minute demo matches, two full demo matches, two drafted matches with players.</summary>
         public static List<ProbeResult> RunDefault()
         {
             var results = new List<ProbeResult>();
             foreach (ulong seed in DefaultSeeds)
-                results.Add(Run(seed, DefaultTicks));
+                results.Add(Run(ProbeKind.Demo, seed, DefaultTicks));
+            results.Add(Run(ProbeKind.Full, 4, MatchCap));
+            results.Add(Run(ProbeKind.Full, 5, MatchCap));
+            results.Add(Run(ProbeKind.Drafted, 6, MatchCap));
+            results.Add(Run(ProbeKind.Drafted, 7, MatchCap));
             return results;
         }
 
-        /// <summary>One line per result: seed, ticks, checksum (hex), ruleset.</summary>
+        public static ProbeResult Run(ulong seed, long ticks) => Run(ProbeKind.Demo, seed, ticks);
+
+        /// <summary>Plays one run for at most <paramref name="ticks"/> ticks (a match may end earlier).</summary>
+        public static ProbeResult Run(ProbeKind kind, ulong seed, long ticks)
+        {
+            RulesetContent ruleset = BaseRuleset.Create();
+            SimulationKernel<MatchState> kernel;
+            ulong draftChecksum = 0;
+            if (kind == ProbeKind.Drafted)
+            {
+                DraftWatch draft = DraftWatch.Start(ruleset, seed, 1.0);
+                draft.Finish();
+                draftChecksum = draft.Session.Events.Checksum;
+                kernel = draft.StartMatch(seed).Kernel;
+            }
+            else
+            {
+                kernel = Match.Create(ruleset, seed, DemoMatch.Lineup);
+                HeroAi.Attach(kernel);
+            }
+
+            kernel.RunUntilFinished(ticks);
+            ulong checksum = kernel.Events.Checksum ^ (draftChecksum * 0x9E3779B97F4A7C15UL);
+            return new ProbeResult(kind, seed, kernel.CurrentTick.Value, checksum, ruleset.ToDescriptor().ToString());
+        }
+
+        /// <summary>Plays a reference result again (same kind, seed and tick count).</summary>
+        public static ProbeResult Replay(ProbeResult reference) => Run(reference.Kind, reference.Seed, reference.Ticks);
+
+        /// <summary>One line per result: kind, seed, ticks, checksum (hex), ruleset.</summary>
         public static string Format(IEnumerable<ProbeResult> results)
         {
             var text = new StringBuilder();
             foreach (ProbeResult r in results)
-                text.Append(r.Seed.ToString(CultureInfo.InvariantCulture)).Append(' ')
+                text.Append(r.Kind.ToString()).Append(' ')
+                    .Append(r.Seed.ToString(CultureInfo.InvariantCulture)).Append(' ')
                     .Append(r.Ticks.ToString(CultureInfo.InvariantCulture)).Append(' ')
                     .Append(r.Checksum.ToString("x16", CultureInfo.InvariantCulture)).Append(' ')
                     .Append(r.Ruleset).Append('\n');
@@ -116,14 +156,15 @@ namespace Dynasty.Presentation
                 string line = raw.Trim();
                 if (line.Length == 0)
                     continue;
-                string[] parts = line.Split(new[] { ' ' }, 4);
-                if (parts.Length != 4)
+                string[] parts = line.Split(new[] { ' ' }, 5);
+                if (parts.Length != 5)
                     throw new FormatException("Bad probe line: " + line);
                 results.Add(new ProbeResult(
-                    ulong.Parse(parts[0], CultureInfo.InvariantCulture),
-                    long.Parse(parts[1], CultureInfo.InvariantCulture),
-                    ulong.Parse(parts[2], NumberStyles.HexNumber, CultureInfo.InvariantCulture),
-                    parts[3]));
+                    (ProbeKind)Enum.Parse(typeof(ProbeKind), parts[0]),
+                    ulong.Parse(parts[1], CultureInfo.InvariantCulture),
+                    long.Parse(parts[2], CultureInfo.InvariantCulture),
+                    ulong.Parse(parts[3], NumberStyles.HexNumber, CultureInfo.InvariantCulture),
+                    parts[4]));
             }
 
             return results;
@@ -132,14 +173,16 @@ namespace Dynasty.Presentation
 
     public sealed class ProbeResult
     {
-        public ProbeResult(ulong seed, long ticks, ulong checksum, string ruleset)
+        public ProbeResult(ProbeKind kind, ulong seed, long ticks, ulong checksum, string ruleset)
         {
+            Kind = kind;
             Seed = seed;
             Ticks = ticks;
             Checksum = checksum;
             Ruleset = ruleset;
         }
 
+        public ProbeKind Kind { get; }
         public ulong Seed { get; }
         public long Ticks { get; }
         public ulong Checksum { get; }

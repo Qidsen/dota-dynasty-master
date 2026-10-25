@@ -90,6 +90,7 @@ public class PlayerSkillTests
         }));
         var settings = new HeroAiSettings { ReactionJitterTicks = 0, MisjudgementPercent = 0 };
         settings.Uncontrolled.Add("beta");
+        settings.Personalities["alpha"] = new HeroPersonality();   // not a greedy carry: those skip uneven lane fights
         settings.SkillsOf(Team.Dawn)["alpha"] = skill;
         HeroAi.Attach(kernel, settings);
         return kernel;
