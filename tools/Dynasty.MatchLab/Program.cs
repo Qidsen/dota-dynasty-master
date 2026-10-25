@@ -316,10 +316,33 @@ if (mode == "skill")
         int early(Team lost) => runs.Sum(k => k.Events.Records.Count(r => r.Tick.Value < 12 * 1800 && r.Event is StructureDestroyed sd && sd.Team == lost));
         int lh10(Team team) => runs.Sum(k => k.Events.Records.Count(r => r.Tick.Value < 10 * 1800 && r.Event is GoldEarned g && g.Reason == "last_hit" &&
                                                                        k.State.Heroes.Any(h => h.Id == g.Hero && h.Team == team)));
+        (double Towers, double Creeps, double Heroes) Taken(Team team)
+        {
+            double towers = 0, creeps = 0, heroes = 0;
+            foreach (var k in runs)
+            {
+                var victims = k.State.Heroes.Where(h => h.Team == team).Select(h => h.Id).ToHashSet();
+                var heroIds = k.State.Heroes.Select(h => h.Id).ToHashSet();
+                var structureIds = k.Events.Records.Select(r => r.Event).OfType<StructureDestroyed>().Select(e => e.Structure)
+                    .Concat(k.State.Units.Where(u => u.Kind == UnitKind.Structure).Select(u => u.Id)).ToHashSet();
+                foreach (var d in k.Events.Records.Select(r => r.Event).OfType<DamageDealt>())
+                {
+                    if (!victims.Contains(d.Target)) continue;
+                    if (heroIds.Contains(d.Attacker)) heroes += d.Amount.ToDouble();
+                    else if (structureIds.Contains(d.Attacker)) towers += d.Amount.ToDouble();
+                    else creeps += d.Amount.ToDouble();
+                }
+            }
+
+            return (towers / n, creeps / n, heroes / n);
+        }
+
         int wins = runs.Count(k => k.State.Winner == Team.Dawn);
         strongerWins += stronger == Team.Dawn ? wins : n - wins;
         Console.WriteLine($"Dawn q{dawnQ} vs Dusk q{duskQ}: Dawn wins {wins}/{n}, kills {Sum(Team.Dawn, h => h.Kills)}:{Sum(Team.Dusk, h => h.Kills)}, " +
                           $"last hits {Sum(Team.Dawn, h => h.LastHits)}:{Sum(Team.Dusk, h => h.LastHits)}, structures lost before 12 min {early(Team.Dawn)}:{early(Team.Dusk)}, last hits by 10 min {lh10(Team.Dawn)}:{lh10(Team.Dusk)}");
+        foreach (Team t in new[] { Team.Dawn, Team.Dusk })
+            Console.WriteLine($"  {t} heroes take per match: from towers {Taken(t).Towers:0}, creeps and others {Taken(t).Creeps:0}, heroes {Taken(t).Heroes:0}");
     }
 
     Console.WriteLine($"stronger players win {strongerWins}/{2 * n}" + (equalize.Length > 0 ? $" (equalized: {string.Join(",", equalize)})" : ""));
