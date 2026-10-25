@@ -36,14 +36,14 @@ public class TacticalAiTests
                 H(ctx.State, hero).Position = P(x, y);
             setup?.Invoke(ctx);
         });
-        HeroAi.Attach(kernel, settings ?? new HeroAiSettings { ReactionJitterTicks = 0, MisjudgementPercent = 0 });
+        HeroAi.Attach(kernel, settings ?? new HeroAiSettings { ReactionJitterTicks = 0, MisjudgementPercent = 0, LaningPhaseMinutes = 0 });
         return kernel;
     }
 
     /// <summary>Settings without reaction noise where the given heroes are left uncontrolled (they stand still).</summary>
     private static HeroAiSettings Idle(params string[] heroes)
     {
-        var settings = new HeroAiSettings { ReactionJitterTicks = 0, MisjudgementPercent = 0 };
+        var settings = new HeroAiSettings { ReactionJitterTicks = 0, MisjudgementPercent = 0, LaningPhaseMinutes = 0 };
         foreach (string hero in heroes)
             settings.Uncontrolled.Add(hero);
         return settings;
@@ -115,7 +115,7 @@ public class TacticalAiTests
         var draft = TestAbilities.Draft();
         draft.Lanes.Add(new LaneDefinition("side", new[] { P(1000, 1000), P(9000, 1000) }));
         draft.StructureTypes[0] = new StructureType("tower", TowerStats(dmg: 1));   // the attacker must survive long enough to be a threat
-        var settings = new HeroAiSettings { ReactionJitterTicks = 0, MisjudgementPercent = 0 };
+        var settings = new HeroAiSettings { ReactionJitterTicks = 0, MisjudgementPercent = 0, LaningPhaseMinutes = 0 };
         settings.Uncontrolled.Add("beta");
         var kernel = Skirmish(
             new[] { ("alpha", 2500, 1000) },
@@ -243,7 +243,7 @@ public class TacticalAiTests
     {
         int AlphaAttacks(double aggression)
         {
-            var settings = new HeroAiSettings { ReactionJitterTicks = 0, MisjudgementPercent = 0 };
+            var settings = new HeroAiSettings { ReactionJitterTicks = 0, MisjudgementPercent = 0, LaningPhaseMinutes = 0 };
             settings.Personalities["alpha"] = new HeroPersonality { Aggression = aggression };
             settings.Personalities["beta"] = new HeroPersonality { Aggression = 0.5 };
             var kernel = Skirmish(new[] { ("alpha", 5000, 2000) }, new[] { ("beta", 5700, 2000) }, settings, setup: ctx => Pin(ctx, "beta"));
@@ -337,16 +337,27 @@ public class TacticalAiTests
     }
 
     [Theory]
-    [InlineData(0.8, false)]
-    [InlineData(0.5, true)]
-    public void GreedyCarry_TakesOnlyClearlyWonFightsInTheLaningPhase(double greed, bool engages)
+    [InlineData(10, 0.8, 75, 0, false)]      // laning: a farming core does not fight a healthy laner
+    [InlineData(10, 0.5, 75, 0, false)]
+    [InlineData(10, 0.5, 30, 0, true)]       // ... but goes for a kill
+    [InlineData(0, 0.5, 75, 0, true)]        // after the laning phase the same odds (about 117%) are a fight
+    [InlineData(10, 0.5, 75, 2000, false)]   // even far ahead (odds well over 150%) a core keeps farming
+    [InlineData(10, 0.1, 75, 2000, true)]    // a support takes such a clear edge
+    [InlineData(10, 0.1, 75, 0, false)]      // ... but not a merely favourable one in lane
+    public void LaningCore_FightsOnlyForAKill(int laningMinutes, double greed, int betaHpPercent, int alphaXp, bool engages)
     {
         var settings = Idle("beta");
+        settings.LaningPhaseMinutes = laningMinutes;
         settings.Personalities["alpha"] = new HeroPersonality { Aggression = 1.0, Greed = greed };
-        var kernel = Skirmish(new[] { ("alpha", 5000, 2000) }, new[] { ("beta", 5450, 2000) }, settings, setup: ctx =>
+        // In the lane with an own creep beside alpha (no chase rule in the way), away from both towers.
+        var kernel = Skirmish(new[] { ("alpha", 5000, 5000) }, new[] { ("beta", 5450, 5000) }, settings, draft: new RulesetDraft(), setup: ctx =>
         {
+            ctx.State.Creeps(Team.Dawn).Single().Position = P(4900, 5150);
+            ctx.State.Creeps(Team.Dusk).Single().Position = P(9500, 9000);
             Pin(ctx, "beta");
-            H(ctx.State, "beta").Hp = Fixed.FromInt(H(ctx.State, "beta").MaxHp * 75 / 100);   // odds about 117%: worth it, not clearly won
+            if (alphaXp > 0)
+                HeroProgression.GrantXp(ctx, H(ctx.State, "alpha"), alphaXp);
+            H(ctx.State, "beta").Hp = Fixed.FromInt(H(ctx.State, "beta").MaxHp * betaHpPercent / 100);
         });
 
         kernel.RunTicks(120);
@@ -355,13 +366,60 @@ public class TacticalAiTests
         Assert.Equal(engages, kernel.EventsOf<AttackStarted>().Any(a => a.Attacker == alpha));
     }
 
+    [Theory]
+    [InlineData(100, 4500, 9999)]   // healthy: keeps last hitting at the wave
+    [InlineData(55, 0, 4450)]       // hurt: backs away out of the fight
+    public void OutnumberedLaner_HoldsTheLaneWhileHealthy(int hpPercent, int minX, int maxX)
+    {
+        // Laning, alpha alone against two visible enemies (odds far below 85%), the waves meeting in mid.
+        var settings = Idle("beta", "gamma");
+        settings.LaningPhaseMinutes = 10;
+        settings.Personalities["alpha"] = new HeroPersonality();
+        var kernel = Skirmish(new[] { ("alpha", 4900, 5000) }, new[] { ("beta", 5600, 5000), ("gamma", 5600, 5150) }, settings, draft: new RulesetDraft(), setup: ctx =>
+        {
+            ctx.State.Creeps(Team.Dawn).Single().Position = P(5050, 5100);
+            ctx.State.Creeps(Team.Dusk).Single().Position = P(5250, 5000);
+            Pin(ctx, "beta");
+            Pin(ctx, "gamma");
+            H(ctx.State, "alpha").Hp = Fixed.FromInt(H(ctx.State, "alpha").MaxHp * hpPercent / 100);
+        });
+
+        kernel.RunTicks(150);
+
+        int x = H(kernel.State, "alpha").Position.X.ToIntFloor();
+        Assert.True(x >= minX && x <= maxX, $"alpha at x = {x}, expected {minX}..{maxX} (fountain at 200, own tower at 3000)");
+    }
+
+    [Theory]
+    [InlineData(true, false)]    // beta stands away from any own creep or tower: no chase in the laning phase
+    [InlineData(false, true)]    // the same fight inside the lane is taken
+    public void LaningHero_DoesNotChaseAHealthyEnemyOutOfTheLane(bool outOfLane, bool attacks)
+    {
+        var settings = Idle("beta");
+        settings.LaningPhaseMinutes = 10;
+        settings.Personalities["alpha"] = new HeroPersonality { Greed = 0.1 };   // a support: takes clear edges in lane
+        int y = outOfLane ? 2000 : 5000;
+        var kernel = Skirmish(new[] { ("alpha", 5000, y) }, new[] { ("beta", 5450, y) }, settings, draft: new RulesetDraft(), setup: ctx =>
+        {
+            ctx.State.Creeps(Team.Dawn).Single().Position = P(4900, 5150);
+            ctx.State.Creeps(Team.Dusk).Single().Position = P(9500, 9000);
+            Pin(ctx, "beta");
+            HeroProgression.GrantXp(ctx, H(ctx.State, "alpha"), 2000);   // odds well over 150%
+        });
+
+        kernel.RunTicks(120);
+
+        EntityId alpha = H(kernel.State, "alpha").Id, beta = H(kernel.State, "beta").Id;
+        Assert.Equal(attacks, kernel.EventsOf<AttackStarted>().Any(a => a.Attacker == alpha && a.Target == beta));
+    }
+
     [Fact]
     public void ReadyUltimate_MakesAnEvenFightWorthTaking()
     {
         bool AlphaEngages(bool ultimateReady)
         {
             var draft = TestAbilities.Draft().WithHeroAbilities("alpha", "finale");
-            var settings = new HeroAiSettings { ReactionJitterTicks = 0, MisjudgementPercent = 0 };
+            var settings = new HeroAiSettings { ReactionJitterTicks = 0, MisjudgementPercent = 0, LaningPhaseMinutes = 0 };
             settings.Personalities["alpha"] = new HeroPersonality { Aggression = 1.0 };
             settings.Uncontrolled.Add("beta");
             var kernel = Skirmish(new[] { ("alpha", 5000, 2000) }, new[] { ("beta", 5700, 2000) }, settings, draft: draft, setup: ctx =>
@@ -398,7 +456,7 @@ public class TacticalAiTests
                 H(ctx.State, "beta").Position = P(5600, 2100);
                 Pin(ctx, "beta");
             });
-            HeroAi.Attach(kernel, new HeroAiSettings { ReactionJitterTicks = 6, MisjudgementPercent = 0 });
+            HeroAi.Attach(kernel, new HeroAiSettings { ReactionJitterTicks = 6, MisjudgementPercent = 0, LaningPhaseMinutes = 0 });
             kernel.RunTicks(120);
             return kernel.TimedEventsOf<AttackStarted>().First(a => a.Event.Attacker == H(kernel.State, "alpha").Id).Tick;
         }

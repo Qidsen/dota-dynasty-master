@@ -34,7 +34,7 @@ public class PsychologyTests
                 H(ctx.State, "beta").Position = P(5700, 2000);
                 Modifiers.Apply(ctx, H(ctx.State, "beta"), ModifierSpec.Status("test.pin", -1, ModifierFlags.Rooted), EntityId.None);
             }));
-            var settings = new HeroAiSettings { ReactionJitterTicks = 0, MisjudgementPercent = 0 };
+            var settings = new HeroAiSettings { ReactionJitterTicks = 0, MisjudgementPercent = 0, LaningPhaseMinutes = 0 };
             settings.Uncontrolled.Add("beta");
             settings.Personalities["alpha"] = new HeroPersonality { Aggression = 1.0 };   // an even fight: normally just a poke
             settings.SkillsOf(Team.Dawn)["alpha"] = new HeroSkill { TiltSusceptibility = tiltSusceptibility, ReactionJitterTicks = 0, MisjudgementPercent = 0 };

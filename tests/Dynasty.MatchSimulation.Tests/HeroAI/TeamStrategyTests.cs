@@ -80,6 +80,39 @@ public class TeamStrategyTests
         Assert.Equal(0, AlphaAttacks(100));
     }
 
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(true, true)]
+    public void LaningPhase_GanksRotateToOtherLanes_NotOntoTheOwnLaneOpponent(bool preyInOtherLane, bool approaches)
+    {
+        // Laning phase, alpha and gamma in mid, a lone Dusk hero seen by a Dawn scout. Against the own lane
+        // opponent the lane rules decide (no "gank" two on one); a hero alone in another lane is a rotation.
+        var draft = new RulesetDraft().WithoutWaves();
+        draft.Lanes.Add(new LaneDefinition("top", new[] { P(1000, 8000), P(9000, 8000) }));
+        draft.Heroes.Add(Hero("delta"));
+        var kernel = draft.StartWithHeroes(new[] { ("alpha", "mid"), ("gamma", "mid"), ("delta", "top") }, new[] { ("beta", "mid") });
+        var preyAt = preyInOtherLane ? P(5300, 7600) : P(5900, 5000);   // out of the Dusk tower's reach
+        kernel.AddSystem(new LambdaSystem(0, ctx =>
+        {
+            H(ctx.State, "alpha").Position = P(4300, 5000);
+            H(ctx.State, "gamma").Position = P(4300, 5200);
+            H(ctx.State, "beta").Position = preyAt;
+            H(ctx.State, "delta").Position = preyAt + FixedVector2.FromInts(0, 600);   // keeps beta in sight
+        }));
+        var settings = new HeroAiSettings { ReactionJitterTicks = 0, MisjudgementPercent = 0 };   // the laning phase is on
+        settings.Uncontrolled.Add("beta");
+        settings.Uncontrolled.Add("gamma");
+        settings.Uncontrolled.Add("delta");
+        settings.Personalities["alpha"] = new HeroPersonality();
+        HeroAi.Attach(kernel, settings);
+        double before = FixedVector2.Distance(P(4300, 5000), preyAt).ToDouble();
+
+        kernel.RunTicks(90);
+
+        double after = FixedVector2.Distance(H(kernel.State, "alpha").Position, preyAt).ToDouble();
+        Assert.True(approaches == after < before - 400, $"before {before:0}, after {after:0}, order {H(kernel.State, "alpha").Hero!.Order.Kind} pos {H(kernel.State, "alpha").Position.X.ToDouble():0},{H(kernel.State, "alpha").Position.Y.ToDouble():0} beta seen {kernel.State.IsVisibleTo(Team.Dawn, H(kernel.State, "beta"))}");
+    }
+
     [Fact]
     public void Gank_SkipsAnEnemyBesideHisTower_EvenWithOwnCreepsTankingIt()
     {

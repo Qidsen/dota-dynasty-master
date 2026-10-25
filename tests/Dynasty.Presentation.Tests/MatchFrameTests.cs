@@ -39,8 +39,8 @@ public class MatchFrameTests
         Assert.Equal(state.Units.Count(u => u.IsAlive), frame.Units.Count);
         MatchUnit hero = state.Heroes.First(h => h.IsAlive);
         UnitFrame view = frame.Units.Single(u => u.Id == hero.Id.Value);
-        Assert.Equal(hero.Position.X.ToDouble(), view.X, 3);
-        Assert.Equal(hero.Position.Y.ToDouble(), view.Y, 3);
+        Assert.Equal(hero.Position.X.ToDouble(), view.X, 0.01);   // frames hold floats: about 7 significant digits
+        Assert.Equal(hero.Position.Y.ToDouble(), view.Y, 0.01);   // frames hold floats: about 7 significant digits
         Assert.Equal(hero.Hp.ToIntFloor(), view.Hp);
         Assert.Equal(hero.MaxHp, view.MaxHp);
         Assert.Equal(hero.Hero!.Level, view.Level);
@@ -54,7 +54,7 @@ public class MatchFrameTests
     [Fact]
     public void TeamFrame_HidesWhatTheTeamCannotSee()
     {
-        var kernel = Played(240);
+        var kernel = Played(245);   // just after a wave spawns: the new Dusk creeps at their base are out of Dawn's sight
         MatchState state = kernel.State;
 
         MatchFrame frame = MatchFrame.Capture(state, kernel.CurrentTick.Value, Viewpoint.Dawn);

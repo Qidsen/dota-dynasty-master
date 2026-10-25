@@ -28,7 +28,7 @@ namespace Dynasty.HeroAI
             if (roles.Contains("support") || roles.Contains("healer"))
                 return new HeroPersonality { Aggression = 1.0, Greed = 0.1 };
             if (roles.Contains("initiator") || roles.Contains("offlane"))
-                return new HeroPersonality { Aggression = 1.1, Greed = 0.3, RetreatHpPercent = 25 };
+                return new HeroPersonality { Aggression = 1.1, Greed = 0.5, RetreatHpPercent = 25 };   // the offlaner is a core too
             return new HeroPersonality { Aggression = 1.05, Greed = 0.5 };
         }
     }

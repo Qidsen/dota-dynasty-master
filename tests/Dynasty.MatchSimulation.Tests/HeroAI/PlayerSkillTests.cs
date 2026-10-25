@@ -88,7 +88,7 @@ public class PlayerSkillTests
             Modifiers.Apply(ctx, H(ctx.State, "beta"), ModifierSpec.Status("test.pin", -1, ModifierFlags.Rooted), EntityId.None);
             H(ctx.State, "beta").Hp = Fixed.FromInt(300);   // a fight worth taking
         }));
-        var settings = new HeroAiSettings { ReactionJitterTicks = 0, MisjudgementPercent = 0 };
+        var settings = new HeroAiSettings { ReactionJitterTicks = 0, MisjudgementPercent = 0, LaningPhaseMinutes = 0 };
         settings.Uncontrolled.Add("beta");
         settings.Personalities["alpha"] = new HeroPersonality();   // not a greedy carry: those skip uneven lane fights
         settings.SkillsOf(Team.Dawn)["alpha"] = skill;
@@ -141,7 +141,7 @@ public class PlayerSkillTests
                 H(ctx.State, "beta").Hp = Fixed.FromInt(200);
                 Modifiers.Apply(ctx, H(ctx.State, "beta"), ModifierSpec.Status("test.pin", -1, ModifierFlags.Rooted), EntityId.None);
             }));
-            var settings = new HeroAiSettings { ReactionJitterTicks = 0, MisjudgementPercent = 0 };
+            var settings = new HeroAiSettings { ReactionJitterTicks = 0, MisjudgementPercent = 0, LaningPhaseMinutes = 0 };
             settings.Uncontrolled.Add("beta");
             settings.SkillsOf(Team.Dawn)["alpha"] = new HeroSkill { DecisionIntervalTicks = interval, ReactionJitterTicks = 0 };
             HeroAi.Attach(kernel, settings);
@@ -171,7 +171,7 @@ public class PlayerSkillTests
                 Modifiers.Apply(ctx, H(ctx.State, "beta"), ModifierSpec.Status("test.pin", -1, ModifierFlags.Rooted), EntityId.None);
                 Modifiers.Apply(ctx, H(ctx.State, "gamma"), ModifierSpec.Status("test.pin", -1, ModifierFlags.Rooted), EntityId.None);
             }));
-            var settings = new HeroAiSettings { ReactionJitterTicks = 0, MisjudgementPercent = 0 };
+            var settings = new HeroAiSettings { ReactionJitterTicks = 0, MisjudgementPercent = 0, LaningPhaseMinutes = 0 };
             settings.Uncontrolled.Add("beta");
             settings.Uncontrolled.Add("gamma");
             settings.Personalities["alpha"] = new HeroPersonality { Aggression = 2.0 };
@@ -202,7 +202,7 @@ public class PlayerSkillTests
                 Modifiers.Apply(ctx, H(ctx.State, "beta"), ModifierSpec.Status("test.pin", -1, ModifierFlags.Rooted), EntityId.None);
                 Modifiers.Apply(ctx, H(ctx.State, "epsilon"), ModifierSpec.Status("test.pin", -1, ModifierFlags.Rooted), EntityId.None);
             }));
-            var settings = new HeroAiSettings { ReactionJitterTicks = 0, MisjudgementPercent = 0 };
+            var settings = new HeroAiSettings { ReactionJitterTicks = 0, MisjudgementPercent = 0, LaningPhaseMinutes = 0 };
             settings.Uncontrolled.Add("beta");
             settings.Uncontrolled.Add("epsilon");
             settings.SkillsOf(Team.Dawn)["alpha"] = new HeroSkill { FocusDisciplinePercent = discipline, ReactionJitterTicks = 0 };
@@ -236,7 +236,7 @@ public class PlayerSkillTests
                 H(ctx.State, "gamma").Position = P(9000, 8300);
                 H(ctx.State, "delta").Position = P(9000, 8600);
             }));
-            var settings = new HeroAiSettings { ReactionJitterTicks = 0, MisjudgementPercent = 0 };
+            var settings = new HeroAiSettings { ReactionJitterTicks = 0, MisjudgementPercent = 0, LaningPhaseMinutes = 0 };
             foreach (string enemy in new[] { "beta", "gamma", "delta" })
                 settings.Uncontrolled.Add(enemy);
             settings.SkillsOf(Team.Dawn)["alpha"] = new HeroSkill { DangerSense = danger, ReactionJitterTicks = 0 };
@@ -260,7 +260,7 @@ public class PlayerSkillTests
                 H(ctx.State, "alpha").Position = P(2000, 5000);   // behind the own tower: lane is right, home is left
                 H(ctx.State, "alpha").Hp = Fixed.FromInt(H(ctx.State, "alpha").MaxHp * 35 / 100);   // 35%: above the usual 30% threshold
             }));
-            var settings = new HeroAiSettings { ReactionJitterTicks = 0, MisjudgementPercent = 0 };
+            var settings = new HeroAiSettings { ReactionJitterTicks = 0, MisjudgementPercent = 0, LaningPhaseMinutes = 0 };
             settings.Personalities["alpha"] = new HeroPersonality { RetreatHpPercent = 30 };
             settings.SkillsOf(Team.Dawn)["alpha"] = new HeroSkill { RetreatShiftPercent = shift, ReactionJitterTicks = 0 };
             HeroAi.Attach(kernel, settings);

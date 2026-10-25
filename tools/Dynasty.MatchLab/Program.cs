@@ -34,6 +34,13 @@ if (mode == "quality")
     }).ToList();
 
     var lh10 = roles.ToDictionary(r => r, _ => 0.0);
+    var lh20 = roles.ToDictionary(r => r, _ => new List<double>());
+    var nw10 = roles.ToDictionary(r => r, _ => 0.0);
+    var nw20 = roles.ToDictionary(r => r, _ => new List<double>());
+    var killsPerMatch = new List<double>();
+    var earned10 = roles.ToDictionary(r => r, _ => 0.0);
+    var earned20 = roles.ToDictionary(r => r, _ => 0.0);
+    var bySource = new Dictionary<(string, string), double>();
     var lhAll = roles.ToDictionary(r => r, _ => 0.0);
     double deaths = 0, minutes = 0, structures = 0, grouped = 0, highGround = 0, byHeroes = 0, highGrouped = 0, firstHigh = 0, withHigh = 0;
     foreach (var (k, audit) in runs)
@@ -44,9 +51,25 @@ if (mode == "quality")
             string role = roleOf[hero.Hero!.Definition.Id];
             lhAll[role] += hero.Hero.LastHits / 2.0;
             lh10[role] += audit.LastHitsAt10.GetValueOrDefault(hero.Id.Value) / 2.0;
+            nw10[role] += audit.NetWorthAt10.GetValueOrDefault(hero.Id.Value) / 2.0;
+            if (audit.NetWorthAt20.TryGetValue(hero.Id.Value, out int w20))
+            {
+                nw20[role].Add(w20);
+                lh20[role].Add(audit.LastHitsAt20[hero.Id.Value]);
+            }
             deaths += hero.Hero.Deaths / 10.0;
         }
 
+        killsPerMatch.Add(k.State.Heroes.Sum(h => h.Hero!.Kills));
+        foreach (var r in k.Events.Records)
+            if (r.Event is GoldEarned g && r.Tick.Value < 20 * 1800)
+            {
+                MatchUnit h = k.State.Heroes.First(x => x.Id == g.Hero);
+                string role = roleOf[h.Hero!.Definition.Id];
+                if (r.Tick.Value < 10 * 1800) earned10[role] += g.Amount / 2.0;
+                earned20[role] += g.Amount / 2.0;
+                if (r.Tick.Value < 10 * 1800) bySource[(role, g.Reason)] = bySource.GetValueOrDefault((role, g.Reason)) + g.Amount / 2.0;
+            }
         var heroIds = k.State.Heroes.Select(h => h.Id).ToHashSet();
         var killers = k.Events.Records.Select(r => r.Event).OfType<StructureDestroyed>().ToDictionary(e => e.PlacementId, e => e.Killer);
         foreach (var (placementId, near, tick) in audit.Destroyed)
@@ -65,6 +88,14 @@ if (mode == "quality")
 
     Console.WriteLine($"quality over {n} mirrored matches: length {minutes / n:0.0} min, deaths per hero {deaths / n:0.0}");
     Console.WriteLine("last hits @10 / match: " + string.Join("  ", roles.Select(r => $"{r} {lh10[r] / n:0}/{lhAll[r] / n:0}")));
+    Console.WriteLine($"kills per match {killsPerMatch.Average():0.0}");
+    HeroRules economy = BaseRuleset.Create().HeroRules!;
+    int start = economy.StartingGold, passive = economy.GoldPerMinute;   // passive gold is credited directly, not as GoldEarned events
+    Console.WriteLine("role       nw@10  nw@20 earn@10 earn@20 LH@10  LH@20   (net worth = gold + item cost; earned = start + passive + GoldEarned, like OpenDota gold_t; @20 over matches still running)");
+    foreach (string r in roles)
+        Console.WriteLine($"{r,-9} {nw10[r] / n,6:0} {(nw20[r].Count > 0 ? nw20[r].Average() : 0),6:0} {start + 10 * passive + earned10[r] / n,7:0} {start + 20 * passive + earned20[r] / n,7:0} {lh10[r] / n,5:0} {(lh20[r].Count > 0 ? lh20[r].Average() : 0),6:0}");
+    Console.WriteLine("gold earned by 10 min by source: " + string.Join("; ", roles.Select(r => r + ": " + string.Join(", ",
+        bySource.Where(kv => kv.Key.Item1 == r).OrderByDescending(kv => kv.Value).Select(kv => $"{kv.Key.Item2} {kv.Value / n:0}")))));
     Console.WriteLine($"structures {structures / n:0.0} per match, grouped {grouped / Math.Max(1, structures):P0}");
     Console.WriteLine($"high ground {highGround / n:0.0} per match (first at {firstHigh / Math.Max(1, withHigh):0.0} min), last hit by heroes {byHeroes / Math.Max(1, highGround):P0}, grouped {highGrouped / Math.Max(1, highGround):P0}");
     return;
@@ -269,6 +300,79 @@ if (mode == "skilldiag")
     }
 
     Console.WriteLine($"elite wins {runs.Count(r => r.k.State.Winner == Team.Dawn)}/{n}");
+    return;
+}
+
+if (mode == "lanewatch")
+{
+    // One match, the Dawn hero's lane second by second: position, HP, order, nearest units.
+    ulong seed = args.Length > 1 ? ulong.Parse(args[1]) : 1;
+    string heroId = args.Length > 2 ? args[2] : "ironvow";
+    int from = args.Length > 3 ? int.Parse(args[3]) : 0, to = args.Length > 4 ? int.Parse(args[4]) : 240;
+    var k = Match.Create(BaseRuleset.Create(), seed, MirrorLineup());
+    HeroAi.Attach(k);
+    MatchUnit me = k.State.Heroes.Single(h => h.Team == Team.Dawn && h.Hero!.Definition.Id == heroId);
+    int Dist(MatchUnit u) => Dynasty.Core.Mathematics.FixedVector2.Distance(u.Position, me.Position).ToIntFloor();
+    string Near(IEnumerable<MatchUnit> units) { var l = units.Where(u => u.IsAlive).OrderBy(Dist).Take(1).ToList(); return l.Count == 0 ? "-" : $"{Dist(l[0])}"; }
+    int lh = 0;
+    k.RunUntilFinished(from * 30L);
+    for (int sec = from; sec < to; sec++)
+    {
+        k.RunUntilFinished(30);
+        var h = me.Hero!;
+        var target = k.State.Find(h.Order.Target);
+        string order = h.Order.Kind.ToString() + (h.Order.Kind == Dynasty.MatchSimulation.Heroes.HeroOrderKind.Attack ? "→" + (target?.Hero?.Definition.Id ?? target?.Kind.ToString() ?? "?") : "");
+        string tower = Near(k.State.Units.Where(u => u.Kind == UnitKind.Structure && u.Team == Team.Dusk));
+        string ownTower = Near(k.State.Units.Where(u => u.Kind == UnitKind.Structure && u.Team == Team.Dawn));
+        Console.WriteLine($"{sec / 60}:{sec % 60:00} pos {me.Position.X.ToIntFloor(),5},{me.Position.Y.ToIntFloor(),5} hp {me.Hp.ToIntFloor(),4}/{me.MaxHp} {order,-22} LH {h.LastHits - lh,1} " +
+            $"enemyCreep {Near(k.State.Units.Where(u => u.Kind == UnitKind.Creep && u.Team == Team.Dusk)),5} ownCreep {Near(k.State.Units.Where(u => u.Kind == UnitKind.Creep && u.Team == Team.Dawn)),5} " +
+            $"enemyHero {Near(k.State.Heroes.Where(u => u.Team == Team.Dusk)),5} ally {Near(k.State.Heroes.Where(u => u.Team == Team.Dawn && u != me)),5} enemyTower {tower,5} ownTower {ownTower,5}");
+        lh = h.LastHits;
+    }
+
+    return;
+}
+
+if (mode == "lhdiag")
+{
+    // Enemy creeps dying within 700 of the Dawn hero (alive) in the first 10 minutes: who took them.
+    int n = args.Length > 1 ? int.Parse(args[1]) : 8;
+    string heroId = args.Length > 2 ? args[2] : "ironvow";
+    bool solo = Environment.GetEnvironmentVariable("MATCHLAB_SOLO") == "1";
+    var takers = new Dictionary<string, int>();
+    for (ulong seed = 1; seed <= (ulong)n; seed++)
+    {
+        var settings = new HeroAiSettings();
+        if (solo)
+            foreach (var id in new[] { "dawnmender", "emberwisp", "stonewarden", "thornkeeper" }) settings.Uncontrolled.Add(id);
+        var k = Match.Create(BaseRuleset.Create(), seed, MirrorLineup());
+        HeroAi.Attach(k, settings);
+        MatchUnit me = k.State.Heroes.Single(h => h.Team == Team.Dawn && h.Hero!.Definition.Id == heroId);
+        int seen = 0;
+        var lastPosition = new Dictionary<long, Dynasty.Core.Mathematics.FixedVector2>();
+        for (long t = 0; t < 10L * 1800; t++)
+        {
+            lastPosition.Clear();
+            foreach (MatchUnit u in k.State.Units)
+                if (u.Kind == UnitKind.Creep && u.Team == Team.Dusk && u.LaneId != null)
+                    lastPosition[u.Id.Value] = u.Position;
+            k.RunUntilFinished(1);
+            var records = k.Events.Records;
+            for (; seen < records.Count; seen++)
+            {
+                if (records[seen].Event is not UnitKilled uk || uk.VictimTeam != Team.Dusk || me.Hero!.IsDead)
+                    continue;
+                if (!lastPosition.TryGetValue(uk.Victim.Value, out var at)) continue;   // lane creeps only
+                if (Dynasty.Core.Mathematics.FixedVector2.Distance(at, me.Position) > Dynasty.Core.Mathematics.Fixed.FromInt(700)) continue;
+                MatchUnit? killer = k.State.Find(uk.Killer);
+                string who = uk.Killer == me.Id ? "ME" : killer?.Hero != null ? (killer.Team == Team.Dawn ? "ally hero" : "enemy hero (deny)") : killer?.Kind == UnitKind.Structure ? "tower" : "creep";
+                takers[who] = takers.GetValueOrDefault(who) + 1;
+            }
+        }
+    }
+
+    foreach (var kv in takers.OrderByDescending(x => x.Value))
+        Console.WriteLine($"{kv.Key,-20} {kv.Value / (double)n:0.0} per match");
     return;
 }
 
@@ -543,6 +647,12 @@ sealed class QualityAudit : ISimulationSystem<MatchState>
 
     public string Name => "matchlab-quality";
     public Dictionary<long, int> LastHitsAt10 { get; } = new();
+    public Dictionary<long, int> LastHitsAt20 { get; } = new();
+    public Dictionary<long, int> NetWorthAt10 { get; } = new();
+    public Dictionary<long, int> NetWorthAt20 { get; } = new();
+
+    /// <summary>Unspent gold plus the full cost of carried items.</summary>
+    public static int NetWorth(MatchUnit hero) => hero.Hero!.Gold.ToIntFloor() + hero.Hero.Inventory.Sum(i => i.Definition.Cost);
     public List<(string PlacementId, int Near, long Tick)> Destroyed { get; } = new();
 
     public static bool IsHighGround(string placementId) =>
@@ -553,7 +663,17 @@ sealed class QualityAudit : ISimulationSystem<MatchState>
         MatchState state = context.State;
         if (context.Tick.Value == 10 * 1800)
             foreach (MatchUnit hero in state.Heroes)
+            {
                 LastHitsAt10[hero.Id.Value] = hero.Hero!.LastHits;
+                NetWorthAt10[hero.Id.Value] = NetWorth(hero);
+            }
+
+        if (context.Tick.Value == 20 * 1800)
+            foreach (MatchUnit hero in state.Heroes)
+            {
+                LastHitsAt20[hero.Id.Value] = hero.Hero!.LastHits;
+                NetWorthAt20[hero.Id.Value] = NetWorth(hero);
+            }
 
         var destroyed = state.DestroyedStructures.ToList();
         for (; _seen < destroyed.Count; _seen++)

@@ -402,6 +402,7 @@ namespace Dynasty.HeroAI
         // ── Consumables ──────────────────────────────────────────────────────────
 
         private const int ConsumableHpPercent = 55;
+        private const int ConsumablesCarried = 1;
         private const int PatchedUpMarginPercent = 30;
 
         /// <summary>Drinks a carried healing consumable when hurt and not already healing (backlog B-024).</summary>
@@ -547,11 +548,13 @@ namespace Dynasty.HeroAI
 
             if (oddsPercent < 85)
             {
+                if (Laning && Math.HpPercent(_hero) >= LaneHoldHpPercent)
+                    return false;   // outnumbered but healthy in lane: keep last hitting carefully
                 GoHome();
                 return true;
             }
 
-            if (oddsPercent < (ProtectingCarry || LaningCore ? 140 : 115))
+            if (oddsPercent < CommitOddsPercent(enemies))
                 return Harass(enemies);
 
             if (_skill.FightFumblePercent > 0 && _random.NextInt(0, 100) < _skill.FightFumblePercent)
@@ -567,6 +570,9 @@ namespace Dynasty.HeroAI
                 HeroDecision me = this;
                 focus = enemies.OrderBy(e => FixedVector2.DistanceSquared(e.Position, me._hero.Position)).First();
             }
+
+            if (Laning && Math.HpPercent(focus) > LaneKillHpPercent && !InOwnLaneArea(focus.Position))
+                return TryCastInFight(focus, enemies, allies);   // no chase out of the lane in the laning phase
 
             if (DiveUnderTower(focus))
             {
@@ -601,6 +607,39 @@ namespace Dynasty.HeroAI
         }
 
         private const int DiveForKillHpPercent = 30;
+
+        /// <summary>
+        /// Odds needed to start a fight: a greedy carry protecting its farm wants them clearly won; in the
+        /// laning phase anyone wants a clear edge unless an enemy is low enough to kill (lane fights are for kills).
+        /// </summary>
+        private int CommitOddsPercent(List<MatchUnit> enemies)
+        {
+            if (_personality.Greed >= 0.5 && Laning && enemies.All(e => Math.HpPercent(e) > LaneKillHpPercent))
+                return int.MaxValue;   // a farming core fights in lane only for a kill
+            if (ProtectingCarry || LaningCore)
+                return 140;
+            bool laning = _now / _ticksPerMinute < _settings.LaningPhaseFor(_hero.Team);
+            return laning && enemies.All(e => Math.HpPercent(e) > LaneKillHpPercent) ? LaneCommitOddsPercent : 115;
+        }
+
+        private const int LaneCommitOddsPercent = 150;
+        private const int LaneKillHpPercent = 35;
+
+        private bool Laning => _now / _ticksPerMinute < _settings.LaningPhaseFor(_hero.Team);
+
+        private const int LaneHoldHpPercent = 60;
+
+        private const int LastHitReach = 700;   // the walk is part of the timing check
+
+        /// <summary>Within reach of an own creep or own tower: still the lane, not a chase into the enemy's ground.</summary>
+        private bool InOwnLaneArea(FixedVector2 point)
+        {
+            HeroDecision self = this;
+            return _state.Units.Any(u => u.Team == self._hero.Team && u.IsAlive && (u.Kind == UnitKind.Creep || (u.Kind == UnitKind.Structure && u.CanAttackAtAll)) &&
+                                         Math.Within(u.Position, point, LaneAreaReach));
+        }
+
+        private const int LaneAreaReach = 900;
 
         /// <summary>A greedy carry in the laning phase: last hits first, fights only clearly won.</summary>
         private bool LaningCore => _personality.Greed > 0.7 && _now / _ticksPerMinute < _settings.LaningPhaseFor(_hero.Team);
@@ -735,8 +774,11 @@ namespace Dynasty.HeroAI
 
             HeroDecision self = this;
             int gankRange = _settings.StrategyFor(_hero.Team).GankRange;
+            // In the laning phase the own lane opponent is a matter of laning (the fight rules), not a gank.
+            bool laning = _now / _ticksPerMinute < _settings.LaningPhaseFor(_hero.Team);
             MatchUnit? prey = VisibleEnemyHeroes(_hero.Position, gankRange)
                 .Where(e => self.VisibleEnemyHeroes(e.Position, 1200).Count == 1 && !self.DiveUnderTower(e))
+                .Where(e => !laning || Math.NearestLane(self._state.Ruleset.Map, e.Position) != self._h.AssignedLane)
                 .OrderBy(e => e.Hp)
                 .FirstOrDefault();
             if (prey == null)
@@ -889,7 +931,7 @@ namespace Dynasty.HeroAI
 
         private void Lane()
         {
-            MatchUnit? lastHit = FindLastHit(_hero.AttackRange + 400);
+            MatchUnit? lastHit = FindLastHit(_hero.AttackRange + LastHitReach);
             if (_h.Order.Kind == HeroOrderKind.Attack)
             {
                 // Keep a swing at a creep only while it is still worth it; otherwise stop hitting the
@@ -1159,7 +1201,7 @@ namespace Dynasty.HeroAI
             // In the laning phase every hero carries a healing consumable.
             ItemDefinition? potionItem = _state.Ruleset.Items.FirstOrDefault(i =>
                 i.ActiveAbilityId != null && Math.IsHealingConsumable(i, _state.Ruleset.FindAbility(i.ActiveAbilityId)));
-            if (potionItem != null && _now / _ticksPerMinute < _settings.LaningPhaseFor(_hero.Team) && _h.Inventory.All(i => i.Definition.Id != potionItem.Id) &&
+            if (potionItem != null && _now / _ticksPerMinute < _settings.LaningPhaseFor(_hero.Team) && _h.Inventory.Count(i => i.Definition.Id == potionItem.Id) < ConsumablesCarried &&
                 _h.Inventory.Count < HeroShop.InventorySize && CanSpend(potionItem.Cost))
             {
                 HeroShop.QueuePurchase(_hero, potionItem.Id);
@@ -1347,6 +1389,36 @@ namespace Dynasty.HeroAI
         {
             long strength = hero.Hero!.Level * 1000L + hero.Hero.Inventory.Sum(i => i.Definition.Cost);
             return strength * (4000 + 60 * HpPercent(hero)) / 10000;
+        }
+
+        /// <summary>The lane whose path passes closest to the point (static map knowledge).</summary>
+        public static string? NearestLane(MapDefinition map, FixedVector2 point)
+        {
+            string? best = null;
+            Fixed bestDistance = Fixed.Zero;
+            foreach (LaneDefinition lane in map.Lanes)
+                for (int i = 1; i < lane.Waypoints.Count; i++)
+                {
+                    Fixed distance = SegmentDistanceSquared(point, lane.Waypoints[i - 1], lane.Waypoints[i]);
+                    if (best == null || distance < bestDistance)
+                    {
+                        best = lane.Id;
+                        bestDistance = distance;
+                    }
+                }
+
+            return best;
+        }
+
+        private static Fixed SegmentDistanceSquared(FixedVector2 p, FixedVector2 a, FixedVector2 b)
+        {
+            FixedVector2 ab = b - a;
+            Fixed length = ab.LengthSquared;
+            if (length == Fixed.Zero)
+                return FixedVector2.DistanceSquared(p, a);
+            Fixed t = ((p.X - a.X) * ab.X + (p.Y - a.Y) * ab.Y) / length;
+            t = Fixed.Min(Fixed.One, Fixed.Max(Fixed.Zero, t));
+            return FixedVector2.DistanceSquared(p, a + ab * t);
         }
 
         public static bool IsTeleport(AbilityDefinition ability) => ability.Effects.Any(e => e.Kind == EffectKind.Teleport);

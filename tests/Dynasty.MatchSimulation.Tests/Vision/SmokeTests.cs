@@ -131,7 +131,7 @@ public class SmokeTests
                 new CreepType("eye", new UnitStats(5, Fixed.Zero, 0, 0, 0, 0, 1000, 0, 0, 8, visionRange: 1000)), ctx.Tick.Value, -1);
             ward.Position = P(5400, 2000);
         });
-        var settings = new HeroAiSettings { ReactionJitterTicks = 0, MisjudgementPercent = 0 };
+        var settings = new HeroAiSettings { ReactionJitterTicks = 0, MisjudgementPercent = 0, LaningPhaseMinutes = 0 };
         settings.Uncontrolled.Add("beta");
         HeroAi.Attach(kernel, settings);
 
