@@ -680,4 +680,72 @@ public class DotaMechanicsTests
         Assert.NotEmpty(HitsOnBeta(kernel));
         Assert.Equal(hit, kernel.EventsOf<DamageDealt>().Any(d => d.Target == bug!.Id));
     }
+
+    /// <summary>Fractional percents (Warpath's 2.5% per stack, Chaos Strike's 33.33%): move speed and chances keep hundredths of a percent.</summary>
+    [Fact]
+    public void FractionalMoveSpeedPercent_IsNotRoundedAway()
+    {
+        var warpath = new ModifierSpec("warpath", 60000, moveSpeedHundredths: 250, maxStacks: 10);
+        var kernel = Cast(_ => { }, Enumerable.Repeat(EffectDefinition.OnCaster(EffectDefinition.Modifier(warpath)), 4).ToArray());
+
+        Assert.Equal(300 * 110 / 100, H(kernel.State, "alpha").MoveSpeed);   // 4 stacks × 2.5% = 10%
+    }
+
+    [Theory]
+    [InlineData(3333, 0.3333)]
+    [InlineData(950, 0.095)]
+    public void FractionalChances_ProcAtTheirRate(int hundredths, double rate)
+    {
+        var strike = new ModifierSpec("strike", -1, onHit: new[] { EffectDefinition.Damage(DamageType.Pure, 0) }, onHitChancePercent: 0, onHitChanceHundredths: hundredths);
+        var kernel = Duel(onAlpha: strike, attack: false);
+        kernel.AddSystem(new LambdaSystem(2, ctx =>
+        {
+            for (int i = 0; i < 4000; i++)
+                AttackSystem.Strike(ctx, H(ctx.State, "alpha"), H(ctx.State, "beta"), 0);
+        }));
+        kernel.RunTicks(3);
+
+        double procs = HitsOnBeta(kernel).Count(d => d.DamageType == DamageType.Pure);
+        Assert.InRange(procs / 4000, rate - 0.025, rate + 0.025);
+    }
+
+    /// <summary>Jingu Mastery: a charged buff granted by a hit does not spend a charge on that hit.</summary>
+    [Fact]
+    public void AttackCharges_GrantedByAHit_StartCountingFromTheNextAttack()
+    {
+        var charged = new ModifierSpec("jingu.charges", 60000, onHit: new[] { EffectDefinition.Damage(DamageType.Pure, 5) }, attackCharges: 2);
+        var grant = new ModifierSpec("jingu", -1, onHit: new[] { EffectDefinition.OnCaster(EffectDefinition.Modifier(charged)) }, consumedOnHit: true);
+        var kernel = Duel(onAlpha: grant, attack: false);
+        kernel.AddSystem(new LambdaSystem(3, ctx =>
+        {
+            for (int i = 0; i < 4; i++)
+                AttackSystem.Strike(ctx, H(ctx.State, "alpha"), H(ctx.State, "beta"), 100);
+        }));
+        kernel.RunTicks(4);
+
+        Assert.Equal(2, HitsOnBeta(kernel).Count(d => d.DamageType == DamageType.Pure));   // the granting hit, then two charged ones
+    }
+
+    /// <summary>Flak Cannon: the hits on extra targets come with the attack and do not spend its charges.</summary>
+    [Fact]
+    public void AttackCharges_AreNotSpentByExtraTargetHits()
+    {
+        var flak = new ModifierSpec("flak", 60000, extraTargets: 20000, extraTargetRadius: 500, attackCharges: 3);
+        var kernel = Duel(onAlpha: flak);
+        kernel.AddSystem(new LambdaSystem(1, ctx =>
+        {
+            foreach (int y in new[] { 5100, 4900, 5150, 4850 })
+            {
+                MatchUnit bug = ctx.State.SpawnSummon(ctx.Ids.Allocate(), H(ctx.State, "beta"), ctx.State.Ruleset.CreepTypes.First(), ctx.Tick.Value, ctx.Tick.Value + 100000);
+                bug.Position = P(5050, y);
+                bug.StartPosition = bug.Position;
+                Modifiers.Apply(ctx, bug, ModifierSpec.Status("hold", 100000, ModifierFlags.Stunned), EntityId.None);
+            }
+        }));
+        kernel.RunTicks(30 * 8);
+
+        Assert.True(HitsOnBeta(kernel).Count >= 5);
+        int splashHits = kernel.EventsOf<DamageDealt>().Count(d => d.Attacker == H(kernel.State, "alpha").Id && d.Target != H(kernel.State, "beta").Id);
+        Assert.Equal(3 * 4, splashHits);   // three attacks, four extra targets each
+    }
 }

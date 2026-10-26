@@ -474,7 +474,7 @@ namespace Dynasty.MatchSimulation.Systems
             foreach (ActiveModifier split in unit.Modifiers.Where(m => m.Spec.ExtraTargets > 0).ToList())
             {
                 ModifierSpec spec = split.Spec;
-                if (!Rolls(context, spec.ExtraTargetChancePercent))
+                if (!Rolls(context, spec.ExtraTargetChancePercent * 100))
                     continue;
                 int radius = spec.ExtraTargetRadius + (spec.ExtraTargetRadiusFromAttackRange ? unit.AttackRange : 0);
                 List<MatchUnit> others = state.Units
@@ -483,15 +483,15 @@ namespace Dynasty.MatchSimulation.Systems
                     .OrderBy(u => FixedVector2.Distance(unit.Position, u.Position)).ThenBy(u => u.Id.Value)
                     .Take(spec.ExtraTargets).ToList();
                 foreach (MatchUnit other in others)
-                    Strike(context, unit, other, spec.ExtraTargetDamagePercent);
+                    Strike(context, unit, other, spec.ExtraTargetDamagePercent, spendsCharges: false);
             }
         }
 
         /// <summary>An instant attack made by an ability, with a percent of the attack's damage; it lands at once, even for ranged units.</summary>
-        internal static void Strike(SimulationContext<MatchState> context, MatchUnit unit, MatchUnit target, int damagePercent)
+        internal static void Strike(SimulationContext<MatchState> context, MatchUnit unit, MatchUnit target, int damagePercent, bool spendsCharges = true)
         {
             Fixed damage = RollDamage(context, unit, target, out bool critical);
-            ApplyHit(context, unit, target, damage * Fixed.FromInt(damagePercent) / Fixed.FromInt(100), critical);
+            ApplyHit(context, unit, target, damage * Fixed.FromInt(damagePercent) / Fixed.FromInt(100), critical, spendsCharges);
         }
 
         /// <summary>One attack's damage roll: critical strike, attack damage percent, attack and armor classes, structures.</summary>
@@ -500,7 +500,7 @@ namespace Dynasty.MatchSimulation.Systems
             int roll = context.Random("combat").NextInt(unit.AttackDamageMin, unit.AttackDamageMax + 1);
             Fixed damage = Fixed.FromInt(roll);
 
-            critical = unit.CritChancePercent > 0 && context.Random("combat").NextInt(0, 100) < unit.CritChancePercent;
+            critical = unit.CritChanceHundredths > 0 && Draw(context, unit.CritChanceHundredths);
             if (critical)
                 damage = damage * Fixed.FromInt(unit.CritMultiplierPercent) / Fixed.FromInt(100);
             if (unit.AttackDamagePercent != 0)
@@ -521,10 +521,12 @@ namespace Dynasty.MatchSimulation.Systems
             : unit.Kind == UnitKind.Structure || unit.Stats.AttackClass == AttackClass.Reinforced ? DefenseClass.Reinforced
             : DefenseClass.Unit;
 
-        internal static void ApplyHit(SimulationContext<MatchState> context, MatchUnit attacker, MatchUnit target, Fixed damage, bool critical)
+        internal static void ApplyHit(SimulationContext<MatchState> context, MatchUnit attacker, MatchUnit target, Fixed damage, bool critical, bool spendsCharges = true)
         {
+            // Charged buffs count the attacks that land while they are on: not the hit that grants one, not the extra targets' hits.
+            List<ActiveModifier>? charged = spendsCharges ? attacker.Modifiers.Where(m => m.Spec.AttackCharges > 0).ToList() : null;
             // Draw only when there is a chance to roll, so matches without evasion or chance procs keep their random streams.
-            if (target.EvasionPercent > 0 && context.Random("combat").NextInt(0, 100) < target.EvasionPercent)
+            if (target.EvasionHundredths > 0 && Draw(context, target.EvasionHundredths))
                 return;
             Fixed dealt = Damage.Deal(context, attacker.Id, target, damage, DamageType.Physical, critical);
             if (attacker.LifestealPercent > 0 && attacker.IsAlive)
@@ -552,7 +554,7 @@ namespace Dynasty.MatchSimulation.Systems
                 if (modifier.Spec.OnHitAfterAttacks > 0 && modifier.AttackCount++ < modifier.Spec.OnHitAfterAttacks)
                     continue;
                 modifier.AttackCount = 0;
-                if (!Rolls(context, modifier.Spec.OnHitChancePercent))
+                if (!Rolls(context, modifier.Spec.OnHitChanceHundredths))
                     continue;
                 StartProcCooldown(context, modifier);
                 modifier.Procing = true;
@@ -566,7 +568,7 @@ namespace Dynasty.MatchSimulation.Systems
                 if (context.Tick.Value < modifier.NextProcTick || ++modifier.AttackCount < modifier.Spec.WhenAttackedEvery || !target.IsAlive)
                     continue;
                 modifier.AttackCount = 0;
-                if (!Rolls(context, modifier.Spec.WhenAttackedChancePercent))
+                if (!Rolls(context, modifier.Spec.WhenAttackedChanceHundredths))
                     continue;
                 StartProcCooldown(context, modifier);
                 Effects.Run(context, target, modifier.Spec.WhenAttacked, 1, attacker, attacker.Position);
@@ -574,16 +576,29 @@ namespace Dynasty.MatchSimulation.Systems
 
             foreach (ActiveModifier used in attacker.Modifiers.Where(m => m.Spec.ConsumedOnHit).ToList())
                 Modifiers.Remove(context, attacker, used, "consumed");
-            foreach (ActiveModifier charged in attacker.Modifiers.Where(m => m.Spec.AttackCharges > 0).ToList())
+            foreach (ActiveModifier buff in charged ?? Enumerable.Empty<ActiveModifier>())
             {
-                if (++charged.AttacksLanded >= charged.Spec.AttackCharges)
-                    Modifiers.Remove(context, attacker, charged, "consumed");
+                if (attacker.Modifiers.Contains(buff) && ++buff.AttacksLanded >= buff.Spec.AttackCharges)
+                    Modifiers.Remove(context, attacker, buff, "consumed");
             }
         }
 
-        /// <summary>A percent chance; draws from the combat stream only when it is neither 0 nor 100.</summary>
-        private static bool Rolls(SimulationContext<MatchState> context, int chancePercent) =>
-            chancePercent >= 100 || (chancePercent > 0 && context.Random("combat").NextInt(0, 100) < chancePercent);
+        /// <summary>
+        /// A chance in hundredths of a percent; draws from the combat stream only when it is neither 0 nor 100%.
+        /// A whole percent is rolled out of 100 (the draw it always had), a fractional one out of 10000.
+        /// </summary>
+        private static bool Rolls(SimulationContext<MatchState> context, int chanceHundredths)
+        {
+            if (chanceHundredths >= 10000)
+                return true;
+            return chanceHundredths > 0 && Draw(context, chanceHundredths);
+        }
+
+        /// <summary>One draw for a chance in hundredths (critical strikes and evasion always draw, even at 100%).</summary>
+        private static bool Draw(SimulationContext<MatchState> context, int chanceHundredths) =>
+            chanceHundredths % 100 == 0
+                ? context.Random("combat").NextInt(0, 100) < chanceHundredths / 100
+                : context.Random("combat").NextInt(0, 10000) < chanceHundredths;
 
         private static void StartProcCooldown(SimulationContext<MatchState> context, ActiveModifier modifier)
         {

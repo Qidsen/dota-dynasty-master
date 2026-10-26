@@ -142,8 +142,19 @@ namespace Dynasty.MatchSimulation.Combat
             bool revives = false,
             int attackCharges = 0,
             bool extraTargetRadiusFromAttackRange = false,
-            int extraTargetChancePercent = 100)
+            int extraTargetChancePercent = 100,
+            int moveSpeedHundredths = 0,
+            int critChanceHundredths = 0,
+            int evasionHundredths = 0,
+            int onHitChanceHundredths = 0,
+            int whenAttackedChanceHundredths = 0)
         {
+            // Percents Dota gives with decimals (2.5% per stack, 33.33%) are kept in hundredths: the whole percent plus the fraction.
+            MoveSpeedHundredths = moveSpeedPercent * 100 + moveSpeedHundredths;
+            CritChanceHundredths = critChancePercent * 100 + critChanceHundredths;
+            EvasionHundredths = evasionPercent * 100 + evasionHundredths;
+            OnHitChanceHundredths = onHitChancePercent * 100 + onHitChanceHundredths;
+            WhenAttackedChanceHundredths = whenAttackedChancePercent * 100 + whenAttackedChanceHundredths;
             AttackCharges = attackCharges;
             ExtraTargetRadiusFromAttackRange = extraTargetRadiusFromAttackRange;
             ExtraTargetChancePercent = extraTargetChancePercent;
@@ -158,7 +169,7 @@ namespace Dynasty.MatchSimulation.Combat
             OnHitHeroesOnly = onHitHeroesOnly;
             MaxStacks = maxStacks;
             ProcCooldownMs = procCooldownMs;
-            WhenAttackedChancePercent = whenAttackedChancePercent;
+
             OnHitAfterAttacks = onHitAfterAttacks;
             WhenAttacked = whenAttacked?.ToArray() ?? System.Array.Empty<Rules.EffectDefinition>();
             WhenAttackedEvery = whenAttackedEvery;
@@ -169,9 +180,7 @@ namespace Dynasty.MatchSimulation.Combat
             Barrier = barrier;
             IncomingDamagePercent = incomingDamagePercent;
             AttackDamagePercent = attackDamagePercent;
-            EvasionPercent = evasionPercent;
             OnHit = onHit?.ToArray() ?? System.Array.Empty<Rules.EffectDefinition>();
-            OnHitChancePercent = onHitChancePercent;
             Aura = aura;
             ManaRegenBonus = manaRegenBonus;
             MoveSpeedBonus = moveSpeedBonus;
@@ -185,7 +194,6 @@ namespace Dynasty.MatchSimulation.Combat
             MaxHpBonus = maxHpBonus;
             MaxManaBonus = maxManaBonus;
             HpRegenBonus = hpRegenBonus;
-            CritChancePercent = critChancePercent;
             CritMultiplierPercent = critMultiplierPercent;
             StructureDamagePercent = structureDamagePercent;
             LifestealPercent = lifestealPercent;
@@ -193,7 +201,6 @@ namespace Dynasty.MatchSimulation.Combat
             DurationMs = durationMs;
             Flags = flags;
             ArmorBonus = armorBonus;
-            MoveSpeedPercent = moveSpeedPercent;
             AttackSpeedBonus = attackSpeedBonus;
             DamageBonus = damageBonus;
             MagicResistBonus = magicResistBonus;
@@ -230,12 +237,16 @@ namespace Dynasty.MatchSimulation.Combat
         /// <summary>Percent added to the unit's attack damage (negative: e.g. Breathe Fire's reduction).</summary>
         public int AttackDamagePercent { get; }
 
-        /// <summary>Chance that an attack on the unit misses.</summary>
-        public int EvasionPercent { get; }
+        /// <summary>Chance that an attack on the unit misses, in hundredths of a percent.</summary>
+        public int EvasionHundredths { get; }
+
+        public int EvasionPercent => EvasionHundredths / 100;
 
         /// <summary>Effects run on the target of each of the unit's landing attacks (bash, bonus magic damage, slows), with <see cref="OnHitChancePercent"/>.</summary>
         public IReadOnlyList<Rules.EffectDefinition> OnHit { get; }
-        public int OnHitChancePercent { get; }
+        public int OnHitChanceHundredths { get; }
+
+        public int OnHitChancePercent => OnHitChanceHundredths / 100;
 
         /// <summary>On-hit effects run only on the attack after this many attacks without them ("after 3 attacks, the next one bashes"); 0 = every attack.</summary>
         public int OnHitAfterAttacks { get; }
@@ -248,7 +259,9 @@ namespace Dynasty.MatchSimulation.Combat
         public int WhenAttackedEvery { get; }
 
         /// <summary>Chance that <see cref="WhenAttacked"/> runs on an attack taken (Storm Surge).</summary>
-        public int WhenAttackedChancePercent { get; }
+        public int WhenAttackedChanceHundredths { get; }
+
+        public int WhenAttackedChancePercent => WhenAttackedChanceHundredths / 100;
 
         /// <summary>After its on-hit or on-attacked effects run, they do not run again for this long (Greater Bash, Mortal Strike).</summary>
         public int ProcCooldownMs { get; }
@@ -312,8 +325,11 @@ namespace Dynasty.MatchSimulation.Combat
         /// <summary>Damage over time as a percent of the bearer's max health each second (in <see cref="DamageType"/>).</summary>
         public Fixed DamagePerSecondMaxHealthPercent { get; }
 
-        /// <summary>Percent change of move speed; negative slows.</summary>
-        public int MoveSpeedPercent { get; }
+        /// <summary>Change of move speed in hundredths of a percent; negative slows.</summary>
+        public int MoveSpeedHundredths { get; }
+
+        /// <summary>Whole percent of <see cref="MoveSpeedHundredths"/> (for estimates outside the simulation).</summary>
+        public int MoveSpeedPercent => MoveSpeedHundredths / 100;
 
         /// <summary>Attack speed bonus in percent; +100 halves the attack interval.</summary>
         public int AttackSpeedBonus { get; }
@@ -327,8 +343,10 @@ namespace Dynasty.MatchSimulation.Combat
         /// <summary>Interval of periodic damage/heal; each period deals per-second value × period.</summary>
         public int PeriodMs { get; }
 
-        /// <summary>Chance per attack to deal <see cref="CritMultiplierPercent"/> damage.</summary>
-        public int CritChancePercent { get; }
+        /// <summary>Chance per attack (hundredths of a percent) to deal <see cref="CritMultiplierPercent"/> damage.</summary>
+        public int CritChanceHundredths { get; }
+
+        public int CritChancePercent => CritChanceHundredths / 100;
 
         /// <summary>Attack damage on a critical hit, e.g. 200 = double.</summary>
         public int CritMultiplierPercent { get; }
@@ -360,7 +378,7 @@ namespace Dynasty.MatchSimulation.Combat
         /// </summary>
         public bool IsDebuff =>
             (Flags & (ModifierFlags.Stunned | ModifierFlags.Rooted | ModifierFlags.Silenced | ModifierFlags.Disarmed | ModifierFlags.Feared | ModifierFlags.Taunted)) != 0 ||
-            MoveSpeedPercent < 0 || AttackSpeedBonus < 0 || ArmorBonus < Fixed.Zero || DamageBonus < 0 || MagicResistBonus < 0 ||
+            MoveSpeedHundredths < 0 || AttackSpeedBonus < 0 || ArmorBonus < Fixed.Zero || DamageBonus < 0 || MagicResistBonus < 0 ||
             DamagePerSecond > Fixed.Zero;
 
         public bool IsPeriodic => DamagePerSecond > Fixed.Zero || HealPerSecond > Fixed.Zero || DamagePerSecondMaxHealthPercent > Fixed.Zero;
@@ -373,7 +391,7 @@ namespace Dynasty.MatchSimulation.Combat
             w.WriteInt64(DurationMs);
             w.WriteInt64((int)Flags);
             w.WriteFixed(ArmorBonus);
-            w.WriteInt64(MoveSpeedPercent);
+            w.WriteInt64(MoveSpeedHundredths);
             w.WriteInt64(AttackSpeedBonus);
             w.WriteInt64(DamageBonus);
             w.WriteInt64(MagicResistBonus);
@@ -381,7 +399,7 @@ namespace Dynasty.MatchSimulation.Combat
             w.WriteInt64((int)DamageType);
             w.WriteFixed(HealPerSecond);
             w.WriteInt64(PeriodMs);
-            w.WriteInt64(CritChancePercent);
+            w.WriteInt64(CritChanceHundredths);
             w.WriteInt64(CritMultiplierPercent);
             w.WriteInt64(StructureDamagePercent);
             w.WriteInt64(LifestealPercent);
@@ -399,11 +417,11 @@ namespace Dynasty.MatchSimulation.Combat
             w.WriteInt64(AttackRangeBonus);
             w.WriteInt64(IncomingDamagePercent);
             w.WriteInt64(AttackDamagePercent);
-            w.WriteInt64(EvasionPercent);
+            w.WriteInt64(EvasionHundredths);
             w.WriteInt64(OnHit.Count);
             foreach (Rules.EffectDefinition effect in OnHit)
                 effect.WriteCanonical(w);
-            w.WriteInt64(OnHitChancePercent);
+            w.WriteInt64(OnHitChanceHundredths);
             w.WriteBool(Aura != null);
             Aura?.WriteCanonical(w);
             w.WriteInt64(CleavePercent);
@@ -416,7 +434,7 @@ namespace Dynasty.MatchSimulation.Combat
             foreach (Rules.EffectDefinition effect in WhenAttacked)
                 effect.WriteCanonical(w);
             w.WriteInt64(WhenAttackedEvery);
-            w.WriteInt64(WhenAttackedChancePercent);
+            w.WriteInt64(WhenAttackedChanceHundredths);
             w.WriteInt64(ProcCooldownMs);
             w.WriteInt64(MaxStacks);
             w.WriteBool(OnHitHeroesOnly);

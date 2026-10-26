@@ -73,7 +73,10 @@ namespace Dynasty.MatchSimulation
         /// <summary>Percent added to damage taken, to the unit's attack damage, and the chance attacks on it miss (from modifiers).</summary>
         public int IncomingDamagePercent { get; private set; }
         public int AttackDamagePercent { get; private set; }
-        public int EvasionPercent { get; private set; }
+        /// <summary>Chance that an attack on the unit misses, in hundredths of a percent.</summary>
+        public int EvasionHundredths { get; private set; }
+
+        public int EvasionPercent => EvasionHundredths / 100;
 
         private const int MaxMoveSpeed = 550;
         public int AcquisitionRange => Stats.AcquisitionRange;
@@ -119,7 +122,10 @@ namespace Dynasty.MatchSimulation
         public Fixed HpRegenPerSecond { get; private set; }
         public Fixed ManaRegenPerSecond { get; private set; }
 
-        public int CritChancePercent { get; private set; }
+        /// <summary>Critical strike chance in hundredths of a percent.</summary>
+        public int CritChanceHundredths { get; private set; }
+
+        public int CritChancePercent => CritChanceHundredths / 100;
         public int CritMultiplierPercent { get; private set; }
         public int StructureDamagePercent { get; private set; }
         public int LifestealPercent { get; private set; }
@@ -222,9 +228,9 @@ namespace Dynasty.MatchSimulation
             {
                 ModifierSpec spec = modifier.Spec;
                 // Critical strikes do not stack: the highest chance (with its multiplier) wins.
-                if (spec.CritChancePercent > critChance)
+                if (spec.CritChanceHundredths > critChance)
                 {
-                    critChance = spec.CritChancePercent;
+                    critChance = spec.CritChanceHundredths;
                     critMultiplier = spec.CritMultiplierPercent;
                 }
 
@@ -241,11 +247,11 @@ namespace Dynasty.MatchSimulation
                 magicResist += spec.MagicResistBonus * n;
                 damageBonus += spec.DamageBonus * n;
                 attackSpeed += spec.AttackSpeedBonus * n;
-                movePercent += spec.MoveSpeedPercent * n;
+                movePercent += spec.MoveSpeedHundredths * n;
                 moveFlat += spec.MoveSpeedBonus * n;
                 incomingDamage += spec.IncomingDamagePercent * n;
                 attackDamagePercent += spec.AttackDamagePercent * n;
-                evasion += spec.EvasionPercent * n;
+                evasion += spec.EvasionHundredths * n;
                 attackRangeBonus += spec.AttackRangeBonus * n;
                 manaRegenBonus += spec.ManaRegenBonus * Fixed.FromInt(n);
                 flags |= spec.Flags;
@@ -307,18 +313,18 @@ namespace Dynasty.MatchSimulation
             AttackDamageMax = Stats.AttackDamageMax + damageBonus;
             AttackSpeedBonus = Math.Max(attackSpeed, -80);
             Flags = flags;
-            CritChancePercent = Math.Min(critChance, 100);
+            CritChanceHundredths = Math.Min(critChance, 10000);
             CritMultiplierPercent = critMultiplier;
             StructureDamagePercent = structurePercent;
             LifestealPercent = lifesteal;
 
             // Dota: flat bonuses first, then percentages; at least 100 (or the base, if lower), at most 550.
-            int speed = Math.Min((Stats.MoveSpeed + moveFlat) * (100 + movePercent) / 100, MaxMoveSpeed);
+            int speed = Math.Min((Stats.MoveSpeed + moveFlat) * (10000 + movePercent) / 10000, MaxMoveSpeed);   // movePercent in hundredths
             MoveSpeed = Stats.MoveSpeed == 0 ? 0 : Math.Max(speed, Math.Min(100, Stats.MoveSpeed));
             AttackRange = Stats.AttackRange + attackRangeBonus;
             IncomingDamagePercent = Math.Max(incomingDamage, -100);
             AttackDamagePercent = Math.Max(attackDamagePercent, -100);
-            EvasionPercent = Math.Min(evasion, 100);
+            EvasionHundredths = Math.Min(evasion, 10000);
             StepPerTick = Fixed.FromRatio(MoveSpeed, _rate.TicksPerSecond);
             AttackIntervalTicks = Math.Max(1, _rate.TicksFor(Stats.AttackIntervalMs * 100 / (100 + AttackSpeedBonus)));
             AttackPointTicks = _rate.TicksFor(Stats.AttackPointMs * 100 / (100 + AttackSpeedBonus));

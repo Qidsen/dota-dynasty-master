@@ -319,29 +319,30 @@ namespace Dynasty.Content
                 flags |= ReadFlag(m, flag);
 
             var spec = new ModifierSpec(m.String("key"), m.OptionalMilliseconds("duration") ?? -1, flags,
-                armorBonus: m.OptionalFixed("armor") ?? Fixed.Zero, moveSpeedPercent: m.OptionalInt("moveSpeedPercent") ?? 0,
+                armorBonus: m.OptionalFixed("armor") ?? Fixed.Zero, moveSpeedHundredths: m.OptionalHundredth("moveSpeedPercent") ?? 0,
                 attackSpeedBonus: m.OptionalInt("attackSpeed") ?? 0, damageBonus: m.OptionalInt("damage") ?? 0, magicResistBonus: m.OptionalInt("magicResist") ?? 0,
                 damagePerSecond: m.OptionalFixed("damagePerSecond") ?? Fixed.Zero,
                 damageType: m.Has("damageType") ? ReadDamageType(m, "damageType") : DamageType.Magical,
                 healPerSecond: m.OptionalFixed("healPerSecond") ?? Fixed.Zero, periodMs: m.OptionalMilliseconds("period") ?? 1000,
-                critChancePercent: m.OptionalInt("critChance") ?? 0, critMultiplierPercent: m.OptionalInt("critMultiplier") ?? 0,
+                critChanceHundredths: m.OptionalHundredth("critChance") ?? 0, critMultiplierPercent: m.OptionalInt("critMultiplier") ?? 0,
                 structureDamagePercent: m.OptionalInt("structureDamage") ?? 0, lifestealPercent: m.OptionalInt("lifesteal") ?? 0,
                 maxHpBonus: m.OptionalInt("maxHealth") ?? 0, maxManaBonus: m.OptionalInt("maxMana") ?? 0, hpRegenBonus: m.OptionalFixed("healthRegen") ?? Fixed.Zero,
                 breakOnAction: m.OptionalBool("breakOnAction") ?? false, breakRadius: m.OptionalInt("breakRadius") ?? 0, dispellable: m.OptionalBool("dispellable") ?? true,
                 strengthBonus: m.OptionalInt("strength") ?? 0, agilityBonus: m.OptionalInt("agility") ?? 0, intelligenceBonus: m.OptionalInt("intelligence") ?? 0,
                 manaRegenBonus: m.OptionalFixed("manaRegen") ?? Fixed.Zero, moveSpeedBonus: m.OptionalInt("moveSpeed") ?? 0, attackRangeBonus: m.OptionalInt("attackRange") ?? 0,
                 incomingDamagePercent: m.OptionalInt("incomingDamagePercent") ?? 0, attackDamagePercent: m.OptionalInt("attackDamagePercent") ?? 0,
-                evasionPercent: m.OptionalInt("evasion") ?? 0, onHit: m.OptionalArray("onHit").Select(ReadEffect).ToList(),
-                onHitChancePercent: m.OptionalInt("onHitChance") ?? 100, aura: m.OptionalObject("aura") is Reader a ? ReadAura(a) : null,
+                evasionHundredths: m.OptionalHundredth("evasion") ?? 0, onHit: m.OptionalArray("onHit").Select(ReadEffect).ToList(),
+                onHitChancePercent: 0, onHitChanceHundredths: m.OptionalHundredth("onHitChance") ?? 10000, aura: m.OptionalObject("aura") is Reader a ? ReadAura(a) : null,
                 cleavePercent: m.OptionalInt("cleavePercent") ?? 0, cleaveRadius: m.OptionalInt("cleaveRadius") ?? 0, barrier: m.OptionalInt("barrier") ?? 0, consumedOnHit: m.OptionalBool("consumedOnHit") ?? false,
                 damagePerSecondMaxHealthPercent: m.OptionalFixed("damagePerSecondMaxHealthPercent") ?? Fixed.Zero,
                 onHitAfterAttacks: m.OptionalInt("onHitAfterAttacks") ?? 0, whenAttacked: m.OptionalArray("whenAttacked").Select(ReadEffect).ToList(),
                 whenAttackedEvery: m.OptionalInt("whenAttackedEvery") ?? 1,
                 maxStacks: m.OptionalBool("stacking") == true ? m.OptionalInt("maxStacks") ?? int.MaxValue : 0,
-                procCooldownMs: m.OptionalMilliseconds("procCooldown") ?? 0, whenAttackedChancePercent: m.OptionalInt("whenAttackedChance") ?? 100,
+                procCooldownMs: m.OptionalMilliseconds("procCooldown") ?? 0, whenAttackedChancePercent: 0, whenAttackedChanceHundredths: m.OptionalHundredth("whenAttackedChance") ?? 10000,
                 onCast: m.OptionalArray("onCast").Select(ReadEffect).ToList(), onKill: m.OptionalArray("onKill").Select(ReadEffect).ToList(),
                 onDeath: m.OptionalArray("onDeath").Select(ReadEffect).ToList(), onHitHeroesOnly: m.OptionalBool("onHitHeroesOnly") ?? false,
-                extraTargets: m.OptionalInt("extraTargets") ?? 0, extraTargetRadius: m.OptionalInt("extraTargetRadius") ?? 0,
+                // A chance alone means one extra target (Gunslinger).
+                extraTargets: m.OptionalInt("extraTargets") ?? (m.Has("extraTargetChance") ? 1 : 0), extraTargetRadius: m.OptionalInt("extraTargetRadius") ?? 0,
                 // Dota gives bounces either as the share dealt or as a reduction (Moon Glaive: damage_reduction_percent).
                 extraTargetDamagePercent: m.OptionalInt("extraTargetDamagePercent") ?? 100 - (m.OptionalInt("extraTargetDamageReduction") ?? 0), onKillHeroesOnly: m.OptionalBool("onKillHeroesOnly") ?? false,
                 revives: m.OptionalBool("revives") ?? false, attackCharges: m.OptionalInt("attackCharges") ?? 0,
@@ -430,6 +431,11 @@ namespace Dynasty.Content
             public int Milliseconds(string field) => ToMilliseconds(Read(field, v => v.AsFixed()));
 
             public int? OptionalInt(string field) => Has(field) ? Int(field) : (int?)null;
+
+            /// <summary>A percent that may have decimals (33.33) in the document, hundredths of a percent in the ruleset.</summary>
+            public int? OptionalHundredth(string field) => Has(field)
+                ? (Fixed(field) * Dynasty.Core.Mathematics.Fixed.FromInt(100) + Dynasty.Core.Mathematics.Fixed.FromRatio(1, 2)).ToIntFloor()
+                : (int?)null;
             public Fixed? OptionalFixed(string field) => Has(field) ? Fixed(field) : (Fixed?)null;
             public bool? OptionalBool(string field) => Has(field) ? Read(field, v => v.AsBool()) : (bool?)null;
             public string? OptionalString(string field) => Has(field) ? String(field) : null;

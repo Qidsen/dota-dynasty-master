@@ -2229,7 +2229,7 @@
   },
   "life_stealer_feast": {
     "status": "simplified",
-    "note": "damage only: no heal from the target's health; every kill gives the creep value of max health (heroes give more in Dota); the kill stacks restart when Feast levels up",
+    "note": "damage only: no heal from the target's health; a hero kill gives the hero bonus plus the creep bonus of max health; the kill stacks restart when Feast levels up",
     "targeting": "passive",
     "targetTeam": "ally",
     "passive": {
@@ -2254,6 +2254,25 @@
                 "dispellable": false,
                 "maxHealth": "$bonus_hp_per_creep"
               }
+            }
+          ]
+        },
+        {
+          "kind": "ifHero",
+          "effects": [
+            {
+              "kind": "onCaster",
+              "effects": [
+                {
+                  "kind": "modifier",
+                  "modifiers": {
+                    "key": "life_stealer_feast_hero_hp",
+                    "stacking": true,
+                    "dispellable": false,
+                    "maxHealth": "$bonus_hp_per_hero"
+                  }
+                }
+              ]
             }
           ]
         }
@@ -3700,7 +3719,7 @@
   },
   "axe_culling_blade": {
     "status": "simplified",
-    "note": "the damage only: no instant kill below the threshold, no bonuses on a kill",
+    "note": "no bonuses on a hero kill (cooldown reset, ally movement speed and armor buff, permanent armor stacks)",
     "targeting": "unit",
     "targetTeam": "enemy",
     "effects": [
@@ -10590,7 +10609,7 @@
   },
   "silencer_glaives_of_wisdom": {
     "status": "simplified",
-    "note": "always on, without mana cost; no Intelligence steal (heroes only in Dota, the engine cannot restrict an on-hit effect to heroes)",
+    "note": "always on, without mana cost; the stolen Intelligence stacks share one duration instead of each expiring on its own",
     "targeting": "passive",
     "targetTeam": "ally",
     "passive": {
@@ -10601,6 +10620,34 @@
           "damageType": "magical",
           "scaling": "casterIntelligencePercent",
           "amounts": "$intellect_damage_pct"
+        },
+        {
+          "kind": "ifHero",
+          "effects": [
+            {
+              "kind": "modifier",
+              "modifiers": {
+                "key": "silencer_glaives_of_wisdom_debuff",
+                "duration": "$int_steal_duration",
+                "stacking": true,
+                "intelligence": "-$int_steal"
+              }
+            },
+            {
+              "kind": "onCaster",
+              "effects": [
+                {
+                  "kind": "modifier",
+                  "modifiers": {
+                    "key": "silencer_glaives_of_wisdom_buff",
+                    "duration": "$int_steal_duration",
+                    "stacking": true,
+                    "intelligence": "$int_steal"
+                  }
+                }
+              ]
+            }
+          ]
         }
       ]
     }
@@ -10628,7 +10675,7 @@
   },
   "mars_gods_rebuke": {
     "status": "simplified",
-    "note": "a full circle around Mars instead of the 140-degree cone in front; the crit as an attack of that percent of the attack damage; no bonus damage against heroes, no True Strike",
+    "note": "a full circle around Mars instead of the 140-degree cone in front; the crit as an attack of that percent of the attack damage; the bonus damage against heroes is a separate physical hit after the crit (not multiplied by it); no True Strike",
     "targeting": "point",
     "targetTeam": "enemy",
     "castRange": "$radius",
@@ -10642,6 +10689,16 @@
           {
             "kind": "attack",
             "amounts": "$crit_mult"
+          },
+          {
+            "kind": "ifHero",
+            "effects": [
+              {
+                "kind": "damage",
+                "damageType": "physical",
+                "amounts": "$bonus_damage_vs_heroes"
+              }
+            ]
           },
           {
             "kind": "knockback",
@@ -11365,5 +11422,113 @@
         }
       ]
     }
+  },
+  "gyrocopter_flak_cannon": {
+    "status": "simplified",
+    "note": "the extra targets also get the attack's crits and on-hit effects (main target only in Dota); all enemies in the radius are hit as extra targets of an unlimited count (20000 = all)",
+    "targeting": "noTarget",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "modifier",
+        "modifiers": {
+          "key": "gyrocopter_flak_cannon",
+          "duration": "$abilityduration",
+          "attackCharges": "$max_attacks",
+          "extraTargets": 20000,
+          "extraTargetRadius": "$radius"
+        }
+      }
+    ]
+  },
+  "luna_moon_glaive": {
+    "status": "simplified",
+    "note": "the bounces hit the enemies nearest to Luna within the bounce range at once, each with the same reduced damage (in Dota they chain from target to target and every bounce reduces the damage further); the bounces carry Luna's attack effects (crit, on-hit)",
+    "targeting": "passive",
+    "targetTeam": "ally",
+    "passive": {
+      "key": "luna_moon_glaive",
+      "extraTargets": "$bounces",
+      "extraTargetRadius": "$range",
+      "extraTargetDamageReduction": "$damage_reduction_percent"
+    }
+  },
+  "medusa_split_shot": {
+    "status": "simplified",
+    "note": "always on (no toggle); the extra arrows carry Medusa's attack effects (crit, on-hit), which Dota excludes",
+    "targeting": "passive",
+    "targetTeam": "ally",
+    "passive": {
+      "key": "medusa_split_shot",
+      "extraTargets": "$arrow_count",
+      "extraTargetRadiusFromAttackRange": true,
+      "extraTargetRadius": "$split_shot_bonus_range",
+      "extraTargetDamageReduction": "-$damage_modifier"
+    }
+  },
+  "monkey_king_jingu_mastery": {
+    "status": "simplified",
+    "note": "counts hits on any enemy heroes (not on the same hero) without the counter expiry; the charges come on the hit after the required hits (the 5th; the 4th in Dota) and that hit spends one of them, so one empowered attack fewer follows; the lifesteal also applies against creeps",
+    "targeting": "passive",
+    "targetTeam": "ally",
+    "passive": {
+      "key": "monkey_king_jingu_mastery",
+      "onHitHeroesOnly": true,
+      "onHitAfterAttacks": "$required_hits",
+      "onHit": [
+        {
+          "kind": "onCaster",
+          "effects": [
+            {
+              "kind": "modifier",
+              "modifiers": {
+                "key": "monkey_king_jingu_mastery_buff",
+                "duration": "$max_duration",
+                "attackCharges": "$charges",
+                "damage": "$bonus_damage",
+                "lifesteal": "$lifesteal"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "ursa_overpower": {
+    "status": "simplified",
+    "note": "no slow resistance",
+    "targeting": "noTarget",
+    "targetTeam": "ally",
+    "effects": [
+      {
+        "kind": "modifier",
+        "modifiers": {
+          "key": "ursa_overpower",
+          "duration": "$abilityduration",
+          "attackCharges": "$max_attacks",
+          "attackSpeed": "$attack_speed_bonus_pct"
+        }
+      }
+    ]
+  },
+  "tiny_tree_grab": {
+    "status": "simplified",
+    "note": "cast without a target (no trees in the engine); the splash is a circle of the splash width around the attacked unit instead of a line ahead of Tiny; no Tree Throw or Tree Volley",
+    "targeting": "noTarget",
+    "targetTeam": "ally",
+    "effects": [
+      {
+        "kind": "modifier",
+        "modifiers": {
+          "key": "tiny_tree_grab",
+          "attackCharges": "$attack_count",
+          "damage": "$bonus_damage",
+          "attackRange": "$attack_range",
+          "structureDamage": "$bonus_damage_buildings",
+          "cleavePercent": "$splash_pct",
+          "cleaveRadius": "$splash_width"
+        }
+      }
+    ]
   }
 }

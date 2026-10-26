@@ -229,11 +229,17 @@ public class PackContentTests
     public void ExtraTargetDamage_CanBeGivenAsAReduction()
     {
         RulesetContent rules = Apply(@"""abilities"": [{ ""id"": ""glaive"", ""name"": ""Glaive"", ""targeting"": ""passive"", ""targetTeam"": ""enemy"", ""castRange"": 0, ""castPoint"": 0,
-            ""cooldown"": [0], ""requiredLevels"": [1], ""effects"": [],
-            ""passive"": [ { ""key"": ""glaive"", ""extraTargets"": 4, ""extraTargetRadius"": 500, ""extraTargetDamageReduction"": 35 } ] }], ""items"": []",
+            ""cooldown"": [0], ""requiredLevels"": [1, 3], ""effects"": [],
+            ""passive"": [ { ""key"": ""glaive"", ""extraTargets"": 4, ""extraTargetRadius"": 500, ""extraTargetDamageReduction"": 35 },
+                          { ""key"": ""gunslinger"", ""extraTargetRadius"": 500, ""extraTargetChance"": 40,
+                            ""moveSpeedPercent"": 2.5, ""critChance"": 33.33, ""evasion"": 9.5, ""onHitChance"": 14.25 } ] }], ""items"": []",
             Hero("lion", @"[""glaive""]"));
 
         Assert.Equal(65, rules.FindAbility("glaive")!.PassiveModifiers[0].ExtraTargetDamagePercent);
+        ModifierSpec gunslinger = rules.FindAbility("glaive")!.PassiveModifiers[1];
+        Assert.Equal((1, 40), (gunslinger.ExtraTargets, gunslinger.ExtraTargetChancePercent));   // a chance alone: one extra target
+        Assert.Equal((250, 3333, 950, 1425, 10000), (gunslinger.MoveSpeedHundredths, gunslinger.CritChanceHundredths, gunslinger.EvasionHundredths,
+            gunslinger.OnHitChanceHundredths, gunslinger.WhenAttackedChanceHundredths));   // decimals kept; chances default to 100%
     }
 
     [Fact]
