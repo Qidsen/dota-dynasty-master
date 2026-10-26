@@ -201,4 +201,35 @@ public class TriggerTests
 
         Assert.DoesNotContain(kernel.EventsOf<AttackStarted>(), a => a.Attacker == bug!.Id);
     }
+
+    /// <summary>Reincarnation: a hero that would die comes back at once with full health and mana and its on-death effects; then the revive is on cooldown.</summary>
+    [Fact]
+    public void Revive_BringsTheHeroBack_OncePerCooldown()
+    {
+        var reincarnation = new ModifierSpec("reincarnation", -1, revives: true, procCooldownMs: 60000, onDeath: new[]
+        {
+            EffectDefinition.Area(400, AreaCenter.Caster, TargetTeam.Enemy, EffectDefinition.Damage(DamageType.Pure, 30)),
+        });
+        var kernel = Arena(onBeta: reincarnation);
+        kernel.AddSystem(new LambdaSystem(2, ctx =>
+        {
+            H(ctx.State, "beta").Hero!.Mana = Fixed.Zero;
+            Damage.Deal(ctx, H(ctx.State, "alpha").Id, H(ctx.State, "beta"), Fixed.FromInt(5000), DamageType.Pure);
+        }));
+        bool backAtFull = false, killedBeforeRevive = true;
+        kernel.AddSystem(new LambdaSystem(4, ctx =>
+        {
+            MatchUnit beta = H(ctx.State, "beta");
+            backAtFull = beta.IsAlive && !beta.Hero!.IsDead && beta.Hp == Fixed.FromInt(beta.MaxHp) && beta.Hero.Mana == Fixed.FromInt(beta.Hero.MaxMana);
+            killedBeforeRevive = kernel.EventsOf<HeroKilled>().Any();
+            Damage.Deal(ctx, H(ctx.State, "alpha").Id, beta, Fixed.FromInt(5000), DamageType.Pure);
+        }));
+        kernel.RunTicks(6);
+
+        Assert.True(backAtFull);
+        Assert.False(killedBeforeRevive);
+        Assert.Equal(30, PureOn(kernel, "alpha").Single().Amount.ToIntFloor());   // the revive's effects, once
+        Assert.Single(kernel.EventsOf<HeroKilled>());   // the second death within the cooldown is real
+        Assert.True(H(kernel.State, "beta").Hero!.IsDead);
+    }
 }

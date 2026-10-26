@@ -638,6 +638,23 @@ namespace Dynasty.MatchSimulation.Systems
     {
         public string Name => "cleanup";
 
+        /// <summary>A ready reviving modifier (Reincarnation) brings the unit back with full health and mana and runs its on-death effects.</summary>
+        private static bool Revive(SimulationContext<MatchState> context, MatchUnit unit)
+        {
+            long now = context.Tick.Value;
+            ActiveModifier? revive = unit.Modifiers.FirstOrDefault(m => m.Spec.Revives && now >= m.NextProcTick);
+            if (revive == null)
+                return false;
+            unit.Hp = Fixed.FromInt(unit.MaxHp);
+            if (unit.Hero != null)
+                unit.Hero.Mana = Fixed.FromInt(unit.Hero.MaxMana);
+            if (revive.Spec.ProcCooldownMs > 0)
+                revive.NextProcTick = now + context.TickRate.TicksFor(revive.Spec.ProcCooldownMs);
+            context.Emit(new UnitRevived(unit.Id, revive.Spec.Key));
+            Effects.Run(context, unit, revive.Spec.OnDeath, 1, context.State.Find(unit.LastAttackerId) ?? unit, unit.Position);
+            return true;
+        }
+
         /// <summary>
         /// The dead unit's on-death effects (with its killer as the target) and its killer's on-kill effects
         /// (with the victim as the target). Units these effects kill are handled on the next tick.
@@ -645,7 +662,7 @@ namespace Dynasty.MatchSimulation.Systems
         private static void RunDeathTriggers(SimulationContext<MatchState> context, MatchUnit unit)
         {
             MatchUnit? killer = context.State.Find(unit.LastAttackerId);
-            foreach (ActiveModifier modifier in unit.Modifiers.Where(m => m.Spec.OnDeath.Count > 0).ToList())
+            foreach (ActiveModifier modifier in unit.Modifiers.Where(m => m.Spec.OnDeath.Count > 0 && !m.Spec.Revives).ToList())   // a reviving modifier's run at the revive
                 Effects.Run(context, unit, modifier.Spec.OnDeath, 1, killer ?? unit, unit.Position);
             if (killer == null || killer == unit)
                 return;
@@ -668,6 +685,8 @@ namespace Dynasty.MatchSimulation.Systems
 
             foreach (MatchUnit unit in dead)
             {
+                if (Revive(context, unit))
+                    continue;
                 RunDeathTriggers(context, unit);
                 if (unit.Hero != null)
                 {

@@ -412,6 +412,28 @@ namespace Dynasty.MatchSimulation.Events
         }
     }
 
+    /// <summary>A unit that would have died came back instead (Reincarnation).</summary>
+    public sealed class UnitRevived : IDomainEvent
+    {
+        public UnitRevived(EntityId unit, string modifierKey)
+        {
+            Unit = unit;
+            ModifierKey = modifierKey;
+        }
+
+        public EntityId Unit { get; }
+        public string ModifierKey { get; }
+
+        public string Type => "match.unit_revived";
+        public int SchemaVersion => 1;
+
+        public void WritePayload(ref Fnv1a64 hash)
+        {
+            hash.AddInt64(Unit.Value);
+            hash.AddString(ModifierKey);
+        }
+    }
+
     public sealed class UnitSummoned : IDomainEvent
     {
         public UnitSummoned(EntityId unit, EntityId owner, string creepTypeId, long expiresTick)

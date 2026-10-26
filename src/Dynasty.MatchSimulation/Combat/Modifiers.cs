@@ -138,8 +138,10 @@ namespace Dynasty.MatchSimulation.Combat
             int extraTargets = 0,
             int extraTargetRadius = 0,
             int extraTargetDamagePercent = 100,
-            bool onKillHeroesOnly = false)
+            bool onKillHeroesOnly = false,
+            bool revives = false)
         {
+            Revives = revives;
             OnKillHeroesOnly = onKillHeroesOnly;
             ExtraTargets = extraTargets;
             ExtraTargetRadius = extraTargetRadius;
@@ -267,6 +269,12 @@ namespace Dynasty.MatchSimulation.Combat
 
         /// <summary>Effects run when the bearer kills a unit, with the victim as the target (Sadist).</summary>
         public IReadOnlyList<Rules.EffectDefinition> OnKill { get; }
+
+        /// <summary>
+        /// The bearer, when it would die, comes back at once with full health and mana instead (Reincarnation); the
+        /// modifier's <see cref="OnDeath"/> effects run at the revive, and <see cref="ProcCooldownMs"/> is its cooldown.
+        /// </summary>
+        public bool Revives { get; }
 
         /// <summary><see cref="OnKill"/> runs only for hero victims (Flesh Heap).</summary>
         public bool OnKillHeroesOnly { get; }
@@ -401,6 +409,7 @@ namespace Dynasty.MatchSimulation.Combat
             w.WriteInt64(ExtraTargetRadius);
             w.WriteInt64(ExtraTargetDamagePercent);
             w.WriteBool(OnKillHeroesOnly);
+            w.WriteBool(Revives);
             foreach (IReadOnlyList<Rules.EffectDefinition> list in new[] { OnCast, OnKill, OnDeath })
             {
                 w.WriteInt64(list.Count);

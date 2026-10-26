@@ -336,7 +336,8 @@ namespace Dynasty.Content
                 onCast: m.OptionalArray("onCast").Select(ReadEffect).ToList(), onKill: m.OptionalArray("onKill").Select(ReadEffect).ToList(),
                 onDeath: m.OptionalArray("onDeath").Select(ReadEffect).ToList(), onHitHeroesOnly: m.OptionalBool("onHitHeroesOnly") ?? false,
                 extraTargets: m.OptionalInt("extraTargets") ?? 0, extraTargetRadius: m.OptionalInt("extraTargetRadius") ?? 0,
-                extraTargetDamagePercent: m.OptionalInt("extraTargetDamagePercent") ?? 100, onKillHeroesOnly: m.OptionalBool("onKillHeroesOnly") ?? false);
+                extraTargetDamagePercent: m.OptionalInt("extraTargetDamagePercent") ?? 100, onKillHeroesOnly: m.OptionalBool("onKillHeroesOnly") ?? false,
+                revives: m.OptionalBool("revives") ?? false);
             m.RejectUnknown();
             return spec;
         }
