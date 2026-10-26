@@ -96,9 +96,17 @@ namespace Dynasty.Content
             var hero = new HeroDefinition(h.String("id"), h.String("name"), h.Strings("roles"), stats,
                 hpPerLevel: 0, armorPerLevel: Fixed.Zero, damagePerLevel: 0, baseMana: h.Int("baseMana"), manaPerLevel: 0,
                 hpRegenPerSecond: h.Fixed("baseHealthRegen"), manaRegenPerSecond: h.Fixed("baseManaRegen"),
-                abilityIds: h.OptionalStrings("abilities"), itemBuild: h.OptionalStrings("itemBuild"), attributes: attributes);
+                abilityIds: h.OptionalStrings("abilities"), itemBuild: h.OptionalStrings("itemBuild"), attributes: attributes,
+                talents: h.OptionalArray("talents").Select(ReadTalent).ToList());
             h.RejectUnknown();
             return hero;
+        }
+
+        private static TalentDefinition ReadTalent(Reader t)
+        {
+            var talent = new TalentDefinition(t.String("id"), t.String("name"), t.Int("level"), t.OptionalObject("bonus") is Reader b ? ReadModifier(b) : null);
+            t.RejectUnknown();
+            return talent;
         }
 
         private static HeroRules ReadHeroRules(Reader r, HeroRules? b)
@@ -111,7 +119,9 @@ namespace Dynasty.Content
                 b.HeroKillGoldBase, b.HeroKillGoldPerLevel, b.AssistWindowMs, b.GoldPerMinute, b.StartingGold,
                 b.RespawnBaseMs, b.RespawnPerLevelMs, b.GoldLossPerLevel, b.StructureTeamGold, b.FountainHealPercentPerSecond,
                 b.BuybackBaseGold, b.BuybackGoldPerLevel, b.BuybackCooldownMs,
-                r.OptionalInt("heroKillXpPercentOfVictim") ?? b.HeroKillXpPercentOfVictim, b.Attributes);
+                r.OptionalInt("heroKillXpPercentOfVictim") ?? b.HeroKillXpPercentOfVictim, b.Attributes,
+                r.OptionalInts("skillPointLevels") ?? b.SkillPointLevels, r.OptionalInts("talentPointLevels") ?? b.TalentPointLevels,
+                r.OptionalInt("attributeBonusLevels") ?? b.AttributeBonusLevels, r.OptionalInt("attributeBonusPerLevel") ?? b.AttributeBonusPerLevel);
             r.RejectUnknown();
             return rules;
         }
@@ -162,7 +172,8 @@ namespace Dynasty.Content
             var ability = new AbilityDefinition(a.String("id"), a.String("name"), targeting, ReadTeam(a, "targetTeam"), a.Int("castRange"), a.Milliseconds("castPoint"),
                 cooldowns, mana, levels, a.Array("effects").Select(ReadEffect).ToList(),
                 a.OptionalArray("passive").Select(ReadModifier).ToList(), a.OptionalBool("targetsStructures") ?? false, a.OptionalBool("innate") ?? false,
-                a.OptionalInts("charges"), a.Has("charges") ? a.Seconds("chargeRestore") : null);
+                a.OptionalInts("charges"), a.Has("charges") ? a.Seconds("chargeRestore") : null,
+                a.OptionalArray("variants").Select(v => new AbilityVariant(v.Strings("upgrades"), ReadAbility(v))).ToList());
             a.RejectUnknown();
             return ability;
         }
@@ -363,7 +374,7 @@ namespace Dynasty.Content
         {
             ModifierSpec? bonuses = i.OptionalObject("bonuses") is Reader b ? ReadModifier(b) : null;
             var item = new ItemDefinition(i.String("id"), i.String("name"), i.Int("cost"), bonuses, i.OptionalStrings("components"),
-                i.OptionalString("active"), i.OptionalInt("charges") ?? 0);
+                i.OptionalString("active"), i.OptionalInt("charges") ?? 0, i.OptionalString("upgrade"));
             i.RejectUnknown();
             return item;
         }

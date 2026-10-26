@@ -157,6 +157,7 @@ namespace Dynasty.MatchSimulation.Systems
             hero.InventorySlots.Remove(slot);
             if (slot.Bonus != null)
                 Modifiers.Remove(context, caster, slot.Bonus, "item_consumed");
+            HeroProgression.RefreshUpgrades(context, caster);
         }
 
         private static void Fail(SimulationContext<MatchState> context, MatchUnit caster, string abilityId, string reason)

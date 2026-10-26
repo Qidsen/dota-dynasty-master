@@ -556,7 +556,7 @@ namespace Dynasty.MatchSimulation
             var abilities = definition.AbilityIds.Select(a => Ruleset.FindAbility(a)!).ToList();
             var unit = new MatchUnit(id, team, UnitKind.Hero, definition.Id, definition.StatsAtLevel(1), position, Rate)
             {
-                Hero = new Heroes.HeroState(definition, laneId, startingGold, abilities) { AttributeRules = Ruleset.HeroRules?.Attributes },
+                Hero = new Heroes.HeroState(definition, laneId, startingGold, abilities) { AttributeRules = Ruleset.HeroRules?.Attributes, Rules = Ruleset.HeroRules },
             };
             unit.Recalculate();   // with the hero state: attributes, mana
             unit.Hp = Fixed.FromInt(unit.MaxHp);

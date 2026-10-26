@@ -412,6 +412,27 @@ namespace Dynasty.MatchSimulation.Events
         }
     }
 
+    public sealed class TalentLearned : IDomainEvent
+    {
+        public TalentLearned(EntityId hero, string talentId)
+        {
+            Hero = hero;
+            TalentId = talentId;
+        }
+
+        public EntityId Hero { get; }
+        public string TalentId { get; }
+
+        public string Type => "match.talent_learned";
+        public int SchemaVersion => 1;
+
+        public void WritePayload(ref Fnv1a64 hash)
+        {
+            hash.AddInt64(Hero.Value);
+            hash.AddString(TalentId);
+        }
+    }
+
     /// <summary>A unit that would have died came back instead (Reincarnation).</summary>
     public sealed class UnitRevived : IDomainEvent
     {

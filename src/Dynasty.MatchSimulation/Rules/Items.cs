@@ -19,8 +19,10 @@ namespace Dynasty.MatchSimulation.Rules
             ModifierSpec? bonuses = null,
             IReadOnlyList<string>? components = null,
             string? activeAbilityId = null,
-            int charges = 0)
+            int charges = 0,
+            string? upgrade = null)
         {
+            Upgrade = upgrade;
             Charges = charges;
             Id = id;
             Name = name;
@@ -45,6 +47,9 @@ namespace Dynasty.MatchSimulation.Rules
         /// <summary>Uses before the item is consumed; 0 = not consumable.</summary>
         public int Charges { get; }
 
+        /// <summary>While carried, the hero's abilities use their variants for this upgrade ("scepter", "shard").</summary>
+        public string? Upgrade { get; }
+
         internal void WriteCanonical(CanonicalWriter w)
         {
             w.WriteString(Id);
@@ -57,6 +62,7 @@ namespace Dynasty.MatchSimulation.Rules
                 w.WriteString(component);
             w.WriteString(ActiveAbilityId ?? "");
             w.WriteInt64(Charges);
+            w.WriteString(Upgrade ?? "");
         }
     }
 }

@@ -315,6 +315,21 @@ namespace Dynasty.MatchSimulation.Rules
         }
     }
 
+    /// <summary>An ability as upgraded by a set of talents, "scepter" and/or "shard".</summary>
+    public sealed class AbilityVariant
+    {
+        public AbilityVariant(IReadOnlyList<string> upgrades, AbilityDefinition definition)
+        {
+            Upgrades = upgrades.OrderBy(u => u, StringComparer.Ordinal).ToArray();
+            Definition = definition;
+        }
+
+        /// <summary>The upgrades this variant is for, in ordinal order.</summary>
+        public IReadOnlyList<string> Upgrades { get; }
+
+        public AbilityDefinition Definition { get; }
+    }
+
     public sealed class AbilityDefinition
     {
         public AbilityDefinition(
@@ -332,8 +347,10 @@ namespace Dynasty.MatchSimulation.Rules
             bool targetsStructures = false,
             bool innate = false,
             IReadOnlyList<int>? maxCharges = null,
-            IReadOnlyList<int>? chargeRestoreMs = null)
+            IReadOnlyList<int>? chargeRestoreMs = null,
+            IReadOnlyList<AbilityVariant>? variants = null)
         {
+            Variants = (variants ?? Array.Empty<AbilityVariant>()).ToArray();
             MaxCharges = (maxCharges ?? Array.Empty<int>()).ToArray();
             ChargeRestoreMs = (chargeRestoreMs ?? Array.Empty<int>()).ToArray();
             Innate = innate;
@@ -375,6 +392,30 @@ namespace Dynasty.MatchSimulation.Rules
         /// <summary>Learned at level one for free and never levelled with skill points (Dota's innate abilities).</summary>
         public bool Innate { get; }
 
+        /// <summary>Upgraded versions (talents, Aghanim's Scepter and Shard); the ability itself is the version without upgrades.</summary>
+        public IReadOnlyList<AbilityVariant> Variants { get; }
+
+        /// <summary>
+        /// The version for the hero's upgrades: the variant whose upgrades are exactly those of the hero that
+        /// concern this ability (failing that, the one covering most of them), or the ability itself.
+        /// </summary>
+        public AbilityDefinition VariantFor(ICollection<string> upgrades)
+        {
+            if (Variants.Count == 0 || upgrades.Count == 0)
+                return this;
+            AbilityDefinition best = this;
+            int bestCount = 0;
+            foreach (AbilityVariant variant in Variants)
+            {
+                if (!variant.Upgrades.All(upgrades.Contains) || variant.Upgrades.Count <= bestCount)
+                    continue;
+                best = variant.Definition;
+                bestCount = variant.Upgrades.Count;
+            }
+
+            return best;
+        }
+
         /// <summary>Charges per level (Shrapnel, Phantom Strike); empty for abilities without charges.</summary>
         public IReadOnlyList<int> MaxCharges { get; }
 
@@ -413,6 +454,14 @@ namespace Dynasty.MatchSimulation.Rules
                 modifier.WriteCanonical(w);
             w.WriteBool(TargetsStructures);
             w.WriteBool(Innate);
+            w.WriteInt64(Variants.Count);
+            foreach (AbilityVariant variant in Variants)
+            {
+                w.WriteInt64(variant.Upgrades.Count);
+                foreach (string upgrade in variant.Upgrades)
+                    w.WriteString(upgrade);
+                variant.Definition.WriteCanonical(w);
+            }
         }
     }
 }

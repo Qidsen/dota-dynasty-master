@@ -61,10 +61,10 @@ public sealed class RulesetDraft
     public static UnitStats HeroStats(int hp = 600, int dmg = 50, int range = 150, int speed = 300, int intervalMs = 1500, int pointMs = 300) =>
         new(hp, Fixed.FromInt(2), speed, dmg, dmg + 4, range, intervalMs, pointMs, 800, 24, 25, visionRange: 1200);
 
-    public static HeroDefinition Hero(string id, UnitStats? stats = null, IReadOnlyList<string>? abilities = null) =>
+    public static HeroDefinition Hero(string id, UnitStats? stats = null, IReadOnlyList<string>? abilities = null, IReadOnlyList<TalentDefinition>? talents = null) =>
         new(id, id, new[] { "carry" }, stats ?? HeroStats(), hpPerLevel: 80, armorPerLevel: Fixed.FromRatio(3, 10),
             damagePerLevel: 3, baseMana: 300, manaPerLevel: 40, hpRegenPerSecond: Fixed.FromInt(2), manaRegenPerSecond: Fixed.One,
-            abilityIds: abilities);
+            abilityIds: abilities, talents: talents);
 
     public List<HeroDefinition> Heroes { get; } = new() { Hero("alpha"), Hero("beta"), Hero("gamma") };
 
@@ -99,6 +99,15 @@ public sealed class RulesetDraft
     public int BuybackGoldPerLevel { get; set; }
     public int BuybackCooldownMs { get; set; }
 
+    /// <summary>Levels that give a skill point (null: every level).</summary>
+    public List<int>? SkillPointLevels { get; set; }
+
+    /// <summary>Levels that give a talent point.</summary>
+    public List<int>? TalentPointLevels { get; set; }
+
+    public int AttributeBonusLevels { get; set; }
+    public int AttributeBonusPerLevel { get; set; }
+
     public HeroRules BuildHeroRules() => new(
         XpTable, XpShareRadius,
         heroKillXpBase: 100, heroKillXpPerLevel: HeroKillXpPerLevel,
@@ -107,7 +116,8 @@ public sealed class RulesetDraft
         RespawnBaseMs, RespawnPerLevelMs,
         goldLossPerLevel: 30, structureTeamGold: 100, fountainHealPercentPerSecond: 5,
         buybackBaseGold: BuybackBaseGold, buybackGoldPerLevel: BuybackGoldPerLevel, buybackCooldownMs: BuybackCooldownMs,
-        heroKillXpPercentOfVictim: HeroKillXpPercentOfVictim);
+        heroKillXpPercentOfVictim: HeroKillXpPercentOfVictim, skillPointLevels: SkillPointLevels,
+        talentPointLevels: TalentPointLevels, attributeBonusLevels: AttributeBonusLevels, attributeBonusPerLevel: AttributeBonusPerLevel);
 
     public int FirstSpawnMs { get; set; } = 0;
     public int IntervalMs { get; set; } = 30000;

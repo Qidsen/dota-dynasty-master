@@ -243,6 +243,28 @@ public class PackContentTests
     }
 
     [Fact]
+    public void Talents_Variants_PointRules_AndItemUpgrades_AreRead()
+    {
+        string hero = Hero("lion", @"[""spike""]").Replace(@"""abilities"": ", @"""talents"": [
+            { ""id"": ""special_bonus_unique_lion_5"", ""name"": ""-2s Hex Cooldown"", ""level"": 10 },
+            { ""id"": ""special_bonus_movement_speed_20"", ""name"": ""+20 Movement Speed"", ""level"": 10, ""bonus"": { ""key"": ""t"", ""moveSpeed"": 20 } } ], ""abilities"": ");
+        RulesetContent rules = Apply(@"""heroRules"": { ""talentPointLevels"": [10, 15, 20, 25, 27, 28, 29, 30], ""attributeBonusLevels"": 7, ""attributeBonusPerLevel"": 2 },
+            ""abilities"": [{ ""id"": ""spike"", ""name"": ""Spike"", ""targeting"": ""unit"", ""targetTeam"": ""enemy"", ""castRange"": 600, ""castPoint"": 0,
+            ""cooldown"": [12], ""requiredLevels"": [1], ""effects"": [ { ""kind"": ""damage"", ""damageType"": ""magical"", ""amounts"": [100] } ],
+            ""variants"": [ { ""upgrades"": [""special_bonus_unique_lion_5""], ""id"": ""spike"", ""name"": ""Spike"", ""targeting"": ""unit"", ""targetTeam"": ""enemy"",
+                ""castRange"": 600, ""castPoint"": 0, ""cooldown"": [10], ""requiredLevels"": [1], ""effects"": [ { ""kind"": ""damage"", ""damageType"": ""magical"", ""amounts"": [100] } ] } ] }],
+            ""items"": [ { ""id"": ""ultimate_scepter"", ""name"": ""Aghanim's Scepter"", ""cost"": 4200, ""upgrade"": ""scepter"" } ]", hero);
+
+        HeroDefinition lion = rules.FindHero("lion")!;
+        Assert.Equal(new[] { 10, 10 }, lion.Talents.Select(t => t.Level));
+        Assert.Equal(20, lion.Talents[1].Bonus!.MoveSpeedBonus);
+        Assert.Equal((8, 7, 2), (rules.HeroRules!.TalentPointLevels.Count, rules.HeroRules.AttributeBonusLevels, rules.HeroRules.AttributeBonusPerLevel));
+        AbilityVariant variant = rules.FindAbility("spike")!.Variants.Single();
+        Assert.Equal(("special_bonus_unique_lion_5", 10000), (variant.Upgrades.Single(), variant.Definition.CooldownAt(1)));
+        Assert.Equal("scepter", rules.FindItem("ultimate_scepter")!.Upgrade);
+    }
+
+    [Fact]
     public void Effects_ReadZonesAndPulls()
     {
         RulesetContent rules = Apply(@"""abilities"": [{ ""id"": ""pyre"", ""name"": ""Pyre"", ""targeting"": ""point"", ""targetTeam"": ""enemy"", ""castRange"": 900, ""castPoint"": 0,

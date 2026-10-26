@@ -34,6 +34,22 @@ namespace Dynasty.MatchSimulation.Heroes
         /// <summary>What attributes give (from the ruleset's hero rules); null in rulesets without hero rules.</summary>
         internal AttributeRules? AttributeRules { get; set; }
 
+        /// <summary>The ruleset's hero rules (skill point levels, talents); null in rulesets without hero rules.</summary>
+        internal HeroRules? Rules { get; set; }
+
+        private readonly List<string> _talents = new List<string>();
+
+        /// <summary>Talents learned, in the order learned.</summary>
+        public IReadOnlyList<string> Talents => _talents;
+
+        internal void AddTalent(string talentId) => _talents.Add(talentId);
+
+        /// <summary>Talent points not used yet (separate from skill points).</summary>
+        public int UnspentTalentPoints => (Rules?.TalentPointsAt(Level) ?? 0) - _talents.Count;
+
+        /// <summary>Levels of the attribute bonus taken (skill points no ability could use).</summary>
+        public int AttributeBonusLevel { get; internal set; }
+
         public string AssignedLane { get; }
         public int Level { get; internal set; }
         public int Xp { get; internal set; }
@@ -92,14 +108,14 @@ namespace Dynasty.MatchSimulation.Heroes
         {
             get
             {
-                int spent = 0;
+                int spent = AttributeBonusLevel;
                 foreach (AbilityState ability in _abilities)
                 {
                     if (!ability.Definition.Innate)
                         spent += ability.Level;
                 }
 
-                return Level - spent;
+                return (Rules?.SkillPointsAt(Level) ?? Level) - spent;
             }
         }
 
@@ -122,10 +138,15 @@ namespace Dynasty.MatchSimulation.Heroes
         internal AbilityState(AbilityDefinition definition, int level = 0)
         {
             Definition = definition;
+            Base = definition;
             Level = level;
         }
 
-        public AbilityDefinition Definition { get; }
+        /// <summary>The definition in use: the ability itself or its variant for the hero's upgrades (talents, scepter, shard).</summary>
+        public AbilityDefinition Definition { get; internal set; }
+
+        /// <summary>The ability without upgrades (the one listed by the hero).</summary>
+        public AbilityDefinition Base { get; }
         public int Level { get; internal set; }
 
         /// <summary>First tick the ability can be cast again.</summary>
@@ -262,18 +283,74 @@ namespace Dynasty.MatchSimulation.Heroes
                 context.Emit(new AbilityLearned(hero.Id, innate.Definition.Id, 1));
             }
 
+            // Talent points: the first talent of the lowest tier reached without one, then (Dota's 27–30) the ones a tier still lacks.
+            IReadOnlyList<TalentDefinition> talents = state.Definition.Talents;
+            while (state.UnspentTalentPoints > 0)
+            {
+                TalentDefinition? talent = talents.FirstOrDefault(t => t.Level <= state.Level && !talents.Any(o => o.Level == t.Level && state.Talents.Contains(o.Id)))
+                                           ?? talents.FirstOrDefault(t => t.Level <= state.Level && !state.Talents.Contains(t.Id));
+                if (talent == null)
+                    break;
+                LearnTalent(context, hero, talent);
+            }
+
             while (state.UnspentSkillPoints > 0)
             {
                 AbilityState? next = NextToLearn(state, unlearnedOnly: true) ?? NextToLearn(state, unlearnedOnly: false);
-
                 if (next == null)
-                    return;
+                {
+                    // Nothing to level: the attribute bonus, while it has levels left.
+                    HeroRules? rules = state.Rules;
+                    if (rules?.AttributeBonus == null || state.AttributeBonusLevel >= rules.AttributeBonusLevels)
+                        return;
+                    state.AttributeBonusLevel++;
+                    Combat.Modifiers.Apply(context, hero, rules.AttributeBonus, hero.Id);
+                    context.Emit(new AbilityLearned(hero.Id, AttributeBonusId, state.AttributeBonusLevel));
+                    continue;
+                }
 
                 next.Level++;
                 next.GainLevelCharges(next.Level - 1);
                 if (next.Definition.Targeting == AbilityTargeting.Passive)
                     Combat.Modifiers.Apply(context, hero, next.Definition.PassiveModifiers[next.Level - 1], hero.Id);
                 context.Emit(new AbilityLearned(hero.Id, next.Definition.Id, next.Level));
+            }
+        }
+
+        /// <summary>The id the attribute bonus is learned under (events).</summary>
+        public const string AttributeBonusId = "attribute_bonus";
+
+        private static void LearnTalent(SimulationContext<MatchState> context, MatchUnit hero, TalentDefinition talent)
+        {
+            hero.Hero!.AddTalent(talent.Id);
+            if (talent.Bonus != null)
+                Combat.Modifiers.Apply(context, hero, talent.Bonus, hero.Id);
+            context.Emit(new TalentLearned(hero.Id, talent.Id));
+            RefreshUpgrades(context, hero);
+        }
+
+        /// <summary>
+        /// Switches the hero's abilities to their variants for its upgrades: the talents learned and the upgrades
+        /// of the items carried (Aghanim's Scepter, Shard). A passive's modifier follows its new variant.
+        /// </summary>
+        public static void RefreshUpgrades(SimulationContext<MatchState> context, MatchUnit hero)
+        {
+            HeroState state = hero.Hero!;
+            var upgrades = new HashSet<string>(state.Talents);
+            foreach (ItemSlot slot in state.InventorySlots)
+            {
+                if (slot.Definition.Upgrade != null)
+                    upgrades.Add(slot.Definition.Upgrade);
+            }
+
+            foreach (AbilityState ability in state.Abilities)
+            {
+                AbilityDefinition variant = ability.Base.VariantFor(upgrades);
+                if (ReferenceEquals(variant, ability.Definition))
+                    continue;
+                ability.Definition = variant;
+                if (variant.Targeting == AbilityTargeting.Passive && ability.Level > 0)
+                    Combat.Modifiers.Apply(context, hero, variant.PassiveModifiers[System.Math.Min(ability.Level, variant.PassiveModifiers.Count) - 1], hero.Id);
             }
         }
 

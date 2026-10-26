@@ -79,6 +79,7 @@ namespace Dynasty.MatchSimulation.Systems
 
             AbilityState? active = item.ActiveAbilityId != null ? new AbilityState(state.Ruleset.FindAbility(item.ActiveAbilityId)!, level: 1) : null;
             hero.InventorySlots.Add(new ItemSlot(item, active, bonus));
+            HeroProgression.RefreshUpgrades(context, unit);
             context.Emit(new ItemPurchased(unit.Id, item.Id, price, consumed.Select(s => s.Definition.Id).ToList()));
             return null;
         }
@@ -103,6 +104,7 @@ namespace Dynasty.MatchSimulation.Systems
             hero.InventorySlots.Remove(slot);
             if (slot.Bonus != null)
                 Modifiers.Remove(context, unit, slot.Bonus, "item_removed");
+            HeroProgression.RefreshUpgrades(context, unit);
         }
     }
 }

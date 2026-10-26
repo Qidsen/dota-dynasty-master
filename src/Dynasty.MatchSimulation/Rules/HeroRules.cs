@@ -7,6 +7,38 @@ using Dynasty.Core.Mathematics;
 namespace Dynasty.MatchSimulation.Rules
 {
     /// <summary>
+    /// A talent (Dota): one of the two choices of a tier at <see cref="Level"/>. It gives a permanent
+    /// <see cref="Bonus"/> (generic stat talents) and/or upgrades abilities that have a variant for its id.
+    /// </summary>
+    public sealed class TalentDefinition
+    {
+        public TalentDefinition(string id, string name, int level, Combat.ModifierSpec? bonus = null)
+        {
+            Id = id;
+            Name = name;
+            Level = level;
+            Bonus = bonus;
+        }
+
+        public string Id { get; }
+        public string Name { get; }
+
+        /// <summary>Hero level of the talent's tier.</summary>
+        public int Level { get; }
+
+        public Combat.ModifierSpec? Bonus { get; }
+
+        internal void WriteCanonical(CanonicalWriter w)
+        {
+            w.WriteString(Id);
+            w.WriteString(Name);
+            w.WriteInt64(Level);
+            w.WriteBool(Bonus != null);
+            Bonus?.WriteCanonical(w);
+        }
+    }
+
+    /// <summary>
     /// A hero: level-1 combat stats plus per-level growth, mana and regeneration.
     /// Abilities and item builds reference this by <see cref="Id"/>.
     /// </summary>
@@ -28,8 +60,10 @@ namespace Dynasty.MatchSimulation.Rules
             IReadOnlyList<string>? skillPriority = null,
             IReadOnlyList<string>? itemBuild = null,
             int attackSpeedPerLevel = 0,
-            HeroAttributes? attributes = null)
+            HeroAttributes? attributes = null,
+            IReadOnlyList<TalentDefinition>? talents = null)
         {
+            Talents = (talents ?? Array.Empty<TalentDefinition>()).ToArray();
             Attributes = attributes;
             AttackSpeedPerLevel = attackSpeedPerLevel;
             ItemBuild = (itemBuild ?? Array.Empty<string>()).ToArray();
@@ -56,6 +90,9 @@ namespace Dynasty.MatchSimulation.Rules
         /// that can be levelled at the current hero level.
         /// </summary>
         public IReadOnlyList<string> SkillPriority { get; }
+
+        /// <summary>Talents by tier (<see cref="TalentDefinition.Level"/>); the first of a tier is the one taken first.</summary>
+        public IReadOnlyList<TalentDefinition> Talents { get; }
 
         /// <summary>Attributes; with them health, mana, regeneration, armor, attack speed, magic resistance and damage come from attributes (Dota).</summary>
         public HeroAttributes? Attributes { get; }
@@ -136,6 +173,9 @@ namespace Dynasty.MatchSimulation.Rules
             w.WriteInt64(ItemBuild.Count);
             foreach (string item in ItemBuild)
                 w.WriteString(item);
+            w.WriteInt64(Talents.Count);
+            foreach (TalentDefinition talent in Talents)
+                talent.WriteCanonical(w);
         }
     }
 
@@ -161,8 +201,20 @@ namespace Dynasty.MatchSimulation.Rules
             int buybackGoldPerLevel = 0,
             int buybackCooldownMs = 0,
             int heroKillXpPercentOfVictim = 0,
-            AttributeRules? attributes = null)
+            AttributeRules? attributes = null,
+            IReadOnlyList<int>? skillPointLevels = null,
+            IReadOnlyList<int>? talentPointLevels = null,
+            int attributeBonusLevels = 0,
+            int attributeBonusPerLevel = 0)
         {
+            SkillPointLevels = skillPointLevels?.ToArray();
+            TalentPointLevels = (talentPointLevels ?? Array.Empty<int>()).ToArray();
+            AttributeBonusLevels = attributeBonusLevels;
+            AttributeBonusPerLevel = attributeBonusPerLevel;
+            AttributeBonus = attributeBonusLevels > 0
+                ? new Combat.ModifierSpec("attribute_bonus", -1, strengthBonus: attributeBonusPerLevel, agilityBonus: attributeBonusPerLevel,
+                    intelligenceBonus: attributeBonusPerLevel, dispellable: false, maxStacks: attributeBonusLevels)
+                : null;
             Attributes = attributes ?? AttributeRules.Dota;
             HeroKillXpPercentOfVictim = heroKillXpPercentOfVictim;
             BuybackBaseGold = buybackBaseGold;
@@ -226,6 +278,26 @@ namespace Dynasty.MatchSimulation.Rules
 
         public int BuybackCost(int level) => BuybackBaseGold + BuybackGoldPerLevel * level;
 
+        /// <summary>Levels that give a skill point (for abilities and the attribute bonus); null = every level.</summary>
+        public IReadOnlyList<int>? SkillPointLevels { get; }
+
+        public int SkillPointsAt(int level) => SkillPointLevels == null ? level : SkillPointLevels.Count(l => l <= level);
+
+        /// <summary>
+        /// Levels that give a talent point, separate from skill points (Dota 7.40+: 10, 15, 20, 25, 27, 28, 29, 30). A point
+        /// takes a talent of the lowest tier reached that has none yet, otherwise the talent a tier still lacks.
+        /// </summary>
+        public IReadOnlyList<int> TalentPointLevels { get; }
+
+        public int TalentPointsAt(int level) => TalentPointLevels.Count(l => l <= level);
+
+        /// <summary>The attribute bonus (Dota: +2 to all attributes, 7 times) takes a skill point no ability can use.</summary>
+        public int AttributeBonusLevels { get; }
+        public int AttributeBonusPerLevel { get; }
+
+        /// <summary>The attribute bonus modifier (each level adds a stack); null without an attribute bonus.</summary>
+        public Combat.ModifierSpec? AttributeBonus { get; }
+
         internal void WriteCanonical(CanonicalWriter w)
         {
             w.WriteInt64(BuybackBaseGold);
@@ -249,6 +321,15 @@ namespace Dynasty.MatchSimulation.Rules
             w.WriteInt64(GoldLossPerLevel);
             w.WriteInt64(StructureTeamGold);
             w.WriteInt64(FountainHealPercentPerSecond);
+            w.WriteBool(SkillPointLevels != null);
+            w.WriteInt64(SkillPointLevels?.Count ?? 0);
+            foreach (int level in SkillPointLevels ?? Array.Empty<int>())
+                w.WriteInt64(level);
+            w.WriteInt64(TalentPointLevels.Count);
+            foreach (int level in TalentPointLevels)
+                w.WriteInt64(level);
+            w.WriteInt64(AttributeBonusLevels);
+            w.WriteInt64(AttributeBonusPerLevel);
         }
     }
 
