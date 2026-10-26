@@ -1,5 +1,6 @@
 <Solution>
   <Folder Name="/src/">
+    <Project Path="src/Dynasty.Content/Dynasty.Content.csproj" />
     <Project Path="src/Dynasty.Core/Dynasty.Core.csproj" />
     <Project Path="src/Dynasty.Drafting/Dynasty.Drafting.csproj" />
     <Project Path="src/Dynasty.HeroAI/Dynasty.HeroAI.csproj" />
@@ -9,6 +10,7 @@
     <Project Path="src/Dynasty.Training/Dynasty.Training.csproj" />
   </Folder>
   <Folder Name="/tests/">
+    <Project Path="tests/Dynasty.Content.Tests/Dynasty.Content.Tests.csproj" />
     <Project Path="tests/Dynasty.Core.Tests/Dynasty.Core.Tests.csproj" />
     <Project Path="tests/Dynasty.Drafting.Tests/Dynasty.Drafting.Tests.csproj" />
     <Project Path="tests/Dynasty.MatchSimulation.Tests/Dynasty.MatchSimulation.Tests.csproj" />
@@ -17,6 +19,7 @@
     <Project Path="tests/Dynasty.Training.Tests/Dynasty.Training.Tests.csproj" />
   </Folder>
   <Folder Name="/tools/">
+    <Project Path="tools/Dynasty.DotaPack/Dynasty.DotaPack.csproj" />
     <Project Path="tools/Dynasty.MatchLab/Dynasty.MatchLab.csproj" />
   </Folder>
 </Solution>

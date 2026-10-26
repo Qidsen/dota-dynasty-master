@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>Dynasty.Content</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Dynasty.Core\Dynasty.Core.csproj" />
+    <ProjectReference Include="..\Dynasty.MatchSimulation\Dynasty.MatchSimulation.csproj" />
+  </ItemGroup>
+
+</Project>

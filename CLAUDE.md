@@ -21,6 +21,7 @@ dotnet test --filter "Category!=Acceptance"   # быстрый набор (ок�
 dotnet run --project tools/Dynasty.MatchLab -c Release -- [heroes|swapped|mirror|base|lab] [firstSeed] [count] [maxMinutes]
 dotnet run --project tools/Dynasty.MatchLab -c Release -- profiles   # профили героев для драфта
 dotnet run --project tools/Dynasty.MatchLab -c Release -- skill 17 7 16   # игроки уровня 17 против 7 на зеркальных составах
+dotnet run --project tools/Dynasty.DotaPack            # пак правил Доты 7.41f → packs/dota-7.41f.json (не коммитится, D-048)
 # MATCHLAB_DEATHS=1 — печатать причины смертей героев по командам; MATCHLAB_PROFILE=1 — время по системам
 ```
 Unity (6000.3.27f1, проект `unity/DotaDynasty`), всё в batchmode (если проект открыт в редакторе, batchmode его не откроет — закройте редактор или проверяйте копию без `Library`):
@@ -54,8 +55,10 @@ DotaDynasty.exe -dynasty-seed N -dynasty-draft-screenshots DIR                # 
 - `src/Dynasty.Training` — недельные тренировки, рост, усталость (`docs/PLAYERS.md`).
 - `src/Dynasty.Drafting` — правила и сессия драфта, профили героев, составы, драфт-ИИ, план на игру (`docs/DRAFTING.md`).
 - `src/Dynasty.HeroAI` — командный и тактический ИИ, стратегия команды из драфта (`docs/HERO_AI.md`).
+- `src/Dynasty.Content` — паки правил (спека §27): формат `dynasty.ruleset-pack`, загрузка поверх базовых правил (`docs/DOTA_PACK.md`).
 - `src/Dynasty.Presentation` — слой представления без Unity: часы, кадры, сессия, статистика (`docs/PRESENTATION.md`).
 - `unity/DotaDynasty` — Unity-просмотрщик; ядро в нём — DLL из `tools/sync-unity.ps1` (D-029).
 - `tools/Dynasty.MatchLab` — консольный прогон матчей (net10.0, не для Unity).
+- `tools/Dynasty.DotaPack` — генератор пака Доты из `odota/dotaconstants` (закреплённый коммит).
 - `tests/*` — xUnit, net10.0. Тестовые ruleset'ы собираются через `RulesetDraft`.
 - `docs/` — архитектура, решения, статус, журнал.
