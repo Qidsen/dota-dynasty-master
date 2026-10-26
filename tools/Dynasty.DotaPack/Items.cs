@@ -61,7 +61,8 @@ static class Items
     public sealed record Result(JsonArray Items, JsonArray Abilities, JsonArray UnitTypes, List<string> Coverage, HashSet<string> Ids);
 
     /// <param name="map">The item map (items.json): per item, the "passive" merged into its bonuses and the "active" ability.</param>
-    public static Result Convert(JsonObject items, HashSet<string> shopNames, JsonObject map)
+    /// <param name="gameItems">The game's items.txt entries (cast range, level of leveled items).</param>
+    public static Result Convert(JsonObject items, HashSet<string> shopNames, JsonObject map, Dictionary<string, Dictionary<string, string>> gameItems)
     {
         var shop = items.Where(kv => !kv.Key.StartsWith("recipe_") && kv.Value!["cost"] != null && kv.Value["dname"] is JsonValue name && shopNames.Contains(name.GetValue<string>()))
             .ToDictionary(kv => kv.Key, kv => kv.Value!.AsObject());
@@ -72,8 +73,12 @@ static class Items
         var packItems = new JsonArray();
         var coverage = new List<string>();
         Consumables consumables = Consumables.For(shop);
-        foreach (var (id, item) in shop.OrderBy(kv => kv.Key, StringComparer.Ordinal))
+        foreach (var (id, data) in shop.OrderBy(kv => kv.Key, StringComparer.Ordinal))
         {
+            JsonObject item = AtGameLevel(data, gameItems.GetValueOrDefault("item_" + id));
+            JsonObject? entry = map[id] as JsonObject;
+            var skipped = new HashSet<string>((entry?["skipStats"] as JsonArray)?.Select(k => k!.GetValue<string>()) ?? Enumerable.Empty<string>());
+            string entryText = entry?.ToJsonString() ?? "";
             var bonuses = new JsonObject { ["key"] = "item_" + id };
             var missing = new List<string>();
             int allStats = 0;
@@ -81,7 +86,7 @@ static class Items
             {
                 string key = attribute!["key"]!.GetValue<string>();
                 bool shown = attribute["display"] != null || key == "crit_chance" || key == "crit_multiplier";
-                if (!shown || NotStats.Contains(key))
+                if (!shown || NotStats.Contains(key) || skipped.Contains(key))
                     continue;
                 JsonNode? value = attribute["value"];
                 if (value is not JsonValue || value.GetValue<object>()?.ToString()?.Contains('/') == true)
@@ -98,7 +103,9 @@ static class Items
 
                 if (!Stats.TryGetValue(key, out string? field))
                 {
-                    missing.Add(key);
+                    // A key the item map refers to is carried over by its passive or active.
+                    if (!System.Text.RegularExpressions.Regex.IsMatch(entryText, @"\$" + key + @"\b"))
+                        missing.Add(key);
                     continue;
                 }
 
@@ -123,7 +130,6 @@ static class Items
                 packItem["components"] = new JsonArray(components.Select(c => (JsonNode)c!).ToArray());
             if (bonuses.Count > 1)
                 packItem["bonuses"] = bonuses;
-            JsonObject? entry = map[id] as JsonObject;
             if (entry?["passive"] is JsonObject passive)
             {
                 foreach (var (field, value) in Abilities.BuildItemPassive(id, item, passive))
@@ -169,6 +175,51 @@ static class Items
         }
 
         return new Result(packItems, consumables.Abilities, consumables.UnitTypes, coverage, ids);
+    }
+
+    /// <summary>
+    /// The item as the game defines it: values listed per item level ("400 / 500 / 600 / 700 / 800") reduced to
+    /// the item's own level (ItemBaseLevel of Dagon 3 → the third), and the cast range from the game file when
+    /// dotaconstants has none.
+    /// </summary>
+    private static JsonObject AtGameLevel(JsonObject item, Dictionary<string, string>? game)
+    {
+        var result = item.DeepClone().AsObject();
+        int index = game != null && game.TryGetValue("ItemBaseLevel", out string? baseLevel) && int.TryParse(baseLevel, out int level) ? level - 1 : -1;
+        string Pick(string text)
+        {
+            string[] parts = text.Split(new[] { '/', ' ' }, StringSplitOptions.RemoveEmptyEntries);
+            return index >= 0 && parts.Length > 1 ? parts[Math.Min(index, parts.Length - 1)] : text;
+        }
+
+        if (index >= 0)
+        {
+            foreach (JsonNode? attribute in result["attrib"]?.AsArray() ?? new JsonArray())
+            {
+                if (attribute!["value"] is JsonValue v && v.TryGetValue(out string? text) && text.Contains('/'))
+                    attribute["value"] = Pick(text);
+                else if (attribute["value"] is JsonArray list && list.Count > 0)
+                    attribute["value"] = list[Math.Min(index, list.Count - 1)]!.DeepClone();
+            }
+
+            // Cooldown and mana cost of a leveled item: the game file lists them per level (dotaconstants gives the first).
+            foreach (var (field, key) in new[] { ("cd", "AbilityCooldown"), ("mc", "AbilityManaCost") })
+            {
+                if (game!.TryGetValue(key, out string? perLevel) && perLevel.Trim().Contains(' '))
+                    result[field] = Pick(perLevel);
+                else if (result[field] is JsonArray list && list.Count > 0)
+                    result[field] = list[Math.Min(index, list.Count - 1)]!.DeepClone();
+            }
+        }
+
+        var attributes = result["attrib"] as JsonArray ?? new JsonArray();
+        if (!attributes.Any(a => a!["key"]!.GetValue<string>() == "abilitycastrange") && game != null && game.TryGetValue("AbilityCastRange", out string? range))
+        {
+            attributes.Add(new JsonObject { ["key"] = "abilitycastrange", ["value"] = Pick(range) });
+            result["attrib"] = attributes;
+        }
+
+        return result;
     }
 
     private static bool IsWhole(string field) => field is not ("armor" or "healthRegen" or "manaRegen");

@@ -38,6 +38,23 @@ sealed class DotaData
         return KeyValues.Entries(File.ReadAllText(file));
     }
 
+    /// <summary>
+    /// Item definitions from the game's items.txt (same pinned commit): what dotaconstants lacks, such as an item's
+    /// cast range (AbilityCastRange) and the level of a leveled item (ItemBaseLevel: Dagon 2–5).
+    /// </summary>
+    public Dictionary<string, Dictionary<string, string>> GameItems()
+    {
+        string file = Path.Combine(_cache, "npc_items.txt");
+        if (!File.Exists(file))
+        {
+            string url = $"https://raw.githubusercontent.com/SteamDatabase/GameTracking-Dota2/{GameFilesCommit}/game/dota/pak01_dir/scripts/npc/items.txt";
+            Console.WriteLine("download " + url);
+            File.WriteAllText(file, _http.GetStringAsync(url).GetAwaiter().GetResult());
+        }
+
+        return KeyValues.Entries(File.ReadAllText(file));
+    }
+
     /// <summary>An OpenDota API response (free tier: at most one call per second).</summary>
     public JsonNode OpenDota(string path) =>
         Cached(Path.Combine(_cache, "opendota", path.Replace('/', '_') + ".json"), "https://api.opendota.com/api/" + path, throttle: true);

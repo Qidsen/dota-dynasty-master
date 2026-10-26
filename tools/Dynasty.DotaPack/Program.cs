@@ -18,7 +18,7 @@ JsonObject shopData = data.Constants("items").AsObject();
 JsonObject itemIds = data.Constants("item_ids").AsObject();
 JsonObject Map(string file) => JsonNode.Parse(File.ReadAllText(Path.Combine(AppContext.BaseDirectory, file)),
     documentOptions: new JsonDocumentOptions { CommentHandling = JsonCommentHandling.Skip })!.AsObject();
-Items.Result items = Items.Convert(shopData, data.ShopItemNames(), Map("items.json"));
+Items.Result items = Items.Convert(shopData, data.ShopItemNames(), Map("items.json"), data.GameItems());
 JsonObject abilityMap = Map("abilities.json");
 Abilities.Result heroAbilities = Abilities.Convert(data.Constants("abilities").AsObject(), data.Constants("hero_abilities").AsObject(), abilityMap, data.GameUnits());
 

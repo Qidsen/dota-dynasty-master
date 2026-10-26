@@ -6,8 +6,21 @@
     "passive": {
       "key": "item_basher_bash",
       "onHit": [
-        { "kind": "modifier", "modifiers": { "key": "item_basher_stun", "duration": "$bash_duration", "flags": [ "stunned" ] } },
-        { "kind": "damage", "damageType": "physical", "amounts": "$bonus_chance_damage" }
+        {
+          "kind": "modifier",
+          "modifiers": {
+            "key": "item_basher_stun",
+            "duration": "$bash_duration",
+            "flags": [
+              "stunned"
+            ]
+          }
+        },
+        {
+          "kind": "damage",
+          "damageType": "physical",
+          "amounts": "$bonus_chance_damage"
+        }
       ],
       "onHitChance": "$bash_chance_melee",
       "procCooldown": "$bash_cooldown"
@@ -20,8 +33,1809 @@
       "targeting": "noTarget",
       "targetTeam": "ally",
       "effects": [
-        { "kind": "dispel" },
-        { "kind": "modifier", "modifiers": { "key": "item_black_king_bar_avatar", "duration": "$duration", "flags": [ "debuffImmune" ], "magicResist": "$spell_reduce" } }
+        {
+          "kind": "dispel"
+        },
+        {
+          "kind": "modifier",
+          "modifiers": {
+            "key": "item_black_king_bar_avatar",
+            "duration": "$duration",
+            "flags": [
+              "debuffImmune"
+            ],
+            "magicResist": "$spell_reduce"
+          }
+        }
+      ]
+    }
+  },
+  "abyssal_blade": {
+    "status": "simplified",
+    "note": "Bash: the melee chance for every hero, no unique-bash rule; Overwhelm does not pierce debuff immunity; slow resistance and health restoration amplification not modelled",
+    "passive": {
+      "key": "item_abyssal_blade_bash",
+      "onHit": [
+        {
+          "kind": "modifier",
+          "modifiers": {
+            "key": "item_abyssal_blade_bash_stun",
+            "duration": "$bash_duration",
+            "flags": [
+              "stunned"
+            ]
+          }
+        },
+        {
+          "kind": "damage",
+          "damageType": "physical",
+          "amounts": "$bonus_chance_damage"
+        }
+      ],
+      "onHitChance": "$bash_chance_melee",
+      "procCooldown": "$bash_cooldown"
+    },
+    "active": {
+      "targeting": "unit",
+      "targetTeam": "enemy",
+      "effects": [
+        {
+          "kind": "modifier",
+          "modifiers": {
+            "key": "item_abyssal_blade_overwhelm",
+            "duration": "$stun_duration",
+            "flags": [
+              "stunned"
+            ]
+          }
+        }
+      ]
+    }
+  },
+  "ancient_janggo": {
+    "status": "simplified",
+    "note": "Endurance has no limit of 8 item charges",
+    "passive": {
+      "key": "item_ancient_janggo_aura",
+      "aura": {
+        "radius": "$radius",
+        "team": "ally",
+        "modifier": {
+          "key": "item_ancient_janggo_swiftness",
+          "duration": 1,
+          "moveSpeed": "$aura_movement_speed",
+          "healthRegen": "$aura_health_regen"
+        }
+      }
+    },
+    "active": {
+      "targeting": "noTarget",
+      "targetTeam": "ally",
+      "effects": [
+        {
+          "kind": "area",
+          "radius": "$radius",
+          "center": "caster",
+          "team": "ally",
+          "effects": [
+            {
+              "kind": "modifier",
+              "modifiers": {
+                "key": "item_ancient_janggo_endurance",
+                "duration": "$duration",
+                "attackSpeed": "$bonus_attack_speed_pct",
+                "moveSpeedPercent": "$bonus_movement_speed_pct"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "blight_stone": {
+    "status": "full",
+    "passive": {
+      "key": "item_blight_stone_corruption",
+      "onHit": [
+        {
+          "kind": "modifier",
+          "modifiers": {
+            "key": "item_blight_stone_corruption_debuff",
+            "duration": "$corruption_duration",
+            "armor": "$corruption_armor"
+          }
+        }
+      ]
+    },
+    "note": ""
+  },
+  "bloodthorn": {
+    "status": "simplified",
+    "note": "Pierce: the chance of bonus magical damage without piercing evasion; Soul Rend: silence only (no damage at the end of the silence, no bonus attack damage, no true strike on the target)",
+    "passive": {
+      "key": "item_bloodthorn_pierce",
+      "onHit": [
+        {
+          "kind": "damage",
+          "damageType": "magical",
+          "amounts": "$passive_proc_damage"
+        }
+      ],
+      "onHitChance": "$proc_chance"
+    },
+    "active": {
+      "targeting": "unit",
+      "targetTeam": "enemy",
+      "effects": [
+        {
+          "kind": "modifier",
+          "modifiers": {
+            "key": "item_bloodthorn_soul_rend",
+            "duration": "$silence_duration",
+            "flags": [
+              "silenced"
+            ]
+          }
+        }
+      ]
+    }
+  },
+  "buckler": {
+    "status": "simplified",
+    "note": "the aura armor goes to allied heroes only (Dota: all player-controlled units, summons included)",
+    "passive": {
+      "key": "item_buckler_aura",
+      "aura": {
+        "radius": "$bonus_aoe_radius",
+        "team": "ally",
+        "heroesOnly": true,
+        "modifier": {
+          "key": "item_buckler_aura_armor",
+          "duration": 1,
+          "armor": "$bonus_aoe_armor"
+        }
+      }
+    }
+  },
+  "crellas_crozier": {
+    "status": "simplified",
+    "note": "Putrefaction Aura not modelled (no health restoration reduction); Rite of Rumusque: ghost form (physical immunity, disarm, magic resistance loss) with a non-stacking slow aura on enemy heroes instead of the stolen movement speed, no health redirection, does not end on debuff immunity",
+    "active": {
+      "targeting": "noTarget",
+      "targetTeam": "ally",
+      "effects": [
+        {
+          "kind": "modifier",
+          "modifiers": {
+            "key": "item_crellas_crozier_ghost",
+            "duration": "$duration",
+            "flags": [
+              "disarmed",
+              "physicalImmune"
+            ],
+            "magicResist": "$extra_spell_damage_percent",
+            "aura": {
+              "radius": "$active_radius",
+              "team": "enemy",
+              "heroesOnly": true,
+              "modifier": {
+                "key": "item_crellas_crozier_steal",
+                "duration": 1,
+                "moveSpeedPercent": "-$movespeed_steal_pct"
+              }
+            }
+          }
+        }
+      ]
+    }
+  },
+  "dagon_2": {
+    "status": "simplified",
+    "note": "the cast range bonus for other spells is not modelled",
+    "active": {
+      "targeting": "unit",
+      "targetTeam": "enemy",
+      "effects": [
+        {
+          "kind": "damage",
+          "damageType": "magical",
+          "amounts": "$damage"
+        }
+      ]
+    }
+  },
+  "desolator": {
+    "status": "simplified",
+    "note": "Corruption only: no Soul Stealer damage growth; stacks with Orb of Blight",
+    "passive": {
+      "key": "item_desolator_corruption",
+      "onHit": [
+        {
+          "kind": "modifier",
+          "modifiers": {
+            "key": "item_desolator_corruption_debuff",
+            "duration": "$corruption_duration",
+            "armor": "$corruption_armor"
+          }
+        }
+      ]
+    }
+  },
+  "disperser": {
+    "status": "simplified",
+    "note": "Manabreak deals its full physical damage even when the target has less mana than the burn; Suppress active not mapped (slow and haste decaying from 100% to 0% over the duration)",
+    "passive": {
+      "key": "item_disperser_manabreak",
+      "onHit": [
+        {
+          "kind": "manaBurn",
+          "damageType": "physical",
+          "amounts": "$feedback_mana_burn"
+        },
+        {
+          "kind": "damage",
+          "damageType": "physical",
+          "amounts": "$feedback_mana_burn*$damage_per_burn"
+        }
+      ]
+    }
+  },
+  "ghost": {
+    "status": "simplified",
+    "note": "the ghost form does not end on debuff immunity",
+    "active": {
+      "targeting": "noTarget",
+      "targetTeam": "ally",
+      "effects": [
+        {
+          "kind": "modifier",
+          "modifiers": {
+            "key": "item_ghost_form",
+            "duration": "$duration",
+            "flags": [
+              "disarmed",
+              "physicalImmune"
+            ],
+            "magicResist": "$extra_spell_damage_percent"
+          }
+        }
+      ]
+    }
+  },
+  "gungir": {
+    "status": "simplified",
+    "note": "the bonus AoE for other spells not modelled",
+    "active": {
+      "targeting": "point",
+      "targetTeam": "enemy",
+      "effects": [
+        {
+          "kind": "area",
+          "radius": "$radius_tooltip",
+          "center": "point",
+          "team": "enemy",
+          "effects": [
+            {
+              "kind": "modifier",
+              "modifiers": {
+                "key": "item_gungir_chains",
+                "duration": "$duration",
+                "flags": [
+                  "rooted"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "invis_sword": {
+    "status": "simplified",
+    "note": "no fade time, no free pathing through units; the bonus damage of the next attack stays after the invisibility is broken by a cast",
+    "active": {
+      "targeting": "noTarget",
+      "targetTeam": "ally",
+      "effects": [
+        {
+          "kind": "modifier",
+          "modifiers": {
+            "key": "item_invis_sword_walk",
+            "duration": "$windwalk_duration",
+            "flags": [
+              "invisible"
+            ],
+            "moveSpeedPercent": "$windwalk_movement_speed",
+            "breakOnAction": true
+          }
+        },
+        {
+          "kind": "modifier",
+          "modifiers": {
+            "key": "item_invis_sword_strike",
+            "duration": "$windwalk_duration",
+            "consumedOnHit": true,
+            "onHit": [
+              {
+                "kind": "damage",
+                "damageType": "physical",
+                "amounts": "$windwalk_bonus_damage"
+              }
+            ]
+          }
+        }
+      ]
+    }
+  },
+  "lesser_crit": {
+    "status": "full",
+    "note": "the critical strike is the crit_chance and crit_multiplier stat bonuses"
+  },
+  "mage_slayer": {
+    "status": "simplified",
+    "note": "the damage over time only: no outgoing spell damage reduction",
+    "passive": {
+      "key": "item_mage_slayer_passive",
+      "onHit": [
+        {
+          "kind": "modifier",
+          "modifiers": {
+            "key": "item_mage_slayer_debuff",
+            "duration": "$duration",
+            "damagePerSecond": "$dps",
+            "damageType": "physical"
+          }
+        }
+      ]
+    }
+  },
+  "mask_of_madness": {
+    "status": "simplified",
+    "note": "the ranged movement speed bonus for every hero (melee 12%), no slow resistance",
+    "active": {
+      "targeting": "noTarget",
+      "targetTeam": "ally",
+      "effects": [
+        {
+          "kind": "modifier",
+          "modifiers": {
+            "key": "item_mask_of_madness_berserk",
+            "duration": "$berserk_duration",
+            "flags": [
+              "silenced"
+            ],
+            "attackSpeed": "$berserk_bonus_attack_speed",
+            "moveSpeedPercent": "$berserk_bonus_movement_speed",
+            "armor": "-$berserk_armor_reduction"
+          }
+        }
+      ]
+    }
+  },
+  "monkey_king_bar": {
+    "status": "simplified",
+    "note": "the chance of bonus magical damage without piercing evasion; the melee attack range bonus not modelled",
+    "passive": {
+      "key": "item_monkey_king_bar_pierce",
+      "onHit": [
+        {
+          "kind": "damage",
+          "damageType": "magical",
+          "amounts": "$bonus_chance_damage"
+        }
+      ],
+      "onHitChance": "$bonus_chance"
+    }
+  },
+  "orchid": {
+    "status": "simplified",
+    "note": "silence only: no damage at the end of the silence",
+    "active": {
+      "targeting": "unit",
+      "targetTeam": "enemy",
+      "effects": [
+        {
+          "kind": "modifier",
+          "modifiers": {
+            "key": "item_orchid_soul_burn",
+            "duration": "$silence_duration",
+            "flags": [
+              "silenced"
+            ]
+          }
+        }
+      ]
+    }
+  },
+  "radiance": {
+    "status": "simplified",
+    "note": "Burn is always on (no toggle); illusions burn like the hero",
+    "passive": {
+      "key": "item_radiance_burn",
+      "evasion": "$evasion",
+      "aura": {
+        "radius": "$aura_radius",
+        "team": "enemy",
+        "modifier": {
+          "key": "item_radiance_burn_debuff",
+          "duration": 1,
+          "damagePerSecond": "$aura_damage",
+          "damageType": "magical"
+        }
+      }
+    }
+  },
+  "ring_of_basilius": {
+    "status": "full",
+    "passive": {
+      "key": "item_ring_of_basilius_aura",
+      "aura": {
+        "radius": "$aura_radius",
+        "team": "ally",
+        "modifier": {
+          "key": "item_ring_of_basilius_mana",
+          "duration": 1,
+          "manaRegen": "$aura_mana_regen"
+        }
+      }
+    },
+    "note": ""
+  },
+  "satanic": {
+    "status": "full",
+    "active": {
+      "targeting": "noTarget",
+      "targetTeam": "ally",
+      "effects": [
+        {
+          "kind": "dispel"
+        },
+        {
+          "kind": "modifier",
+          "modifiers": {
+            "key": "item_satanic_unholy_rage",
+            "duration": "$unholy_duration",
+            "lifesteal": "$unholy_lifesteal_percent"
+          }
+        }
+      ]
+    },
+    "note": ""
+  },
+  "silver_edge": {
+    "status": "simplified",
+    "note": "no fade time, no free pathing through units; the breaking attack deals its bonus damage but does not break passives or cap movement speed; the bonus stays after the invisibility is broken by a cast",
+    "active": {
+      "targeting": "noTarget",
+      "targetTeam": "ally",
+      "effects": [
+        {
+          "kind": "modifier",
+          "modifiers": {
+            "key": "item_silver_edge_walk",
+            "duration": "$windwalk_duration",
+            "flags": [
+              "invisible"
+            ],
+            "moveSpeedPercent": "$windwalk_movement_speed",
+            "breakOnAction": true
+          }
+        },
+        {
+          "kind": "modifier",
+          "modifiers": {
+            "key": "item_silver_edge_strike",
+            "duration": "$windwalk_duration",
+            "consumedOnHit": true,
+            "onHit": [
+              {
+                "kind": "damage",
+                "damageType": "physical",
+                "amounts": "$windwalk_bonus_damage"
+              }
+            ]
+          }
+        }
+      ]
+    }
+  },
+  "specialists_array": {
+    "status": "simplified",
+    "note": "also for melee bearers; the extra hits go to the nearest enemies without the 120 degree cone, carry on-hit effects, and neither they nor the primary attack get the flat 20 damage",
+    "passive": {
+      "key": "item_specialists_array_splitshot",
+      "extraTargets": "$count",
+      "extraTargetChance": "$proc_chance",
+      "extraTargetRadiusFromAttackRange": true,
+      "extraTargetRadius": "$secondary_target_range_bonus",
+      "extraTargetDamagePercent": "$proc_dmg_pct"
+    }
+  },
+  "talisman_of_evasion": {
+    "status": "full",
+    "passive": {
+      "key": "item_talisman_of_evasion",
+      "evasion": "$bonus_evasion"
+    },
+    "note": ""
+  },
+  "vladmir": {
+    "status": "simplified",
+    "note": "the bonus damage is a percent of the whole attack damage (Dota: base damage); full lifesteal against creeps (Dota: 12%)",
+    "passive": {
+      "key": "item_vladmir_aura",
+      "aura": {
+        "radius": "$aura_radius",
+        "team": "ally",
+        "modifier": {
+          "key": "item_vladmir_aura_buff",
+          "duration": 1,
+          "lifesteal": "$lifesteal_aura",
+          "attackDamagePercent": "$damage_aura",
+          "manaRegen": "$mana_regen_aura",
+          "armor": "$armor_aura"
+        }
+      }
+    }
+  },
+  "assault": {
+    "status": "simplified",
+    "note": "the allied aura only (attack speed and armor); no enemy armor reduction aura (one aura per modifier); structures only if the engine's aura reaches them",
+    "passive": {
+      "key": "item_assault",
+      "aura": {
+        "radius": "$aura_radius",
+        "team": "ally",
+        "modifier": {
+          "key": "item_assault_aura",
+          "duration": 1,
+          "attackSpeed": "$aura_attack_speed",
+          "armor": "$aura_positive_armor"
+        }
+      }
+    }
+  },
+  "blink": {
+    "status": "simplified",
+    "note": "no 3 s lockout after taking hero damage; no clamp to the shorter range when cast beyond the maximum",
+    "active": {
+      "targeting": "point",
+      "targetTeam": "ally",
+      "castRange": "$blink_range",
+      "effects": [
+        {
+          "kind": "dash"
+        }
+      ]
+    }
+  },
+  "boots_of_bearing": {
+    "status": "simplified",
+    "note": "Endurance without the 1.5 s slow immunity",
+    "active": {
+      "targeting": "noTarget",
+      "targetTeam": "ally",
+      "effects": [
+        {
+          "kind": "area",
+          "radius": "$radius",
+          "center": "caster",
+          "team": "ally",
+          "effects": [
+            {
+              "kind": "modifier",
+              "modifiers": {
+                "key": "item_boots_of_bearing_endurance",
+                "duration": "$duration",
+                "attackSpeed": "$bonus_attack_speed_pct",
+                "moveSpeedPercent": "$bonus_movement_speed_pct"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "passive": {
+      "key": "item_boots_of_bearing",
+      "aura": {
+        "radius": "$radius",
+        "team": "ally",
+        "modifier": {
+          "key": "item_boots_of_bearing_aura",
+          "duration": 1,
+          "moveSpeed": "$aura_movement_speed",
+          "healthRegen": "$aura_health_regen"
+        }
+      }
+    }
+  },
+  "butterfly": {
+    "status": "simplified",
+    "note": "evasion stacks the engine's way, not diminishingly; the 20% attack speed bonus (bonus_attack_speed_pct) has no percent attack speed field",
+    "passive": {
+      "key": "item_butterfly",
+      "evasion": "$bonus_evasion"
+    }
+  },
+  "dagon_3": {
+    "status": "simplified",
+    "note": "does not kill illusions instantly; the cast range bonus for other spells is not modelled",
+    "active": {
+      "targeting": "unit",
+      "targetTeam": "enemy",
+      "effects": [
+        {
+          "kind": "damage",
+          "damageType": "magical",
+          "amounts": "$damage"
+        }
+      ]
+    }
+  },
+  "devastator": {
+    "status": "simplified",
+    "note": "Witch Blade's poison lands at once (0.75 x intelligence per second x 4 s) with the slow; Magic Corruption rides on the same 4 s proc (lasting 4 s it stays up while attacking) instead of every attack; no true strike",
+    "passive": {
+      "key": "item_devastator_witch_blade",
+      "onHit": [
+        {
+          "kind": "modifier",
+          "modifiers": {
+            "key": "item_devastator_poison",
+            "duration": "$slow_duration",
+            "moveSpeedPercent": "-$slow"
+          }
+        },
+        {
+          "kind": "modifier",
+          "modifiers": {
+            "key": "item_devastator_corruption",
+            "duration": "$slow_duration",
+            "magicResist": "-$active_mres_reduction"
+          }
+        },
+        {
+          "kind": "damage",
+          "damageType": "magical",
+          "scaling": "casterIntelligencePercent",
+          "amounts": "$int_damage_multiplier*$slow_duration*100"
+        }
+      ],
+      "procCooldown": "$passive_cooldown"
+    }
+  },
+  "ethereal_blade": {
+    "status": "simplified",
+    "note": "enemies only (no ally cast); the extra magic damage taken as a magic resistance reduction; the stat damage as three hits (strength, agility, intelligence) plus the base",
+    "active": {
+      "targeting": "unit",
+      "targetTeam": "enemy",
+      "effects": [
+        {
+          "kind": "projectile",
+          "speed": "$projectile_speed",
+          "effects": [
+            {
+              "kind": "modifier",
+              "modifiers": {
+                "key": "item_ethereal_blade",
+                "duration": "$duration",
+                "flags": [
+                  "disarmed",
+                  "physicalImmune"
+                ],
+                "moveSpeedPercent": "$blast_movement_slow",
+                "magicResist": "$ethereal_damage_bonus"
+              }
+            },
+            {
+              "kind": "damage",
+              "damageType": "magical",
+              "amounts": "$blast_damage_base"
+            },
+            {
+              "kind": "damage",
+              "damageType": "magical",
+              "scaling": "casterStrengthPercent",
+              "amounts": "$blast_stat_multiplier*100"
+            },
+            {
+              "kind": "damage",
+              "damageType": "magical",
+              "scaling": "casterAgilityPercent",
+              "amounts": "$blast_stat_multiplier*100"
+            },
+            {
+              "kind": "damage",
+              "damageType": "magical",
+              "scaling": "casterIntelligencePercent",
+              "amounts": "$blast_stat_multiplier*100"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "glimmer_cape": {
+    "status": "simplified",
+    "note": "no 0.5 s fade delay; the barrier absorbs all damage, not only magic",
+    "active": {
+      "targeting": "unit",
+      "targetTeam": "ally",
+      "effects": [
+        {
+          "kind": "modifier",
+          "modifiers": {
+            "key": "item_glimmer_cape_fade",
+            "duration": "$duration",
+            "flags": [
+              "invisible"
+            ],
+            "breakOnAction": true
+          }
+        },
+        {
+          "kind": "modifier",
+          "modifiers": {
+            "key": "item_glimmer_cape",
+            "duration": "$duration",
+            "moveSpeed": "$active_movement_speed",
+            "barrier": "$barrier_block"
+          }
+        }
+      ]
+    }
+  },
+  "heavens_halberd": {
+    "status": "simplified",
+    "note": "the disarm is removed by any dispel (Dota: strong dispels only)",
+    "active": {
+      "targeting": "unit",
+      "targetTeam": "enemy",
+      "effects": [
+        {
+          "kind": "modifier",
+          "modifiers": {
+            "key": "item_heavens_halberd_disarm",
+            "duration": "$disarm_melee",
+            "flags": [
+              "disarmed"
+            ]
+          }
+        }
+      ]
+    },
+    "passive": {
+      "key": "item_heavens_halberd",
+      "evasion": "$bonus_evasion"
+    }
+  },
+  "hurricane_pike": {
+    "status": "simplified",
+    "note": "enemy cast only: the target is pushed away (the caster is not pushed back, so half the separation); the 5 fast attacks are not tied to the target and keep the normal attack range; no self/ally push",
+    "active": {
+      "targeting": "unit",
+      "targetTeam": "enemy",
+      "castRange": "$cast_range_enemy",
+      "effects": [
+        {
+          "kind": "knockback",
+          "amounts": "$enemy_length"
+        },
+        {
+          "kind": "onCaster",
+          "effects": [
+            {
+              "kind": "modifier",
+              "modifiers": {
+                "key": "item_hurricane_pike_attacks",
+                "duration": "$range_duration",
+                "attackSpeed": "$bonus_attack_speed",
+                "attackCharges": "$max_attacks"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "javelin": {
+    "status": "simplified",
+    "note": "the proc does not pierce evasion",
+    "passive": {
+      "key": "item_javelin_pierce",
+      "onHit": [
+        {
+          "kind": "damage",
+          "damageType": "magical",
+          "amounts": "$bonus_chance_damage"
+        }
+      ],
+      "onHitChance": "$bonus_chance"
+    }
+  },
+  "mekansm": {
+    "status": "simplified",
+    "note": "no Restore lockout for units healed within the cooldown; several auras stack",
+    "active": {
+      "targeting": "noTarget",
+      "targetTeam": "ally",
+      "effects": [
+        {
+          "kind": "area",
+          "radius": "$heal_radius",
+          "center": "caster",
+          "team": "ally",
+          "effects": [
+            {
+              "kind": "heal",
+              "amounts": "$heal_amount"
+            }
+          ]
+        }
+      ]
+    },
+    "passive": {
+      "key": "item_mekansm",
+      "aura": {
+        "radius": "$aura_radius",
+        "team": "ally",
+        "modifier": {
+          "key": "item_mekansm_aura",
+          "duration": 1,
+          "healthRegen": "$aura_health_regen"
+        }
+      }
+    }
+  },
+  "orb_of_corrosion": {
+    "status": "simplified",
+    "note": "the melee-target slow against every target (ranged targets are slowed twice as much in Dota); no health restoration reduction",
+    "passive": {
+      "key": "item_orb_of_corrosion",
+      "onHit": [
+        {
+          "kind": "modifier",
+          "modifiers": {
+            "key": "item_orb_of_corrosion_debuff",
+            "duration": "$duration",
+            "armor": "$corruption_armor",
+            "moveSpeedPercent": "$slow_melee"
+          }
+        }
+      ]
+    }
+  },
+  "overwhelming_blink": {
+    "status": "simplified",
+    "note": "the damage over time lands at once with the instant part; no 3 s lockout after taking hero damage; no range clamp",
+    "active": {
+      "targeting": "point",
+      "targetTeam": "ally",
+      "castRange": "$blink_range",
+      "effects": [
+        {
+          "kind": "dash"
+        },
+        {
+          "kind": "area",
+          "radius": "$radius",
+          "center": "caster",
+          "team": "enemy",
+          "effects": [
+            {
+              "kind": "damage",
+              "damageType": "magical",
+              "amounts": "$damage_base"
+            },
+            {
+              "kind": "damage",
+              "damageType": "magical",
+              "scaling": "casterStrengthPercent",
+              "amounts": "$damage_pct_instant"
+            },
+            {
+              "kind": "damage",
+              "damageType": "magical",
+              "scaling": "casterStrengthPercent",
+              "amounts": "$damage_pct_over_time"
+            },
+            {
+              "kind": "modifier",
+              "modifiers": {
+                "key": "item_overwhelming_blink_slow",
+                "duration": "$duration",
+                "moveSpeedPercent": "-$movement_slow",
+                "attackSpeed": "-$attack_slow"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "pipe": {
+    "status": "simplified",
+    "note": "the barrier absorbs all damage, not only magic; no Barrier lockout within the cooldown; several auras stack",
+    "active": {
+      "targeting": "noTarget",
+      "targetTeam": "ally",
+      "effects": [
+        {
+          "kind": "area",
+          "radius": "$barrier_radius",
+          "center": "caster",
+          "team": "ally",
+          "effects": [
+            {
+              "kind": "modifier",
+              "modifiers": {
+                "key": "item_pipe_barrier",
+                "duration": "$barrier_duration",
+                "barrier": "$barrier_block"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "passive": {
+      "key": "item_pipe",
+      "aura": {
+        "radius": "$aura_radius",
+        "team": "ally",
+        "modifier": {
+          "key": "item_pipe_aura",
+          "duration": 1,
+          "magicResist": "$magic_resistance_aura"
+        }
+      }
+    }
+  },
+  "rod_of_atos": {
+    "status": "simplified",
+    "note": "the root lands at once (no projectile speed in the data)",
+    "active": {
+      "targeting": "unit",
+      "targetTeam": "enemy",
+      "effects": [
+        {
+          "kind": "modifier",
+          "modifiers": {
+            "key": "item_rod_of_atos_cripple",
+            "duration": "$duration",
+            "flags": [
+              "rooted"
+            ]
+          }
+        }
+      ]
+    }
+  },
+  "shadow_amulet": {
+    "status": "simplified",
+    "note": "invisible at once (no 1.25 s fade time)",
+    "active": {
+      "targeting": "unit",
+      "targetTeam": "ally",
+      "effects": [
+        {
+          "kind": "modifier",
+          "modifiers": {
+            "key": "item_shadow_amulet_fade",
+            "duration": "$fade_duration",
+            "flags": [
+              "invisible"
+            ],
+            "moveSpeedPercent": "-$movement_speed_reduction",
+            "breakOnAction": true
+          }
+        }
+      ]
+    }
+  },
+  "skadi": {
+    "status": "simplified",
+    "note": "the melee bearer's move slow for every bearer (ranged bearers slow twice as much in Dota); no health restoration reduction",
+    "passive": {
+      "key": "item_skadi",
+      "onHit": [
+        {
+          "kind": "modifier",
+          "modifiers": {
+            "key": "item_skadi_cold",
+            "duration": "$cold_duration",
+            "moveSpeedPercent": "$cold_slow_melee",
+            "attackSpeed": "$cold_attack_slow_melee"
+          }
+        }
+      ]
+    }
+  },
+  "tranquil_boots": {
+    "status": "simplified",
+    "note": "the break removes the bonus health regeneration only; the move speed bonus stays (the drop to 40 needs the difference of two keys)",
+    "passive": {
+      "key": "item_tranquil_boots",
+      "onHit": [
+        {
+          "kind": "onCaster",
+          "effects": [
+            {
+              "kind": "modifier",
+              "modifiers": {
+                "key": "item_tranquil_boots_broken",
+                "duration": "$break_time",
+                "healthRegen": "-$bonus_health_regen",
+                "dispellable": false
+              }
+            }
+          ]
+        }
+      ],
+      "onHitHeroesOnly": true,
+      "whenAttacked": [
+        {
+          "kind": "onCaster",
+          "effects": [
+            {
+              "kind": "modifier",
+              "modifiers": {
+                "key": "item_tranquil_boots_broken",
+                "duration": "$break_time",
+                "healthRegen": "-$bonus_health_regen",
+                "dispellable": false
+              }
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "lifesteal": {
+    "status": "full",
+    "note": "the lifesteal is the item stat lifesteal_percent (already a bonus); entry marks the passive as covered",
+    "passive": {
+      "key": "item_lifesteal"
+    }
+  },
+  "arcane_blink": {
+    "status": "simplified",
+    "note": "blink to the point with the heal and mana restore; no lock after taking hero damage, no self-cast toward the fountain",
+    "active": {
+      "targeting": "point",
+      "targetTeam": "ally",
+      "castRange": "$blink_range",
+      "effects": [
+        {
+          "kind": "dash"
+        },
+        {
+          "kind": "heal",
+          "amounts": "$heal_amount"
+        },
+        {
+          "kind": "restoreMana",
+          "amounts": "$mana_amount"
+        }
+      ]
+    }
+  },
+  "bfury": {
+    "status": "simplified",
+    "note": "Cleave only: a circle of the cleave distance around the target instead of a cone, the hero percent also against creeps, ranged heroes cleave too; no Quell (bonus damage against non-heroes), no Chop Tree (no trees)",
+    "passive": {
+      "key": "item_bfury_cleave",
+      "cleavePercent": "$cleave_damage_percent",
+      "cleaveRadius": "$cleave_distance"
+    }
+  },
+  "cyclone": {
+    "status": "simplified",
+    "note": "enemy targets only (no self-cast); the cyclone is a stun with physical and debuff immunity (magical damage still lands, no full invulnerability); the landing damage is dealt at the cast",
+    "active": {
+      "targeting": "unit",
+      "targetTeam": "enemy",
+      "effects": [
+        {
+          "kind": "damage",
+          "damageType": "magical",
+          "amounts": "$tooltip_drop_damage"
+        },
+        {
+          "kind": "dispel"
+        },
+        {
+          "kind": "modifier",
+          "modifiers": {
+            "key": "item_cyclone",
+            "duration": "$cyclone_duration",
+            "flags": [
+              "stunned",
+              "physicalImmune",
+              "debuffImmune"
+            ]
+          }
+        }
+      ]
+    }
+  },
+  "diffusal_blade": {
+    "status": "simplified",
+    "note": "Manabreak only (1 damage per burnt mana written as 100 percent: $damage_per_burn*100 is a unit conversion); no Inhibit active (the data has no slow value); illusions burn mana too",
+    "passive": {
+      "key": "item_diffusal_blade_manabreak",
+      "onHit": [
+        {
+          "kind": "manaBurn",
+          "damageType": "physical",
+          "amounts": "$feedback_mana_burn",
+          "damagePercent": "$damage_per_burn*100"
+        }
+      ]
+    }
+  },
+  "echo_sabre": {
+    "status": "simplified",
+    "note": "the second attack lands at once with the first; ranged heroes echo too (melee only in Dota)",
+    "passive": {
+      "key": "item_echo_sabre_echo",
+      "onHit": [
+        {
+          "kind": "modifier",
+          "modifiers": {
+            "key": "item_echo_sabre_slow",
+            "duration": "$slow_duration",
+            "moveSpeedPercent": "-$movement_slow"
+          }
+        },
+        {
+          "kind": "attack"
+        }
+      ],
+      "procCooldown": "$cd"
+    }
+  },
+  "force_staff": {
+    "status": "simplified",
+    "note": "self-cast only: the caster dashes up to the push length toward a chosen point (Dota pushes in the facing direction); no use on allies or enemies",
+    "active": {
+      "targeting": "point",
+      "targetTeam": "ally",
+      "castRange": "$push_length",
+      "effects": [
+        {
+          "kind": "dash"
+        }
+      ]
+    }
+  },
+  "greater_crit": {
+    "status": "simplified",
+    "note": "Critical Strike from the item's crit stats (crit_chance, crit_multiplier); it also crits buildings (not in Dota)",
+    "passive": {
+      "key": "item_greater_crit_crit"
+    }
+  },
+  "harpoon": {
+    "status": "simplified",
+    "note": "Draw Forth pulls the enemy all the way to the caster (Dota moves both: to melee range for melee, 35% of the distance for ranged), no tree target; Echo Strike's second attack lands at once, ranged heroes echo too",
+    "passive": {
+      "key": "item_harpoon_echo",
+      "onHit": [
+        {
+          "kind": "modifier",
+          "modifiers": {
+            "key": "item_harpoon_slow",
+            "duration": "$slow_duration",
+            "moveSpeedPercent": "-$movement_slow"
+          }
+        },
+        {
+          "kind": "attack"
+        }
+      ],
+      "procCooldown": "$passive_cooldown"
+    },
+    "active": {
+      "targeting": "unit",
+      "targetTeam": "enemy",
+      "castRange": "$cast_range_enemy",
+      "effects": [
+        {
+          "kind": "projectile",
+          "speed": "$projectile_speed",
+          "effects": [
+            {
+              "kind": "pull",
+              "amounts": "$max_distance"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "hydras_breath": {
+    "status": "simplified",
+    "note": "Polycephaly hits the nearest enemies around the attacker (no 120-degree cone) without the +20 flat damage, for melee heroes too; extra hits carry all on-hit effects (Dota: only Miasma)",
+    "passive": {
+      "key": "item_hydras_breath",
+      "onHit": [
+        {
+          "kind": "modifier",
+          "modifiers": {
+            "key": "item_hydras_breath_miasma",
+            "duration": "$poison_duration",
+            "damagePerSecondMaxHealthPercent": "$poison_damage_per_second",
+            "damageType": "magical"
+          }
+        }
+      ],
+      "extraTargets": "$count",
+      "extraTargetChance": "$proc_chance",
+      "extraTargetRadiusFromAttackRange": true,
+      "extraTargetRadius": "$secondary_target_range_bonus",
+      "extraTargetDamagePercent": "$proc_dmg_pct"
+    }
+  },
+  "meteor_hammer": {
+    "status": "simplified",
+    "note": "always channelled fully (the channel time as the cast point), lands at once (no landing delay); units only (no building damage)",
+    "active": {
+      "targeting": "point",
+      "targetTeam": "enemy",
+      "castPoint": "$max_duration",
+      "effects": [
+        {
+          "kind": "area",
+          "radius": "$impact_radius",
+          "center": "point",
+          "team": "enemy",
+          "effects": [
+            {
+              "kind": "damage",
+              "damageType": "magical",
+              "amounts": "$impact_damage_units"
+            },
+            {
+              "kind": "modifier",
+              "modifiers": {
+                "key": "item_meteor_hammer_stun",
+                "duration": "$stun_duration",
+                "flags": [
+                  "stunned"
+                ]
+              }
+            },
+            {
+              "kind": "modifier",
+              "modifiers": {
+                "key": "item_meteor_hammer_burn",
+                "duration": "$burn_duration",
+                "damagePerSecond": "$burn_dps_units",
+                "damageType": "magical",
+                "period": "$burn_interval",
+                "moveSpeedPercent": "-$burn_slow"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "orb_of_frost": {
+    "status": "simplified",
+    "note": "the -13% slow on every attack (Dota: -6% in the melee case); no health restoration reduction",
+    "passive": {
+      "key": "item_orb_of_frost",
+      "onHit": [
+        {
+          "kind": "modifier",
+          "modifiers": {
+            "key": "item_orb_of_frost_slow",
+            "duration": "$duration",
+            "moveSpeedPercent": "$slow_ranged"
+          }
+        }
+      ]
+    }
+  },
+  "pavise": {
+    "status": "simplified",
+    "note": "the barrier absorbs damage of any type (physical only in Dota)",
+    "active": {
+      "targeting": "unit",
+      "targetTeam": "ally",
+      "effects": [
+        {
+          "kind": "modifier",
+          "modifiers": {
+            "key": "item_pavise",
+            "duration": "$duration",
+            "barrier": "$absorb_amount"
+          }
+        }
+      ]
+    }
+  },
+  "sheepstick": {
+    "status": "simplified",
+    "note": "disarm and silence: no fixed 140 movement speed, no mute (items still usable), passives kept",
+    "active": {
+      "targeting": "unit",
+      "targetTeam": "enemy",
+      "effects": [
+        {
+          "kind": "modifier",
+          "modifiers": {
+            "key": "item_sheepstick",
+            "duration": "$sheep_duration",
+            "flags": [
+              "disarmed",
+              "silenced"
+            ]
+          }
+        }
+      ]
+    }
+  },
+  "solar_crest": {
+    "status": "simplified",
+    "note": "the barrier absorbs damage of any type (physical only in Dota); a self-cast also gives the armor, attack and movement speed",
+    "active": {
+      "targeting": "unit",
+      "targetTeam": "ally",
+      "effects": [
+        {
+          "kind": "modifier",
+          "modifiers": {
+            "key": "item_solar_crest",
+            "duration": "$duration",
+            "armor": "$target_armor",
+            "attackSpeed": "$target_attack_speed",
+            "moveSpeedPercent": "$target_movement_speed",
+            "barrier": "$absorb_amount"
+          }
+        }
+      ]
+    }
+  },
+  "wind_waker": {
+    "status": "simplified",
+    "note": "the cyclone is a stun with physical and debuff immunity (magical damage still lands, no full invulnerability); no landing damage on enemies (one effect list for all teams); the self tornado cannot be moved",
+    "active": {
+      "targeting": "unit",
+      "targetTeam": "any",
+      "effects": [
+        {
+          "kind": "dispel"
+        },
+        {
+          "kind": "modifier",
+          "modifiers": {
+            "key": "item_wind_waker",
+            "duration": "$cyclone_duration",
+            "flags": [
+              "stunned",
+              "physicalImmune",
+              "debuffImmune"
+            ]
+          }
+        }
+      ]
+    }
+  },
+  "arcane_boots": {
+    "status": "full",
+    "active": {
+      "targeting": "noTarget",
+      "targetTeam": "ally",
+      "effects": [
+        {
+          "kind": "area",
+          "radius": "$replenish_radius",
+          "center": "caster",
+          "team": "ally",
+          "effects": [
+            {
+              "kind": "restoreMana",
+              "amounts": "$replenish_amount"
+            }
+          ]
+        }
+      ]
+    },
+    "passive": {
+      "key": "item_arcane_boots_aura",
+      "aura": {
+        "radius": "$aura_radius",
+        "team": "ally",
+        "modifier": {
+          "key": "item_arcane_boots_basilius",
+          "duration": 1,
+          "manaRegen": "$aura_mana_regen"
+        }
+      }
+    },
+    "note": ""
+  },
+  "blade_mail": {
+    "status": "simplified",
+    "note": "only the flat part of the passive return (physical damage to each attacker); no 15% of the attack's damage returned and no active Damage Return (no reflection in the engine)",
+    "passive": {
+      "key": "item_blade_mail_return",
+      "whenAttacked": [
+        {
+          "kind": "damage",
+          "damageType": "physical",
+          "amounts": "$passive_reflection_constant"
+        }
+      ]
+    }
+  },
+  "diffusal_blade_2": {
+    "status": "simplified",
+    "note": "Manabreak only (no reduced burn for illusions); no active Purge: the data has no slow value (decaying slow)",
+    "passive": {
+      "key": "item_diffusal_blade_2_manabreak",
+      "onHit": [
+        {
+          "kind": "manaBurn",
+          "damageType": "physical",
+          "amounts": "$feedback_mana_burn",
+          "damagePercent": "$damage_per_burn*100"
+        }
+      ]
+    }
+  },
+  "guardian_greaves": {
+    "status": "simplified",
+    "note": "no Mend lockout for units healed by Mend or Mekansm within the cooldown; the aura lacks the higher health regeneration below the health threshold",
+    "active": {
+      "targeting": "noTarget",
+      "targetTeam": "ally",
+      "effects": [
+        {
+          "kind": "dispel"
+        },
+        {
+          "kind": "area",
+          "radius": "$replenish_radius",
+          "center": "caster",
+          "team": "ally",
+          "effects": [
+            {
+              "kind": "heal",
+              "amounts": "$replenish_health"
+            },
+            {
+              "kind": "restoreMana",
+              "amounts": "$replenish_mana"
+            }
+          ]
+        }
+      ]
+    },
+    "passive": {
+      "key": "item_guardian_greaves_aura",
+      "aura": {
+        "radius": "$aura_radius",
+        "team": "ally",
+        "modifier": {
+          "key": "item_guardian_greaves_guardian",
+          "duration": 1,
+          "healthRegen": "$aura_health_regen",
+          "manaRegen": "$aura_mana_regen"
+        }
+      }
+    }
+  },
+  "headdress": {
+    "status": "full",
+    "passive": {
+      "key": "item_headdress_aura",
+      "aura": {
+        "radius": "$aura_radius",
+        "team": "ally",
+        "modifier": {
+          "key": "item_headdress_regen",
+          "duration": 1,
+          "healthRegen": "$aura_health_regen"
+        }
+      }
+    },
+    "note": ""
+  },
+  "maelstrom": {
+    "status": "simplified",
+    "note": "the lightning hits every enemy within the chain radius of the attacked unit at once instead of bouncing to 4 targets; procs only on landed attacks",
+    "passive": {
+      "key": "item_maelstrom_chain",
+      "onHit": [
+        {
+          "kind": "area",
+          "radius": "$chain_radius",
+          "center": "target",
+          "team": "enemy",
+          "effects": [
+            {
+              "kind": "damage",
+              "damageType": "magical",
+              "amounts": "$chain_damage"
+            }
+          ]
+        }
+      ],
+      "onHitChance": "$chain_chance",
+      "procCooldown": "$chain_cooldown"
+    }
+  },
+  "manta": {
+    "status": "simplified",
+    "note": "the melee images' damage for every hero (ranged images deal 25% in Dota); no brief invulnerability; the images do not copy items or passives",
+    "active": {
+      "targeting": "noTarget",
+      "targetTeam": "ally",
+      "effects": [
+        {
+          "kind": "dispel"
+        },
+        {
+          "kind": "illusion",
+          "counts": "$images_count",
+          "duration": "$illusion_duration",
+          "modifiers": {
+            "key": "item_manta_image",
+            "attackDamagePercent": "$images_do_damage_percent_melee",
+            "incomingDamagePercent": "$images_take_damage_percent"
+          }
+        }
+      ]
+    }
+  },
+  "mjollnir": {
+    "status": "simplified",
+    "note": "Chain Lightning hits every enemy within the chain radius of the attacked unit at once instead of bouncing to 12 targets; Static Charge only on the bearer (the data has no cast range) and hits every enemy within the static radius instead of the attacker and 4 others",
+    "active": {
+      "targeting": "noTarget",
+      "targetTeam": "ally",
+      "effects": [
+        {
+          "kind": "modifier",
+          "modifiers": {
+            "key": "item_mjollnir_static",
+            "duration": "$static_duration",
+            "whenAttacked": [
+              {
+                "kind": "area",
+                "radius": "$static_radius",
+                "center": "caster",
+                "team": "enemy",
+                "effects": [
+                  {
+                    "kind": "damage",
+                    "damageType": "magical",
+                    "amounts": "$static_damage"
+                  }
+                ]
+              }
+            ],
+            "whenAttackedChance": "$static_chance",
+            "procCooldown": "$static_cooldown"
+          }
+        }
+      ]
+    },
+    "passive": {
+      "key": "item_mjollnir_chain",
+      "onHit": [
+        {
+          "kind": "area",
+          "radius": "$chain_radius",
+          "center": "target",
+          "team": "enemy",
+          "effects": [
+            {
+              "kind": "damage",
+              "damageType": "magical",
+              "amounts": "$chain_damage"
+            }
+          ]
+        }
+      ],
+      "onHitChance": "$chain_chance",
+      "procCooldown": "$chain_cooldown"
+    }
+  },
+  "orb_of_venom": {
+    "status": "full",
+    "passive": {
+      "key": "item_orb_of_venom_attack",
+      "onHit": [
+        {
+          "kind": "modifier",
+          "modifiers": {
+            "key": "item_orb_of_venom_poison",
+            "duration": "$poison_duration",
+            "damagePerSecond": "$damage/$tick_interval",
+            "period": "$tick_interval",
+            "damageType": "magical"
+          }
+        }
+      ]
+    },
+    "note": ""
+  },
+  "phase_boots": {
+    "status": "simplified",
+    "note": "the melee speed bonus for every hero (ranged heroes get less in Dota); no moving through units or faster turning",
+    "active": {
+      "targeting": "noTarget",
+      "targetTeam": "ally",
+      "effects": [
+        {
+          "kind": "modifier",
+          "modifiers": {
+            "key": "item_phase_boots_phase",
+            "duration": "$phase_duration",
+            "moveSpeedPercent": "$phase_movement_speed"
+          }
+        }
+      ]
+    }
+  },
+  "revenants_brooch": {
+    "status": "simplified",
+    "note": "the bonus magic damage is a share of the average attack damage; it also procs against buildings; no spell lifesteal",
+    "passive": {
+      "key": "item_revenants_brooch_phantom",
+      "onHit": [
+        {
+          "kind": "damage",
+          "damageType": "magical",
+          "scaling": "casterAttackDamagePercent",
+          "amounts": "$crit_multiplier"
+        }
+      ],
+      "onHitChance": "$crit_chance"
+    },
+    "skipStats": [
+      "crit_chance",
+      "crit_multiplier"
+    ]
+  },
+  "shivas_guard": {
+    "status": "simplified",
+    "note": "Arctic Blast lands at once on every enemy in the blast radius instead of an expanding wave following the caster; several Freezing Auras stack; no AoE bonus",
+    "active": {
+      "targeting": "noTarget",
+      "targetTeam": "ally",
+      "effects": [
+        {
+          "kind": "area",
+          "radius": "$blast_radius",
+          "center": "caster",
+          "team": "enemy",
+          "effects": [
+            {
+              "kind": "damage",
+              "damageType": "magical",
+              "amounts": "$blast_damage"
+            },
+            {
+              "kind": "modifier",
+              "modifiers": {
+                "key": "item_shivas_guard_blast",
+                "duration": "$blast_debuff_duration",
+                "moveSpeedPercent": "$blast_movement_speed"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "passive": {
+      "key": "item_shivas_guard_aura",
+      "aura": {
+        "radius": "$aura_radius",
+        "team": "enemy",
+        "modifier": {
+          "key": "item_shivas_guard_freezing",
+          "duration": 1,
+          "attackSpeed": "$aura_attack_speed"
+        }
+      }
+    }
+  },
+  "swift_blink": {
+    "status": "simplified",
+    "note": "no lockout after taking damage from heroes; no range clamp for casts beyond the range; the speed bonus is not phased",
+    "active": {
+      "targeting": "point",
+      "targetTeam": "ally",
+      "castRange": "$blink_range",
+      "effects": [
+        {
+          "kind": "dash"
+        },
+        {
+          "kind": "modifier",
+          "modifiers": {
+            "key": "item_swift_blink_buff",
+            "duration": "$duration",
+            "moveSpeedPercent": "$bonus_movement",
+            "agility": "$bonus_agi_active"
+          }
+        }
+      ]
+    }
+  },
+  "witch_blade": {
+    "status": "simplified",
+    "note": "the poison's whole damage (0.75 x intelligence per second for the duration) lands with the hit; no True Strike",
+    "passive": {
+      "key": "item_witch_blade_poison_attack",
+      "onHit": [
+        {
+          "kind": "modifier",
+          "modifiers": {
+            "key": "item_witch_blade_slow",
+            "duration": "$slow_duration",
+            "moveSpeedPercent": "-$slow"
+          }
+        },
+        {
+          "kind": "damage",
+          "damageType": "magical",
+          "scaling": "casterIntelligencePercent",
+          "amounts": "$int_damage_multiplier*$slow_duration*100"
+        }
+      ],
+      "procCooldown": "$cd"
+    }
+  },
+  "dagon": {
+    "status": "simplified",
+    "note": "does not kill illusions instantly; the cast range bonus for other spells is not modelled",
+    "active": {
+      "targeting": "unit",
+      "targetTeam": "enemy",
+      "effects": [
+        {
+          "kind": "damage",
+          "damageType": "magical",
+          "amounts": "$damage"
+        }
+      ]
+    }
+  },
+  "dagon_4": {
+    "status": "simplified",
+    "note": "does not kill illusions instantly; the cast range bonus for other spells is not modelled",
+    "active": {
+      "targeting": "unit",
+      "targetTeam": "enemy",
+      "effects": [
+        {
+          "kind": "damage",
+          "damageType": "magical",
+          "amounts": "$damage"
+        }
+      ]
+    }
+  },
+  "dagon_5": {
+    "status": "simplified",
+    "note": "does not kill illusions instantly; the cast range bonus for other spells is not modelled",
+    "active": {
+      "targeting": "unit",
+      "targetTeam": "enemy",
+      "effects": [
+        {
+          "kind": "damage",
+          "damageType": "magical",
+          "amounts": "$damage"
+        }
       ]
     }
   }
