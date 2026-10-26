@@ -27,8 +27,10 @@ namespace Dynasty.MatchSimulation.Rules
             IReadOnlyList<string>? abilityIds = null,
             IReadOnlyList<string>? skillPriority = null,
             IReadOnlyList<string>? itemBuild = null,
-            int attackSpeedPerLevel = 0)
+            int attackSpeedPerLevel = 0,
+            HeroAttributes? attributes = null)
         {
+            Attributes = attributes;
             AttackSpeedPerLevel = attackSpeedPerLevel;
             ItemBuild = (itemBuild ?? Array.Empty<string>()).ToArray();
             Id = id;
@@ -54,6 +56,9 @@ namespace Dynasty.MatchSimulation.Rules
         /// that can be levelled at the current hero level.
         /// </summary>
         public IReadOnlyList<string> SkillPriority { get; }
+
+        /// <summary>Attributes; with them health, mana, regeneration, armor, attack speed, magic resistance and damage come from attributes (Dota).</summary>
+        public HeroAttributes? Attributes { get; }
 
         /// <summary>Attack speed gained per level after the first (Dota's agility), in attack speed points.</summary>
         public int AttackSpeedPerLevel { get; }
@@ -116,6 +121,8 @@ namespace Dynasty.MatchSimulation.Rules
             w.WriteFixed(ArmorPerLevel);
             w.WriteInt64(DamagePerLevel);
             w.WriteInt64(AttackSpeedPerLevel);
+            w.WriteBool(Attributes != null);
+            Attributes?.WriteCanonical(w);
             w.WriteInt64(BaseMana);
             w.WriteInt64(ManaPerLevel);
             w.WriteFixed(HpRegenPerSecond);
@@ -153,8 +160,10 @@ namespace Dynasty.MatchSimulation.Rules
             int buybackBaseGold = 0,
             int buybackGoldPerLevel = 0,
             int buybackCooldownMs = 0,
-            int heroKillXpPercentOfVictim = 0)
+            int heroKillXpPercentOfVictim = 0,
+            AttributeRules? attributes = null)
         {
+            Attributes = attributes ?? AttributeRules.Dota;
             HeroKillXpPercentOfVictim = heroKillXpPercentOfVictim;
             BuybackBaseGold = buybackBaseGold;
             BuybackGoldPerLevel = buybackGoldPerLevel;
@@ -185,6 +194,9 @@ namespace Dynasty.MatchSimulation.Rules
 
         public int HeroKillXpBase { get; }
         public int HeroKillXpPerLevel { get; }
+
+        /// <summary>What a point of each attribute gives heroes that have attributes.</summary>
+        public AttributeRules Attributes { get; }
 
         /// <summary>Hero kill XP also includes this percent of the victim's total XP (Dota: 100 + 13%).</summary>
         public int HeroKillXpPercentOfVictim { get; }
@@ -226,6 +238,7 @@ namespace Dynasty.MatchSimulation.Rules
             w.WriteInt64(HeroKillXpBase);
             w.WriteInt64(HeroKillXpPerLevel);
             w.WriteInt64(HeroKillXpPercentOfVictim);
+            Attributes.WriteCanonical(w);
             w.WriteInt64(HeroKillGoldBase);
             w.WriteInt64(HeroKillGoldPerLevel);
             w.WriteInt64(AssistWindowMs);

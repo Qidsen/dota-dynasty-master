@@ -51,8 +51,8 @@ namespace Dynasty.MatchSimulation.Systems
                 if (!unit.IsAlive)
                     continue;
 
-                Fixed hpRegen = (hero.Definition.HpRegenPerSecond + unit.HpRegenBonus) / Fixed.FromInt(tps);
-                Fixed manaRegen = hero.Definition.ManaRegenPerSecond / Fixed.FromInt(tps);
+                Fixed hpRegen = unit.HpRegenPerSecond / Fixed.FromInt(tps);
+                Fixed manaRegen = unit.ManaRegenPerSecond / Fixed.FromInt(tps);
                 FountainPlacement? fountain = state.Ruleset.Map.FountainOf(unit.Team);
                 if (fountain != null && Geometry.WithinRange(unit.Position, fountain.Position, fountain.Radius))
                 {

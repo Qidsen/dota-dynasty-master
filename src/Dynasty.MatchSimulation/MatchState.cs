@@ -100,6 +100,15 @@ namespace Dynasty.MatchSimulation
         /// <summary>Extra HP regeneration per second from modifiers and items.</summary>
         public Fixed HpRegenBonus { get; private set; }
 
+        /// <summary>Heroes with attributes: current strength, agility and intelligence (level and bonuses included); zero otherwise.</summary>
+        public Fixed Strength { get; private set; }
+        public Fixed Agility { get; private set; }
+        public Fixed Intelligence { get; private set; }
+
+        /// <summary>Heroes: health and mana regeneration per second from all sources.</summary>
+        public Fixed HpRegenPerSecond { get; private set; }
+        public Fixed ManaRegenPerSecond { get; private set; }
+
         public int CritChancePercent { get; private set; }
         public int CritMultiplierPercent { get; private set; }
         public int StructureDamagePercent { get; private set; }
@@ -174,6 +183,11 @@ namespace Dynasty.MatchSimulation
         /// Recomputes effective stats from base stats and modifiers. Attack speed scales both the
         /// attack interval and the attack point; move speed has a floor of 100 while slowed.
         /// </summary>
+        private static int Hundredths(Fixed value) => (value * Fixed.FromInt(100) + Fixed.FromRatio(1, 2)).ToIntFloor();
+
+        /// <summary>Whole part of a product of fixed-point values, tolerant to their last-digit error (0.45 × 60 is 27, not 26).</summary>
+        private static int WholePart(Fixed value) => (value + Fixed.FromRatio(1, 1000)).ToIntFloor();
+
         internal void Recalculate()
         {
             Fixed armor = Stats.Armor;
@@ -188,6 +202,7 @@ namespace Dynasty.MatchSimulation
             int maxHpBonus = 0;
             int maxManaBonus = 0;
             Fixed hpRegenBonus = Fixed.Zero;
+            int strengthBonus = 0, agilityBonus = 0, intelligenceBonus = 0;
             ModifierFlags flags = Stats.InnateFlags;
             foreach (ActiveModifier modifier in _modifiers)
             {
@@ -204,6 +219,9 @@ namespace Dynasty.MatchSimulation
                 maxHpBonus += spec.MaxHpBonus;
                 maxManaBonus += spec.MaxManaBonus;
                 hpRegenBonus += spec.HpRegenBonus;
+                strengthBonus += spec.StrengthBonus;
+                agilityBonus += spec.AgilityBonus;
+                intelligenceBonus += spec.IntelligenceBonus;
                 armor += spec.ArmorBonus;
                 magicResist += spec.MagicResistBonus;
                 damageBonus += spec.DamageBonus;
@@ -212,8 +230,41 @@ namespace Dynasty.MatchSimulation
                 flags |= spec.Flags;
             }
 
+            Fixed hpRegen = (Hero?.Definition.HpRegenPerSecond ?? Fixed.Zero) + hpRegenBonus;
+            Fixed manaRegen = Hero?.Definition.ManaRegenPerSecond ?? Fixed.Zero;
+            HeroAttributes? attributes = Hero?.Definition.Attributes;
+            AttributeRules? perPoint = Hero?.AttributeRules;
+            if (attributes != null && perPoint != null)
+            {
+                // Dota's attributes: level, gain and bonuses make the current values; each point adds to the stats.
+                // Attributes are kept in hundredths (Dota's gains have two decimals) so whole stats come out exact.
+                int levels = Hero!.Level - 1;
+                int strength100 = (attributes.Strength + strengthBonus) * 100 + Hundredths(attributes.StrengthGain) * levels;
+                int agility100 = (attributes.Agility + agilityBonus) * 100 + Hundredths(attributes.AgilityGain) * levels;
+                int intelligence100 = (attributes.Intelligence + intelligenceBonus) * 100 + Hundredths(attributes.IntelligenceGain) * levels;
+                Strength = Fixed.FromRatio(strength100, 100);
+                Agility = Fixed.FromRatio(agility100, 100);
+                Intelligence = Fixed.FromRatio(intelligence100, 100);
+                maxHpBonus += strength100 * perPoint.HealthPerStrength / 100;
+                hpRegen += Strength * perPoint.HealthRegenPerStrength;
+                armor += Agility * perPoint.ArmorPerAgility;
+                attackSpeed += attributes.BaseAttackSpeed - 100 + agility100 * perPoint.AttackSpeedPerAgility / 100;
+                maxManaBonus += intelligence100 * perPoint.ManaPerIntelligence / 100;
+                manaRegen += Intelligence * perPoint.ManaRegenPerIntelligence;
+                magicResist += WholePart(Intelligence * perPoint.MagicResistPercentPerIntelligence);
+                damageBonus += WholePart(attributes.Primary switch
+                {
+                    PrimaryAttribute.Strength => Strength * perPoint.DamagePerPrimaryPoint,
+                    PrimaryAttribute.Agility => Agility * perPoint.DamagePerPrimaryPoint,
+                    PrimaryAttribute.Intelligence => Intelligence * perPoint.DamagePerPrimaryPoint,
+                    _ => (Strength + Agility + Intelligence) * perPoint.DamagePerUniversalPoint,
+                });
+            }
+
             MaxHp = Stats.MaxHp + maxHpBonus;
             HpRegenBonus = hpRegenBonus;
+            HpRegenPerSecond = hpRegen;
+            ManaRegenPerSecond = manaRegen;
             if (Hp > Fixed.FromInt(MaxHp))
                 Hp = Fixed.FromInt(MaxHp);
             if (Hero != null)
@@ -451,8 +502,11 @@ namespace Dynasty.MatchSimulation
             var abilities = definition.AbilityIds.Select(a => Ruleset.FindAbility(a)!).ToList();
             var unit = new MatchUnit(id, team, UnitKind.Hero, definition.Id, definition.StatsAtLevel(1), position, Rate)
             {
-                Hero = new Heroes.HeroState(definition, laneId, startingGold, abilities),
+                Hero = new Heroes.HeroState(definition, laneId, startingGold, abilities) { AttributeRules = Ruleset.HeroRules?.Attributes },
             };
+            unit.Recalculate();   // with the hero state: attributes, mana
+            unit.Hp = Fixed.FromInt(unit.MaxHp);
+            unit.Hero.Mana = Fixed.FromInt(unit.Hero.MaxMana);
             Add(unit);
             return unit;
         }

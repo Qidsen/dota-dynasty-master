@@ -29,6 +29,10 @@ namespace Dynasty.MatchSimulation.Heroes
         }
 
         public HeroDefinition Definition { get; }
+
+        /// <summary>What attributes give (from the ruleset's hero rules); null in rulesets without hero rules.</summary>
+        internal AttributeRules? AttributeRules { get; set; }
+
         public string AssignedLane { get; }
         public int Level { get; internal set; }
         public int Xp { get; internal set; }

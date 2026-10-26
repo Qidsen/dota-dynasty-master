@@ -63,8 +63,14 @@ namespace Dynasty.MatchSimulation.Combat
             Fixed hpRegenBonus = default,
             bool breakOnAction = false,
             int breakRadius = 0,
-            bool dispellable = true)
+            bool dispellable = true,
+            int strengthBonus = 0,
+            int agilityBonus = 0,
+            int intelligenceBonus = 0)
         {
+            StrengthBonus = strengthBonus;
+            AgilityBonus = agilityBonus;
+            IntelligenceBonus = intelligenceBonus;
             Dispellable = dispellable;
             BreakOnAction = breakOnAction;
             BreakRadius = breakRadius;
@@ -97,6 +103,11 @@ namespace Dynasty.MatchSimulation.Combat
 
         public ModifierFlags Flags { get; }
         public Fixed ArmorBonus { get; }
+
+        /// <summary>Attribute bonuses (items, abilities); they matter for heroes with attributes.</summary>
+        public int StrengthBonus { get; }
+        public int AgilityBonus { get; }
+        public int IntelligenceBonus { get; }
 
         /// <summary>Percent change of move speed; negative slows.</summary>
         public int MoveSpeedPercent { get; }
@@ -177,6 +188,9 @@ namespace Dynasty.MatchSimulation.Combat
             w.WriteBool(BreakOnAction);
             w.WriteInt64(BreakRadius);
             w.WriteBool(Dispellable);
+            w.WriteInt64(StrengthBonus);
+            w.WriteInt64(AgilityBonus);
+            w.WriteInt64(IntelligenceBonus);
         }
 
         public static ModifierSpec Status(string key, int durationMs, ModifierFlags flags) => new ModifierSpec(key, durationMs, flags);
