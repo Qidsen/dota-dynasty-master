@@ -282,7 +282,8 @@ namespace Dynasty.MatchSimulation.Systems
                 assists.Add(helper.Id);
             }
 
-            ShareXp(context, victim, victim.Team.Opponent(), rules.HeroKillXpBase + rules.HeroKillXpPerLevel * hero.Level);
+            int killXp = rules.HeroKillXpBase + rules.HeroKillXpPerLevel * hero.Level + (int)((long)hero.Xp * rules.HeroKillXpPercentOfVictim / 100);
+            ShareXp(context, victim, victim.Team.Opponent(), killXp, killer?.Hero != null && killer.Team != victim.Team ? killer : null);
 
             hero.RecentHeroAttackers.Clear();
             hero.Path = null;
@@ -302,12 +303,15 @@ namespace Dynasty.MatchSimulation.Systems
                 HeroProgression.GrantGold(context, hero, rules.StructureTeamGold, "structure");
         }
 
-        /// <summary>Living heroes of the receiving team within the share radius split the XP equally (remainder dropped).</summary>
-        private static void ShareXp(SimulationContext<MatchState> context, MatchUnit dead, Team receivingTeam, int xp)
+        /// <summary>
+        /// Living heroes of the receiving team within the share radius split the XP equally (remainder dropped);
+        /// a hero killer always shares, wherever it stands.
+        /// </summary>
+        private static void ShareXp(SimulationContext<MatchState> context, MatchUnit dead, Team receivingTeam, int xp, MatchUnit? killer = null)
         {
             int radius = context.State.Ruleset.HeroRules!.XpShareRadius;
             List<MatchUnit> receivers = context.State.Heroes
-                .Where(h => h.Team == receivingTeam && h.IsAlive && Geometry.WithinRange(h.Position, dead.Position, radius))
+                .Where(h => h.Team == receivingTeam && h.IsAlive && (h == killer || Geometry.WithinRange(h.Position, dead.Position, radius)))
                 .ToList();
             if (receivers.Count == 0)
                 return;

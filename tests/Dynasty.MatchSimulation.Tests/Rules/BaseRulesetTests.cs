@@ -110,6 +110,20 @@ public class BaseRulesetTests
         }
     }
 
+    /// <summary>Experience as in Dota: its level table to 25, a 1500 share radius, hero kills worth 100 + 13% of the victim's XP, and every hero attacks faster with levels.</summary>
+    [Fact]
+    public void BaseHeroRules_FollowDotaExperience()
+    {
+        RulesetContent ruleset = BaseRuleset.Create();
+        HeroRules rules = ruleset.HeroRules!;
+
+        Assert.Equal(new[] { 0, 240, 640, 1160, 1760, 2440, 3200, 4000, 4900, 5900, 7000, 8200, 9500, 10900, 12400, 14000, 15700, 17500, 19400, 21400, 23600, 26000, 28600, 31400, 34400 },
+            rules.XpForLevel);
+        Assert.Equal(1500, rules.XpShareRadius);
+        Assert.Equal((100, 0, 13), (rules.HeroKillXpBase, rules.HeroKillXpPerLevel, rules.HeroKillXpPercentOfVictim));
+        Assert.All(ruleset.Heroes, h => Assert.True(h.AttackSpeedPerLevel > 0, h.Id));
+    }
+
     [Fact]
     public void BaseCamps_AreMirroredBetweenTheHalves()
     {

@@ -147,6 +147,50 @@ public class HeroTests
         Assert.Equal(6, HeroOf(kernel.State, "alpha").Hero!.Level);
     }
 
+    /// <summary>
+    /// Dota's hero kill XP: a base plus a share of the victim's own XP, split among the killing team's heroes
+    /// near the victim — and the killer always gets a share, even from beyond the share radius.
+    /// </summary>
+    [Fact]
+    public void HeroKillXp_IsBasePlusPartOfTheVictimsXp_AndTheKillerAlwaysShares()
+    {
+        var draft = new RulesetDraft().WithoutWaves();
+        draft.HeroKillXpPerLevel = 0;
+        draft.HeroKillXpPercentOfVictim = 13;
+        var kernel = draft.StartWithHeroes(new[] { ("alpha", "mid") }, new[] { ("beta", "mid"), ("gamma", "mid") });
+        At(kernel, 0, ctx =>
+        {
+            HeroOf(ctx.State, "alpha").Position = P(5000, 5000);
+            HeroOf(ctx.State, "gamma").Position = P(5200, 5000);
+            HeroOf(ctx.State, "beta").Position = P(8000, 5000);   // the killer, outside the share radius
+            HeroProgression.GrantXp(ctx, HeroOf(ctx.State, "alpha"), 1000);
+        });
+        At(kernel, 1, ctx => Damage.Deal(ctx, HeroOf(ctx.State, "beta").Id, HeroOf(ctx.State, "alpha"), Fixed.FromInt(5000), DamageType.Pure));
+
+        kernel.RunTicks(3);
+
+        Assert.Single(kernel.EventsOf<HeroKilled>());
+        Assert.Equal(115, HeroOf(kernel.State, "beta").Hero!.Xp);    // (100 + 13% of 1000) / 2
+        Assert.Equal(115, HeroOf(kernel.State, "gamma").Hero!.Xp);
+    }
+
+    /// <summary>Heroes attack faster with every level (Dota's agility), on top of item and ability bonuses.</summary>
+    [Fact]
+    public void Hero_GainsAttackSpeedWithLevels()
+    {
+        var draft = new RulesetDraft().WithoutWaves();
+        draft.Heroes[0] = new HeroDefinition("alpha", "alpha", new[] { "carry" }, HeroStats(), hpPerLevel: 80, armorPerLevel: Fixed.FromRatio(3, 10),
+            damagePerLevel: 3, baseMana: 300, manaPerLevel: 40, hpRegenPerSecond: Fixed.FromInt(2), manaRegenPerSecond: Fixed.One, attackSpeedPerLevel: 3);
+        var kernel = draft.StartWithHeroes(new[] { ("alpha", "mid") }, None);
+        At(kernel, 0, ctx => HeroProgression.GrantXp(ctx, HeroOf(ctx.State, "alpha"), 1000));   // level 4
+
+        kernel.Step();
+
+        MatchUnit alpha = HeroOf(kernel.State, "alpha");
+        Assert.Equal(9, alpha.AttackSpeedBonus);
+        Assert.Equal((1500 * 100 / 109 * 30 + 500) / 1000, alpha.AttackIntervalTicks);   // 1376 ms at 30 ticks per second
+    }
+
     [Fact]
     public void PassiveGold_AccruesPerMinute()
     {

@@ -64,10 +64,11 @@ namespace Dynasty.MatchSimulation.Rules
             });
 
         public static HeroRules Rules { get; } = new HeroRules(
-            xpForLevel: new[] { 0, 230, 600, 1080, 1660, 2260, 2980, 3730, 4510, 5320, 6160, 7030, 7930, 9000, 10200 },
-            xpShareRadius: 1200,
-            heroKillXpBase: 120,
-            heroKillXpPerLevel: 30,
+            // Dota's experience table up to level 25, share radius and hero kill XP (100 + 13% of the victim's XP).
+            xpForLevel: new[] { 0, 240, 640, 1160, 1760, 2440, 3200, 4000, 4900, 5900, 7000, 8200, 9500, 10900, 12400, 14000, 15700, 17500, 19400, 21400, 23600, 26000, 28600, 31400, 34400 },
+            xpShareRadius: 1500,
+            heroKillXpBase: 100,
+            heroKillXpPerLevel: 0,
             heroKillGoldBase: 150,
             heroKillGoldPerLevel: 8,
             assistWindowMs: 10000,
@@ -80,7 +81,8 @@ namespace Dynasty.MatchSimulation.Rules
             fountainHealPercentPerSecond: 5,
             buybackBaseGold: 150,
             buybackGoldPerLevel: 40,
-            buybackCooldownMs: 480000);
+            buybackCooldownMs: 480000,
+            heroKillXpPercentOfVictim: 13);
 
         private static IReadOnlyList<AbilityDefinition> BuildAbilities()
         {
@@ -507,9 +509,11 @@ namespace Dynasty.MatchSimulation.Rules
             UnitStats stats = melee
                 ? Stats(hp, armor, speed, dmg, dmg + 6, range: 150, intervalMs: 1700, pointMs: 400, acquisition: 800, radius: 24, magicResist: 25, vision: 1200, nightVision: 800)
                 : Stats(hp, armor, speed, dmg, dmg + 6, range: 575, intervalMs: 1700, pointMs: 450, acquisition: 800, radius: 24, magicResist: 25, vision: 1200, projectileSpeed: 900, nightVision: 800);
+            // Attack speed per level as Dota's agility gain: agility carries about 3, most heroes 2, intelligence supports less.
+            int attackSpeedPerLevel = roles.Contains("carry") ? 3 : roles.Contains("support") ? 1 : 2;
             return new HeroDefinition(id, name, roles, stats, hpPerLevel, Fixed.FromRatio(3, 10), dmgPerLevel, mana, manaPerLevel,
                 hpRegenPerSecond: Fixed.FromRatio(5, 2), manaRegenPerSecond: Fixed.FromRatio(3, 2),
-                abilityIds: new[] { q, w, e, r }, itemBuild: build);
+                abilityIds: new[] { q, w, e, r }, itemBuild: build, attackSpeedPerLevel: attackSpeedPerLevel);
         }
 
         private static AbilityDefinition Cast(string id, string name, AbilityTargeting targeting, TargetTeam team, int range, int castPointMs,

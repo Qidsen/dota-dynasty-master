@@ -590,6 +590,53 @@ if (mode == "trace")
     return;
 }
 
+if (mode == "xpdiag")
+{
+    // Lane creep deaths between two minutes by how many enemy heroes share their XP (1500 radius): 0 = XP lost.
+    int n = args.Length > 1 ? int.Parse(args[1]) : 16;
+    int from = args.Length > 2 ? int.Parse(args[2]) : 0, to = args.Length > 3 ? int.Parse(args[3]) : 10;
+    var buckets = Enumerable.Range(1, n).AsParallel().Select(seed =>
+    {
+        var k = Match.Create(BaseRuleset.Create(), (ulong)seed, MirrorLineup());
+        var branch = new Dictionary<long, string>();
+        HeroAi.Attach(k, new HeroAiSettings { DecisionTrace = (h, now, b) => branch[h.Id.Value] = b });
+        var counts = new int[6];
+        var lostBy = new Dictionary<string, int>();
+        var alive = new Dictionary<long, (Dynasty.Core.Mathematics.FixedVector2 Pos, Team Team)>();
+        int radius = k.State.Ruleset.HeroRules!.XpShareRadius;
+        for (long t = 0; t < to * 1800L && !k.IsFinished; t++)
+        {
+            k.RunUntilFinished(1);
+            var now = k.State.Units.Where(u => u.Kind == UnitKind.Creep && u.IsAlive && u.LaneId != null && u.Team != Team.Neutral).ToDictionary(u => u.Id.Value, u => (u.Position, u.Team));
+            if (t >= from * 1800L)
+                foreach (var (id, (pos, team)) in alive)
+                    if (!now.ContainsKey(id))
+                    {
+                        int near = k.State.Heroes.Count(h => h.Team != team && h.IsAlive &&
+                            Dynasty.Core.Mathematics.FixedVector2.Distance(h.Position, pos) <= Dynasty.Core.Mathematics.Fixed.FromInt(radius));
+                        counts[Math.Min(near, 5)]++;
+                        if (near == 0)
+                        {
+                            string lane = k.State.Ruleset.Map.Lanes.OrderBy(l => l.Waypoints.Min(w => Dynasty.Core.Mathematics.FixedVector2.DistanceSquared(w, pos))).First().Id;
+                            MatchUnit? core = k.State.Heroes.Where(h => h.Team != team && h.Hero!.Definition.Roles.Any(r => r == "carry" || r == "mid" || r == "offlane"))
+                                .OrderBy(h => Dynasty.Core.Mathematics.FixedVector2.DistanceSquared(h.Position, pos)).FirstOrDefault();
+                            string why = core == null ? "?" : core.Hero!.IsDead ? "nearest core dead" : "nearest core " + (branch.TryGetValue(core.Id.Value, out var b) ? b : "?");
+                            lostBy[why] = lostBy.GetValueOrDefault(why) + 1;
+                        }
+                    }
+            alive = now;
+        }
+        return (counts, lostBy);
+    }).ToList();
+    var sum = new int[6];
+    foreach (var (c, _) in buckets) for (int i = 0; i < 6; i++) sum[i] += c[i];
+    var lost = buckets.SelectMany(b => b.lostBy).GroupBy(kv => kv.Key).ToDictionary(g => g.Key, g => g.Sum(kv => kv.Value));
+    double total = sum.Sum();
+    Console.WriteLine($"lane creep deaths minutes {from}-{to}: {total / n:0} per match; XP shared by 0 heroes {sum[0] / total:P0}, 1 {sum[1] / total:P0}, 2 {sum[2] / total:P0}, 3+ {(sum[3] + sum[4] + sum[5]) / total:P0}");
+    Console.WriteLine("XP lost while the nearest enemy core was: " + string.Join(", ", lost.OrderByDescending(kv => kv.Value).Take(12).Select(kv => $"{kv.Key} {kv.Value * 100.0 / lost.Values.Sum():0}%")));
+    return;
+}
+
 if (mode == "probe")
 {
     // Reference checksums for the runtime determinism check (tools/sync-unity.ps1 writes them into the Unity project).

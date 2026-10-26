@@ -179,7 +179,7 @@ namespace Dynasty.MatchSimulation
             Fixed armor = Stats.Armor;
             int magicResist = Stats.MagicResistPercent;
             int damageBonus = 0;
-            int attackSpeed = 0;
+            int attackSpeed = Hero != null ? Hero.Definition.AttackSpeedPerLevel * (Hero.Level - 1) : 0;
             int movePercent = 0;
             int critChance = 0;
             int critMultiplier = 0;

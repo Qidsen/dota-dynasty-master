@@ -82,6 +82,8 @@ public sealed class RulesetDraft
 
     public List<int> XpTable { get; } = new() { 0, 200, 500, 900, 1400, 2000 };
     public int XpShareRadius { get; set; } = 1200;
+    public int HeroKillXpPerLevel { get; set; } = 20;
+    public int HeroKillXpPercentOfVictim { get; set; }
     public int GoldPerMinute { get; set; } = 90;
     public int StartingGold { get; set; } = 600;
     public int RespawnBaseMs { get; set; } = 4000;
@@ -99,12 +101,13 @@ public sealed class RulesetDraft
 
     public HeroRules BuildHeroRules() => new(
         XpTable, XpShareRadius,
-        heroKillXpBase: 100, heroKillXpPerLevel: 20,
+        heroKillXpBase: 100, heroKillXpPerLevel: HeroKillXpPerLevel,
         heroKillGoldBase: 200, heroKillGoldPerLevel: 10,
         assistWindowMs: 10000, GoldPerMinute, StartingGold,
         RespawnBaseMs, RespawnPerLevelMs,
         goldLossPerLevel: 30, structureTeamGold: 100, fountainHealPercentPerSecond: 5,
-        buybackBaseGold: BuybackBaseGold, buybackGoldPerLevel: BuybackGoldPerLevel, buybackCooldownMs: BuybackCooldownMs);
+        buybackBaseGold: BuybackBaseGold, buybackGoldPerLevel: BuybackGoldPerLevel, buybackCooldownMs: BuybackCooldownMs,
+        heroKillXpPercentOfVictim: HeroKillXpPercentOfVictim);
 
     public int FirstSpawnMs { get; set; } = 0;
     public int IntervalMs { get; set; } = 30000;

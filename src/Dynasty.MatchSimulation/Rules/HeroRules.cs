@@ -26,8 +26,10 @@ namespace Dynasty.MatchSimulation.Rules
             Fixed manaRegenPerSecond,
             IReadOnlyList<string>? abilityIds = null,
             IReadOnlyList<string>? skillPriority = null,
-            IReadOnlyList<string>? itemBuild = null)
+            IReadOnlyList<string>? itemBuild = null,
+            int attackSpeedPerLevel = 0)
         {
+            AttackSpeedPerLevel = attackSpeedPerLevel;
             ItemBuild = (itemBuild ?? Array.Empty<string>()).ToArray();
             Id = id;
             Name = name;
@@ -52,6 +54,9 @@ namespace Dynasty.MatchSimulation.Rules
         /// that can be levelled at the current hero level.
         /// </summary>
         public IReadOnlyList<string> SkillPriority { get; }
+
+        /// <summary>Attack speed gained per level after the first (Dota's agility), in attack speed points.</summary>
+        public int AttackSpeedPerLevel { get; }
 
         /// <summary>Default purchase order used by AI controllers (item IDs).</summary>
         public IReadOnlyList<string> ItemBuild { get; }
@@ -110,6 +115,7 @@ namespace Dynasty.MatchSimulation.Rules
             w.WriteInt64(HpPerLevel);
             w.WriteFixed(ArmorPerLevel);
             w.WriteInt64(DamagePerLevel);
+            w.WriteInt64(AttackSpeedPerLevel);
             w.WriteInt64(BaseMana);
             w.WriteInt64(ManaPerLevel);
             w.WriteFixed(HpRegenPerSecond);
@@ -146,8 +152,10 @@ namespace Dynasty.MatchSimulation.Rules
             int fountainHealPercentPerSecond,
             int buybackBaseGold = 0,
             int buybackGoldPerLevel = 0,
-            int buybackCooldownMs = 0)
+            int buybackCooldownMs = 0,
+            int heroKillXpPercentOfVictim = 0)
         {
+            HeroKillXpPercentOfVictim = heroKillXpPercentOfVictim;
             BuybackBaseGold = buybackBaseGold;
             BuybackGoldPerLevel = buybackGoldPerLevel;
             BuybackCooldownMs = buybackCooldownMs;
@@ -177,6 +185,9 @@ namespace Dynasty.MatchSimulation.Rules
 
         public int HeroKillXpBase { get; }
         public int HeroKillXpPerLevel { get; }
+
+        /// <summary>Hero kill XP also includes this percent of the victim's total XP (Dota: 100 + 13%).</summary>
+        public int HeroKillXpPercentOfVictim { get; }
         public int HeroKillGoldBase { get; }
         public int HeroKillGoldPerLevel { get; }
 
@@ -214,6 +225,7 @@ namespace Dynasty.MatchSimulation.Rules
             w.WriteInt64(XpShareRadius);
             w.WriteInt64(HeroKillXpBase);
             w.WriteInt64(HeroKillXpPerLevel);
+            w.WriteInt64(HeroKillXpPercentOfVictim);
             w.WriteInt64(HeroKillGoldBase);
             w.WriteInt64(HeroKillGoldPerLevel);
             w.WriteInt64(AssistWindowMs);

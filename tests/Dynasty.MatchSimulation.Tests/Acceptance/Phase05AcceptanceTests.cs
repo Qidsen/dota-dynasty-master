@@ -51,7 +51,7 @@ public class Phase05AcceptanceTests
     private static List<Run> Runs(string[] dawn, bool followPlan, int seeds = 4) =>
         Enumerable.Range(1, seeds).Select(i => (ulong)i).AsParallel().AsOrdered().Select(seed => Play(dawn, followPlan, seed)).ToList();
 
-    private static readonly Lazy<(List<Run> Plan, List<Run> Neutral)> Late = new(() => (Runs(LateDraft, true), Runs(LateDraft, false)));
+    private static readonly Lazy<(List<Run> Plan, List<Run> Neutral)> Late = new(() => (Runs(LateDraft, true, 12), Runs(LateDraft, false, 12)));
     private static readonly Lazy<(List<Run> Plan, List<Run> Neutral)> Push = new(() => (Runs(PushDraft, true, 12), Runs(PushDraft, false, 12)));
 
     private static IEnumerable<T> Events<T>(Run run) => run.Kernel.Events.Records.Select(r => r.Event).OfType<T>();

@@ -137,6 +137,43 @@ public class TacticalAiTests
     }
 
     /// <summary>
+    /// A push at even numbers takes the heroes it needs (the nearest three), not the whole team: the
+    /// farthest one keeps its lane — someone has to catch the other waves.
+    /// </summary>
+    [Fact]
+    public void EvenNumbersPush_TakesTheNearestHeroesItNeeds()
+    {
+        var draft = TestAbilities.Draft();
+        draft.Heroes.Add(RulesetDraft.Hero("zeta"));
+        draft.Heroes.Add(RulesetDraft.Hero("eta"));
+        var settings = new HeroAiSettings { ReactionJitterTicks = 0, MisjudgementPercent = 0, LaningPhaseMinutes = 0, EvenPushFromMinute = 0 };
+        foreach (string hero in new[] { "alpha", "gamma", "delta", "zeta" })
+            settings.Personalities[hero] = new HeroPersonality();   // not greedy carries: those skip early pushes
+        foreach (string hero in new[] { "beta", "epsilon", "eta" })
+            settings.Uncontrolled.Add(hero);
+        var kernel = draft.StartWithHeroes(new[] { ("alpha", "mid"), ("gamma", "mid"), ("delta", "mid"), ("zeta", "mid") },
+            new[] { ("beta", "mid"), ("epsilon", "mid"), ("eta", "mid") });
+        At(kernel, 0, ctx =>
+        {
+            H(ctx.State, "alpha").Position = P(2500, 5000);
+            H(ctx.State, "gamma").Position = P(2500, 5200);
+            H(ctx.State, "delta").Position = P(2500, 4800);
+            H(ctx.State, "zeta").Position = P(1500, 8500);   // farthest from the Dusk tower
+            foreach (string hero in new[] { "beta", "epsilon", "eta" })
+                H(ctx.State, hero).Position = P(9600, 9600);   // alive, out of sight: even numbers
+        });
+        HeroAi.Attach(kernel, settings);
+        FixedVector2 tower = kernel.State.FindStructure("dusk.mid.t1")!.Position;
+
+        kernel.RunTicks(90);
+
+        bool Pushes(string hero) => H(kernel.State, hero).Hero!.Order.Kind == HeroOrderKind.Move &&
+                                    FixedVector2.Distance(H(kernel.State, hero).Hero!.Order.Point, tower) < Fixed.FromInt(1500);
+        Assert.True(Pushes("alpha") && Pushes("gamma") && Pushes("delta"), "the three nearest should gather");
+        Assert.False(Pushes("zeta"), "the farthest should keep farming");
+    }
+
+    /// <summary>
     /// A target that runs away just as fast cannot be caught: after a short chase without closing in the
     /// heroes give it up instead of following it across the map (nothing slows or holds it).
     /// </summary>

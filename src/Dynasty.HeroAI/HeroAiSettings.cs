@@ -162,6 +162,9 @@ namespace Dynasty.HeroAI
         /// <summary>Summoners call their units at an enemy structure their creeps are already hitting.</summary>
         public bool SiegeWithSummons { get; set; }
 
+        /// <summary>A push at even numbers takes the whole team, not just the heroes it needs (push line-ups).</summary>
+        public bool GroupsWholeTeamForPushes { get; set; }
+
         /// <summary>Until this minute greedy carries skip ganks and only take clearly favourable fights.</summary>
         public int ProtectCarriesUntilMinute { get; set; } = 20;
 
@@ -172,8 +175,9 @@ namespace Dynasty.HeroAI
                 case Dynasty.Drafting.GameArchetype.Push:
                     return new TeamStrategy
                     {
-                        Archetype = plan.Archetype, LaningShiftMinutes = -3, EvenPushShiftMinutes = -4, AggressionPercent = 105, SiegeWithSummons = true,
+                        Archetype = plan.Archetype, LaningShiftMinutes = -3, EvenPushShiftMinutes = -6, AggressionPercent = 105, SiegeWithSummons = true,
                         ProtectCarriesUntilMinute = 0,   // a push line-up groups up with its carry
+                        GroupsWholeTeamForPushes = true,
                     };
                 case Dynasty.Drafting.GameArchetype.Teamfight:
                     return new TeamStrategy { Archetype = plan.Archetype, LaningShiftMinutes = -1, EvenPushShiftMinutes = -2, AggressionPercent = 108 };

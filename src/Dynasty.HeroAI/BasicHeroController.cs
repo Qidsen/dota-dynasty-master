@@ -994,6 +994,10 @@ namespace Dynasty.HeroAI
                     !Math.Within(_hero.Position, objective.Position, CarryJoinsPushWithin))
                     return false;
                 HeroDecision self = this;
+                int needed = System.Math.Min(3, _state.Heroes.Count(h => h.Team == self._hero.Team && h.IsAlive));
+                if (_brain.PushAtEvenNumbers && !_settings.StrategyFor(_hero.Team).GroupsWholeTeamForPushes &&
+                    !Math.Within(_hero.Position, objective.Position, PushJoinsWithin) && !AmongNearestPushers(objective, needed))
+                    return false;   // the others keep catching waves
 
                 MatchUnit? lastHit = FindLastHit(400);
                 if (lastHit != null)
@@ -1003,7 +1007,6 @@ namespace Dynasty.HeroAI
                 }
 
                 // Hit it together: wait at the gathering point until enough of the team has arrived.
-                int needed = System.Math.Min(3, _state.Heroes.Count(h => h.Team == self._hero.Team && h.IsAlive));
                 bool assembled = !objective.CanAttackAtAll || AlliedHeroesNear(objective.Position, Math.TowerReach(objective) + 700) >= needed;
                 if (assembled && _state.IsVulnerable(objective))
                 {
@@ -1022,6 +1025,23 @@ namespace Dynasty.HeroAI
 
         private const int CarryJoinsPushWithin = 3000;
         private const int NearbyDefenseRange = 3000;
+        private const int PushJoinsWithin = 2000;
+
+        /// <summary>
+        /// A push at even numbers takes the heroes it needs: the nearest living heroes that would join it
+        /// (greedy carries skip early pushes), ties by ID so the choice does not depend on processing order.
+        /// </summary>
+        private bool AmongNearestPushers(MatchUnit objective, int needed)
+        {
+            HeroDecision self = this;
+            int rank = _state.Heroes
+                .Where(h => h.Team == self._hero.Team && h.IsAlive && (h == self._hero || self._settings.PersonalityFor(h.Hero!.Definition).Greed <= 0.7))
+                .OrderBy(h => FixedVector2.DistanceSquared(h.Position, objective.Position))
+                .ThenBy(h => h.Id.Value)
+                .TakeWhile(h => h != self._hero)
+                .Count();
+            return rank < needed;
+        }
 
         /// <summary>
         /// A threat is answered by one more hero than the visible attackers: the nearest living ones
