@@ -1,41 +1,22 @@
-using System.Globalization;
-using System.Net.Http;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using Dynasty.Content;
 using Dynasty.MatchSimulation.Rules;
 
 // Builds the Dota 2 ruleset pack (decision D-048, docs/DOTA_PACK.md) from odota/dotaconstants at a pinned
-// commit. The pack is written locally (default packs/dota-7.41f.json, git-ignored) and is never committed.
+// commit, with hero item builds from OpenDota. The pack and its coverage report are written locally
+// (default packs/dota-7.41f.json, git-ignored) and are never committed.
 //   dotnet run --project tools/Dynasty.DotaPack [-- out.json [cacheDir]]
 
-const string Commit = "5c0242df9057848fa2036ca3fafe9f2bd4508163";   // dotaconstants, 2026-10-12, verified against patch 7.41f
 const string Patch = "7.41f";
 string output = args.Length > 0 ? args[0] : Path.Combine("packs", "dota-" + Patch + ".json");
-string cache = args.Length > 1 ? args[1] : Path.Combine("packs", "cache", "dotaconstants-" + Commit[..8]);
-Directory.CreateDirectory(cache);
+var data = new DotaData(args.Length > 1 ? args[1] : Path.Combine("packs", "cache", "dotaconstants-" + DotaData.Commit[..8]));
 
-JsonNode Load(string name)
-{
-    string file = Path.Combine(cache, name + ".json");
-    if (!File.Exists(file))
-    {
-        using var http = new HttpClient();
-        http.DefaultRequestHeaders.UserAgent.ParseAdd("dota-dynasty-pack/1.0");
-        string url = $"https://raw.githubusercontent.com/odota/dotaconstants/{Commit}/build/{name}.json";
-        Console.WriteLine("download " + url);
-        File.WriteAllText(file, http.GetStringAsync(url).GetAwaiter().GetResult());
-    }
-
-    return JsonNode.Parse(File.ReadAllText(file))!;
-}
-
-JsonNode Number(JsonNode? value) => value is JsonValue v && v.TryGetValue(out string? s)
-    ? JsonValue.Create(decimal.Parse(s, CultureInfo.InvariantCulture))!
-    : JsonValue.Create(value!.GetValue<decimal>())!;
-
-JsonObject heroes = Load("heroes").AsObject();
-JsonArray xpLevels = Load("xp_level").AsArray();
+JsonObject heroes = data.Constants("heroes").AsObject();
+JsonArray xpLevels = data.Constants("xp_level").AsArray();
+JsonObject shopData = data.Constants("items").AsObject();
+JsonObject itemIds = data.Constants("item_ids").AsObject();
+Items.Result items = Items.Convert(shopData, data.ShopItemNames());
 
 var packHeroes = new JsonArray();
 foreach (var (_, node) in heroes.OrderBy(h => h.Value!["id"]!.GetValue<int>()))
@@ -57,28 +38,29 @@ foreach (var (_, node) in heroes.OrderBy(h => h.Value!["id"]!.GetValue<int>()))
         ["roles"] = new JsonArray(h["roles"]!.AsArray().Select(r => (JsonNode)JsonValue.Create(r!.GetValue<string>().ToLowerInvariant())!).ToArray()),
         ["attackType"] = h["attack_type"]!.GetValue<string>() == "Melee" ? "melee" : "ranged",
         ["primaryAttribute"] = primary,
-        ["strength"] = Number(h["base_str"]),
-        ["agility"] = Number(h["base_agi"]),
-        ["intelligence"] = Number(h["base_int"]),
-        ["strengthGain"] = Number(h["str_gain"]),
-        ["agilityGain"] = Number(h["agi_gain"]),
-        ["intelligenceGain"] = Number(h["int_gain"]),
-        ["baseHealth"] = Number(h["base_health"]),
-        ["baseHealthRegen"] = Number(h["base_health_regen"] ?? 0),
-        ["baseMana"] = Number(h["base_mana"]),
-        ["baseManaRegen"] = Number(h["base_mana_regen"] ?? 0),
-        ["baseArmor"] = Number(h["base_armor"]),
-        ["magicResist"] = Number(h["base_mr"]),
-        ["attackDamageMin"] = Number(h["base_attack_min"]),
-        ["attackDamageMax"] = Number(h["base_attack_max"]),
-        ["attackRange"] = Number(h["attack_range"]),
-        ["projectileSpeed"] = Number(h["projectile_speed"]),
-        ["baseAttackTime"] = Number(h["attack_rate"]),
-        ["baseAttackSpeed"] = Number(h["base_attack_time"]),   // dotaconstants names the base attack speed "base_attack_time"
-        ["attackPoint"] = Number(h["attack_point"]),
-        ["moveSpeed"] = Number(h["move_speed"]),
-        ["dayVision"] = Number(h["day_vision"]),
-        ["nightVision"] = Number(h["night_vision"]),
+        ["strength"] = DotaData.Number(h["base_str"]),
+        ["agility"] = DotaData.Number(h["base_agi"]),
+        ["intelligence"] = DotaData.Number(h["base_int"]),
+        ["strengthGain"] = DotaData.Number(h["str_gain"]),
+        ["agilityGain"] = DotaData.Number(h["agi_gain"]),
+        ["intelligenceGain"] = DotaData.Number(h["int_gain"]),
+        ["baseHealth"] = DotaData.Number(h["base_health"]),
+        ["baseHealthRegen"] = DotaData.Number(h["base_health_regen"] ?? 0),
+        ["baseMana"] = DotaData.Number(h["base_mana"]),
+        ["baseManaRegen"] = DotaData.Number(h["base_mana_regen"] ?? 0),
+        ["baseArmor"] = DotaData.Number(h["base_armor"]),
+        ["magicResist"] = DotaData.Number(h["base_mr"]),
+        ["attackDamageMin"] = DotaData.Number(h["base_attack_min"]),
+        ["attackDamageMax"] = DotaData.Number(h["base_attack_max"]),
+        ["attackRange"] = DotaData.Number(h["attack_range"]),
+        ["projectileSpeed"] = DotaData.Number(h["projectile_speed"]),
+        ["baseAttackTime"] = DotaData.Number(h["attack_rate"]),
+        ["baseAttackSpeed"] = DotaData.Number(h["base_attack_time"]),   // dotaconstants names the base attack speed "base_attack_time"
+        ["attackPoint"] = DotaData.Number(h["attack_point"]),
+        ["moveSpeed"] = DotaData.Number(h["move_speed"]),
+        ["dayVision"] = DotaData.Number(h["day_vision"]),
+        ["nightVision"] = DotaData.Number(h["night_vision"]),
+        ["itemBuild"] = Builds.For(data, h["id"]!.GetValue<int>(), itemIds, shopData, items.Ids),
     });
 }
 
@@ -89,7 +71,11 @@ var pack = new JsonObject
     ["id"] = "dota",
     ["version"] = 7416,
     ["name"] = "Dota 2 " + Patch,
-    ["provenance"] = new JsonObject { ["source"] = "https://github.com/odota/dotaconstants", ["commit"] = Commit, ["patch"] = Patch },
+    ["provenance"] = new JsonObject
+    {
+        ["source"] = "https://github.com/odota/dotaconstants", ["commit"] = DotaData.Commit, ["patch"] = Patch,
+        ["builds"] = "OpenDota /heroes/{id}/itemPopularity, " + DateTime.UtcNow.ToString("yyyy-MM-dd"),
+    },
     ["heroRules"] = new JsonObject
     {
         ["xpForLevel"] = new JsonArray(xpLevels.Select(x => (JsonNode)JsonValue.Create(x!.GetValue<int>())!).ToArray()),
@@ -99,10 +85,16 @@ var pack = new JsonObject
         ["heroKillXpPercentOfVictim"] = 13,
     },
     ["heroes"] = packHeroes,
+    ["unitTypes"] = items.UnitTypes,
+    ["abilities"] = items.Abilities,
+    ["items"] = items.Items,
 };
 
 string json = pack.ToJsonString(new JsonSerializerOptions { WriteIndented = true });
 RulesetContent applied = RulesetPack.Apply(BaseRuleset.Create(), json);   // the pack must load
 Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(output))!);
 File.WriteAllText(output, json);
-Console.WriteLine($"{output}: {applied.Heroes.Count} heroes, levels 1-{applied.HeroRules!.MaxLevel}, fingerprint {applied.ToDescriptor().Fingerprint}");
+string report = Path.ChangeExtension(output, ".coverage.txt");
+File.WriteAllLines(report, new[] { "Dota pack " + Patch + ": what is not carried over yet (docs/DOTA_PACK.md)", "" }.Concat(items.Coverage));
+Console.WriteLine($"{output}: {applied.Heroes.Count} heroes, {applied.Items.Count} items ({items.Coverage.Count} with gaps, {report}), " +
+                  $"levels 1-{applied.HeroRules!.MaxLevel}, fingerprint {applied.ToDescriptor().Fingerprint}");

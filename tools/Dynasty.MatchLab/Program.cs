@@ -8,6 +8,7 @@ using Dynasty.MatchSimulation.Rules;
 // Match Laboratory (headless): runs matches with a chosen ruleset and seeds and prints what happened.
 // Usage: dotnet run --project tools/Dynasty.MatchLab -c Release -- [heroes|swapped|mirror|base|lab] [firstSeed] [count] [maxMinutes]
 // MATCHLAB_DEATHS=1 prints what killed the heroes; MATCHLAB_PROFILE=1 prints time spent per system.
+// MATCHLAB_PACK=packs/dota-7.41f.json plays on a ruleset pack (Dota heroes and items) instead of the base heroes.
 //   heroes  — base ruleset, 5v5 with the basic hero AI (default)
 //   swapped — same, with the two lineups exchanged between sides (separates side bias from draft strength)
 //   base   — base ruleset, creeps only
@@ -22,10 +23,10 @@ if (mode == "quality")
     int n = args.Length > 1 ? int.Parse(args[1]) : 16;
     MatchLineup line = MirrorLineup();
     string[] roles = { "carry", "mid", "offlane", "support4", "support5" };
-    var roleOf = new Dictionary<string, string> { ["ironvow"] = "carry", ["emberwisp"] = "mid", ["stonewarden"] = "offlane", ["thornkeeper"] = "support4", ["dawnmender"] = "support5" };
+    var roleOf = RoleOf();
     var runs = Enumerable.Range(1, n).AsParallel().AsOrdered().Select(i =>
     {
-        var k = Match.Create(BaseRuleset.Create(), (ulong)i, line);
+        var k = Match.Create(Rules(), (ulong)i, line);
         HeroAi.Attach(k);
         var audit = new QualityAudit();
         k.AddSystem(audit);
@@ -105,7 +106,7 @@ if (mode == "quality")
     Console.WriteLine($"quality over {n} mirrored matches: length {minutes / n:0.0} min, deaths per hero {deaths / n:0.0}");
     Console.WriteLine("last hits @10 / match: " + string.Join("  ", roles.Select(r => $"{r} {lh10[r] / n:0}/{lhAll[r] / n:0}")));
     Console.WriteLine($"kills per match {killsPerMatch.Average():0.0}");
-    HeroRules economy = BaseRuleset.Create().HeroRules!;
+    HeroRules economy = Rules().HeroRules!;
     int start = economy.StartingGold, passive = economy.GoldPerMinute;   // passive gold is credited directly, not as GoldEarned events
     Console.WriteLine("role       nw@10  nw@20 earn@10 earn@20 LH@10  LH@20  XP@10  XP@20   (net worth = gold + item cost; earned = start + passive + GoldEarned, like OpenDota gold_t; @20 over matches still running)");
     foreach (string r in roles)
@@ -128,7 +129,7 @@ if (mode == "whydiag")
     // Which AI branch decides, per role, between two minutes (mirrored line-up, both teams): HeroAiSettings.DecisionTrace.
     int n = args.Length > 1 ? int.Parse(args[1]) : 16;
     int from = args.Length > 2 ? int.Parse(args[2]) : 10, to = args.Length > 3 ? int.Parse(args[3]) : 20;
-    var roleOf = new Dictionary<string, string> { ["ironvow"] = "carry", ["emberwisp"] = "mid", ["stonewarden"] = "offlane", ["thornkeeper"] = "support4", ["dawnmender"] = "support5" };
+    var roleOf = RoleOf();
     var counts = Enumerable.Range(1, n).AsParallel().Select(seed =>
     {
         var why = new Dictionary<(string, string), int>();
@@ -141,7 +142,7 @@ if (mode == "whydiag")
                 why[key] = why.GetValueOrDefault(key) + 1;
             },
         };
-        var k = Match.Create(BaseRuleset.Create(), (ulong)seed, MirrorLineup());
+        var k = Match.Create(Rules(), (ulong)seed, MirrorLineup());
         HeroAi.Attach(k, settings);
         k.RunUntilFinished(to * 1800L);
         return why;
@@ -166,7 +167,7 @@ if (mode == "lanediag")
     var damage = new Dictionary<string, long>();
     for (ulong seed = 1; seed <= (ulong)n; seed++)
     {
-        var k = Match.Create(BaseRuleset.Create(), seed, MirrorLineup());
+        var k = Match.Create(Rules(), seed, MirrorLineup());
         var solo = new HeroAiSettings();
         if (Environment.GetEnvironmentVariable("MATCHLAB_SOLO") == "1")
             foreach (var id in new[] { "dawnmender", "emberwisp", "stonewarden", "thornkeeper" }) solo.Uncontrolled.Add(id);
@@ -231,7 +232,7 @@ if (mode == "carrydiag")
     Dynasty.Core.Mathematics.Fixed R(int v) => Dynasty.Core.Mathematics.Fixed.FromInt(v);
     for (ulong seed = 1; seed <= (ulong)n; seed++)
     {
-        var k = Match.Create(BaseRuleset.Create(), seed, MirrorLineup());
+        var k = Match.Create(Rules(), seed, MirrorLineup());
         HeroAi.Attach(k);
         MatchUnit carry = k.State.Heroes.Single(h => h.Team == Team.Dawn && h.Hero!.Definition.Id == "ironvow");
         var home = k.State.Ruleset.Map.FountainOf(Team.Dawn)!.Position;
@@ -269,7 +270,7 @@ if (mode == "pushplan")
 {
     // Backlog B-023: does the push draft take more structures when it plays its plan? Same seeds, plan on and off.
     int n = args.Length > 1 ? int.Parse(args[1]) : 16;
-    RulesetContent rules = BaseRuleset.Create();
+    RulesetContent rules = Rules();
     string[] push = { "duskrunner", "siegewright", "wildheart", "stormcaller", "spiritwarden" };
     string[] opponent = { "starborn", "shadeblade", "frostweaver", "hivecaller", "thornkeeper" };
     foreach (bool plan in new[] { false, true })
@@ -313,7 +314,7 @@ if (mode == "skilldiag")
                 settings.SkillsOf(team)[picks[j].HeroId] = HeroSkill.FromPlayer(player, picks[j].HeroId);
             }
 
-        var k = Match.Create(BaseRuleset.Create(), seed, line);
+        var k = Match.Create(Rules(), seed, line);
         HeroAi.Attach(k, settings);
         var local = new Dictionary<(Team, string), long>();
         while (!k.IsFinished && k.CurrentTick.Value < 60L * 60 * 30)
@@ -363,7 +364,7 @@ if (mode == "lanewatch")
     ulong seed = args.Length > 1 ? ulong.Parse(args[1]) : 1;
     string heroId = args.Length > 2 ? args[2] : "ironvow";
     int from = args.Length > 3 ? int.Parse(args[3]) : 0, to = args.Length > 4 ? int.Parse(args[4]) : 240;
-    var k = Match.Create(BaseRuleset.Create(), seed, MirrorLineup());
+    var k = Match.Create(Rules(), seed, MirrorLineup());
     HeroAi.Attach(k);
     MatchUnit me = k.State.Heroes.Single(h => h.Team == Team.Dawn && h.Hero!.Definition.Id == heroId);
     int Dist(MatchUnit u) => Dynasty.Core.Mathematics.FixedVector2.Distance(u.Position, me.Position).ToIntFloor();
@@ -399,7 +400,7 @@ if (mode == "lhdiag")
         var settings = new HeroAiSettings();
         if (solo)
             foreach (var id in new[] { "dawnmender", "emberwisp", "stonewarden", "thornkeeper" }) settings.Uncontrolled.Add(id);
-        var k = Match.Create(BaseRuleset.Create(), seed, MirrorLineup());
+        var k = Match.Create(Rules(), seed, MirrorLineup());
         HeroAi.Attach(k, settings);
         MatchUnit me = k.State.Heroes.Single(h => h.Team == Team.Dawn && h.Hero!.Definition.Id == heroId);
         int seen = 0;
@@ -464,7 +465,7 @@ if (mode == "skill")
                     info.SetValue(settings.SkillsOf(stronger.Opponent())[pick.HeroId], info.GetValue(settings.SkillsOf(stronger)[pick.HeroId]));
             }
 
-            var k = Match.Create(BaseRuleset.Create(), seed, line);
+            var k = Match.Create(Rules(), seed, line);
             HeroAi.Attach(k, settings);
             k.RunUntilFinished(60L * 60 * 30);
             return k;
@@ -510,7 +511,7 @@ if (mode == "skill")
 if (mode == "profiles")
 {
     // Draft profiles derived from the base ruleset (Dynasty.Drafting.HeroProfile).
-    RulesetContent rules = BaseRuleset.Create();
+    RulesetContent rules = Rules();
     Console.WriteLine($"{"hero",-14}{"roles",-26}{"ctrl",5}{"burst",6}{"mag%",5}{"init",5}{"sust",5}{"push",5}{"scale",6}{"tempo",6}{"dura",5}{"mob",5}{"rng",4}{"disp",5}");
     foreach (HeroDefinition hero in rules.Heroes)
     {
@@ -529,7 +530,7 @@ if (mode == "towerdiag")
     var falls = new List<double>();
     for (ulong seed = 1; seed <= (ulong)n; seed++)
     {
-        var k = Match.Create(BaseRuleset.Create(), seed, MirrorLineup());
+        var k = Match.Create(Rules(), seed, MirrorLineup());
         HeroAi.Attach(k);
         var t1Units = k.State.Units.Where(u => u.Kind == UnitKind.Structure && u.Placement != null && u.Placement.Id.EndsWith(".t1")).Select(u => u.Id).ToHashSet();
         k.RunUntilFinished(15 * 1800L);
@@ -555,7 +556,7 @@ if (mode == "towerdiag")
 if (mode == "dps")
 {
     // Dawn heroes' level, attack damage per second, health, net worth and items every five minutes.
-    var k = Match.Create(BaseRuleset.Create(), args.Length > 1 ? ulong.Parse(args[1]) : 1, MirrorLineup());
+    var k = Match.Create(Rules(), args.Length > 1 ? ulong.Parse(args[1]) : 1, MirrorLineup());
     HeroAi.Attach(k);
     foreach (int minute in new[] { 5, 10, 15, 20, 25 })
     {
@@ -574,7 +575,7 @@ if (mode == "trace")
 {
     // Second by second: position, health, order and deciding branch of one Dawn hero, and the nearest camp.
     ulong seed = ulong.Parse(args[1]); string heroId = args[2]; int from = int.Parse(args[3]), to = int.Parse(args[4]);
-    var k = Match.Create(BaseRuleset.Create(), seed, MirrorLineup());
+    var k = Match.Create(Rules(), seed, MirrorLineup());
     MatchUnit hero = k.State.Heroes.Single(h => h.Team == Team.Dawn && h.Hero!.Definition.Id == heroId);
     string last = "";
     HeroAi.Attach(k, new HeroAiSettings { DecisionTrace = (h, now, branch) => { if (h == hero) last = branch; } });
@@ -597,7 +598,7 @@ if (mode == "xpdiag")
     int from = args.Length > 2 ? int.Parse(args[2]) : 0, to = args.Length > 3 ? int.Parse(args[3]) : 10;
     var buckets = Enumerable.Range(1, n).AsParallel().Select(seed =>
     {
-        var k = Match.Create(BaseRuleset.Create(), (ulong)seed, MirrorLineup());
+        var k = Match.Create(Rules(), (ulong)seed, MirrorLineup());
         var branch = new Dictionary<long, string>();
         HeroAi.Attach(k, new HeroAiSettings { DecisionTrace = (h, now, b) => branch[h.Id.Value] = b });
         var counts = new int[6];
@@ -651,7 +652,7 @@ ulong firstSeed = args.Length > 1 ? ulong.Parse(args[1]) : 1;
 int count = args.Length > 2 ? int.Parse(args[2]) : 1;
 int maxMinutes = args.Length > 3 ? int.Parse(args[3]) : 60;
 
-RulesetContent ruleset = mode == "lab" ? BaseRuleset.CreateDawnSiegeLab() : BaseRuleset.Create();
+RulesetContent ruleset = mode == "lab" ? BaseRuleset.CreateDawnSiegeLab() : Rules();
 MatchLineup lineup = mode == "heroes" ? DefaultLineup(swapped: false)
     : mode == "swapped" ? DefaultLineup(swapped: true)
     : mode == "mirror" ? MirrorLineup()
@@ -743,11 +744,10 @@ Console.WriteLine($"Hero kills: Dawn {dawnKills}, Dusk {duskKills}; structures l
 static MatchLineup MirrorLineup()
 {
     // Identical heroes on both sides; Dusk lanes mirrored (top <-> bot) so matchups are symmetric.
-    HeroPick[] dawn =
-    {
-        new("ironvow", "bot"), new("dawnmender", "bot"), new("emberwisp", "mid"),
-        new("stonewarden", "top"), new("thornkeeper", "top"),
-    };
+    // Order: carry, support 5 (safe lane), mid, offlaner, support 4 (off lane) — RoleOf relies on it.
+    HeroPick[] dawn = PackPath() != null
+        ? new HeroPick[] { new("juggernaut", "bot"), new("lion", "bot"), new("nevermore", "mid"), new("mars", "top"), new("earthshaker", "top") }
+        : new HeroPick[] { new("ironvow", "bot"), new("dawnmender", "bot"), new("emberwisp", "mid"), new("stonewarden", "top"), new("thornkeeper", "top") };
     HeroPick[] dusk = dawn.Select(p => new HeroPick(p.HeroId, p.LaneId == "top" ? "bot" : p.LaneId == "bot" ? "top" : p.LaneId)).ToArray();
     return new MatchLineup(dawn, dusk);
 }
@@ -771,6 +771,19 @@ static MatchLineup DefaultLineup(bool swapped)
 }
 
 /// <summary>Counts structures destroyed with three or more enemy heroes within 1500 (a grouped push).</summary>
+
+static string? PackPath() => Environment.GetEnvironmentVariable("MATCHLAB_PACK");
+
+/// <summary>The ruleset matches play on: the base heroes, or a ruleset pack applied to the base (MATCHLAB_PACK).</summary>
+static RulesetContent Rules() => RulesCache.Value;
+
+/// <summary>Role of each hero of the mirrored line-up, by its position in it.</summary>
+static Dictionary<string, string> RoleOf()
+{
+    string[] roles = { "carry", "support5", "mid", "offlane", "support4" };
+    return MirrorLineup().Dawn.Select((p, i) => (p.HeroId, roles[i])).ToDictionary(x => x.HeroId, x => x.Item2);
+}
+
 sealed class GroupedPushCounter : ISimulationSystem<MatchState>
 {
     private int _seen;
@@ -858,5 +871,16 @@ sealed class QualityAudit : ISimulationSystem<MatchState>
                                                Dynasty.Core.Mathematics.FixedVector2.DistanceSquared(h.Position, placement.Position) <= reach * reach);
             Destroyed.Add((placement.Id, near, context.Tick.Value));
         }
+    }
+}
+
+static class RulesCache
+{
+    public static readonly RulesetContent Value = Load();
+
+    private static RulesetContent Load()
+    {
+        string? pack = Environment.GetEnvironmentVariable("MATCHLAB_PACK");
+        return pack == null ? BaseRuleset.Create() : Dynasty.Content.RulesetPack.Apply(BaseRuleset.Create(), File.ReadAllText(pack));
     }
 }
