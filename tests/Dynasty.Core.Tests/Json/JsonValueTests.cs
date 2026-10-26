@@ -79,4 +79,13 @@ public class JsonValueTests
         Assert.Throws<JsonException>(() => JsonValue.Parse("\"x\"").AsInt());
         Assert.Throws<JsonException>(() => JsonValue.Parse("1.5").AsInt());
     }
+
+    /// <summary>A number with more digits than the exact conversion holds is a format error, not a crash.</summary>
+    [Theory]
+    [InlineData("186.666666666666666666666667")]
+    [InlineData("123456789012345678901234567890")]
+    public void TooManyDigits_IsAFormatError(string number)
+    {
+        Assert.Throws<JsonException>(() => JsonValue.Parse(number).AsFixed());
+    }
 }

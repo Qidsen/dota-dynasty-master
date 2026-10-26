@@ -218,13 +218,21 @@ static class Abilities
 
     private static decimal At(decimal[] values, int level) => values[Math.Min(level, values.Length - 1)];
 
-    /// <summary>"$key", "-$key", or a product such as "$attack_damage*4" or "$a*$b" (per level, element by element).</summary>
+    /// <summary>"$key", "-$key", or a product or quotient such as "$attack_damage*4" or "$a*$b/$c" (per level, element by element).</summary>
     private static decimal[] Resolve(string reference, Dictionary<string, JsonNode?> values)
     {
         bool negate = reference.StartsWith("-");
         decimal[] result = { negate ? -1 : 1 };
-        foreach (string factor in reference.TrimStart('-').Split('*'))
+        string expression = reference.TrimStart('-');
+        int start = 0;
+        while (start < expression.Length)
         {
+            int end = expression.IndexOfAny(new[] { '*', '/' }, start);
+            if (end < 0)
+                end = expression.Length;
+            bool divide = start > 0 && expression[start - 1] == '/';
+            string factor = expression.Substring(start, end - start);
+            start = end + 1;
             decimal[] part;
             if (factor.StartsWith("$"))
             {
@@ -239,7 +247,8 @@ static class Abilities
             }
 
             int n = Math.Max(result.Length, part.Length);
-            result = Enumerable.Range(0, n).Select(i => At(result, i) * At(part, i)).ToArray();
+            // Quotients are rounded to 4 decimals: the pack reads numbers exactly and finer digits mean nothing in fixed point.
+            result = Enumerable.Range(0, n).Select(i => divide ? Math.Round(At(result, i) / At(part, i), 4) : At(result, i) * At(part, i)).ToArray();
         }
 
         return result;

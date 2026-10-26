@@ -2217,5 +2217,361 @@
         "amounts": "$hp_pct"
       }
     ]
+  },
+  "slardar_sprint": {
+    "status": "simplified",
+    "note": "no slow resistance, does not pass through units",
+    "targeting": "noTarget",
+    "targetTeam": "ally",
+    "effects": [
+      {
+        "kind": "modifier",
+        "modifiers": {
+          "key": "slardar_sprint",
+          "duration": "$duration",
+          "moveSpeedPercent": "$bonus_speed"
+        }
+      }
+    ]
+  },
+  "slardar_slithereen_crush": {
+    "status": "simplified",
+    "note": "the slow runs alongside the stun instead of after it; no puddle",
+    "targeting": "noTarget",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "area",
+        "radius": "$crush_radius",
+        "center": "caster",
+        "team": "enemy",
+        "effects": [
+          {
+            "kind": "damage",
+            "damageType": "physical",
+            "amounts": "$crush_damage"
+          },
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "slardar_slithereen_crush",
+              "duration": "$stun_duration",
+              "flags": [
+                "stunned"
+              ]
+            }
+          },
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "slardar_slithereen_crush_slow",
+              "duration": "$crush_extra_slow_duration",
+              "moveSpeedPercent": "$crush_extra_slow",
+              "attackSpeed": "$crush_attack_slow_tooltip"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "slardar_amplify_damage": {
+    "status": "simplified",
+    "note": "armor reduction only: no true sight, no water trail",
+    "targeting": "unit",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "modifier",
+        "modifiers": {
+          "key": "slardar_amplify_damage",
+          "duration": "$duration",
+          "armor": "$armor_reduction"
+        }
+      }
+    ]
+  },
+  "lich_frost_nova": {
+    "status": "simplified",
+    "note": "everyone hit gets the primary target's attack slow",
+    "targeting": "unit",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "damage",
+        "damageType": "magical",
+        "amounts": "$damage"
+      },
+      {
+        "kind": "area",
+        "radius": "$radius",
+        "center": "target",
+        "team": "enemy",
+        "effects": [
+          {
+            "kind": "damage",
+            "damageType": "magical",
+            "amounts": "$aoe_damage"
+          },
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "lich_frost_nova",
+              "duration": "$abilityduration",
+              "moveSpeedPercent": "$slow_movement_speed",
+              "attackSpeed": "$slow_attack_speed_primary"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "lich_frost_shield": {
+    "status": "simplified",
+    "note": "reduces all incoming damage, not only from attacks",
+    "targeting": "unit",
+    "targetTeam": "ally",
+    "effects": [
+      {
+        "kind": "modifier",
+        "modifiers": {
+          "key": "lich_frost_shield",
+          "duration": "$duration",
+          "incomingDamagePercent": "-$damage_reduction",
+          "aura": {
+            "radius": "$radius",
+            "team": "enemy",
+            "modifier": {
+              "key": "lich_frost_shield_slow",
+              "duration": "$slow_duration",
+              "damagePerSecond": "$damage",
+              "period": "$interval",
+              "moveSpeedPercent": "-$movement_slow"
+            }
+          }
+        }
+      }
+    ]
+  },
+  "lich_chain_frost": {
+    "status": "simplified",
+    "note": "the first target only: no bounces",
+    "targeting": "unit",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "projectile",
+        "speed": "$initial_projectile_speed",
+        "effects": [
+          {
+            "kind": "damage",
+            "damageType": "magical",
+            "amounts": "$damage"
+          },
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "lich_chain_frost",
+              "duration": "$slow_duration",
+              "moveSpeedPercent": "$slow_movement_speed",
+              "attackSpeed": "$slow_attack_speed"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "spirit_breaker_bulldoze": {
+    "status": "simplified",
+    "note": "movement speed only: no status resistance",
+    "targeting": "noTarget",
+    "targetTeam": "ally",
+    "effects": [
+      {
+        "kind": "modifier",
+        "modifiers": {
+          "key": "spirit_breaker_bulldoze",
+          "duration": "$duration",
+          "moveSpeedPercent": "$movement_speed"
+        }
+      }
+    ]
+  },
+  "beastmaster_inner_beast": {
+    "status": "simplified",
+    "note": "Beastmaster himself only (his summons are not mapped yet)",
+    "targeting": "passive",
+    "targetTeam": "ally",
+    "innate": true,
+    "passive": {
+      "key": "beastmaster_inner_beast",
+      "attackSpeed": "$bonus_attack_speed"
+    }
+  },
+  "beastmaster_primal_roar": {
+    "status": "simplified",
+    "note": "the target only: no damage and slow to the units along the path, no shove, no speed bonus",
+    "targeting": "unit",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "modifier",
+        "modifiers": {
+          "key": "beastmaster_primal_roar",
+          "duration": "$duration",
+          "flags": [
+            "stunned"
+          ]
+        }
+      },
+      {
+        "kind": "damage",
+        "damageType": "magical",
+        "amounts": "$damage"
+      }
+    ]
+  },
+  "dawnbreaker_fire_wreath": {
+    "status": "simplified",
+    "note": "the final smash only, around Dawnbreaker: no swipes, no attack damage, no movement",
+    "targeting": "noTarget",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "area",
+        "radius": "$smash_radius",
+        "center": "caster",
+        "team": "enemy",
+        "effects": [
+          {
+            "kind": "damage",
+            "damageType": "physical",
+            "amounts": "$smash_damage"
+          },
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "dawnbreaker_fire_wreath",
+              "duration": "$smash_stun_duration",
+              "flags": [
+                "stunned"
+              ]
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "sandking_burrowstrike": {
+    "status": "simplified",
+    "note": "hits around the end point only, not along the path",
+    "targeting": "point",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "dash"
+      },
+      {
+        "kind": "area",
+        "radius": "$burrow_width",
+        "center": "point",
+        "team": "enemy",
+        "effects": [
+          {
+            "kind": "damage",
+            "damageType": "magical",
+            "amounts": "$dmg"
+          },
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "sandking_burrowstrike",
+              "duration": "$burrow_duration",
+              "flags": [
+                "stunned"
+              ]
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "sandking_sand_storm": {
+    "status": "simplified",
+    "note": "the storm moves with Sand King; no invisibility",
+    "targeting": "noTarget",
+    "targetTeam": "ally",
+    "effects": [
+      {
+        "kind": "modifier",
+        "modifiers": {
+          "key": "sandking_sand_storm",
+          "duration": "$abilityduration",
+          "aura": {
+            "radius": "$sand_storm_radius",
+            "team": "enemy",
+            "modifier": {
+              "key": "sandking_sand_storm_damage",
+              "duration": 1,
+              "damagePerSecond": "$sand_storm_damage"
+            }
+          }
+        }
+      }
+    ]
+  },
+  "sandking_scorpion_strike": {
+    "status": "simplified",
+    "note": "the bonus damage only, without Sand King's attack; no inner radius bonus",
+    "targeting": "point",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "area",
+        "radius": "$radius",
+        "center": "point",
+        "team": "enemy",
+        "effects": [
+          {
+            "kind": "damage",
+            "damageType": "physical",
+            "amounts": "$attack_damage"
+          },
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "sandking_scorpion_strike",
+              "duration": "$debuff_duration",
+              "moveSpeedPercent": "-$strike_slow"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "sandking_epicenter": {
+    "status": "simplified",
+    "note": "pulses as steady damage per second around Sand King over the duration; the base radius without growth",
+    "targeting": "noTarget",
+    "targetTeam": "ally",
+    "effects": [
+      {
+        "kind": "modifier",
+        "modifiers": {
+          "key": "sandking_epicenter",
+          "duration": "$abilityduration",
+          "aura": {
+            "radius": "$epicenter_radius_base",
+            "team": "enemy",
+            "modifier": {
+              "key": "sandking_epicenter_pulse",
+              "duration": 1,
+              "damagePerSecond": "$epicenter_pulses*$epicenter_damage/$abilityduration",
+              "moveSpeedPercent": "$epicenter_slow",
+              "attackSpeed": "$epicenter_slow_as"
+            }
+          }
+        }
+      }
+    ]
   }
 }

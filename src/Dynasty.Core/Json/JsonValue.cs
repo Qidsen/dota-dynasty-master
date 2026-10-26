@@ -109,6 +109,18 @@ namespace Dynasty.Core.Json
         /// <summary>Decimal text (optional sign, digits, fraction, integer exponent) as numerator / power of ten.</summary>
         private static (long Numerator, long Denominator) Decimal(string text)
         {
+            try
+            {
+                return ExactDecimal(text);
+            }
+            catch (OverflowException)
+            {
+                throw new JsonException("The number " + text + " has more digits than can be read exactly.");
+            }
+        }
+
+        private static (long Numerator, long Denominator) ExactDecimal(string text)
+        {
             int e = text.IndexOfAny(new[] { 'e', 'E' });
             string mantissa = e < 0 ? text : text.Substring(0, e);
             int exponent = e < 0 ? 0 : int.Parse(text.Substring(e + 1), NumberStyles.AllowLeadingSign, CultureInfo.InvariantCulture);
