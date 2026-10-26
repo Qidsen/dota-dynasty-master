@@ -196,7 +196,7 @@ public class PackContentTests
     {
         RulesetContent rules = Apply(@"""abilities"": [{ ""id"": ""swipes"", ""name"": ""Swipes"", ""targeting"": ""unit"", ""targetTeam"": ""enemy"", ""castRange"": 900, ""castPoint"": 0,
             ""cooldown"": [18], ""requiredLevels"": [1], ""effects"": [
-                { ""kind"": ""attack"", ""amounts"": [150] },
+                { ""kind"": ""attack"", ""amounts"": [150] }, { ""kind"": ""attack"" },
                 { ""kind"": ""onCaster"", ""effects"": [ { ""kind"": ""heal"", ""amounts"": [50] } ] },
                 { ""kind"": ""damage"", ""damageType"": ""physical"", ""scaling"": ""perTargetStack"", ""stackKey"": ""fury"", ""amounts"": [15] },
                 { ""kind"": ""damage"", ""damageType"": ""magical"", ""scaling"": ""casterIntelligencePercent"", ""amounts"": [37.5] } ],
@@ -207,12 +207,29 @@ public class PackContentTests
 
         AbilityDefinition swipes = rules.FindAbility("swipes")!;
         Assert.Equal((EffectKind.Attack, 150), (swipes.Effects[0].Kind, swipes.Effects[0].Amounts[0]));
-        Assert.Equal((EffectKind.OnCaster, EffectKind.Heal), (swipes.Effects[1].Kind, swipes.Effects[1].Inner.Single().Kind));
-        Assert.Equal((DamageScaling.PerTargetStack, "fury", 15), (swipes.Effects[2].Scaling, swipes.Effects[2].StackKey, swipes.Effects[2].Amounts[0]));
-        Assert.Equal((DamageScaling.CasterIntelligencePercent, 3750), (swipes.Effects[3].Scaling, swipes.Effects[3].Amounts[0]));
+        Assert.Equal(100, swipes.Effects[1].Amounts.Single());   // without amounts: a normal attack
+        Assert.Equal((EffectKind.OnCaster, EffectKind.Heal), (swipes.Effects[2].Kind, swipes.Effects[2].Inner.Single().Kind));
+        Assert.Equal((DamageScaling.PerTargetStack, "fury", 15), (swipes.Effects[3].Scaling, swipes.Effects[3].StackKey, swipes.Effects[3].Amounts[0]));
+        Assert.Equal((DamageScaling.CasterIntelligencePercent, 3750), (swipes.Effects[4].Scaling, swipes.Effects[4].Amounts[0]));
         ModifierSpec fury = swipes.PassiveModifiers[0];
         Assert.Equal((int.MaxValue, 1500, 25), (fury.MaxStacks, fury.ProcCooldownMs, fury.WhenAttackedChancePercent));
         Assert.Equal(4, swipes.PassiveModifiers[1].MaxStacks);
+    }
+
+    [Fact]
+    public void Effects_ReadZonesAndPulls()
+    {
+        RulesetContent rules = Apply(@"""abilities"": [{ ""id"": ""pyre"", ""name"": ""Pyre"", ""targeting"": ""point"", ""targetTeam"": ""enemy"", ""castRange"": 900, ""castPoint"": 0,
+            ""cooldown"": [18], ""requiredLevels"": [1], ""effects"": [
+                { ""kind"": ""zone"", ""radius"": 260, ""center"": ""point"", ""team"": ""enemy"", ""duration"": 10, ""period"": 0.5,
+                  ""effects"": [ { ""kind"": ""damage"", ""damageType"": ""magical"", ""amounts"": [50] } ] },
+                { ""kind"": ""area"", ""radius"": 400, ""center"": ""point"", ""team"": ""enemy"", ""effects"": [ { ""kind"": ""pull"", ""toward"": ""point"", ""amounts"": [300] } ] } ] }], ""items"": []",
+            Hero("lion", @"[""pyre""]"));
+
+        EffectDefinition zone = rules.FindAbility("pyre")!.Effects[0];
+        Assert.Equal((EffectKind.Zone, 260, AreaCenter.Point, 10000, 500), (zone.Kind, zone.Radius, zone.Center, zone.DurationMs, zone.PeriodMs));
+        EffectDefinition pull = rules.FindAbility("pyre")!.Effects[1].Inner.Single();
+        Assert.Equal((EffectKind.Pull, AreaCenter.Point, 300), (pull.Kind, pull.Center, pull.Amounts[0]));
     }
 
     [Theory]

@@ -200,13 +200,7 @@ namespace Dynasty.Content
                     effect = EffectDefinition.Modifier(e.Array("modifiers").Select(ReadModifier).ToArray());
                     break;
                 case "area":
-                    AreaCenter center = e.String("center") switch
-                    {
-                        "caster" => AreaCenter.Caster,
-                        "target" => AreaCenter.Target,
-                        "point" => AreaCenter.Point,
-                        _ => throw e.Error("center", "expected caster, target or point"),
-                    };
+                    AreaCenter center = ReadCenter(e, "center");
                     effect = EffectDefinition.Area(e.Int("radius"), center, ReadTeam(e, "team"), e.OptionalBool("heroesOnly") ?? false,
                         e.Array("effects").Select(ReadEffect).ToArray());
                     break;
@@ -234,8 +228,18 @@ namespace Dynasty.Content
                 case "onCaster":
                     effect = EffectDefinition.OnCaster(e.Array("effects").Select(ReadEffect).ToArray());
                     break;
+                case "zone":
+                    effect = EffectDefinition.Zone(e.Int("radius"), ReadCenter(e, "center"), ReadTeam(e, "team"), e.Milliseconds("duration"), e.Milliseconds("period"),
+                        e.Array("effects").Select(ReadEffect).ToArray());
+                    break;
+                case "pull":
+                    AreaCenter toward = e.Has("toward") ? ReadCenter(e, "toward") : AreaCenter.Caster;
+                    if (toward == AreaCenter.Target)
+                        throw e.Error("toward", "expected caster or point");
+                    effect = EffectDefinition.Pull(toward, e.Ints("amounts").ToArray());
+                    break;
                 case "attack":
-                    effect = EffectDefinition.Attack(e.Ints("amounts").ToArray());
+                    effect = EffectDefinition.Attack(e.OptionalInts("amounts")?.ToArray() ?? new[] { 100 });   // no amounts: a normal attack
                     break;
                 default:
                     throw e.Error("kind", "unknown effect kind");
@@ -244,6 +248,14 @@ namespace Dynasty.Content
             e.RejectUnknown();
             return effect;
         }
+
+        private static AreaCenter ReadCenter(Reader r, string field) => r.String(field) switch
+        {
+            "caster" => AreaCenter.Caster,
+            "target" => AreaCenter.Target,
+            "point" => AreaCenter.Point,
+            _ => throw r.Error(field, "expected caster, target or point"),
+        };
 
         private static DamageType ReadDamageType(Reader r, string field) => r.String(field) switch
         {

@@ -401,6 +401,21 @@ namespace Dynasty.MatchSimulation
 
         internal void RemoveProjectile(Projectile projectile) => _projectiles.Remove(projectile);
 
+        /// <summary>Ground zones left by abilities, in creation order.</summary>
+        public IReadOnlyList<GroundZone> Zones => _zones;
+
+        private readonly List<GroundZone> _zones = new List<GroundZone>();
+        private long _nextZoneId = 1;
+
+        internal GroundZone AddZone(EntityId source, FixedVector2 position, EffectDefinition definition, int level, long now)
+        {
+            var zone = new GroundZone(_nextZoneId++, source, position, definition, level, now + Rate.TicksFor(definition.DurationMs), now + Rate.TicksFor(definition.PeriodMs));
+            _zones.Add(zone);
+            return zone;
+        }
+
+        internal void RemoveZone(GroundZone zone) => _zones.Remove(zone);
+
         /// <summary>Removes every projectile homing on the unit (blink, teleport); returns them for event reporting.</summary>
         internal List<Projectile> Disjoint(MatchUnit unit)
         {

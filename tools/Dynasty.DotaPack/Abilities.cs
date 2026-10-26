@@ -101,6 +101,8 @@ static class Abilities
                 for (int i = 0; i < list.Count; i++)
                     RejectHandTypedNumbers(key, list[i], path + "[" + i + "]");
                 break;
+            case JsonValue text when text.TryGetValue(out string? s) && decimal.TryParse(s, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out decimal written):
+                throw new InvalidDataException($"abilities.json: {key}{path} = \"{written}\" is a number typed by hand; refer to the data (\"$key\")");
             case JsonValue v when v.TryGetValue(out decimal number):
                 bool allowed = (path.EndsWith(".aura.modifier.duration") && number == 1) || number >= 20000 || path.Contains(".counts[");
                 if (!allowed)
@@ -123,6 +125,8 @@ static class Abilities
             values[attribute!["key"]!.GetValue<string>()] = attribute["value"];
         if (source["dmg"] is JsonNode dmg)
             values["dmg"] = dmg;   // some abilities keep their damage outside the attributes (Storm Hammer)
+        if (source["cd"] is JsonNode cd && !values.ContainsKey("cd"))
+            values["cd"] = cd;     // the ability's own cooldown, e.g. a passive's proc cooldown (Mortal Strike)
         return values;
     }
 

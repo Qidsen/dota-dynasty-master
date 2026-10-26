@@ -282,6 +282,14 @@ namespace Dynasty.MatchSimulation.Systems
                     foreach (EffectDefinition inner in effect.Inner)
                         RunOne(context, caster, inner, level, caster, point);
                     break;
+                case EffectKind.Zone:
+                    FixedVector2 at = effect.Center == AreaCenter.Caster ? caster.Position : effect.Center == AreaCenter.Target ? target.Position : point;
+                    context.State.AddZone(caster.Id, at, effect, level, context.Tick.Value);
+                    break;
+                case EffectKind.Pull:
+                    Pull(context.State, caster, target, effect.Center == AreaCenter.Point ? point : caster.Position,
+                        effect.Center == AreaCenter.Point ? 0 : caster.BoundingRadius + target.BoundingRadius, effect.AmountAt(level));
+                    break;
                 case EffectKind.Attack:
                     if (target.IsAlive && context.State.CanAttack(caster, target))
                         AttackSystem.Strike(context, caster, target, effect.AmountAt(level));
@@ -294,7 +302,15 @@ namespace Dynasty.MatchSimulation.Systems
             FixedVector2 center = effect.Center == AreaCenter.Caster ? caster.Position
                 : effect.Center == AreaCenter.Target ? target.Position
                 : point;
+            RunAround(context, caster, effect, level, center, point);
+        }
 
+        /// <summary>One pulse of a ground zone: its effects on the matching units inside, with the zone's point as the point.</summary>
+        public static void Pulse(SimulationContext<MatchState> context, MatchUnit caster, GroundZone zone) =>
+            RunAround(context, caster, zone.Definition, zone.Level, zone.Position, zone.Position);
+
+        private static void RunAround(SimulationContext<MatchState> context, MatchUnit caster, EffectDefinition effect, int level, FixedVector2 center, FixedVector2 point)
+        {
             List<MatchUnit> affected = context.State.Units
                 .Where(u => Matches(context.State, caster, u, effect.Team) && (!effect.HeroesOnly || u.Hero != null) &&
                             Geometry.WithinRange(center, u.Position, effect.Radius + u.BoundingRadius))
@@ -354,6 +370,28 @@ namespace Dynasty.MatchSimulation.Systems
             caster.Position = FixedVector2.MoveTowards(destination.Position, home, offset);
             if (caster.Hero != null)
                 caster.Hero.Path = null;
+        }
+
+        /// <summary>Moves the target toward <paramref name="destination"/> by up to the distance, stopping <paramref name="stopShort"/> before it or at the first unwalkable step.</summary>
+        private static void Pull(MatchState state, MatchUnit caster, MatchUnit target, FixedVector2 destination, int stopShort, int distance)
+        {
+            if (target == caster)
+                return;
+            Fixed room = FixedVector2.Distance(target.Position, destination) - Fixed.FromInt(stopShort);
+            Fixed travel = Fixed.Min(room, Fixed.FromInt(distance));
+            FixedVector2 position = target.Position;
+            FixedVector2 end = FixedVector2.MoveTowards(position, destination, Fixed.Max(Fixed.Zero, travel));
+            while (position != end)
+            {
+                FixedVector2 next = FixedVector2.MoveTowards(position, end, KnockbackStep);
+                if (!state.Nav.IsWalkable(next))
+                    break;
+                position = next;
+            }
+
+            target.Position = position;
+            if (target.Hero != null)
+                target.Hero.Path = null;
         }
 
         private static void Knockback(MatchState state, MatchUnit caster, MatchUnit target, int distance)

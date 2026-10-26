@@ -440,4 +440,55 @@ public class DotaMechanicsTests
         Assert.True(taken >= 3);
         Assert.Equal(chance == 0 ? 0 : taken, procs);
     }
+
+    /// <summary>A ground zone (Macropyre, Midnight Pulse, Chemical Rage's acid): every period it runs its effects on the units inside, until it expires.</summary>
+    [Fact]
+    public void Zone_HitsUnitsInsideEveryPeriod_UntilItExpires()
+    {
+        var kernel = Duel(attack: false);
+        kernel.AddSystem(new LambdaSystem(2, ctx => Effects.Run(ctx, H(ctx.State, "alpha"),
+            new[] { EffectDefinition.Zone(150, AreaCenter.Point, TargetTeam.Any, 3000, 1000, EffectDefinition.Damage(DamageType.Pure, 10)) },
+            1, H(ctx.State, "alpha"), H(ctx.State, "beta").Position)));
+        kernel.RunTicks(30 * 6);
+
+        Assert.Equal(new[] { 10, 10, 10 }, HitsOnBeta(kernel).Select(d => d.Amount.ToIntFloor()));
+        Assert.DoesNotContain(kernel.EventsOf<DamageDealt>(), d => d.Target == H(kernel.State, "alpha").Id);   // 200 away: outside the zone
+        Assert.Empty(kernel.State.Zones);
+    }
+
+    [Fact]
+    public void Zone_StopsHittingAUnitThatLeftIt()
+    {
+        var kernel = Duel(attack: false);
+        kernel.AddSystem(new LambdaSystem(2, ctx => Effects.Run(ctx, H(ctx.State, "alpha"),
+            new[] { EffectDefinition.Zone(150, AreaCenter.Point, TargetTeam.Enemy, 5000, 1000, EffectDefinition.Damage(DamageType.Pure, 10)) },
+            1, H(ctx.State, "alpha"), H(ctx.State, "beta").Position)));
+        kernel.AddSystem(new LambdaSystem(2 + 45, ctx => H(ctx.State, "beta").Position = P(5200, 5600)));
+        kernel.RunTicks(30 * 7);
+
+        Assert.Single(HitsOnBeta(kernel));
+    }
+
+    /// <summary>Pulls (Vacuum, Black Hole, Walrus Kick's opposite): the unit moves toward the caster or the point, without passing it.</summary>
+    [Theory]
+    [InlineData(100, 5100)]
+    [InlineData(500, 5048)]   // stops next to alpha: 24 + 24 bounding radii
+    public void Pull_MovesTheTargetTowardTheCaster(int distance, int x)
+    {
+        var kernel = Cast(_ => { }, EffectDefinition.Pull(AreaCenter.Caster, distance));
+
+        Assert.Equal(P(x, 5000), H(kernel.State, "beta").Position);
+    }
+
+    [Fact]
+    public void Pull_TowardThePoint_StopsAtIt()
+    {
+        var kernel = Duel(attack: false);
+        kernel.AddSystem(new LambdaSystem(2, ctx => Effects.Run(ctx, H(ctx.State, "alpha"),
+            new[] { EffectDefinition.Area(400, AreaCenter.Point, TargetTeam.Enemy, EffectDefinition.Pull(AreaCenter.Point, 300)) },
+            1, H(ctx.State, "alpha"), P(5300, 5000))));
+        kernel.RunTicks(3);
+
+        Assert.Equal(P(5300, 5000), H(kernel.State, "beta").Position);
+    }
 }

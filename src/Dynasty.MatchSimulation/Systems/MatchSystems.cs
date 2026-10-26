@@ -92,6 +92,32 @@ namespace Dynasty.MatchSimulation.Systems
         }
     }
 
+    /// <summary>Pulses ground zones in creation order and removes expired ones; a zone whose source is gone ends.</summary>
+    internal sealed class ZoneSystem : ISimulationSystem<MatchState>
+    {
+        public string Name => "zones";
+
+        public void Tick(SimulationContext<MatchState> context)
+        {
+            MatchState state = context.State;
+            if (state.Zones.Count == 0)
+                return;
+            long now = context.Tick.Value;
+            foreach (GroundZone zone in state.Zones.ToList())
+            {
+                MatchUnit? source = state.Find(zone.Source);
+                if (source != null && now >= zone.NextPulseTick && zone.NextPulseTick <= zone.ExpiresTick)
+                {
+                    Effects.Pulse(context, source, zone);
+                    zone.NextPulseTick += context.TickRate.TicksFor(zone.Definition.PeriodMs);
+                }
+
+                if (source == null || now >= zone.ExpiresTick)
+                    state.RemoveZone(zone);
+            }
+        }
+    }
+
     internal sealed class ModifierSystem : ISimulationSystem<MatchState>
     {
         private readonly List<ActiveModifier> _scratch = new List<ActiveModifier>();

@@ -2,22 +2,32 @@
   "_about": "Dota hero abilities in the engine's effect tree (docs/DOTA_PACK.md, wave 2). Values are references to dotaconstants keys: \"$key\", \"-$key\" (negated). Cooldown, mana cost, cast range and cast point come from the data unless given here. status: full or simplified (with a note on what is left out).",
   "hoodwink_acorn_shot": {
     "status": "simplified",
-    "note": "no bounces; the attack-damage part is left out",
+    "note": "no bounces; the bonus damage is a separate physical hit after the attack",
     "targeting": "unit",
     "targetTeam": "enemy",
     "effects": [
       {
-        "kind": "damage",
-        "damageType": "physical",
-        "amounts": "$acorn_shot_damage"
-      },
-      {
-        "kind": "modifier",
-        "modifiers": {
-          "key": "hoodwink_acorn_shot",
-          "duration": "$debuff_duration",
-          "moveSpeedPercent": "-$slow"
-        }
+        "kind": "projectile",
+        "speed": "$projectile_speed",
+        "effects": [
+          {
+            "kind": "attack",
+            "amounts": "$base_damage_pct"
+          },
+          {
+            "kind": "damage",
+            "damageType": "physical",
+            "amounts": "$acorn_shot_damage"
+          },
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "hoodwink_acorn_shot",
+              "duration": "$debuff_duration",
+              "moveSpeedPercent": "-$slow"
+            }
+          }
+        ]
       }
     ]
   },
@@ -504,7 +514,7 @@
   },
   "earth_spirit_rolling_boulder": {
     "status": "simplified",
-    "note": "instant roll to the point, damage and stun around the end; no strength damage, no remnants",
+    "note": "instant roll to the point, damage and stun around the end; no remnants",
     "targeting": "point",
     "targetTeam": "enemy",
     "effects": [
@@ -521,6 +531,12 @@
             "kind": "damage",
             "damageType": "magical",
             "amounts": "$damage"
+          },
+          {
+            "kind": "damage",
+            "damageType": "magical",
+            "scaling": "casterStrengthPercent",
+            "amounts": "$damage_str"
           },
           {
             "kind": "modifier",
@@ -1000,7 +1016,7 @@
   },
   "techies_reactive_tazer": {
     "status": "simplified",
-    "note": "the explosion happens at the cast instead of on attacks or at the end",
+    "note": "the closing explosion happens at the cast instead of at the end of the charge",
     "targeting": "unit",
     "targetTeam": "ally",
     "effects": [
@@ -1009,7 +1025,27 @@
         "modifiers": {
           "key": "techies_reactive_tazer",
           "duration": "$duration",
-          "moveSpeedPercent": "$bonus_ms"
+          "moveSpeedPercent": "$bonus_ms",
+          "whenAttacked": [
+            {
+              "kind": "damage",
+              "damageType": "magical",
+              "amounts": "$damage"
+            },
+            {
+              "kind": "modifier",
+              "modifiers": {
+                "key": "techies_reactive_tazer_disarm",
+                "duration": "$disarm_duration",
+                "flags": [
+                  "disarmed"
+                ]
+              }
+            },
+            {
+              "kind": "dispel"
+            }
+          ]
         }
       },
       {
@@ -1446,17 +1482,37 @@
   },
   "slark_saltwater_shiv": {
     "status": "simplified",
-    "note": "a slow only: nothing is stolen",
+    "note": "cast as a spell (a normal attack, 100%, plus the steal) instead of an autocast attack modifier; the stacks share one duration instead of each expiring on its own; no health restoration steal",
     "targeting": "unit",
     "targetTeam": "enemy",
     "effects": [
+      {
+        "kind": "attack"
+      },
       {
         "kind": "modifier",
         "modifiers": {
           "key": "slark_saltwater_shiv",
           "duration": "$duration",
-          "moveSpeedPercent": "-$ms_steal"
+          "stacking": true,
+          "moveSpeedPercent": "-$ms_steal",
+          "healthRegen": "-$regen_steal"
         }
+      },
+      {
+        "kind": "onCaster",
+        "effects": [
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "slark_saltwater_shiv_buff",
+              "duration": "$duration",
+              "stacking": true,
+              "moveSpeedPercent": "$ms_steal",
+              "healthRegen": "$regen_steal"
+            }
+          }
+        ]
       }
     ]
   },
@@ -2504,7 +2560,7 @@
   },
   "sandking_scorpion_strike": {
     "status": "simplified",
-    "note": "the bonus damage only, without Sand King's attack; no inner radius bonus",
+    "note": "an attack (100% = a normal attack, the description's rule) plus the bonus damage on every enemy in the area; no inner radius bonus; no Caustic Finale",
     "targeting": "point",
     "targetTeam": "enemy",
     "effects": [
@@ -2514,6 +2570,9 @@
         "center": "point",
         "team": "enemy",
         "effects": [
+          {
+            "kind": "attack"
+          },
           {
             "kind": "damage",
             "damageType": "physical",
@@ -2866,7 +2925,7 @@
   },
   "nevermore_shadowraze1": {
     "status": "simplified",
-    "note": "aimed at a point up to the raze distance instead of exactly in front; levels separately from the other razes; no soul or stack bonus",
+    "note": "aimed at a point up to the raze distance instead of exactly in front; levels separately from the other razes; no Necromastery soul bonus",
     "targeting": "point",
     "targetTeam": "enemy",
     "castRange": "$shadowraze_range",
@@ -2881,6 +2940,21 @@
             "kind": "damage",
             "damageType": "magical",
             "amounts": "$shadowraze_damage"
+          },
+          {
+            "kind": "damage",
+            "damageType": "magical",
+            "scaling": "perTargetStack",
+            "stackKey": "nevermore_shadowraze_debuff",
+            "amounts": "$stack_bonus_damage"
+          },
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "nevermore_shadowraze_debuff",
+              "duration": "$duration",
+              "stacking": true
+            }
           }
         ]
       }
@@ -2888,7 +2962,7 @@
   },
   "nevermore_shadowraze2": {
     "status": "simplified",
-    "note": "aimed at a point up to the raze distance instead of exactly in front; levels separately from the other razes; no soul or stack bonus",
+    "note": "aimed at a point up to the raze distance instead of exactly in front; levels separately from the other razes; no Necromastery soul bonus",
     "targeting": "point",
     "targetTeam": "enemy",
     "castRange": "$shadowraze_range",
@@ -2903,6 +2977,21 @@
             "kind": "damage",
             "damageType": "magical",
             "amounts": "$shadowraze_damage"
+          },
+          {
+            "kind": "damage",
+            "damageType": "magical",
+            "scaling": "perTargetStack",
+            "stackKey": "nevermore_shadowraze_debuff",
+            "amounts": "$stack_bonus_damage"
+          },
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "nevermore_shadowraze_debuff",
+              "duration": "$duration",
+              "stacking": true
+            }
           }
         ]
       }
@@ -2910,7 +2999,7 @@
   },
   "nevermore_shadowraze3": {
     "status": "simplified",
-    "note": "aimed at a point up to the raze distance instead of exactly in front; levels separately from the other razes; no soul or stack bonus",
+    "note": "aimed at a point up to the raze distance instead of exactly in front; levels separately from the other razes; no Necromastery soul bonus",
     "targeting": "point",
     "targetTeam": "enemy",
     "castRange": "$shadowraze_range",
@@ -2925,6 +3014,21 @@
             "kind": "damage",
             "damageType": "magical",
             "amounts": "$shadowraze_damage"
+          },
+          {
+            "kind": "damage",
+            "damageType": "magical",
+            "scaling": "perTargetStack",
+            "stackKey": "nevermore_shadowraze_debuff",
+            "amounts": "$stack_bonus_damage"
+          },
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "nevermore_shadowraze_debuff",
+              "duration": "$duration",
+              "stacking": true
+            }
           }
         ]
       }
@@ -3131,8 +3235,7 @@
     ]
   },
   "bane_brain_sap": {
-    "status": "simplified",
-    "note": "damage only: no heal for Bane",
+    "status": "full",
     "targeting": "unit",
     "targetTeam": "enemy",
     "effects": [
@@ -3140,6 +3243,15 @@
         "kind": "damage",
         "damageType": "pure",
         "amounts": "$brain_sap_damage"
+      },
+      {
+        "kind": "onCaster",
+        "effects": [
+          {
+            "kind": "heal",
+            "amounts": "$brain_sap_damage"
+          }
+        ]
       }
     ]
   },
@@ -3415,7 +3527,7 @@
   },
   "centaur_double_edge": {
     "status": "simplified",
-    "note": "the flat damage only: no strength damage, no damage to Centaur",
+    "note": "no damage to Centaur himself",
     "targeting": "unit",
     "targetTeam": "enemy",
     "effects": [
@@ -3429,6 +3541,12 @@
             "kind": "damage",
             "damageType": "magical",
             "amounts": "$edge_damage"
+          },
+          {
+            "kind": "damage",
+            "damageType": "magical",
+            "scaling": "casterStrengthPercent",
+            "amounts": "$strength_damage"
           }
         ]
       }
@@ -3501,7 +3619,7 @@
   },
   "viper_poison_attack": {
     "status": "simplified",
-    "note": "always on, without mana cost; no stacks",
+    "note": "always on, without mana cost; the stacks share one duration",
     "targeting": "passive",
     "targetTeam": "ally",
     "passive": {
@@ -3510,9 +3628,19 @@
         {
           "kind": "modifier",
           "modifiers": {
-            "key": "viper_poison_attack_debuff",
+            "key": "viper_poison_attack_poison",
             "duration": "$duration",
             "damagePerSecond": "$damage",
+            "damageType": "magical"
+          }
+        },
+        {
+          "kind": "modifier",
+          "modifiers": {
+            "key": "viper_poison_attack_debuff",
+            "duration": "$duration",
+            "stacking": true,
+            "maxStacks": "$max_stacks",
             "moveSpeedPercent": "-$movement_speed",
             "magicResist": "-$magic_resistance"
           }
@@ -3522,12 +3650,24 @@
   },
   "viper_corrosive_skin": {
     "status": "simplified",
-    "note": "the magic resistance only: no damage and slow to attackers",
+    "note": "triggered by attacks landing on Viper only (not by spell damage), at any distance (1200 in Dota)",
     "targeting": "passive",
     "targetTeam": "ally",
     "passive": {
       "key": "viper_corrosive_skin",
-      "magicResist": "$bonus_magic_resistance"
+      "magicResist": "$bonus_magic_resistance",
+      "whenAttacked": [
+        {
+          "kind": "modifier",
+          "modifiers": {
+            "key": "viper_corrosive_skin_debuff",
+            "duration": "$duration",
+            "damagePerSecond": "$damage",
+            "damageType": "magical",
+            "attackSpeed": "-$bonus_attack_speed"
+          }
+        }
+      ]
     }
   },
   "viper_viper_strike": {
@@ -4113,7 +4253,7 @@
   },
   "spirit_breaker_greater_bash": {
     "status": "simplified",
-    "note": "stun and knockback only: no damage from movement speed, no 1.2 s proc cooldown, no movement speed bonus",
+    "note": "stun, knockback and the movement speed bonus: no damage from movement speed, no 1.2 s proc cooldown (the cooldown is not a data value the map can refer to)",
     "targeting": "passive",
     "targetTeam": "ally",
     "passive": {
@@ -4133,6 +4273,19 @@
               "stunned"
             ]
           }
+        },
+        {
+          "kind": "onCaster",
+          "effects": [
+            {
+              "kind": "modifier",
+              "modifiers": {
+                "key": "spirit_breaker_greater_bash_speed",
+                "duration": "$movespeed_duration",
+                "moveSpeedPercent": "$bonus_movespeed_pct"
+              }
+            }
+          ]
         }
       ]
     }
@@ -4537,7 +4690,7 @@
   },
   "huskar_burning_spear": {
     "status": "simplified",
-    "note": "always on, without the health cost; no stacks (each attack refreshes the burn)",
+    "note": "always on, without the health cost; stacks share one duration refreshed by each attack (in Dota each stack has its own timer)",
     "targeting": "passive",
     "targetTeam": "ally",
     "passive": {
@@ -4548,7 +4701,8 @@
           "modifiers": {
             "key": "huskar_burning_spear_burn",
             "duration": "$duration",
-            "damagePerSecond": "$burn_damage"
+            "damagePerSecond": "$burn_damage",
+            "stacking": true
           }
         }
       ]
@@ -4990,8 +5144,7 @@
     ]
   },
   "skywrath_mage_arcane_bolt": {
-    "status": "simplified",
-    "note": "base damage only: no intelligence-based damage",
+    "status": "full",
     "targeting": "unit",
     "targetTeam": "enemy",
     "effects": [
@@ -5003,6 +5156,12 @@
             "kind": "damage",
             "damageType": "magical",
             "amounts": "$bolt_damage"
+          },
+          {
+            "kind": "damage",
+            "damageType": "magical",
+            "scaling": "casterIntelligencePercent",
+            "amounts": "$int_multiplier*100"
           }
         ]
       }
@@ -5114,7 +5273,7 @@
   },
   "morphling_adaptive_strike_agi": {
     "status": "simplified",
-    "note": "base damage only, without the agility multiplier; always the minimum stun and knockback (no agility/strength comparison)",
+    "note": "always the agility-heavy case: the maximum agility multiplier (written as a percent) with the minimum stun and knockback (no agility/strength comparison)",
     "targeting": "unit",
     "targetTeam": "enemy",
     "effects": [
@@ -5126,6 +5285,12 @@
             "kind": "damage",
             "damageType": "magical",
             "amounts": "$damage_base"
+          },
+          {
+            "kind": "damage",
+            "damageType": "magical",
+            "scaling": "casterAgilityPercent",
+            "amounts": "$damage_max*100"
           },
           {
             "kind": "knockback",
@@ -5420,10 +5585,14 @@
   },
   "tusk_walrus_punch": {
     "status": "simplified",
-    "note": "cast as a spell instead of an autocast attack modifier; the bonus damage only, without the critical attack; the air time as a stun; no slow after landing",
+    "note": "cast as a spell instead of an autocast attack modifier; the bonus damage is added after the critical attack instead of being multiplied by it; the air time as a stun; no slow after landing",
     "targeting": "unit",
     "targetTeam": "enemy",
     "effects": [
+      {
+        "kind": "attack",
+        "amounts": "$crit_multiplier"
+      },
       {
         "kind": "damage",
         "damageType": "physical",
@@ -5694,7 +5863,7 @@
   },
   "undying_decay": {
     "status": "simplified",
-    "note": "no double damage to creeps; stolen strength does not stack between casts and Undying gains it as from one hero",
+    "note": "no double damage to creeps; stolen strength stacks share one duration (independent timers in Dota)",
     "targeting": "point",
     "targetTeam": "enemy",
     "effects": [
@@ -5723,18 +5892,25 @@
             "modifiers": {
               "key": "undying_decay_debuff",
               "duration": "$abilityduration",
+              "stacking": true,
               "strength": "-$str_steal"
             }
+          },
+          {
+            "kind": "onCaster",
+            "effects": [
+              {
+                "kind": "modifier",
+                "modifiers": {
+                  "key": "undying_decay_buff",
+                  "duration": "$abilityduration",
+                  "stacking": true,
+                  "strength": "$str_steal"
+                }
+              }
+            ]
           }
         ]
-      },
-      {
-        "kind": "modifier",
-        "modifiers": {
-          "key": "undying_decay_buff",
-          "duration": "$abilityduration",
-          "strength": "$str_steal"
-        }
       }
     ]
   },
@@ -5876,16 +6052,11 @@
   },
   "monkey_king_boundless_strike": {
     "status": "simplified",
-    "note": "unit-targeted: the target only instead of a line; the flat bonus damage only, without the critical attack",
+    "note": "unit-targeted: the target only instead of a line; the flat bonus damage is added after the critical attack instead of being multiplied by it; no True Strike",
     "targeting": "unit",
     "targetTeam": "enemy",
     "castRange": "$strike_cast_range",
     "effects": [
-      {
-        "kind": "damage",
-        "damageType": "physical",
-        "amounts": "$strike_flat_damage"
-      },
       {
         "kind": "modifier",
         "modifiers": {
@@ -5895,6 +6066,15 @@
             "stunned"
           ]
         }
+      },
+      {
+        "kind": "attack",
+        "amounts": "$strike_crit_mult"
+      },
+      {
+        "kind": "damage",
+        "damageType": "physical",
+        "amounts": "$strike_flat_damage"
       }
     ]
   },
@@ -6510,7 +6690,7 @@
   },
   "sniper_assassinate": {
     "status": "simplified",
-    "note": "the bonus damage only, without Sniper's attack damage; no mini-stun; no refresh on a kill",
+    "note": "Sniper's attack (with its on-hit effects) plus the bonus damage on arrival; no mini-stun (no duration in the data); no refresh on a kill",
     "targeting": "unit",
     "targetTeam": "enemy",
     "effects": [
@@ -6518,6 +6698,10 @@
         "kind": "projectile",
         "speed": "$projectile_speed",
         "effects": [
+          {
+            "kind": "attack",
+            "amounts": "$attack_factor_tooltip"
+          },
           {
             "kind": "damage",
             "damageType": "magical",
@@ -7454,8 +7638,7 @@
     ]
   },
   "phantom_assassin_stifling_dagger": {
-    "status": "simplified",
-    "note": "the base damage only: no part of the attack damage, no attack effects",
+    "status": "full",
     "targeting": "unit",
     "targetTeam": "enemy",
     "effects": [
@@ -7463,6 +7646,10 @@
         "kind": "projectile",
         "speed": "$dagger_speed",
         "effects": [
+          {
+            "kind": "attack",
+            "amounts": "$attack_factor_tooltip"
+          },
           {
             "kind": "damage",
             "damageType": "physical",
@@ -7482,13 +7669,26 @@
   },
   "phantom_assassin_phantom_strike": {
     "status": "simplified",
-    "note": "enemies only; no attack speed bonus; one charge (the charge restore time as the cooldown)",
+    "note": "enemies only; one charge (the charge restore time as the cooldown); the attack speed bonus lasts its duration whether or not Phantom Assassin attacks",
     "targeting": "unit",
     "targetTeam": "enemy",
     "cooldown": "$charge_restore_time",
     "effects": [
       {
         "kind": "dash"
+      },
+      {
+        "kind": "onCaster",
+        "effects": [
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "phantom_assassin_phantom_strike",
+              "duration": "$duration",
+              "attackSpeed": "$bonus_attack_speed"
+            }
+          }
+        ]
       }
     ]
   },
@@ -8409,7 +8609,7 @@
   },
   "meepo_ransack": {
     "status": "simplified",
-    "note": "damage only: no heal for the Meepos; full amount against creeps (60% in Dota)",
+    "note": "heals the attacking Meepo only (no clones); full amount against creeps (60% in Dota)",
     "targeting": "passive",
     "targetTeam": "ally",
     "passive": {
@@ -8419,6 +8619,15 @@
           "kind": "damage",
           "damageType": "pure",
           "amounts": "$health_steal_heroes"
+        },
+        {
+          "kind": "onCaster",
+          "effects": [
+            {
+              "kind": "heal",
+              "amounts": "$health_steal_heroes"
+            }
+          ]
         }
       ]
     }
@@ -8608,8 +8817,7 @@
     ]
   },
   "bristleback_viscous_nasal_goo": {
-    "status": "simplified",
-    "note": "one stack at the base values: no stacking of armor reduction and slow",
+    "status": "full",
     "targeting": "unit",
     "targetTeam": "enemy",
     "effects": [
@@ -8625,6 +8833,17 @@
               "armor": "-$base_armor",
               "moveSpeedPercent": "-$base_move_slow"
             }
+          },
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "bristleback_viscous_nasal_goo_stack",
+              "duration": "$goo_duration",
+              "stacking": true,
+              "maxStacks": "$stack_limit",
+              "armor": "-$armor_per_stack",
+              "moveSpeedPercent": "-$move_slow_per_stack"
+            }
           }
         ]
       }
@@ -8632,7 +8851,7 @@
   },
   "bristleback_quill_spray": {
     "status": "simplified",
-    "note": "base damage only: no bonus from recent quill hits; no autocast",
+    "note": "quill stacks share one duration (independent per-hit timers in Dota); no cap of the total damage at max_damage; no autocast",
     "targeting": "noTarget",
     "targetTeam": "enemy",
     "effects": [
@@ -8646,6 +8865,22 @@
             "kind": "damage",
             "damageType": "physical",
             "amounts": "$quill_base_damage"
+          },
+          {
+            "kind": "damage",
+            "damageType": "physical",
+            "scaling": "perTargetStack",
+            "stackKey": "bristleback_quill_spray_stack",
+            "amounts": "$quill_stack_damage"
+          },
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "bristleback_quill_spray_stack",
+              "duration": "$quill_stack_duration",
+              "stacking": true,
+              "dispellable": false
+            }
           }
         ]
       }
@@ -9178,7 +9413,7 @@
   },
   "omniknight_hammer_of_purity": {
     "status": "simplified",
-    "note": "cast to charge the next attack instead of an autocast attack modifier; the flat bonus damage only (no percent of base damage), no heal, no range bonus",
+    "note": "cast to charge the next attack instead of an autocast attack modifier; the percent part is of the whole attack damage (base damage only in Dota); no heal, no range bonus",
     "targeting": "noTarget",
     "targetTeam": "ally",
     "effects": [
@@ -9188,6 +9423,12 @@
           "key": "omniknight_hammer_of_purity",
           "consumedOnHit": true,
           "onHit": [
+            {
+              "kind": "damage",
+              "damageType": "pure",
+              "scaling": "casterAttackDamagePercent",
+              "amounts": "$base_damage"
+            },
             {
               "kind": "damage",
               "damageType": "pure",
@@ -9445,7 +9686,7 @@
   },
   "visage_grave_chill": {
     "status": "simplified",
-    "note": "a slow only: nothing is stolen",
+    "note": "Visage gains the drained speed himself; his familiars do not",
     "targeting": "unit",
     "targetTeam": "enemy",
     "effects": [
@@ -9457,6 +9698,20 @@
           "moveSpeedPercent": "-$movespeed_bonus",
           "attackSpeed": "-$attackspeed_bonus"
         }
+      },
+      {
+        "kind": "onCaster",
+        "effects": [
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "visage_grave_chill_gain",
+              "duration": "$chill_duration",
+              "moveSpeedPercent": "$movespeed_bonus",
+              "attackSpeed": "$attackspeed_bonus"
+            }
+          }
+        ]
       }
     ]
   },
@@ -9518,7 +9773,7 @@
   },
   "abaddon_frostmourne": {
     "status": "simplified",
-    "note": "no attack speed bonus for units attacking the cursed target",
+    "note": "the attack speed bonus is a buff of the curse duration on whoever attacks the cursed target (in Dota it applies to attacks against the cursed unit); the curse damage is not reduced against buildings",
     "targeting": "passive",
     "targetTeam": "ally",
     "passive": {
@@ -9532,7 +9787,17 @@
             "moveSpeedPercent": "-$curse_slow",
             "damagePerSecond": "$curse_dps",
             "damageType": "magical",
-            "period": "$curse_interval"
+            "period": "$curse_interval",
+            "whenAttacked": [
+              {
+                "kind": "modifier",
+                "modifiers": {
+                  "key": "abaddon_frostmourne_buff",
+                  "duration": "$curse_duration",
+                  "attackSpeed": "$curse_attack_speed"
+                }
+              }
+            ]
           }
         }
       ]
@@ -9737,6 +10002,467 @@
           "healthRegen": "$heal_rate"
         }
       }
+    }
+  },
+  "razor_storm_surge": {
+    "status": "simplified",
+    "note": "strikes the attacker only (no fork to other nearby enemies); not triggered by spells targeting Razor",
+    "targeting": "passive",
+    "targetTeam": "ally",
+    "passive": {
+      "key": "razor_storm_surge",
+      "whenAttackedChance": "$strike_pct_chance",
+      "procCooldown": "$strike_internal_cd",
+      "whenAttacked": [
+        {
+          "kind": "damage",
+          "damageType": "magical",
+          "amounts": "$strike_damage"
+        },
+        {
+          "kind": "modifier",
+          "modifiers": {
+            "key": "razor_storm_surge_slow",
+            "duration": "$strike_slow_duration",
+            "moveSpeedPercent": "-$strike_move_slow_pct"
+          }
+        }
+      ]
+    }
+  },
+  "batrider_sticky_napalm": {
+    "status": "simplified",
+    "note": "each cast adds one stack worth the data's stacks_per_cast stacks (damage per stack x stacks_per_cast, max stacks / stacks_per_cast); amplifies Batrider's attacks only, not his abilities; no movement or turn-rate slow (fractional percents); no reduced bonus against creeps; stacks share one duration",
+    "targeting": "point",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "area",
+        "radius": "$radius",
+        "center": "point",
+        "team": "enemy",
+        "effects": [
+          {
+            "kind": "damage",
+            "damageType": "magical",
+            "amounts": "$application_damage"
+          },
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "batrider_sticky_napalm",
+              "duration": "$duration",
+              "stacking": true,
+              "maxStacks": "$max_stacks/$stacks_per_cast"
+            }
+          }
+        ]
+      },
+      {
+        "kind": "modifier",
+        "modifiers": {
+          "key": "batrider_sticky_napalm_attacks",
+          "duration": "$duration",
+          "onHit": [
+            {
+              "kind": "damage",
+              "damageType": "magical",
+              "scaling": "perTargetStack",
+              "stackKey": "batrider_sticky_napalm",
+              "amounts": "$damage*$stacks_per_cast"
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "ursa_fury_swipes": {
+    "status": "full",
+    "targeting": "passive",
+    "targetTeam": "ally",
+    "passive": {
+      "key": "ursa_fury_swipes",
+      "onHit": [
+        {
+          "kind": "modifier",
+          "modifiers": {
+            "key": "ursa_fury_swipes_debuff",
+            "duration": "$bonus_reset_time",
+            "stacking": true
+          }
+        },
+        {
+          "kind": "damage",
+          "damageType": "physical",
+          "scaling": "perTargetStack",
+          "stackKey": "ursa_fury_swipes_debuff",
+          "amounts": "$damage_per_stack"
+        }
+      ]
+    }
+  },
+  "kez_echo_slash": {
+    "status": "simplified",
+    "note": "a circle of the katana radius at the point instead of an 800-long line; both strikes land at once as one attack of twice the echo percentage, with the hero bonus doubled; Kez does not travel forward",
+    "targeting": "point",
+    "targetTeam": "enemy",
+    "castRange": "$katana_distance",
+    "effects": [
+      {
+        "kind": "area",
+        "radius": "$katana_radius",
+        "center": "point",
+        "team": "enemy",
+        "effects": [
+          {
+            "kind": "attack",
+            "amounts": "$katana_echo_damage*$katana_strikes"
+          },
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "kez_echo_slash",
+              "duration": "$tag_slow_duration",
+              "moveSpeedPercent": "-$tag_slow"
+            }
+          }
+        ]
+      },
+      {
+        "kind": "area",
+        "radius": "$katana_radius",
+        "center": "point",
+        "team": "enemy",
+        "heroesOnly": true,
+        "effects": [
+          {
+            "kind": "damage",
+            "damageType": "physical",
+            "amounts": "$echo_hero_damage*$katana_strikes"
+          }
+        ]
+      }
+    ]
+  },
+  "kez_kazurai_katana": {
+    "status": "simplified",
+    "note": "passive only: the bleed lands at once with each attack as physical damage of its percentage of the attack damage (a stacking 7 s bleed in Dota); no active impale and burst; not applied by abilities; always on (no weapon switch)",
+    "targeting": "passive",
+    "targetTeam": "ally",
+    "passive": {
+      "key": "kez_kazurai_katana",
+      "onHit": [
+        {
+          "kind": "damage",
+          "damageType": "physical",
+          "scaling": "casterAttackDamagePercent",
+          "amounts": "$katana_bleed_attack_damage_pct"
+        }
+      ]
+    }
+  },
+  "riki_innate_backstab": {
+    "status": "simplified",
+    "note": "every attack counts as from behind (the engine has no facing); the multiplier (0.55 x agility) is written as a percent",
+    "targeting": "passive",
+    "targetTeam": "ally",
+    "passive": {
+      "key": "riki_innate_backstab",
+      "onHit": [
+        {
+          "kind": "damage",
+          "damageType": "physical",
+          "scaling": "casterAgilityPercent",
+          "amounts": "$damage_multiplier*100"
+        }
+      ]
+    }
+  },
+  "gyrocopter_afterburner": {
+    "status": "simplified",
+    "note": "attacks only (not abilities); creeps give the hero amount; stacks share one duration (independent per hit in Dota)",
+    "targeting": "passive",
+    "targetTeam": "ally",
+    "passive": {
+      "key": "gyrocopter_afterburner",
+      "onHit": [
+        {
+          "kind": "onCaster",
+          "effects": [
+            {
+              "kind": "modifier",
+              "modifiers": {
+                "key": "gyrocopter_afterburner_speed",
+                "duration": "$bonus_movespeed_duration",
+                "stacking": true,
+                "moveSpeedPercent": "$bonus_movement_speed_per_hit"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "lion_mana_drain": {
+    "status": "simplified",
+    "note": "enemies only; not channelled: the whole drain at once, Lion gains the full amount even if the target has less mana; the slow lasts the drain duration without the extra slow on an empty target",
+    "targeting": "unit",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "manaBurn",
+        "damageType": "magical",
+        "amounts": "$mana_per_second*$duration"
+      },
+      {
+        "kind": "modifier",
+        "modifiers": {
+          "key": "lion_mana_drain",
+          "duration": "$duration",
+          "moveSpeedPercent": "-$movespeed"
+        }
+      },
+      {
+        "kind": "onCaster",
+        "effects": [
+          {
+            "kind": "restoreMana",
+            "amounts": "$mana_per_second*$duration"
+          }
+        ]
+      }
+    ]
+  },
+  "drow_ranger_multishot": {
+    "status": "simplified",
+    "note": "not channelled: all waves land at once as one attack of wave count x arrow percentage on every enemy in a circle of 475 at the point (a 50-degree cone of attack range + 475 in Dota); no slow self movement",
+    "targeting": "point",
+    "targetTeam": "enemy",
+    "castRange": "$arrow_range_base",
+    "effects": [
+      {
+        "kind": "area",
+        "radius": "$arrow_range_base",
+        "center": "point",
+        "team": "enemy",
+        "effects": [
+          {
+            "kind": "attack",
+            "amounts": "$arrow_damage_pct*$wave_count"
+          }
+        ]
+      }
+    ]
+  },
+  "legion_commander_moment_of_courage": {
+    "status": "simplified",
+    "note": "counter-attacks the unit whose attack completed the count (not her current attack target); no 0.3 s internal cooldown (not among the data's attributes); the lifesteal buff is spent by the counter-attack",
+    "targeting": "passive",
+    "targetTeam": "ally",
+    "passive": {
+      "key": "legion_commander_moment_of_courage",
+      "whenAttackedEvery": "$trigger_attacks",
+      "whenAttacked": [
+        {
+          "kind": "onCaster",
+          "effects": [
+            {
+              "kind": "modifier",
+              "modifiers": {
+                "key": "legion_commander_moment_of_courage_lifesteal",
+                "duration": "$buff_duration",
+                "lifesteal": "$hp_leech_percent",
+                "consumedOnHit": true
+              }
+            }
+          ]
+        },
+        {
+          "kind": "attack",
+          "amounts": "$secondary_attack_damage"
+        }
+      ]
+    }
+  },
+  "silencer_glaives_of_wisdom": {
+    "status": "simplified",
+    "note": "always on, without mana cost; no Intelligence steal (heroes only in Dota, the engine cannot restrict an on-hit effect to heroes)",
+    "targeting": "passive",
+    "targetTeam": "ally",
+    "passive": {
+      "key": "silencer_glaives_of_wisdom",
+      "onHit": [
+        {
+          "kind": "damage",
+          "damageType": "magical",
+          "scaling": "casterIntelligencePercent",
+          "amounts": "$intellect_damage_pct"
+        }
+      ]
+    }
+  },
+  "clinkz_burning_barrage": {
+    "status": "simplified",
+    "note": "the arrows land at once on every enemy in a circle at the point instead of a line, as one attack of all the arrows' combined percent (attack effects apply once instead of per arrow); no channel",
+    "targeting": "point",
+    "targetTeam": "enemy",
+    "castRange": "$range",
+    "effects": [
+      {
+        "kind": "area",
+        "radius": "$projectile_width",
+        "center": "point",
+        "team": "enemy",
+        "effects": [
+          {
+            "kind": "attack",
+            "amounts": "$damage_pct*$wave_count"
+          }
+        ]
+      }
+    ]
+  },
+  "mars_gods_rebuke": {
+    "status": "simplified",
+    "note": "a full circle around Mars instead of the 140-degree cone in front; the crit as an attack of that percent of the attack damage; no bonus damage against heroes, no True Strike",
+    "targeting": "point",
+    "targetTeam": "enemy",
+    "castRange": "$radius",
+    "effects": [
+      {
+        "kind": "area",
+        "radius": "$radius",
+        "center": "caster",
+        "team": "enemy",
+        "effects": [
+          {
+            "kind": "attack",
+            "amounts": "$crit_mult"
+          },
+          {
+            "kind": "knockback",
+            "amounts": "$knockback_distance"
+          },
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "mars_gods_rebuke_slow",
+              "duration": "$knockback_slow_duration",
+              "moveSpeedPercent": "-$knockback_slow"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "axe_counter_helix": {
+    "status": "simplified",
+    "note": "no 0.3 s internal cooldown (not a data value); only attacks that land are counted",
+    "targeting": "passive",
+    "targetTeam": "ally",
+    "passive": {
+      "key": "axe_counter_helix",
+      "whenAttackedEvery": "$trigger_attacks",
+      "whenAttacked": [
+        {
+          "kind": "area",
+          "radius": "$radius",
+          "center": "caster",
+          "team": "enemy",
+          "effects": [
+            {
+              "kind": "damage",
+              "damageType": "pure",
+              "amounts": "$damage"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "centaur_return": {
+    "status": "simplified",
+    "note": "full damage to towers (half in Dota)",
+    "targeting": "passive",
+    "targetTeam": "ally",
+    "passive": {
+      "key": "centaur_return",
+      "whenAttacked": [
+        {
+          "kind": "damage",
+          "damageType": "physical",
+          "amounts": "$return_damage"
+        },
+        {
+          "kind": "damage",
+          "damageType": "physical",
+          "scaling": "casterStrengthPercent",
+          "amounts": "$return_damage_str"
+        }
+      ]
+    }
+  },
+  "shredder_reactive_armor": {
+    "status": "simplified",
+    "note": "a hero attack adds one stack (four in Dota); the stacks share one duration instead of expiring one by one",
+    "targeting": "passive",
+    "targetTeam": "ally",
+    "passive": {
+      "key": "shredder_reactive_armor",
+      "whenAttacked": [
+        {
+          "kind": "onCaster",
+          "effects": [
+            {
+              "kind": "modifier",
+              "modifiers": {
+                "key": "shredder_reactive_armor_stack",
+                "duration": "$stack_duration",
+                "stacking": true,
+                "maxStacks": "$stack_limit",
+                "armor": "$bonus_armor",
+                "healthRegen": "$bonus_hp_regen"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "slark_essence_shift": {
+    "status": "simplified",
+    "note": "innate at its base values; procs on every attacked unit, not only heroes (creeps also give Agility); the stacks share one duration; no permanent Agility steal on a kill",
+    "targeting": "passive",
+    "targetTeam": "ally",
+    "passive": {
+      "key": "slark_essence_shift",
+      "onHit": [
+        {
+          "kind": "modifier",
+          "modifiers": {
+            "key": "slark_essence_shift_debuff",
+            "duration": "$duration",
+            "stacking": true,
+            "strength": "-$stat_loss",
+            "agility": "-$stat_loss",
+            "intelligence": "-$stat_loss"
+          }
+        },
+        {
+          "kind": "onCaster",
+          "effects": [
+            {
+              "kind": "modifier",
+              "modifiers": {
+                "key": "slark_essence_shift_buff",
+                "duration": "$duration",
+                "stacking": true,
+                "agility": "$agi_gain"
+              }
+            }
+          ]
+        }
+      ]
     }
   }
 }

@@ -65,6 +65,12 @@ namespace Dynasty.MatchSimulation.Rules
 
         /// <summary>The caster instantly attacks the target with a percent (amounts) of its attack damage; the attack's on-hit effects apply.</summary>
         Attack = 13,
+
+        /// <summary>Leaves a zone on the ground (radius, team, duration) that runs the inner effects on the units inside every period.</summary>
+        Zone = 14,
+
+        /// <summary>Pulls the target toward the caster or the point (<see cref="EffectDefinition.Center"/>) by up to the amounts, without passing it.</summary>
+        Pull = 15,
     }
 
     /// <summary>What a damage effect's amounts mean: flat damage, or a percent of the target's health or mana.</summary>
@@ -117,8 +123,10 @@ namespace Dynasty.MatchSimulation.Rules
             int speed = 0,
             DamageScaling scaling = DamageScaling.Flat,
             int damagePercent = 0,
-            string? stackKey = null)
+            string? stackKey = null,
+            int periodMs = 0)
         {
+            PeriodMs = periodMs;
             StackKey = stackKey;
             Scaling = scaling;
             DamagePercent = damagePercent;
@@ -175,6 +183,9 @@ namespace Dynasty.MatchSimulation.Rules
         /// <summary>Damage per stack: the key of the stacking modifier counted on the target.</summary>
         public string? StackKey { get; }
 
+        /// <summary>Zones only: time between pulses.</summary>
+        public int PeriodMs { get; }
+
         public static EffectDefinition Damage(DamageType type, params int[] perLevel) =>
             new EffectDefinition(EffectKind.Damage, perLevel, type);
 
@@ -196,6 +207,14 @@ namespace Dynasty.MatchSimulation.Rules
 
         /// <summary>An instant attack with the given percent of the attack's damage per level (100 = a normal attack).</summary>
         public static EffectDefinition Attack(params int[] damagePercentPerLevel) => new EffectDefinition(EffectKind.Attack, damagePercentPerLevel);
+
+        /// <summary>A zone at the caster, the target or the point that runs <paramref name="inner"/> on the units of <paramref name="team"/> inside every period.</summary>
+        public static EffectDefinition Zone(int radius, AreaCenter center, TargetTeam team, int durationMs, int periodMs, params EffectDefinition[] inner) =>
+            new EffectDefinition(EffectKind.Zone, radius: radius, center: center, team: team, durationMs: durationMs, periodMs: periodMs, inner: inner);
+
+        /// <summary>Pulls the target toward the caster or the point by up to the distance (per level).</summary>
+        public static EffectDefinition Pull(AreaCenter toward, params int[] distancePerLevel) =>
+            new EffectDefinition(EffectKind.Pull, distancePerLevel, center: toward);
 
         public static EffectDefinition RestoreMana(params int[] manaPerLevel) => new EffectDefinition(EffectKind.RestoreMana, manaPerLevel);
 
@@ -267,6 +286,7 @@ namespace Dynasty.MatchSimulation.Rules
             w.WriteInt64((int)Scaling);
             w.WriteInt64(DamagePercent);
             w.WriteString(StackKey ?? "");
+            w.WriteInt64(PeriodMs);
             w.WriteInt64(Inner.Count);
             foreach (EffectDefinition child in Inner)
                 child.WriteCanonical(w);
