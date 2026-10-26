@@ -180,7 +180,13 @@ namespace Dynasty.Content
             switch (e.String("kind"))
             {
                 case "damage":
-                    effect = EffectDefinition.Damage(ReadDamageType(e, "damageType"), e.Ints("amounts").ToArray());
+                    DamageScaling scaling = e.Has("scaling") ? ReadScaling(e, "scaling") : DamageScaling.Flat;
+                    effect = scaling == DamageScaling.Flat
+                        ? EffectDefinition.Damage(ReadDamageType(e, "damageType"), e.Ints("amounts").ToArray())
+                        : EffectDefinition.ScaledDamage(ReadDamageType(e, "damageType"), scaling, e.Hundredths("amounts").ToArray());
+                    break;
+                case "manaBurn":
+                    effect = EffectDefinition.ManaBurn(e.OptionalInt("damagePercent") ?? 0, ReadDamageType(e, "damageType"), e.Ints("amounts").ToArray());
                     break;
                 case "heal":
                     effect = EffectDefinition.Heal(e.Ints("amounts").ToArray());
@@ -236,6 +242,16 @@ namespace Dynasty.Content
             _ => throw r.Error(field, "expected physical, magical or pure"),
         };
 
+        private static DamageScaling ReadScaling(Reader r, string field) => r.String(field) switch
+        {
+            "flat" => DamageScaling.Flat,
+            "targetMaxHealthPercent" => DamageScaling.TargetMaxHealthPercent,
+            "targetMissingHealthPercent" => DamageScaling.TargetMissingHealthPercent,
+            "targetMissingManaPercent" => DamageScaling.TargetMissingManaPercent,
+            "targetCurrentHealthPercent" => DamageScaling.TargetCurrentHealthPercent,
+            _ => throw r.Error(field, "expected flat, targetMaxHealthPercent, targetMissingHealthPercent, targetCurrentHealthPercent or targetMissingManaPercent"),
+        };
+
         private static ModifierFlags ReadFlag(Reader r, string flag) => flag switch
         {
             "stunned" => ModifierFlags.Stunned,
@@ -269,7 +285,8 @@ namespace Dynasty.Content
                 incomingDamagePercent: m.OptionalInt("incomingDamagePercent") ?? 0, attackDamagePercent: m.OptionalInt("attackDamagePercent") ?? 0,
                 evasionPercent: m.OptionalInt("evasion") ?? 0, onHit: m.OptionalArray("onHit").Select(ReadEffect).ToList(),
                 onHitChancePercent: m.OptionalInt("onHitChance") ?? 100, aura: m.OptionalObject("aura") is Reader a ? ReadAura(a) : null,
-                cleavePercent: m.OptionalInt("cleavePercent") ?? 0, cleaveRadius: m.OptionalInt("cleaveRadius") ?? 0, barrier: m.OptionalInt("barrier") ?? 0, consumedOnHit: m.OptionalBool("consumedOnHit") ?? false);
+                cleavePercent: m.OptionalInt("cleavePercent") ?? 0, cleaveRadius: m.OptionalInt("cleaveRadius") ?? 0, barrier: m.OptionalInt("barrier") ?? 0, consumedOnHit: m.OptionalBool("consumedOnHit") ?? false,
+                damagePerSecondMaxHealthPercent: m.OptionalFixed("damagePerSecondMaxHealthPercent") ?? Fixed.Zero);
             m.RejectUnknown();
             return spec;
         }
@@ -362,6 +379,10 @@ namespace Dynasty.Content
 
             /// <summary>Seconds per level in the document, milliseconds in the ruleset.</summary>
             public IReadOnlyList<int> Seconds(string field) => Read(field, v => ItemsOf(v).Select(i => ToMilliseconds(i.AsFixed())).ToList());
+
+            /// <summary>Percents per level in the document, hundredths of a percent in the ruleset.</summary>
+            public IReadOnlyList<int> Hundredths(string field) => Read(field, v => ItemsOf(v)
+                .Select(i => (i.AsFixed() * Dynasty.Core.Mathematics.Fixed.FromInt(100) + Dynasty.Core.Mathematics.Fixed.FromRatio(1, 2)).ToIntFloor()).ToList());
 
             public IReadOnlyList<string> Strings(string field) => Read(field, v => ItemsOf(v).Select(i => i.AsString()).ToList());
 

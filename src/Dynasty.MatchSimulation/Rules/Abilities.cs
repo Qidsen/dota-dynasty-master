@@ -53,6 +53,19 @@ namespace Dynasty.MatchSimulation.Rules
 
         /// <summary>Launches a homing projectile at the target; the inner effects apply on arrival. Dodged by disjoints.</summary>
         Projectile = 9,
+
+        /// <summary>Burns the target's mana (amounts) and deals <see cref="EffectDefinition.DamagePercent"/> of the mana burnt as damage.</summary>
+        ManaBurn = 10,
+    }
+
+    /// <summary>What a damage effect's amounts mean: flat damage, or a percent of the target's health or mana.</summary>
+    public enum DamageScaling
+    {
+        Flat = 0,
+        TargetMaxHealthPercent = 1,
+        TargetMissingHealthPercent = 2,
+        TargetMissingManaPercent = 3,
+        TargetCurrentHealthPercent = 4,
     }
 
     public enum AreaCenter
@@ -82,8 +95,12 @@ namespace Dynasty.MatchSimulation.Rules
             bool atPoint = false,
             bool heroesOnly = false,
             bool strong = false,
-            int speed = 0)
+            int speed = 0,
+            DamageScaling scaling = DamageScaling.Flat,
+            int damagePercent = 0)
         {
+            Scaling = scaling;
+            DamagePercent = damagePercent;
             Speed = speed;
             AtPoint = atPoint;
             HeroesOnly = heroesOnly;
@@ -128,10 +145,24 @@ namespace Dynasty.MatchSimulation.Rules
         /// <summary>Projectiles only: travel speed in units per second.</summary>
         public int Speed { get; }
 
+        /// <summary>Damage effects: how the amounts scale (flat by default).</summary>
+        public DamageScaling Scaling { get; }
+
+        /// <summary>Mana burn: percent of the mana burnt dealt as damage.</summary>
+        public int DamagePercent { get; }
+
         public static EffectDefinition Damage(DamageType type, params int[] perLevel) =>
             new EffectDefinition(EffectKind.Damage, perLevel, type);
 
         public static EffectDefinition Heal(params int[] perLevel) => new EffectDefinition(EffectKind.Heal, perLevel);
+
+        /// <summary>Damage as a percent (per level, in hundredths of a percent) of the target's max, missing or current health or missing mana.</summary>
+        public static EffectDefinition ScaledDamage(DamageType type, DamageScaling scaling, params int[] percentPerLevel) =>
+            new EffectDefinition(EffectKind.Damage, percentPerLevel, type, scaling: scaling);
+
+        /// <summary>Burns mana (per level) and deals the given percent of the mana burnt as damage.</summary>
+        public static EffectDefinition ManaBurn(int damagePercent, DamageType type, params int[] manaPerLevel) =>
+            new EffectDefinition(EffectKind.ManaBurn, manaPerLevel, type, damagePercent: damagePercent);
 
         public static EffectDefinition Modifier(params ModifierSpec[] perLevel) =>
             new EffectDefinition(EffectKind.ApplyModifier, modifiers: perLevel);
@@ -198,6 +229,8 @@ namespace Dynasty.MatchSimulation.Rules
             w.WriteBool(HeroesOnly);
             w.WriteBool(Strong);
             w.WriteInt64(Speed);
+            w.WriteInt64((int)Scaling);
+            w.WriteInt64(DamagePercent);
             w.WriteInt64(Inner.Count);
             foreach (EffectDefinition child in Inner)
                 child.WriteCanonical(w);

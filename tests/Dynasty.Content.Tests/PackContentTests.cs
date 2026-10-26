@@ -147,6 +147,32 @@ public class PackContentTests
         Assert.Equal((60, 400, 120), (m.CleavePercent, m.CleaveRadius, m.Barrier));
     }
 
+    /// <summary>Mana and percent damage: mana burn with a share of it as damage, damage scaled by the target's health or mana, damage over time in percent of max health.</summary>
+    [Fact]
+    public void Effects_ReadManaBurnAndScaledDamage()
+    {
+        RulesetContent rules = Apply(@"""abilities"": [{ ""id"": ""void"", ""name"": ""Void"", ""targeting"": ""unit"", ""targetTeam"": ""enemy"", ""castRange"": 600, ""castPoint"": 0,
+            ""cooldown"": [70], ""requiredLevels"": [6], ""effects"": [
+            { ""kind"": ""manaBurn"", ""damageType"": ""physical"", ""damagePercent"": 50, ""amounts"": [25, 30] },
+            { ""kind"": ""damage"", ""damageType"": ""magical"", ""scaling"": ""targetMissingManaPercent"", ""amounts"": [80, 95] },
+            { ""kind"": ""damage"", ""damageType"": ""magical"", ""scaling"": ""targetMissingHealthPercent"", ""amounts"": [70] },
+            { ""kind"": ""damage"", ""damageType"": ""pure"", ""scaling"": ""targetMaxHealthPercent"", ""amounts"": [5] },
+            { ""kind"": ""damage"", ""damageType"": ""magical"", ""scaling"": ""targetCurrentHealthPercent"", ""amounts"": [1.45, 3.45] },
+            { ""kind"": ""modifier"", ""modifiers"": [ { ""key"": ""burn"", ""duration"": 3, ""damagePerSecondMaxHealthPercent"": 1.5, ""consumedOnHit"": true } ] } ] }], ""items"": []",
+            Hero("lion", @"[""void""]"));
+
+        IReadOnlyList<EffectDefinition> effects = rules.FindAbility("void")!.Effects;
+
+        Assert.Equal((EffectKind.ManaBurn, DamageType.Physical, 50), (effects[0].Kind, effects[0].DamageType, effects[0].DamagePercent));
+        Assert.Equal(new[] { 25, 30 }, effects[0].Amounts);
+        Assert.Equal(new[] { DamageScaling.TargetMissingManaPercent, DamageScaling.TargetMissingHealthPercent, DamageScaling.TargetMaxHealthPercent, DamageScaling.TargetCurrentHealthPercent },
+            effects.Skip(1).Take(4).Select(e => e.Scaling));
+        Assert.Equal(new[] { 8000, 9500 }, effects[1].Amounts);   // scaled amounts: percents in the pack, hundredths of a percent in the ruleset
+        Assert.Equal(new[] { 145, 345 }, effects[4].Amounts);
+        ModifierSpec burn = effects[5].Modifiers.Single();
+        Assert.Equal((Fixed.FromRatio(15, 10), true), (burn.DamagePerSecondMaxHealthPercent, burn.ConsumedOnHit));
+    }
+
     [Theory]
     [InlineData(@"""abilities"": [{ ""id"": ""x"", ""name"": ""X"", ""targeting"": ""sideways"", ""targetTeam"": ""enemy"", ""castRange"": 0, ""castPoint"": 0, ""cooldown"": [1], ""requiredLevels"": [1], ""effects"": [] }]", "abilities[0].targeting")]
     [InlineData(@"""abilities"": [{ ""id"": ""x"", ""name"": ""X"", ""targeting"": ""noTarget"", ""targetTeam"": ""enemy"", ""castRange"": 0, ""castPoint"": 0, ""cooldown"": [1], ""requiredLevels"": [1], ""effects"": [{ ""kind"": ""teleport"", ""bogus"": 1 }] }]", "abilities[0].effects[0].bogus")]

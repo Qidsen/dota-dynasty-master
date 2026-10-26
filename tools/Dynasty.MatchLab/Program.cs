@@ -745,9 +745,12 @@ static MatchLineup MirrorLineup()
 {
     // Identical heroes on both sides; Dusk lanes mirrored (top <-> bot) so matchups are symmetric.
     // Order: carry, support 5 (safe lane), mid, offlaner, support 4 (off lane) — RoleOf relies on it.
-    HeroPick[] dawn = PackPath() != null
-        ? new HeroPick[] { new("juggernaut", "bot"), new("lion", "bot"), new("nevermore", "mid"), new("mars", "top"), new("earthshaker", "top") }
-        : new HeroPick[] { new("ironvow", "bot"), new("dawnmender", "bot"), new("emberwisp", "mid"), new("stonewarden", "top"), new("thornkeeper", "top") };
+    // MATCHLAB_HEROES=a,b,c,d,e overrides the heroes (same order) to try other abilities on a pack.
+    string[] ids = Environment.GetEnvironmentVariable("MATCHLAB_HEROES")?.Split(',') ?? (PackPath() != null
+        ? new[] { "juggernaut", "lion", "nevermore", "mars", "earthshaker" }
+        : new[] { "ironvow", "dawnmender", "emberwisp", "stonewarden", "thornkeeper" });
+    string[] lanes = { "bot", "bot", "mid", "top", "top" };
+    HeroPick[] dawn = ids.Select((id, i) => new HeroPick(id.Trim(), lanes[i])).ToArray();
     HeroPick[] dusk = dawn.Select(p => new HeroPick(p.HeroId, p.LaneId == "top" ? "bot" : p.LaneId == "bot" ? "top" : p.LaneId)).ToArray();
     return new MatchLineup(dawn, dusk);
 }

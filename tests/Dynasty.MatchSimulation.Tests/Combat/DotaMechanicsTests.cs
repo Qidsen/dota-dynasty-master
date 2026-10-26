@@ -5,6 +5,7 @@ using Dynasty.MatchSimulation.Combat;
 using Dynasty.MatchSimulation.Events;
 using Dynasty.MatchSimulation.Heroes;
 using Dynasty.MatchSimulation.Rules;
+using Dynasty.MatchSimulation.Systems;
 using static Dynasty.MatchSimulation.Tests.RulesetDraft;
 
 namespace Dynasty.MatchSimulation.Tests.Combat;
@@ -224,6 +225,71 @@ public class DotaMechanicsTests
         Assert.True(hits.Count >= 2);
         Assert.InRange(hits[0].Amount.ToDouble(), hits[1].Amount.ToDouble() * 4 - 4, hits[1].Amount.ToDouble() * 4 + 4);
         Assert.DoesNotContain(H(kernel.State, "alpha").Modifiers, m => m.Spec.Key == "totem");
+    }
+
+    private static SimulationKernel<MatchState> Cast(Action<SimulationContext<MatchState>> setup, params EffectDefinition[] effects)
+    {
+        var kernel = Duel(attack: false);
+        kernel.AddSystem(new LambdaSystem(2, ctx =>
+        {
+            setup(ctx);
+            Effects.Run(ctx, H(ctx.State, "alpha"), effects, 1, H(ctx.State, "beta"), H(ctx.State, "beta").Position);
+        }));
+        kernel.RunTicks(3);
+        return kernel;
+    }
+
+    /// <summary>Mana Break: burns the target's mana and deals a percent of the mana burnt as damage; it cannot burn more than the target has.</summary>
+    [Fact]
+    public void ManaBurn_BurnsManaAndDealsAPercentOfIt()
+    {
+        var kernel = Cast(ctx => H(ctx.State, "beta").Hero!.Mana = Fixed.FromInt(30), EffectDefinition.ManaBurn(50, DamageType.Pure, 40));
+
+        Assert.Equal(Fixed.Zero, H(kernel.State, "beta").Hero!.Mana);
+        Assert.Equal(Fixed.FromInt(15), HitsOnBeta(kernel).Single().Amount);   // 30 burnt (not 40), half of it as damage
+    }
+
+    [Theory]
+    [InlineData(DamageScaling.TargetMaxHealthPercent, 1000, 60)]          // 10% of 600 (amounts in hundredths of a percent)
+    [InlineData(DamageScaling.TargetMissingHealthPercent, 7000, 210)]     // 70% of 300 missing
+    [InlineData(DamageScaling.TargetMissingManaPercent, 10000, 200)]      // 100% of 200 missing mana
+    [InlineData(DamageScaling.TargetCurrentHealthPercent, 345, 10.35)]    // 3.45% of 300 left
+    public void ScaledDamage_FollowsTheTargetsHealthOrMana(DamageScaling scaling, int percent, double expected)
+    {
+        var kernel = Cast(ctx =>
+        {
+            MatchUnit beta = H(ctx.State, "beta");
+            beta.Hp = Fixed.FromInt(beta.MaxHp - 300);
+            beta.Hero!.Mana = Fixed.FromInt(beta.Hero.MaxMana - 200);
+        }, EffectDefinition.ScaledDamage(DamageType.Pure, scaling, percent));
+
+        Assert.Equal(600, H(kernel.State, "beta").MaxHp);
+        Assert.InRange(HitsOnBeta(kernel).Single().Amount.ToDouble(), expected - 0.01, expected + 0.01);
+    }
+
+    /// <summary>Damage over time as a percent of the target's max health each second (Heartstopper Aura, Infernal Blade).</summary>
+    [Fact]
+    public void DamageOverTime_CanBeAPercentOfMaxHealth()
+    {
+        var kernel = Duel(onBeta: new ModifierSpec("heartstopper", 5000, damagePerSecondMaxHealthPercent: Fixed.FromInt(2), damageType: DamageType.Pure), attack: false);
+
+        kernel.RunTicks(31);
+
+        Assert.InRange(kernel.EventsOf<DamageDealt>().Where(d => d.Target == H(kernel.State, "beta").Id).Sum(d => d.Amount.ToDouble()), 11.9, 12.1);   // 2% of 600 after one second
+    }
+
+    /// <summary>An aura's damage over time (Rot, Heartstopper) keeps ticking: the aura's regular refresh does not restart the period.</summary>
+    [Fact]
+    public void AuraDamageOverTime_KeepsTickingWhileRefreshed()
+    {
+        var aura = new ModifierSpec("heartstopper", -1, aura: new AuraSpec(900, TargetTeam.Enemy, heroesOnly: false,
+            new ModifierSpec("heartstopper.debuff", 1000, damagePerSecondMaxHealthPercent: Fixed.FromInt(2), damageType: DamageType.Pure)));
+        var kernel = Duel(onAlpha: aura, attack: false);
+
+        kernel.RunTicks(30 * 5 + 1);
+
+        double taken = kernel.EventsOf<DamageDealt>().Where(d => d.Target == H(kernel.State, "beta").Id).Sum(d => d.Amount.ToDouble());
+        Assert.InRange(taken, 12 * 4 - 0.1, 12 * 5 + 0.1);   // 2% of 600 a second for about five seconds
     }
 }
 

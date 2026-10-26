@@ -165,6 +165,26 @@ namespace Dynasty.MatchSimulation.Systems
         /// <summary>Knockback moves in steps of this size and stops at the first unwalkable step.</summary>
         private static readonly Fixed KnockbackStep = Fixed.FromInt(25);
 
+        /// <summary>A damage effect's amount for this target: flat, or a percent of its max health, missing health or missing mana.</summary>
+        private static Fixed ScaledAmount(EffectDefinition effect, int level, MatchUnit target)
+        {
+            Fixed amount = Fixed.FromInt(effect.AmountAt(level));
+            Fixed percent = amount / Fixed.FromInt(10000);   // scaled amounts are hundredths of a percent
+            switch (effect.Scaling)
+            {
+                case DamageScaling.TargetMaxHealthPercent:
+                    return Fixed.FromInt(target.MaxHp) * percent;
+                case DamageScaling.TargetMissingHealthPercent:
+                    return (Fixed.FromInt(target.MaxHp) - target.Hp) * percent;
+                case DamageScaling.TargetCurrentHealthPercent:
+                    return target.Hp * percent;
+                case DamageScaling.TargetMissingManaPercent:
+                    return target.Hero == null ? Fixed.Zero : (Fixed.FromInt(target.Hero.MaxMana) - target.Hero.Mana) * percent;
+                default:
+                    return amount;
+            }
+        }
+
         public static void Run(SimulationContext<MatchState> context, MatchUnit caster, IReadOnlyList<EffectDefinition> effects, int level, MatchUnit target, FixedVector2 point)
         {
             foreach (EffectDefinition effect in effects)
@@ -197,7 +217,17 @@ namespace Dynasty.MatchSimulation.Systems
             switch (effect.Kind)
             {
                 case EffectKind.Damage:
-                    Damage.Deal(context, caster.Id, target, Fixed.FromInt(effect.AmountAt(level)), effect.DamageType);
+                    Damage.Deal(context, caster.Id, target, ScaledAmount(effect, level, target), effect.DamageType);
+                    break;
+                case EffectKind.ManaBurn:
+                    if (target.Hero != null)
+                    {
+                        Fixed burnt = Fixed.Min(target.Hero.Mana, Fixed.FromInt(effect.AmountAt(level)));
+                        target.Hero.Mana -= burnt;
+                        if (effect.DamagePercent > 0 && burnt > Fixed.Zero)
+                            Damage.Deal(context, caster.Id, target, burnt * Fixed.FromInt(effect.DamagePercent) / Fixed.FromInt(100), effect.DamageType);
+                    }
+
                     break;
                 case EffectKind.Heal:
                     Damage.Heal(context, caster.Id, target, Fixed.FromInt(effect.AmountAt(level)));

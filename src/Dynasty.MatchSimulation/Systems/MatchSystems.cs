@@ -116,6 +116,8 @@ namespace Dynasty.MatchSimulation.Systems
                         Fixed periodFraction = Fixed.FromRatio(spec.PeriodMs, 1000);
                         if (spec.DamagePerSecond > Fixed.Zero)
                             Damage.Deal(context, modifier.Source, unit, spec.DamagePerSecond * periodFraction, spec.DamageType);
+                        if (spec.DamagePerSecondMaxHealthPercent > Fixed.Zero)
+                            Damage.Deal(context, modifier.Source, unit, Fixed.FromInt(unit.MaxHp) * spec.DamagePerSecondMaxHealthPercent / Fixed.FromInt(100) * periodFraction, spec.DamageType);
                         if (spec.HealPerSecond > Fixed.Zero)
                             Damage.Heal(context, modifier.Source, unit, spec.HealPerSecond * periodFraction);
                         modifier.NextPeriodTick += context.TickRate.TicksFor(spec.PeriodMs);

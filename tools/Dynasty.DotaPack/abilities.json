@@ -847,7 +847,7 @@
   },
   "doom_bringer_infernal_blade": {
     "status": "simplified",
-    "note": "cast as a spell instead of an attack modifier; no percent-of-max-health burn",
+    "note": "cast as a spell instead of an attack modifier",
     "targeting": "unit",
     "targetTeam": "enemy",
     "effects": [
@@ -866,7 +866,8 @@
         "modifiers": {
           "key": "doom_bringer_infernal_blade_burn",
           "duration": "$burn_duration",
-          "damagePerSecond": "$burn_damage"
+          "damagePerSecond": "$burn_damage",
+          "damagePerSecondMaxHealthPercent": "$burn_damage_pct"
         }
       }
     ]
@@ -1758,6 +1759,462 @@
             "amounts": "$echo_slam_initial_damage"
           }
         ]
+      }
+    ]
+  },
+  "necrolyte_death_pulse": {
+    "status": "full",
+    "targeting": "noTarget",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "area",
+        "radius": "$area_of_effect",
+        "center": "caster",
+        "team": "enemy",
+        "effects": [
+          {
+            "kind": "damage",
+            "damageType": "magical",
+            "amounts": "$dmg"
+          }
+        ]
+      },
+      {
+        "kind": "area",
+        "radius": "$area_of_effect",
+        "center": "caster",
+        "team": "ally",
+        "effects": [
+          {
+            "kind": "heal",
+            "amounts": "$heal"
+          }
+        ]
+      }
+    ]
+  },
+  "necrolyte_ghost_shroud": {
+    "status": "simplified",
+    "note": "cannot attack, but can still be attacked; no heal amplification",
+    "targeting": "noTarget",
+    "targetTeam": "ally",
+    "effects": [
+      {
+        "kind": "modifier",
+        "modifiers": {
+          "key": "necrolyte_ghost_shroud",
+          "duration": "$duration",
+          "flags": [
+            "disarmed"
+          ],
+          "aura": {
+            "radius": "$slow_aoe",
+            "team": "enemy",
+            "modifier": {
+              "key": "necrolyte_ghost_shroud_slow",
+              "duration": 1,
+              "moveSpeedPercent": "-$movement_speed"
+            }
+          }
+        }
+      }
+    ]
+  },
+  "bounty_hunter_shuriken_toss": {
+    "status": "simplified",
+    "note": "no bounces between tracked units",
+    "targeting": "unit",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "projectile",
+        "speed": "$speed",
+        "effects": [
+          {
+            "kind": "damage",
+            "damageType": "magical",
+            "amounts": "$bonus_damage"
+          },
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "bounty_hunter_shuriken_toss",
+              "duration": "$slow_duration",
+              "moveSpeedPercent": "-$slow"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "bounty_hunter_jinada": {
+    "status": "simplified",
+    "note": "cast to charge the next attack instead of an autocast attack modifier; no gold steal",
+    "targeting": "noTarget",
+    "targetTeam": "ally",
+    "effects": [
+      {
+        "kind": "modifier",
+        "modifiers": {
+          "key": "bounty_hunter_jinada",
+          "consumedOnHit": true,
+          "onHit": [
+            {
+              "kind": "damage",
+              "damageType": "physical",
+              "amounts": "$bonus_damage"
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "bounty_hunter_wind_walk": {
+    "status": "simplified",
+    "note": "no fade time, no stun on the breaking attack",
+    "targeting": "noTarget",
+    "targetTeam": "ally",
+    "effects": [
+      {
+        "kind": "modifier",
+        "modifiers": {
+          "key": "bounty_hunter_wind_walk",
+          "duration": "$duration",
+          "flags": [
+            "invisible"
+          ],
+          "moveSpeedPercent": "$bonus_move_speed_pct",
+          "breakOnAction": true
+        }
+      }
+    ]
+  },
+  "bounty_hunter_track": {
+    "status": "simplified",
+    "note": "damage amplification only: no true sight, no bonus gold",
+    "targeting": "unit",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "modifier",
+        "modifiers": {
+          "key": "bounty_hunter_track",
+          "duration": "$duration",
+          "incomingDamagePercent": "$target_damage_amp"
+        }
+      }
+    ]
+  },
+  "antimage_blink": {
+    "status": "full",
+    "targeting": "point",
+    "targetTeam": "ally",
+    "effects": [
+      {
+        "kind": "dash"
+      }
+    ]
+  },
+  "antimage_counterspell": {
+    "status": "simplified",
+    "note": "the passive magic resistance only: no reflecting shell",
+    "targeting": "passive",
+    "targetTeam": "ally",
+    "passive": {
+      "key": "antimage_counterspell",
+      "magicResist": "$magic_resistance"
+    }
+  },
+  "pudge_meat_hook": {
+    "status": "simplified",
+    "note": "unit-targeted; damage only, no pull",
+    "targeting": "unit",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "projectile",
+        "speed": "$hook_speed",
+        "effects": [
+          {
+            "kind": "damage",
+            "damageType": "pure",
+            "amounts": "$damage"
+          }
+        ]
+      }
+    ]
+  },
+  "pudge_rot": {
+    "status": "simplified",
+    "note": "always on, without damaging Pudge himself",
+    "targeting": "passive",
+    "targetTeam": "ally",
+    "passive": {
+      "key": "pudge_rot",
+      "aura": {
+        "radius": "$rot_radius",
+        "team": "enemy",
+        "modifier": {
+          "key": "pudge_rot_debuff",
+          "duration": 1,
+          "damagePerSecond": "$rot_damage",
+          "moveSpeedPercent": "$rot_slow"
+        }
+      }
+    }
+  },
+  "pudge_dismember": {
+    "status": "simplified",
+    "note": "a disable with damage over time that Pudge does not channel; no strength damage, no heal",
+    "targeting": "unit",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "modifier",
+        "modifiers": {
+          "key": "pudge_dismember",
+          "duration": "$abilitychanneltime",
+          "flags": [
+            "stunned"
+          ],
+          "damagePerSecond": "$dismember_damage"
+        }
+      }
+    ]
+  },
+  "tiny_avalanche": {
+    "status": "simplified",
+    "note": "one hit with the whole stun instead of ticks",
+    "targeting": "point",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "area",
+        "radius": "$radius",
+        "center": "point",
+        "team": "enemy",
+        "effects": [
+          {
+            "kind": "damage",
+            "damageType": "magical",
+            "amounts": "$avalanche_damage"
+          },
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "tiny_avalanche",
+              "duration": "$total_duration",
+              "flags": [
+                "stunned"
+              ]
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "tiny_toss": {
+    "status": "simplified",
+    "note": "the target is hit as if a unit were thrown at it; nothing is grabbed",
+    "targeting": "unit",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "area",
+        "radius": "$radius",
+        "center": "target",
+        "team": "enemy",
+        "effects": [
+          {
+            "kind": "damage",
+            "damageType": "magical",
+            "amounts": "$toss_damage"
+          },
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "tiny_toss",
+              "duration": "$duration",
+              "flags": [
+                "stunned"
+              ]
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "tiny_grow": {
+    "status": "simplified",
+    "note": "the attack speed reduction as attack speed points, not a percent",
+    "targeting": "passive",
+    "targetTeam": "ally",
+    "passive": {
+      "key": "tiny_grow",
+      "armor": "$bonus_armor",
+      "damage": "$bonus_damage",
+      "moveSpeed": "$move_speed",
+      "attackSpeed": "$attack_speed_reduction"
+    }
+  },
+  "antimage_mana_break": {
+    "status": "simplified",
+    "note": "flat mana per hit only, without the percent of max mana",
+    "targeting": "passive",
+    "targetTeam": "ally",
+    "passive": {
+      "key": "antimage_mana_break",
+      "onHit": [
+        {
+          "kind": "manaBurn",
+          "damageType": "physical",
+          "damagePercent": "$percent_damage_per_burn",
+          "amounts": "$mana_per_hit"
+        }
+      ]
+    }
+  },
+  "antimage_mana_void": {
+    "status": "simplified",
+    "note": "the main target only: no damage to the enemies around it",
+    "targeting": "unit",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "damage",
+        "damageType": "magical",
+        "scaling": "targetMissingManaPercent",
+        "amounts": "$mana_void_damage_per_mana*100"
+      },
+      {
+        "kind": "modifier",
+        "modifiers": {
+          "key": "antimage_mana_void",
+          "duration": "$mana_void_ministun",
+          "flags": [
+            "stunned"
+          ]
+        }
+      }
+    ]
+  },
+  "necrolyte_heartstopper_aura": {
+    "status": "full",
+    "targeting": "passive",
+    "targetTeam": "ally",
+    "passive": {
+      "key": "necrolyte_heartstopper_aura",
+      "aura": {
+        "radius": "$aura_radius",
+        "team": "enemy",
+        "modifier": {
+          "key": "necrolyte_heartstopper_aura_debuff",
+          "duration": 1,
+          "damagePerSecondMaxHealthPercent": "$aura_damage"
+        }
+      }
+    }
+  },
+  "necrolyte_reapers_scythe": {
+    "status": "simplified",
+    "note": "the damage lands at once with the stun, not after it; no regen gained from kills",
+    "targeting": "unit",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "modifier",
+        "modifiers": {
+          "key": "necrolyte_reapers_scythe",
+          "duration": "$stun_duration",
+          "flags": [
+            "stunned"
+          ]
+        }
+      },
+      {
+        "kind": "damage",
+        "damageType": "magical",
+        "scaling": "targetMissingHealthPercent",
+        "amounts": "$damage_per_health*100"
+      }
+    ]
+  },
+  "life_stealer_feast": {
+    "status": "simplified",
+    "note": "damage only: no heal from the target's health, no max health from kills",
+    "targeting": "passive",
+    "targetTeam": "ally",
+    "passive": {
+      "key": "life_stealer_feast",
+      "onHit": [
+        {
+          "kind": "damage",
+          "damageType": "physical",
+          "scaling": "targetMaxHealthPercent",
+          "amounts": "$hp_damage_percent"
+        }
+      ]
+    }
+  },
+  "zuus_static_field": {
+    "status": "simplified",
+    "note": "on attacks only, not on ability hits",
+    "targeting": "passive",
+    "targetTeam": "ally",
+    "innate": true,
+    "passive": {
+      "key": "zuus_static_field",
+      "onHit": [
+        {
+          "kind": "damage",
+          "damageType": "magical",
+          "scaling": "targetCurrentHealthPercent",
+          "amounts": "$damage_health_pct"
+        }
+      ]
+    }
+  },
+  "huskar_life_break": {
+    "status": "simplified",
+    "note": "a projectile at the charge speed instead of a leap; no health cost for Huskar, no debuff immunity while leaping",
+    "targeting": "unit",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "projectile",
+        "speed": "$charge_speed",
+        "effects": [
+          {
+            "kind": "damage",
+            "damageType": "magical",
+            "scaling": "targetCurrentHealthPercent",
+            "amounts": "$health_damage*100"
+          },
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "huskar_life_break",
+              "duration": "$abilityduration",
+              "moveSpeedPercent": "$movespeed",
+              "attackSpeed": "-$attack_speed"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "bloodseeker_rupture": {
+    "status": "simplified",
+    "note": "the initial damage only: no damage from moving",
+    "targeting": "unit",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "damage",
+        "damageType": "pure",
+        "scaling": "targetCurrentHealthPercent",
+        "amounts": "$hp_pct"
       }
     ]
   }

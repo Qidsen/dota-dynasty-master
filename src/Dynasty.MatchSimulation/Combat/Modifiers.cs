@@ -114,8 +114,10 @@ namespace Dynasty.MatchSimulation.Combat
             int cleavePercent = 0,
             int cleaveRadius = 0,
             int barrier = 0,
-            bool consumedOnHit = false)
+            bool consumedOnHit = false,
+            Fixed damagePerSecondMaxHealthPercent = default)
         {
+            DamagePerSecondMaxHealthPercent = damagePerSecondMaxHealthPercent;
             ConsumedOnHit = consumedOnHit;
             CleavePercent = cleavePercent;
             CleaveRadius = cleaveRadius;
@@ -202,6 +204,9 @@ namespace Dynasty.MatchSimulation.Combat
         /// <summary>Removed once the unit's next attack lands ("next attack" buffs).</summary>
         public bool ConsumedOnHit { get; }
 
+        /// <summary>Damage over time as a percent of the bearer's max health each second (in <see cref="DamageType"/>).</summary>
+        public Fixed DamagePerSecondMaxHealthPercent { get; }
+
         /// <summary>Percent change of move speed; negative slows.</summary>
         public int MoveSpeedPercent { get; }
 
@@ -253,7 +258,7 @@ namespace Dynasty.MatchSimulation.Combat
             MoveSpeedPercent < 0 || AttackSpeedBonus < 0 || ArmorBonus < Fixed.Zero || DamageBonus < 0 || MagicResistBonus < 0 ||
             DamagePerSecond > Fixed.Zero;
 
-        public bool IsPeriodic => DamagePerSecond > Fixed.Zero || HealPerSecond > Fixed.Zero;
+        public bool IsPeriodic => DamagePerSecond > Fixed.Zero || HealPerSecond > Fixed.Zero || DamagePerSecondMaxHealthPercent > Fixed.Zero;
 
         public bool IsPermanent => DurationMs < 0;
 
@@ -300,6 +305,7 @@ namespace Dynasty.MatchSimulation.Combat
             w.WriteInt64(CleaveRadius);
             w.WriteInt64(Barrier);
             w.WriteBool(ConsumedOnHit);
+            w.WriteFixed(DamagePerSecondMaxHealthPercent);
         }
 
         public static ModifierSpec Status(string key, int durationMs, ModifierFlags flags) => new ModifierSpec(key, durationMs, flags);
