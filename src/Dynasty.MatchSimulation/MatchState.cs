@@ -251,6 +251,12 @@ namespace Dynasty.MatchSimulation
                 flags |= spec.Flags;
             }
 
+            // A feared unit neither attacks nor casts; a taunted one attacks only (the forced-action system picks its target).
+            if ((flags & ModifierFlags.Feared) != 0)
+                flags |= ModifierFlags.Disarmed | ModifierFlags.Silenced;
+            if ((flags & ModifierFlags.Taunted) != 0)
+                flags |= ModifierFlags.Silenced;
+
             Fixed hpRegen = (Hero?.Definition.HpRegenPerSecond ?? Fixed.Zero) + hpRegenBonus;
             Fixed manaRegen = (Hero?.Definition.ManaRegenPerSecond ?? Fixed.Zero) + manaRegenBonus;
             HeroAttributes? attributes = Hero?.Definition.Attributes;

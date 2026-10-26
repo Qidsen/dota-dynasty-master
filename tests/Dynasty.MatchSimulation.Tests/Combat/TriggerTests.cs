@@ -150,4 +150,55 @@ public class TriggerTests
 
         Assert.Equal(new[] { 0, 100 }, kernel.EventsOf<DamageDealt>().Where(d => d.Target == H(kernel.State, "beta").Id).Select(d => d.Amount.ToIntFloor()));
     }
+
+    /// <summary>Berserker's Call, Duel: a taunted hero attacks the taunting unit whatever it was ordered to do, and cannot cast.</summary>
+    [Fact]
+    public void Taunt_MakesTheHeroAttackTheTaunter()
+    {
+        var kernel = Arena();
+        kernel.AddSystem(new LambdaSystem(2, ctx =>
+        {
+            Modifiers.Apply(ctx, H(ctx.State, "beta"), ModifierSpec.Status("call", 3000, ModifierFlags.Taunted), H(ctx.State, "alpha").Id);
+            HeroOrders.Issue(H(ctx.State, "beta"), HeroOrder.Move(P(6000, 5000)));
+        }));
+        kernel.AddSystem(new LambdaSystem(3, ctx => HeroOrders.Issue(H(ctx.State, "beta"), HeroOrder.Move(P(6000, 5000)))));
+        kernel.RunTicks(30 * 2);
+
+        Assert.Contains(kernel.EventsOf<AttackStarted>(), a => a.Attacker == H(kernel.State, "beta").Id && a.Target == H(kernel.State, "alpha").Id);
+        Assert.True(H(kernel.State, "beta").Position.X < Fixed.FromInt(5300));   // it did not walk off
+    }
+
+    /// <summary>Terror Wave, Requiem: a feared hero runs away from the source and neither attacks nor casts.</summary>
+    [Fact]
+    public void Fear_MakesTheHeroRunAwayWithoutAttacking()
+    {
+        var kernel = Arena();
+        kernel.AddSystem(new LambdaSystem(2, ctx =>
+        {
+            Modifiers.Apply(ctx, H(ctx.State, "beta"), ModifierSpec.Status("terror", 2000, ModifierFlags.Feared), H(ctx.State, "alpha").Id);
+            HeroOrders.Issue(H(ctx.State, "beta"), HeroOrder.Attack(H(ctx.State, "alpha").Id));
+        }));
+        kernel.RunTicks(30 * 2);
+
+        Assert.DoesNotContain(kernel.EventsOf<AttackStarted>(), a => a.Attacker == H(kernel.State, "beta").Id);
+        Assert.True(FixedVector2.Distance(H(kernel.State, "alpha").Position, H(kernel.State, "beta").Position) > Fixed.FromInt(600));   // 200 apart at the start, about 300 a second away
+    }
+
+    /// <summary>A feared creep or summon (not ordered around like heroes) at least stops attacking.</summary>
+    [Fact]
+    public void Fear_StopsCreepsFromAttacking()
+    {
+        var kernel = Arena();
+        MatchUnit? bug = null;
+        kernel.AddSystem(new LambdaSystem(2, ctx =>
+        {
+            bug = ctx.State.SpawnSummon(ctx.Ids.Allocate(), H(ctx.State, "beta"), ctx.State.Ruleset.CreepTypes.First(), ctx.Tick.Value, ctx.Tick.Value + 100000);
+            bug.Position = P(5050, 5000);
+            bug.StartPosition = bug.Position;
+            Modifiers.Apply(ctx, bug, ModifierSpec.Status("terror", 3000, ModifierFlags.Feared), H(ctx.State, "alpha").Id);
+        }));
+        kernel.RunTicks(30 * 2);
+
+        Assert.DoesNotContain(kernel.EventsOf<AttackStarted>(), a => a.Attacker == bug!.Id);
+    }
 }

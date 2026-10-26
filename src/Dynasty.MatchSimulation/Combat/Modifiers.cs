@@ -43,6 +43,12 @@ namespace Dynasty.MatchSimulation.Combat
 
         /// <summary>Physical damage (attacks included) does nothing (Guardian Angel, Ghost Scepter).</summary>
         PhysicalImmune = 128,
+
+        /// <summary>Runs away from the modifier's source; cannot attack or cast (Terror Wave, Requiem).</summary>
+        Feared = 256,
+
+        /// <summary>Attacks the modifier's source whatever it was ordered to do; cannot cast (Berserker's Call, Duel).</summary>
+        Taunted = 512,
     }
 
     /// <summary>
@@ -330,7 +336,7 @@ namespace Dynasty.MatchSimulation.Combat
         /// Invisibility counts as a buff. Dispels on allies remove debuffs, on enemies buffs.
         /// </summary>
         public bool IsDebuff =>
-            (Flags & (ModifierFlags.Stunned | ModifierFlags.Rooted | ModifierFlags.Silenced | ModifierFlags.Disarmed)) != 0 ||
+            (Flags & (ModifierFlags.Stunned | ModifierFlags.Rooted | ModifierFlags.Silenced | ModifierFlags.Disarmed | ModifierFlags.Feared | ModifierFlags.Taunted)) != 0 ||
             MoveSpeedPercent < 0 || AttackSpeedBonus < 0 || ArmorBonus < Fixed.Zero || DamageBonus < 0 || MagicResistBonus < 0 ||
             DamagePerSecond > Fixed.Zero;
 

@@ -202,7 +202,7 @@ public class PackContentTests
                 { ""kind"": ""damage"", ""damageType"": ""magical"", ""scaling"": ""casterIntelligencePercent"", ""amounts"": [37.5] } ],
             ""passive"": [ { ""key"": ""fury"", ""duration"": 20, ""stacking"": true, ""procCooldown"": 1.5, ""whenAttackedChance"": 25,
                           ""whenAttacked"": [ { ""kind"": ""damage"", ""damageType"": ""pure"", ""amounts"": [100] } ] },
-                          { ""key"": ""shift"", ""stacking"": true, ""maxStacks"": 4, ""onHitHeroesOnly"": true, ""onKillHeroesOnly"": true, ""flags"": [""physicalImmune""],
+                          { ""key"": ""shift"", ""stacking"": true, ""maxStacks"": 4, ""onHitHeroesOnly"": true, ""onKillHeroesOnly"": true, ""flags"": [""physicalImmune"", ""feared"", ""taunted""],
                             ""extraTargets"": 2, ""extraTargetRadius"": 700, ""extraTargetDamagePercent"": 60,
                             ""onCast"": [ { ""kind"": ""heal"", ""amounts"": [1] } ], ""onKill"": [ { ""kind"": ""heal"", ""amounts"": [2] } ],
                             ""onDeath"": [ { ""kind"": ""heal"", ""amounts"": [3] } ] } ] }], ""items"": []",
@@ -217,7 +217,7 @@ public class PackContentTests
         ModifierSpec fury = swipes.PassiveModifiers[0];
         Assert.Equal((int.MaxValue, 1500, 25), (fury.MaxStacks, fury.ProcCooldownMs, fury.WhenAttackedChancePercent));
         ModifierSpec shift = swipes.PassiveModifiers[1];
-        Assert.Equal((4, true, true, ModifierFlags.PhysicalImmune), (shift.MaxStacks, shift.OnHitHeroesOnly, shift.OnKillHeroesOnly, shift.Flags));
+        Assert.Equal((4, true, true, ModifierFlags.PhysicalImmune | ModifierFlags.Feared | ModifierFlags.Taunted), (shift.MaxStacks, shift.OnHitHeroesOnly, shift.OnKillHeroesOnly, shift.Flags));
         Assert.Equal((2, 700, 60), (shift.ExtraTargets, shift.ExtraTargetRadius, shift.ExtraTargetDamagePercent));
         Assert.Equal((1, 2, 3), (shift.OnCast.Single().Amounts[0], shift.OnKill.Single().Amounts[0], shift.OnDeath.Single().Amounts[0]));
     }

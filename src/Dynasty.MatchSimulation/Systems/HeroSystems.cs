@@ -3,6 +3,7 @@ using System.Linq;
 using Dynasty.Core.Ids;
 using Dynasty.Core.Kernel;
 using Dynasty.Core.Mathematics;
+using Dynasty.MatchSimulation.Combat;
 using Dynasty.MatchSimulation.Events;
 using Dynasty.MatchSimulation.Heroes;
 using Dynasty.MatchSimulation.Rules;
@@ -105,6 +106,49 @@ namespace Dynasty.MatchSimulation.Systems
     /// Carries out hero orders: walks paths found by A*, chases attack targets until in range
     /// (the attack itself is started by the attack system), and drops orders that became impossible.
     /// </summary>
+    /// <summary>
+    /// Taunt and fear override what a unit was told to do: a taunted hero is ordered to attack the taunting unit
+    /// (a creep or summon targets it), a feared hero is ordered to run straight away from the source. The source
+    /// is that of the most recent such modifier.
+    /// </summary>
+    internal sealed class ForcedActionSystem : ISimulationSystem<MatchState>
+    {
+        /// <summary>A feared hero runs toward a point this far away from the source, renewed every few ticks.</summary>
+        private static readonly Fixed FleeDistance = Fixed.FromInt(400);
+
+        public string Name => "forced-actions";
+
+        public void Tick(SimulationContext<MatchState> context)
+        {
+            MatchState state = context.State;
+            foreach (MatchUnit unit in state.Units)
+            {
+                if ((unit.Flags & (ModifierFlags.Feared | ModifierFlags.Taunted)) == 0 || !unit.IsAlive)
+                    continue;
+                ActiveModifier forcing = unit.Modifiers.Where(m => (m.Spec.Flags & (ModifierFlags.Feared | ModifierFlags.Taunted)) != 0)
+                    .OrderByDescending(m => m.AppliedTick).First();
+                MatchUnit? source = state.Find(forcing.Source);
+                if (source == null || !source.IsAlive)
+                    continue;
+
+                if ((forcing.Spec.Flags & ModifierFlags.Taunted) != 0)
+                {
+                    if (unit.Hero == null)
+                        unit.TargetId = source.Id;
+                    else if (unit.Hero.Order.Kind != HeroOrderKind.Attack || unit.Hero.Order.Target != source.Id)
+                        HeroOrders.Issue(unit, HeroOrder.Attack(source.Id));
+                }
+                else if (unit.Hero != null && (unit.Hero.Order.Kind != HeroOrderKind.Move || context.Tick.Value % 10 == 0))
+                {
+                    FixedVector2 away = unit.Position - source.Position;
+                    Fixed length = away.Length;
+                    FixedVector2 direction = length > Fixed.Zero ? away * (Fixed.One / length) : new FixedVector2(Fixed.One, Fixed.Zero);
+                    HeroOrders.Issue(unit, HeroOrder.Move(unit.Position + direction * FleeDistance));
+                }
+            }
+        }
+    }
+
     internal sealed class HeroOrderSystem : ISimulationSystem<MatchState>
     {
         /// <summary>A chase path is recomputed when the target drifts this far from where it was planned to.</summary>

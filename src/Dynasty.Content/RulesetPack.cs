@@ -301,6 +301,8 @@ namespace Dynasty.Content
             "debuffImmune" => ModifierFlags.DebuffImmune,
             "cannotDie" => ModifierFlags.CannotDie,
             "physicalImmune" => ModifierFlags.PhysicalImmune,
+            "feared" => ModifierFlags.Feared,
+            "taunted" => ModifierFlags.Taunted,
             _ => throw r.Error("flags", "unknown flag '" + flag + "'"),
         };
 
