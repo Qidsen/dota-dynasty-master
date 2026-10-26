@@ -67,6 +67,8 @@
     "note": "no phased movement or tree walking",
     "targeting": "noTarget",
     "targetTeam": "ally",
+    "charges": "$abilitycharges",
+    "chargeRestore": "$charge_restore_time",
     "effects": [
       {
         "kind": "modifier",
@@ -463,7 +465,7 @@
   },
   "dark_willow_terrorize": {
     "status": "simplified",
-    "note": "fear as a stun (no running home)",
+    "note": "the feared enemies run away from Dark Willow instead of toward their fountain; lands at once without the wisp's travel",
     "targeting": "point",
     "targetTeam": "enemy",
     "effects": [
@@ -479,7 +481,7 @@
               "key": "dark_willow_terrorize",
               "duration": "$destination_status_duration",
               "flags": [
-                "stunned"
+                "feared"
               ]
             }
           }
@@ -639,7 +641,7 @@
   },
   "winter_wyvern_cold_embrace": {
     "status": "simplified",
-    "note": "base heal only (no percent of max health); no physical damage block",
+    "note": "base heal only (no percent of max health)",
     "targeting": "unit",
     "targetTeam": "ally",
     "effects": [
@@ -649,7 +651,8 @@
           "key": "winter_wyvern_cold_embrace",
           "duration": "$duration",
           "flags": [
-            "stunned"
+            "stunned",
+            "physicalImmune"
           ],
           "healPerSecond": "$heal_additive"
         }
@@ -958,7 +961,9 @@
           "attackSpeed": "$leap_speedbonus_as"
         }
       }
-    ]
+    ],
+    "charges": "$max_charges",
+    "chargeRestore": "$charge_restore_time"
   },
   "mirana_invis": {
     "status": "simplified",
@@ -1865,7 +1870,7 @@
   },
   "necrolyte_ghost_shroud": {
     "status": "simplified",
-    "note": "cannot attack, but can still be attacked; no heal amplification",
+    "note": "no heal amplification; the extra magic damage taken as a magic resistance reduction",
     "targeting": "noTarget",
     "targetTeam": "ally",
     "effects": [
@@ -1875,7 +1880,8 @@
           "key": "necrolyte_ghost_shroud",
           "duration": "$duration",
           "flags": [
-            "disarmed"
+            "disarmed",
+            "physicalImmune"
           ],
           "aura": {
             "radius": "$slow_aoe",
@@ -1885,7 +1891,8 @@
               "duration": 1,
               "moveSpeedPercent": "-$movement_speed"
             }
-          }
+          },
+          "magicResist": "$bonus_damage"
         }
       }
     ]
@@ -3641,8 +3648,7 @@
     ]
   },
   "axe_berserkers_call": {
-    "status": "simplified",
-    "note": "the taunt is a stun (taunted enemies attack Axe in Dota)",
+    "status": "full",
     "targeting": "noTarget",
     "targetTeam": "enemy",
     "effects": [
@@ -3658,7 +3664,7 @@
               "key": "axe_berserkers_call",
               "duration": "$duration",
               "flags": [
-                "stunned"
+                "taunted"
               ]
             }
           }
@@ -3893,10 +3899,11 @@
   },
   "ember_spirit_fire_remnant": {
     "status": "simplified",
-    "note": "one charge (the charge restore time as the cooldown): dashes to the point at once and explodes there; no remnants left behind, the mana cost of the activation is not paid",
+    "note": "each charge dashes to the point at once and explodes there; no remnants left behind, the mana cost of the activation is not paid",
     "targeting": "point",
     "targetTeam": "enemy",
-    "cooldown": "$abilitychargerestoretime",
+    "charges": "$max_charges",
+    "chargeRestore": "$abilitychargerestoretime",
     "effects": [
       {
         "kind": "dash"
@@ -3967,7 +3974,7 @@
   },
   "terrorblade_terror_wave": {
     "status": "simplified",
-    "note": "fear as a stun (no running away); the wave hits at once; no Metamorphosis granted; learnable without Aghanim's Scepter",
+    "note": "the wave hits at once; no Metamorphosis granted; learnable without Aghanim's Scepter",
     "targeting": "noTarget",
     "targetTeam": "enemy",
     "effects": [
@@ -3989,7 +3996,7 @@
               "key": "terrorblade_terror_wave",
               "duration": "$fear_duration",
               "flags": [
-                "stunned"
+                "feared"
               ]
             }
           }
@@ -4576,7 +4583,7 @@
   },
   "ringmaster_tame_the_beasts": {
     "status": "simplified",
-    "note": "always the full channel (as the cast point), a circle at the point instead of a cone; fear as a stun",
+    "note": "always the full channel (as the cast point), a circle at the point instead of a cone",
     "targeting": "point",
     "targetTeam": "enemy",
     "castPoint": "$abilitychanneltime",
@@ -4598,7 +4605,7 @@
               "key": "ringmaster_tame_the_beasts",
               "duration": "$fear_duration_max",
               "flags": [
-                "stunned"
+                "feared"
               ]
             }
           }
@@ -4630,10 +4637,11 @@
   },
   "ringmaster_impalement": {
     "status": "simplified",
-    "note": "unit-targeted instead of a skillshot; one charge (the cooldown is the charge restore time); the bleed is the hero value for every unit",
+    "note": "unit-targeted instead of a skillshot; the bleed is the hero value for every unit",
     "targeting": "unit",
     "targetTeam": "enemy",
-    "cooldown": "$charge_restore_time",
+    "charges": "$abilitycharges",
+    "chargeRestore": "$charge_restore_time",
     "effects": [
       {
         "kind": "projectile",
@@ -5470,10 +5478,11 @@
   },
   "death_prophet_spirit_siphon": {
     "status": "simplified",
-    "note": "no charges (the charge restore time as the cooldown); damage over time only: no heal for Death Prophet; the link does not break with distance",
+    "note": "damage over time only: no heal for Death Prophet; the link does not break with distance",
     "targeting": "unit",
     "targetTeam": "enemy",
-    "cooldown": "$abilitychargerestoretime",
+    "charges": "$max_charges",
+    "chargeRestore": "$abilitychargerestoretime",
     "effects": [
       {
         "kind": "modifier",
@@ -6340,11 +6349,12 @@
   },
   "void_spirit_astral_step": {
     "status": "simplified",
-    "note": "one charge (the charge restore time as the cooldown); hits enemies around the end point only, not along the path; the void mark's damage lands at once with the slow",
+    "note": "hits enemies around the end point only, not along the path; the void mark's damage lands at once with the slow",
     "targeting": "point",
     "targetTeam": "enemy",
     "castRange": "$max_travel_distance",
-    "cooldown": "$abilitychargerestoretime",
+    "charges": "$max_charges",
+    "chargeRestore": "$abilitychargerestoretime",
     "effects": [
       {
         "kind": "dash"
@@ -6780,10 +6790,11 @@
   },
   "sniper_shrapnel": {
     "status": "simplified",
-    "note": "one charge (the charge restore time as the cooldown); the zone pulses every damage delay: the damage over time lingers up to one pulse after leaving the zone",
+    "note": "the zone pulses every damage delay: the damage over time lingers up to one pulse after leaving the zone",
     "targeting": "point",
     "targetTeam": "enemy",
-    "cooldown": "$abilitychargerestoretime",
+    "charges": "$abilitycharges",
+    "chargeRestore": "$abilitychargerestoretime",
     "effects": [
       {
         "kind": "zone",
@@ -7903,10 +7914,9 @@
   },
   "phantom_assassin_phantom_strike": {
     "status": "simplified",
-    "note": "enemies only; one charge (the charge restore time as the cooldown); the attack speed bonus lasts its duration whether or not Phantom Assassin attacks",
+    "note": "enemies only; the attack speed bonus lasts its duration whether or not Phantom Assassin attacks",
     "targeting": "unit",
     "targetTeam": "enemy",
-    "cooldown": "$charge_restore_time",
     "effects": [
       {
         "kind": "dash"
@@ -7924,7 +7934,9 @@
           }
         ]
       }
-    ]
+    ],
+    "charges": "$max_charges",
+    "chargeRestore": "$charge_restore_time"
   },
   "phantom_assassin_blur": {
     "status": "simplified",
@@ -8530,7 +8542,7 @@
   },
   "pugna_decrepify": {
     "status": "simplified",
-    "note": "enemies only; the target can still be attacked (no ethereal state), it only cannot attack",
+    "note": "enemies only (no ally cast with heal amplification); the ethereal state as disarm plus physical damage immunity; the extra magic damage taken as a magic resistance reduction",
     "targeting": "unit",
     "targetTeam": "enemy",
     "effects": [
@@ -8540,7 +8552,8 @@
           "key": "pugna_decrepify",
           "duration": "$abilityduration",
           "flags": [
-            "disarmed"
+            "disarmed",
+            "physicalImmune"
           ],
           "moveSpeedPercent": "$bonus_movement_speed",
           "magicResist": "$bonus_spell_damage_pct"
@@ -9606,7 +9619,7 @@
   },
   "leshrac_greater_lightning_storm": {
     "status": "simplified",
-    "note": "enemies are disarmed and slowed, the magic amplification as a magic resistance reduction; no ethereal form (no physical immunity) and no speed for Leshrac",
+    "note": "the ethereal state as disarm plus physical damage immunity; the magic amplification on enemies as a magic resistance reduction",
     "targeting": "noTarget",
     "targetTeam": "enemy",
     "effects": [
@@ -9622,13 +9635,26 @@
               "key": "leshrac_greater_lightning_storm",
               "duration": "$duration",
               "flags": [
-                "disarmed"
+                "disarmed",
+                "physicalImmune"
               ],
               "moveSpeedPercent": "-$slow",
               "magicResist": "-$magic_amp"
             }
           }
         ]
+      },
+      {
+        "kind": "modifier",
+        "modifiers": {
+          "key": "leshrac_greater_lightning_storm_self",
+          "duration": "$duration",
+          "flags": [
+            "disarmed",
+            "physicalImmune"
+          ],
+          "moveSpeedPercent": "$slow"
+        }
       }
     ]
   },
@@ -11176,5 +11202,168 @@
         }
       }
     ]
+  },
+  "omniknight_guardian_angel": {
+    "status": "full",
+    "targeting": "noTarget",
+    "targetTeam": "ally",
+    "effects": [
+      {
+        "kind": "area",
+        "radius": "$radius",
+        "center": "caster",
+        "team": "ally",
+        "effects": [
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "omniknight_guardian_angel",
+              "duration": "$duration",
+              "flags": [
+                "physicalImmune"
+              ]
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "lone_druid_savage_roar": {
+    "status": "simplified",
+    "note": "enemies run away from Lone Druid rather than toward their base; the Spirit Bear does not roar; heroes only (player-controlled units in Dota)",
+    "targeting": "noTarget",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "area",
+        "radius": "$radius",
+        "center": "caster",
+        "team": "enemy",
+        "heroesOnly": true,
+        "effects": [
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "lone_druid_savage_roar",
+              "duration": "$duration",
+              "flags": [
+                "feared"
+              ],
+              "moveSpeedPercent": "$bonus_speed"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "nevermore_requiem": {
+    "status": "simplified",
+    "note": "one line's hit on every enemy in the radius at once (no lines, no extra hits close to Shadow Fiend, no dependence on the number of souls); fear and slow for one line's duration",
+    "targeting": "noTarget",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "area",
+        "radius": "$requiem_radius",
+        "center": "caster",
+        "team": "enemy",
+        "effects": [
+          {
+            "kind": "damage",
+            "damageType": "magical",
+            "amounts": "$dmg"
+          },
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "nevermore_requiem",
+              "duration": "$requiem_slow_duration",
+              "flags": [
+                "feared"
+              ],
+              "moveSpeedPercent": "$requiem_reduction_ms",
+              "magicResist": "$requiem_reduction_mres"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "legion_commander_duel": {
+    "status": "simplified",
+    "note": "Legion Commander is not forced to attack the target; items stay usable; the reward goes to Legion Commander for any hero she kills during the duel (none for the target if it kills her); the duel does not end early on a death",
+    "targeting": "unit",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "modifier",
+        "modifiers": {
+          "key": "legion_commander_duel",
+          "duration": "$duration",
+          "flags": [
+            "taunted"
+          ]
+        }
+      },
+      {
+        "kind": "onCaster",
+        "effects": [
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "legion_commander_duel_self",
+              "duration": "$duration",
+              "dispellable": false,
+              "onKillHeroesOnly": true,
+              "onKill": [
+                {
+                  "kind": "onCaster",
+                  "effects": [
+                    {
+                      "kind": "modifier",
+                      "modifiers": {
+                        "key": "legion_commander_duel_reward",
+                        "stacking": true,
+                        "dispellable": false,
+                        "damage": "$reward_damage"
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "skeleton_king_reincarnation": {
+    "status": "simplified",
+    "note": "revives at once instead of after reincarnate_time; the mana cost is not paid; no skeletons (shard), no self-cast",
+    "targeting": "passive",
+    "passive": {
+      "key": "skeleton_king_reincarnation",
+      "revives": true,
+      "procCooldown": "$cd",
+      "onDeath": [
+        {
+          "kind": "area",
+          "radius": "$slow_radius",
+          "center": "caster",
+          "team": "enemy",
+          "effects": [
+            {
+              "kind": "modifier",
+              "modifiers": {
+                "key": "skeleton_king_reincarnation_slow",
+                "duration": "$slow_duration",
+                "moveSpeedPercent": "$movespeed",
+                "attackSpeed": "$attackslow"
+              }
+            }
+          ]
+        }
+      ]
+    }
   }
 }
