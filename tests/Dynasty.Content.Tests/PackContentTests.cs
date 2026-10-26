@@ -133,7 +133,8 @@ public class PackContentTests
             ""evasion"": 20, ""onHitChance"": 25, ""onHit"": [ { ""kind"": ""damage"", ""damageType"": ""magical"", ""amounts"": [40] },
             { ""kind"": ""modifier"", ""modifiers"": [ { ""key"": ""bashed"", ""duration"": 1, ""flags"": [""stunned""] } ] } ],
             ""aura"": { ""radius"": 900, ""team"": ""ally"", ""heroesOnly"": true, ""modifier"": { ""key"": ""bash.aura"", ""duration"": 1, ""armor"": 3 } },
-            ""flags"": [""debuffImmune""] }] }], ""items"": []", Hero("lion", @"[""bash""]"));
+            ""cleavePercent"": 60, ""cleaveRadius"": 400, ""barrier"": 120,
+            ""flags"": [""debuffImmune"", ""cannotDie""] }] }], ""items"": []", Hero("lion", @"[""bash""]"));
 
         AbilityDefinition bash = rules.FindAbility("bash")!;
         ModifierSpec m = bash.PassiveModifiers.Single();
@@ -142,7 +143,8 @@ public class PackContentTests
         Assert.Equal((-10, 15, 20, 25), (m.IncomingDamagePercent, m.AttackDamagePercent, m.EvasionPercent, m.OnHitChancePercent));
         Assert.Equal(new[] { EffectKind.Damage, EffectKind.ApplyModifier }, m.OnHit.Select(e => e.Kind));
         Assert.Equal((900, TargetTeam.Ally, true, 3), (m.Aura!.Radius, m.Aura.Team, m.Aura.HeroesOnly, m.Aura.Modifier.ArmorBonus.ToIntFloor()));
-        Assert.Equal(ModifierFlags.DebuffImmune, m.Flags);
+        Assert.Equal(ModifierFlags.DebuffImmune | ModifierFlags.CannotDie, m.Flags);
+        Assert.Equal((60, 400, 120), (m.CleavePercent, m.CleaveRadius, m.Barrier));
     }
 
     [Theory]

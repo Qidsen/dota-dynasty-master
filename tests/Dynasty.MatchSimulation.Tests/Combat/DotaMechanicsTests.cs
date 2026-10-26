@@ -160,4 +160,58 @@ public class DotaMechanicsTests
         Assert.Equal(alpha.Stats.Armor + Fixed.FromInt(2), alpha.Armor);
         Assert.Equal(1, alpha.Hero.UnspentSkillPoints);   // the innate does not use the level-one point
     }
+
+    /// <summary>Cleave: a melee attacker's hit also deals a percent of its damage to other enemies near the target.</summary>
+    [Fact]
+    public void Cleave_SplashesPartOfTheAttackOntoEnemiesAroundTheTarget()
+    {
+        var draft = new RulesetDraft().WithoutWaves();
+        draft.Heroes.Add(RulesetDraft.Hero("delta"));
+        var kernel = draft.StartWithHeroes(new[] { ("alpha", "mid") }, new[] { ("beta", "mid"), ("gamma", "mid"), ("delta", "mid") });
+        kernel.AddSystem(new LambdaSystem(0, ctx =>
+        {
+            H(ctx.State, "alpha").Position = P(5000, 5000);
+            H(ctx.State, "beta").Position = P(5200, 5000);
+            H(ctx.State, "gamma").Position = P(5300, 5100);    // near beta: cleaved
+            H(ctx.State, "delta").Position = P(5200, 6500);    // far: not
+            Modifiers.Apply(ctx, H(ctx.State, "alpha"), new ModifierSpec("cleave", -1, cleavePercent: 50, cleaveRadius: 300), EntityId.None);
+        }));
+        kernel.AddSystem(new LambdaSystem(VisionRefresh, ctx => HeroOrders.Issue(H(ctx.State, "alpha"), HeroOrder.Attack(H(ctx.State, "beta").Id))));
+        kernel.StepUntil(() => HitsOnBeta(kernel).Any(), 30 * 5);
+
+        EntityId alpha = H(kernel.State, "alpha").Id;
+        Fixed main = HitsOnBeta(kernel).First().Amount;
+        DamageDealt cleaved = Assert.Single(kernel.EventsOf<DamageDealt>(), d => d.Attacker == alpha && d.Target == H(kernel.State, "gamma").Id);
+        Assert.InRange(cleaved.Amount.ToDouble(), main.ToDouble() * 0.5 - 1, main.ToDouble() * 0.5 + 1);
+        Assert.DoesNotContain(kernel.EventsOf<DamageDealt>(), d => d.Attacker == alpha && d.Target == H(kernel.State, "delta").Id);
+    }
+
+    /// <summary>A barrier absorbs damage of any type until it is used up; the rest goes through.</summary>
+    [Fact]
+    public void Barrier_AbsorbsDamageUntilUsedUp()
+    {
+        var kernel = Duel(onBeta: new ModifierSpec("shield", 5000, barrier: 150), attack: false);
+        kernel.AddSystem(new LambdaSystem(1, ctx => Damage.Deal(ctx, H(ctx.State, "alpha").Id, H(ctx.State, "beta"), Fixed.FromInt(100), DamageType.Pure)));
+        kernel.AddSystem(new LambdaSystem(2, ctx => Damage.Deal(ctx, H(ctx.State, "alpha").Id, H(ctx.State, "beta"), Fixed.FromInt(100), DamageType.Pure)));
+
+        kernel.RunTicks(3);
+
+        Assert.Equal(new[] { Fixed.Zero, Fixed.FromInt(50) }, HitsOnBeta(kernel).Select(d => d.Amount));
+        Assert.DoesNotContain(H(kernel.State, "beta").Modifiers, m => m.Spec.Key == "shield");   // used up
+    }
+
+    /// <summary>Shallow Grave: while it lasts, damage cannot bring the hero below 1 health.</summary>
+    [Fact]
+    public void CannotDie_KeepsAtLeastOneHealth()
+    {
+        var kernel = Duel(onBeta: ModifierSpec.Status("grave", 5000, ModifierFlags.CannotDie), attack: false);
+        kernel.AddSystem(new LambdaSystem(1, ctx => Damage.Deal(ctx, H(ctx.State, "alpha").Id, H(ctx.State, "beta"), Fixed.FromInt(99999), DamageType.Pure)));
+
+        kernel.RunTicks(3);
+
+        MatchUnit beta = H(kernel.State, "beta");
+        Assert.True(beta.IsAlive);
+        Assert.InRange(beta.Hp.ToDouble(), 1, 1.5);   // left at 1, then a tick or two of regeneration
+    }
 }
+

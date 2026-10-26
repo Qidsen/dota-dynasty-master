@@ -688,5 +688,714 @@
       "healthRegen": "$health_regen",
       "armor": "$armor"
     }
+  },
+  "pangolier_swashbuckle": {
+    "status": "simplified",
+    "note": "dash, then all strikes at once around the end point instead of a line",
+    "targeting": "point",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "dash"
+      },
+      {
+        "kind": "area",
+        "radius": "$start_radius",
+        "center": "point",
+        "team": "enemy",
+        "effects": [
+          {
+            "kind": "damage",
+            "damageType": "physical",
+            "amounts": "$damage*$strikes"
+          },
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "pangolier_swashbuckle",
+              "duration": "$slow_duration",
+              "moveSpeedPercent": "-$slow_percent"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "pangolier_shield_crash": {
+    "status": "simplified",
+    "note": "the barrier is granted even when no enemy hero is hit",
+    "targeting": "noTarget",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "area",
+        "radius": "$radius",
+        "center": "caster",
+        "team": "enemy",
+        "effects": [
+          {
+            "kind": "damage",
+            "damageType": "physical",
+            "amounts": "$damage"
+          }
+        ]
+      },
+      {
+        "kind": "modifier",
+        "modifiers": {
+          "key": "pangolier_shield_crash_barrier",
+          "duration": "$duration",
+          "barrier": "$hero_shield"
+        }
+      }
+    ]
+  },
+  "pangolier_lucky_shot": {
+    "status": "simplified",
+    "note": "attacks only (not abilities)",
+    "targeting": "passive",
+    "targetTeam": "ally",
+    "passive": {
+      "key": "pangolier_lucky_shot",
+      "onHitChance": "$chance_pct",
+      "onHit": [
+        {
+          "kind": "modifier",
+          "modifiers": {
+            "key": "pangolier_lucky_shot_debuff",
+            "duration": "$duration",
+            "armor": "-$armor",
+            "attackSpeed": "-$attack_slow"
+          }
+        }
+      ]
+    }
+  },
+  "dazzle_poison_touch": {
+    "status": "simplified",
+    "note": "the target only instead of a cone; no refresh on attacks",
+    "targeting": "unit",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "modifier",
+        "modifiers": {
+          "key": "dazzle_poison_touch",
+          "duration": "$duration",
+          "damagePerSecond": "$damage",
+          "damageType": "physical",
+          "moveSpeedPercent": "$slow"
+        }
+      }
+    ]
+  },
+  "dazzle_shadow_wave": {
+    "status": "simplified",
+    "note": "no bounces: heals the target and damages enemies around it",
+    "targeting": "unit",
+    "targetTeam": "ally",
+    "effects": [
+      {
+        "kind": "heal",
+        "amounts": "$damage"
+      },
+      {
+        "kind": "area",
+        "radius": "$damage_radius",
+        "center": "target",
+        "team": "enemy",
+        "effects": [
+          {
+            "kind": "damage",
+            "damageType": "physical",
+            "amounts": "$damage"
+          }
+        ]
+      }
+    ]
+  },
+  "doom_bringer_scorched_earth": {
+    "status": "full",
+    "targeting": "noTarget",
+    "targetTeam": "ally",
+    "effects": [
+      {
+        "kind": "modifier",
+        "modifiers": {
+          "key": "doom_bringer_scorched_earth",
+          "duration": "$duration",
+          "healthRegen": "$bonus_health_regen",
+          "moveSpeedPercent": "$bonus_movement_speed_pct",
+          "aura": {
+            "radius": "$radius",
+            "team": "enemy",
+            "modifier": {
+              "key": "doom_bringer_scorched_earth_burn",
+              "duration": 1,
+              "damagePerSecond": "$damage_per_second"
+            }
+          }
+        }
+      }
+    ]
+  },
+  "doom_bringer_infernal_blade": {
+    "status": "simplified",
+    "note": "cast as a spell instead of an attack modifier; no percent-of-max-health burn",
+    "targeting": "unit",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "modifier",
+        "modifiers": {
+          "key": "doom_bringer_infernal_blade_stun",
+          "duration": "$ministun_duration",
+          "flags": [
+            "stunned"
+          ]
+        }
+      },
+      {
+        "kind": "modifier",
+        "modifiers": {
+          "key": "doom_bringer_infernal_blade_burn",
+          "duration": "$burn_duration",
+          "damagePerSecond": "$burn_damage"
+        }
+      }
+    ]
+  },
+  "doom_bringer_doom": {
+    "status": "simplified",
+    "note": "no healing block, no dispel on cast",
+    "targeting": "unit",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "modifier",
+        "modifiers": {
+          "key": "doom_bringer_doom",
+          "duration": "$duration",
+          "flags": [
+            "silenced"
+          ],
+          "damagePerSecond": "$damage",
+          "damageType": "pure",
+          "dispellable": false
+        }
+      }
+    ]
+  },
+  "mirana_starfall": {
+    "status": "simplified",
+    "note": "one wave at the cast; no second hit on the closest enemy",
+    "targeting": "noTarget",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "area",
+        "radius": "$starfall_radius",
+        "center": "caster",
+        "team": "enemy",
+        "effects": [
+          {
+            "kind": "damage",
+            "damageType": "magical",
+            "amounts": "$damage"
+          }
+        ]
+      }
+    ]
+  },
+  "mirana_arrow": {
+    "status": "simplified",
+    "note": "unit-targeted and instant; stun and bonus damage as from the longest distance",
+    "targeting": "unit",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "damage",
+        "damageType": "magical",
+        "amounts": "$arrow_bonus_damage"
+      },
+      {
+        "kind": "modifier",
+        "modifiers": {
+          "key": "mirana_arrow",
+          "duration": "$arrow_max_stun",
+          "flags": [
+            "stunned"
+          ]
+        }
+      }
+    ]
+  },
+  "mirana_leap": {
+    "status": "simplified",
+    "note": "point-targeted leap",
+    "targeting": "point",
+    "targetTeam": "ally",
+    "castRange": "$leap_distance",
+    "effects": [
+      {
+        "kind": "dash"
+      },
+      {
+        "kind": "modifier",
+        "modifiers": {
+          "key": "mirana_leap",
+          "duration": 5,
+          "moveSpeedPercent": "$leap_speedbonus",
+          "attackSpeed": "$leap_speedbonus_as"
+        }
+      }
+    ]
+  },
+  "mirana_invis": {
+    "status": "simplified",
+    "note": "no fade delay, no re-hiding after being revealed; no outgoing damage bonus",
+    "targeting": "noTarget",
+    "targetTeam": "ally",
+    "effects": [
+      {
+        "kind": "area",
+        "radius": 20000,
+        "center": "caster",
+        "team": "ally",
+        "heroesOnly": true,
+        "effects": [
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "mirana_invis",
+              "duration": "$duration",
+              "flags": [
+                "invisible"
+              ],
+              "moveSpeedPercent": "$bonus_movement_speed",
+              "breakOnAction": true
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "techies_sticky_bomb": {
+    "status": "simplified",
+    "note": "explodes at the point at once: no sticking, no countdown",
+    "targeting": "point",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "area",
+        "radius": "$explosion_radius",
+        "center": "point",
+        "team": "enemy",
+        "effects": [
+          {
+            "kind": "damage",
+            "damageType": "magical",
+            "amounts": "$damage"
+          },
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "techies_sticky_bomb",
+              "duration": 3,
+              "moveSpeedPercent": "-$secondary_slow"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "techies_reactive_tazer": {
+    "status": "simplified",
+    "note": "the explosion happens at the cast instead of on attacks or at the end",
+    "targeting": "unit",
+    "targetTeam": "ally",
+    "effects": [
+      {
+        "kind": "modifier",
+        "modifiers": {
+          "key": "techies_reactive_tazer",
+          "duration": "$duration",
+          "moveSpeedPercent": "$bonus_ms"
+        }
+      },
+      {
+        "kind": "area",
+        "radius": "$explosion_radius",
+        "center": "target",
+        "team": "enemy",
+        "effects": [
+          {
+            "kind": "damage",
+            "damageType": "magical",
+            "amounts": "$damage"
+          },
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "techies_reactive_tazer_disarm",
+              "duration": "$disarm_duration",
+              "flags": [
+                "disarmed"
+              ]
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "techies_suicide": {
+    "status": "simplified",
+    "note": "no self damage",
+    "targeting": "point",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "dash"
+      },
+      {
+        "kind": "area",
+        "radius": "$radius",
+        "center": "point",
+        "team": "enemy",
+        "effects": [
+          {
+            "kind": "damage",
+            "damageType": "magical",
+            "amounts": "$damage"
+          },
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "techies_suicide",
+              "duration": "$stun_duration",
+              "flags": [
+                "stunned"
+              ]
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "dark_seer_vacuum": {
+    "status": "simplified",
+    "note": "damage only: no pull, no disruption",
+    "targeting": "point",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "area",
+        "radius": "$radius",
+        "center": "point",
+        "team": "enemy",
+        "effects": [
+          {
+            "kind": "damage",
+            "damageType": "magical",
+            "amounts": "$damage"
+          }
+        ]
+      }
+    ]
+  },
+  "dark_seer_ion_shell": {
+    "status": "full",
+    "targeting": "unit",
+    "targetTeam": "any",
+    "effects": [
+      {
+        "kind": "modifier",
+        "modifiers": {
+          "key": "dark_seer_ion_shell",
+          "duration": "$duration",
+          "aura": {
+            "radius": "$radius",
+            "team": "enemy",
+            "modifier": {
+              "key": "dark_seer_ion_shell_burn",
+              "duration": 1,
+              "damagePerSecond": "$damage_per_second"
+            }
+          }
+        }
+      }
+    ]
+  },
+  "dark_seer_surge": {
+    "status": "simplified",
+    "note": "double movement speed up to the cap instead of the maximum; can still be slowed",
+    "targeting": "unit",
+    "targetTeam": "ally",
+    "effects": [
+      {
+        "kind": "modifier",
+        "modifiers": {
+          "key": "dark_seer_surge",
+          "duration": "$duration",
+          "moveSpeedPercent": 100
+        }
+      }
+    ]
+  },
+  "sven_storm_bolt": {
+    "status": "full",
+    "targeting": "unit",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "projectile",
+        "speed": "$bolt_speed",
+        "effects": [
+          {
+            "kind": "area",
+            "radius": "$bolt_aoe",
+            "center": "target",
+            "team": "enemy",
+            "effects": [
+              {
+                "kind": "damage",
+                "damageType": "magical",
+                "amounts": "$dmg"
+              },
+              {
+                "kind": "modifier",
+                "modifiers": {
+                  "key": "sven_storm_bolt",
+                  "duration": "$bolt_stun_duration",
+                  "flags": [
+                    "stunned"
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "sven_warcry": {
+    "status": "full",
+    "targeting": "noTarget",
+    "targetTeam": "ally",
+    "effects": [
+      {
+        "kind": "area",
+        "radius": "$radius",
+        "center": "caster",
+        "team": "ally",
+        "heroesOnly": true,
+        "effects": [
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "sven_warcry",
+              "duration": "$duration",
+              "armor": "$bonus_armor",
+              "moveSpeedPercent": "$movespeed"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "sven_gods_strength": {
+    "status": "simplified",
+    "note": "a percent of the whole attack damage instead of the base damage; no slow resistance",
+    "targeting": "noTarget",
+    "targetTeam": "ally",
+    "effects": [
+      {
+        "kind": "modifier",
+        "modifiers": {
+          "key": "sven_gods_strength",
+          "duration": "$abilityduration",
+          "attackDamagePercent": "$gods_strength_damage"
+        }
+      }
+    ]
+  },
+  "furion_sprout": {
+    "status": "simplified",
+    "note": "a root instead of a ring of trees",
+    "targeting": "unit",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "damage",
+        "damageType": "magical",
+        "amounts": "$sprout_damage"
+      },
+      {
+        "kind": "modifier",
+        "modifiers": {
+          "key": "furion_sprout",
+          "duration": "$duration",
+          "flags": [
+            "rooted"
+          ]
+        }
+      }
+    ]
+  },
+  "furion_teleportation": {
+    "status": "full",
+    "targeting": "point",
+    "targetTeam": "ally",
+    "castRange": 30000,
+    "effects": [
+      {
+        "kind": "dash"
+      },
+      {
+        "kind": "modifier",
+        "modifiers": {
+          "key": "furion_teleportation_barrier",
+          "duration": "$buff_duration",
+          "barrier": "$barrier"
+        }
+      }
+    ]
+  },
+  "furion_force_of_nature": {
+    "status": "simplified",
+    "note": "treants appear without trees; top-level treant stats",
+    "targeting": "point",
+    "targetTeam": "ally",
+    "unitTypes": [
+      {
+        "id": "furion_treant",
+        "health": "$treant_health",
+        "armor": 0,
+        "moveSpeed": "$treant_movespeed",
+        "attackDamageMin": "$treant_damage",
+        "attackDamageMax": "$treant_damage",
+        "attackRange": 100,
+        "baseAttackTime": 1.9,
+        "attackPoint": 0.4,
+        "acquisitionRange": 600,
+        "visionRange": "$treant_vision_day",
+        "attackClass": "basic"
+      }
+    ],
+    "effects": [
+      {
+        "kind": "summon",
+        "unitType": "furion_treant",
+        "duration": "$treant_duration",
+        "counts": "$max_treants",
+        "atPoint": true
+      }
+    ]
+  },
+  "furion_wrath_of_nature": {
+    "status": "simplified",
+    "note": "hits every enemy hero on the map once, without the growing damage",
+    "targeting": "noTarget",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "area",
+        "radius": 20000,
+        "center": "caster",
+        "team": "enemy",
+        "heroesOnly": true,
+        "effects": [
+          {
+            "kind": "damage",
+            "damageType": "magical",
+            "amounts": "$damage"
+          }
+        ]
+      }
+    ]
+  },
+  "puck_illusory_orb": {
+    "status": "simplified",
+    "note": "damage around the target point instead of along the path; no teleport to the orb",
+    "targeting": "point",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "area",
+        "radius": "$radius",
+        "center": "point",
+        "team": "enemy",
+        "effects": [
+          {
+            "kind": "damage",
+            "damageType": "magical",
+            "amounts": "$damage"
+          }
+        ]
+      }
+    ]
+  },
+  "puck_waning_rift": {
+    "status": "full",
+    "targeting": "point",
+    "targetTeam": "enemy",
+    "castRange": "$max_distance",
+    "effects": [
+      {
+        "kind": "dash"
+      },
+      {
+        "kind": "area",
+        "radius": "$radius",
+        "center": "point",
+        "team": "enemy",
+        "effects": [
+          {
+            "kind": "damage",
+            "damageType": "magical",
+            "amounts": "$damage"
+          },
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "puck_waning_rift",
+              "duration": "$silence_duration",
+              "flags": [
+                "silenced"
+              ]
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "sven_great_cleave": {
+    "status": "simplified",
+    "note": "a circle around the target instead of a cone",
+    "targeting": "passive",
+    "targetTeam": "ally",
+    "passive": {
+      "key": "sven_great_cleave",
+      "cleavePercent": "$great_cleave_damage",
+      "cleaveRadius": "$cleave_distance"
+    }
+  },
+  "dazzle_shallow_grave": {
+    "status": "simplified",
+    "note": "no healing amplification",
+    "targeting": "unit",
+    "targetTeam": "ally",
+    "effects": [
+      {
+        "kind": "modifier",
+        "modifiers": {
+          "key": "dazzle_shallow_grave",
+          "duration": "$duration",
+          "flags": [
+            "cannotDie"
+          ]
+        }
+      }
+    ]
   }
 }

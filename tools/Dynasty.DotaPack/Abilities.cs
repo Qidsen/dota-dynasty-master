@@ -92,6 +92,8 @@ static class Abilities
         var values = new Dictionary<string, JsonNode?>(StringComparer.Ordinal);
         foreach (JsonNode? attribute in source["attrib"]?.AsArray() ?? new JsonArray())
             values[attribute!["key"]!.GetValue<string>()] = attribute["value"];
+        if (source["dmg"] is JsonNode dmg)
+            values["dmg"] = dmg;   // some abilities keep their damage outside the attributes (Storm Hammer)
         return values;
     }
 

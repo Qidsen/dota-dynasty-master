@@ -463,6 +463,18 @@ namespace Dynasty.MatchSimulation.Systems
             if (attacker.LifestealPercent > 0 && attacker.IsAlive)
                 Damage.Heal(context, attacker.Id, attacker, dealt * Fixed.FromInt(attacker.LifestealPercent) / Fixed.FromInt(100));
 
+            // Cleave: melee attacks splash a percent of their damage onto the other enemies near the target.
+            if (attacker.Stats.ProjectileSpeed == 0)
+            {
+                foreach (ActiveModifier cleave in attacker.Modifiers.Where(m => m.Spec.CleavePercent > 0).ToList())
+                {
+                    Fixed splash = damage * Fixed.FromInt(cleave.Spec.CleavePercent) / Fixed.FromInt(100);
+                    foreach (MatchUnit other in context.State.Units.Where(u => u != target && Effects.Matches(context.State, attacker, u, TargetTeam.Enemy) &&
+                                                                                Geometry.WithinRange(u.Position, target.Position, cleave.Spec.CleaveRadius)).ToList())
+                        Damage.Deal(context, attacker.Id, other, splash, DamageType.Physical);
+                }
+            }
+
             // On-hit effects (bash, bonus magic damage, slows) of the attacker's modifiers, in their order on the unit.
             foreach (ActiveModifier modifier in attacker.Modifiers.Where(m => m.Spec.OnHit.Count > 0).ToList())
             {

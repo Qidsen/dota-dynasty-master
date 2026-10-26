@@ -244,6 +244,7 @@ namespace Dynasty.Content
             "disarmed" => ModifierFlags.Disarmed,
             "invisible" => ModifierFlags.Invisible,
             "debuffImmune" => ModifierFlags.DebuffImmune,
+            "cannotDie" => ModifierFlags.CannotDie,
             _ => throw r.Error("flags", "unknown flag '" + flag + "'"),
         };
 
@@ -267,7 +268,8 @@ namespace Dynasty.Content
                 manaRegenBonus: m.OptionalFixed("manaRegen") ?? Fixed.Zero, moveSpeedBonus: m.OptionalInt("moveSpeed") ?? 0, attackRangeBonus: m.OptionalInt("attackRange") ?? 0,
                 incomingDamagePercent: m.OptionalInt("incomingDamagePercent") ?? 0, attackDamagePercent: m.OptionalInt("attackDamagePercent") ?? 0,
                 evasionPercent: m.OptionalInt("evasion") ?? 0, onHit: m.OptionalArray("onHit").Select(ReadEffect).ToList(),
-                onHitChancePercent: m.OptionalInt("onHitChance") ?? 100, aura: m.OptionalObject("aura") is Reader a ? ReadAura(a) : null);
+                onHitChancePercent: m.OptionalInt("onHitChance") ?? 100, aura: m.OptionalObject("aura") is Reader a ? ReadAura(a) : null,
+                cleavePercent: m.OptionalInt("cleavePercent") ?? 0, cleaveRadius: m.OptionalInt("cleaveRadius") ?? 0, barrier: m.OptionalInt("barrier") ?? 0);
             m.RejectUnknown();
             return spec;
         }

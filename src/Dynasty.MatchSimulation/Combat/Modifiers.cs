@@ -37,6 +37,9 @@ namespace Dynasty.MatchSimulation.Combat
 
         /// <summary>Enemy debuffs are not applied (Dota's debuff immunity, Black King Bar); damage still is.</summary>
         DebuffImmune = 32,
+
+        /// <summary>Damage cannot bring the unit below 1 health (Shallow Grave, False Promise).</summary>
+        CannotDie = 64,
     }
 
     /// <summary>
@@ -107,8 +110,14 @@ namespace Dynasty.MatchSimulation.Combat
             int evasionPercent = 0,
             IReadOnlyList<Rules.EffectDefinition>? onHit = null,
             int onHitChancePercent = 100,
-            AuraSpec? aura = null)
+            AuraSpec? aura = null,
+            int cleavePercent = 0,
+            int cleaveRadius = 0,
+            int barrier = 0)
         {
+            CleavePercent = cleavePercent;
+            CleaveRadius = cleaveRadius;
+            Barrier = barrier;
             IncomingDamagePercent = incomingDamagePercent;
             AttackDamagePercent = attackDamagePercent;
             EvasionPercent = evasionPercent;
@@ -180,6 +189,13 @@ namespace Dynasty.MatchSimulation.Combat
         public int OnHitChancePercent { get; }
 
         public AuraSpec? Aura { get; }
+
+        /// <summary>Melee attacks also deal this percent of their damage to other enemies within <see cref="CleaveRadius"/> of the target.</summary>
+        public int CleavePercent { get; }
+        public int CleaveRadius { get; }
+
+        /// <summary>Damage of any type this modifier absorbs before it is used up and removed.</summary>
+        public int Barrier { get; }
 
         /// <summary>Percent change of move speed; negative slows.</summary>
         public int MoveSpeedPercent { get; }
@@ -275,6 +291,9 @@ namespace Dynasty.MatchSimulation.Combat
             w.WriteInt64(OnHitChancePercent);
             w.WriteBool(Aura != null);
             Aura?.WriteCanonical(w);
+            w.WriteInt64(CleavePercent);
+            w.WriteInt64(CleaveRadius);
+            w.WriteInt64(Barrier);
         }
 
         public static ModifierSpec Status(string key, int durationMs, ModifierFlags flags) => new ModifierSpec(key, durationMs, flags);
@@ -289,9 +308,13 @@ namespace Dynasty.MatchSimulation.Combat
             AppliedTick = appliedTick;
             ExpiresTick = expiresTick;
             NextPeriodTick = nextPeriodTick;
+            BarrierLeft = spec.Barrier;
         }
 
         public ModifierSpec Spec { get; }
+
+        /// <summary>Damage the modifier's barrier can still absorb.</summary>
+        public int BarrierLeft { get; internal set; }
         public EntityId Source { get; }
         public long AppliedTick { get; internal set; }
 
@@ -324,6 +347,7 @@ namespace Dynasty.MatchSimulation.Combat
             {
                 existing.AppliedTick = now;
                 existing.ExpiresTick = expires;
+                existing.BarrierLeft = spec.Barrier;
                 modifier = existing;
             }
             else
@@ -395,6 +419,9 @@ namespace Dynasty.MatchSimulation.Combat
             Fixed amount = DamageMath.Mitigate(rawAmount, type, target.Armor, target.MagicResistPercent, context.State.Ruleset.Combat.ArmorFactor);
             if (target.IncomingDamagePercent != 0)
                 amount = amount * Fixed.FromInt(100 + target.IncomingDamagePercent) / Fixed.FromInt(100);
+            amount = Absorb(context, target, amount);
+            if ((target.Flags & ModifierFlags.CannotDie) != 0)
+                amount = Fixed.Max(Fixed.Zero, Fixed.Min(amount, target.Hp - Fixed.One));
             target.Hp = Fixed.Max(Fixed.Zero, target.Hp - amount);
             if (attacker.IsValid)
             {
@@ -404,6 +431,23 @@ namespace Dynasty.MatchSimulation.Combat
                     target.Hero.RecentHeroAttackers[attacker.Value] = context.Tick.Value;
             }
             context.Emit(new DamageDealt(attacker, target.Id, amount, target.Hp, type, isCritical));
+            return amount;
+        }
+
+        /// <summary>Barriers take the damage first, in the order they were applied; a used-up barrier is removed.</summary>
+        private static Fixed Absorb(SimulationContext<MatchState> context, MatchUnit target, Fixed amount)
+        {
+            foreach (ActiveModifier modifier in target.Modifiers.Where(m => m.BarrierLeft > 0).ToList())
+            {
+                if (amount <= Fixed.Zero)
+                    break;
+                Fixed absorbed = Fixed.Min(amount, Fixed.FromInt(modifier.BarrierLeft));
+                modifier.BarrierLeft -= absorbed.ToIntFloor() + (absorbed > Fixed.FromInt(absorbed.ToIntFloor()) ? 1 : 0);
+                amount -= absorbed;
+                if (modifier.BarrierLeft <= 0)
+                    Modifiers.Remove(context, target, modifier, "barrier_used");
+            }
+
             return amount;
         }
 
