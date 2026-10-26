@@ -557,8 +557,8 @@ namespace Dynasty.MatchSimulation.Rules
             foreach (ItemDefinition item in Items)
             {
                 string owner = "Item '" + item.Id + "'";
-                if (item.Cost <= 0)
-                    errors.Add(owner + " must have a positive cost.");
+                if (item.Cost < 0)
+                    errors.Add(owner + " cannot have a negative cost.");   // free items exist (Dota's observer ward)
                 int componentCost = 0;
                 foreach (string componentId in item.Components)
                 {

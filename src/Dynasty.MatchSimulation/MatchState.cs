@@ -68,7 +68,9 @@ namespace Dynasty.MatchSimulation
         public int AttackSpeedBonus { get; private set; }
         public int MoveSpeed { get; private set; }
         public ModifierFlags Flags { get; private set; }
-        public int AttackRange => Stats.AttackRange;
+        public int AttackRange { get; private set; }
+
+        private const int MaxMoveSpeed = 550;
         public int AcquisitionRange => Stats.AcquisitionRange;
         public int BoundingRadius => Stats.BoundingRadius;
         public bool CanAttackAtAll => Stats.CanAttack;
@@ -195,6 +197,9 @@ namespace Dynasty.MatchSimulation
             int damageBonus = 0;
             int attackSpeed = Hero != null ? Hero.Definition.AttackSpeedPerLevel * (Hero.Level - 1) : 0;
             int movePercent = 0;
+            int moveFlat = 0;
+            int attackRangeBonus = 0;
+            Fixed manaRegenBonus = Fixed.Zero;
             int critChance = 0;
             int critMultiplier = 0;
             int structurePercent = 0;
@@ -227,11 +232,14 @@ namespace Dynasty.MatchSimulation
                 damageBonus += spec.DamageBonus;
                 attackSpeed += spec.AttackSpeedBonus;
                 movePercent += spec.MoveSpeedPercent;
+                moveFlat += spec.MoveSpeedBonus;
+                attackRangeBonus += spec.AttackRangeBonus;
+                manaRegenBonus += spec.ManaRegenBonus;
                 flags |= spec.Flags;
             }
 
             Fixed hpRegen = (Hero?.Definition.HpRegenPerSecond ?? Fixed.Zero) + hpRegenBonus;
-            Fixed manaRegen = Hero?.Definition.ManaRegenPerSecond ?? Fixed.Zero;
+            Fixed manaRegen = (Hero?.Definition.ManaRegenPerSecond ?? Fixed.Zero) + manaRegenBonus;
             HeroAttributes? attributes = Hero?.Definition.Attributes;
             AttributeRules? perPoint = Hero?.AttributeRules;
             if (attributes != null && perPoint != null)
@@ -285,8 +293,10 @@ namespace Dynasty.MatchSimulation
             StructureDamagePercent = structurePercent;
             LifestealPercent = lifesteal;
 
-            int speed = Stats.MoveSpeed * (100 + movePercent) / 100;
+            // Dota: flat bonuses first, then percentages; at least 100 (or the base, if lower), at most 550.
+            int speed = Math.Min((Stats.MoveSpeed + moveFlat) * (100 + movePercent) / 100, MaxMoveSpeed);
             MoveSpeed = Stats.MoveSpeed == 0 ? 0 : Math.Max(speed, Math.Min(100, Stats.MoveSpeed));
+            AttackRange = Stats.AttackRange + attackRangeBonus;
             StepPerTick = Fixed.FromRatio(MoveSpeed, _rate.TicksPerSecond);
             AttackIntervalTicks = Math.Max(1, _rate.TicksFor(Stats.AttackIntervalMs * 100 / (100 + AttackSpeedBonus)));
             AttackPointTicks = _rate.TicksFor(Stats.AttackPointMs * 100 / (100 + AttackSpeedBonus));

@@ -1081,12 +1081,14 @@ namespace Dynasty.HeroAI
 
         private bool PlaceWard()
         {
-            AbilityState? place = _h.Inventory.Where(i => i.Definition.Id == "observer_ward" && i.Active != null).Select(i => i.Active!).FirstOrDefault();
+            ItemDefinition? wardItem = Math.ObserverWardItem(_state.Ruleset);
+            AbilityState? place = wardItem == null ? null : _h.Inventory.Where(i => i.Definition == wardItem && i.Active != null).Select(i => i.Active!).FirstOrDefault();
             if (place == null || !place.IsReady(_now))
                 return false;
 
             HeroDecision self = this;
-            List<MatchUnit> ownWards = _state.Units.Where(u => u.Team == self._hero.Team && u.TypeId == "observer_ward" && u.IsAlive).ToList();
+            string wardType = Math.WardUnitType(_state.Ruleset, wardItem!)!;
+            List<MatchUnit> ownWards = _state.Units.Where(u => u.Team == self._hero.Team && u.TypeId == wardType && u.IsAlive).ToList();
             FixedVector2? spot = _brain.WardSpots(_state)
                 .Where(s => !ownWards.Any(w => Math.Within(w.Position, s, 1000)) && !self.UnderEnemyTower(s))
                 .OrderBy(s => FixedVector2.DistanceSquared(s, self._hero.Position))
@@ -1352,9 +1354,10 @@ namespace Dynasty.HeroAI
             if (!inShop)
                 return;
 
-            if (WantsWard() && CanSpend(_state.Ruleset.FindItem("observer_ward")!.Cost))
+            ItemDefinition? wardItem = Math.ObserverWardItem(_state.Ruleset);
+            if (wardItem != null && WantsWard(wardItem) && CanSpend(wardItem.Cost))
             {
-                HeroShop.QueuePurchase(_hero, "observer_ward");
+                HeroShop.QueuePurchase(_hero, wardItem.Id);
                 return;
             }
 
@@ -1426,16 +1429,15 @@ namespace Dynasty.HeroAI
         }
 
         /// <summary>Supports keep an observer ward while the team has fewer than two placed.</summary>
-        private bool WantsWard()
+        private bool WantsWard(ItemDefinition wardItem)
         {
-            if (_state.Ruleset.FindItem("observer_ward") == null)
-                return false;
             if (!_h.Definition.Roles.Contains("support") && !_h.Definition.Roles.Contains("healer"))
                 return false;
-            if (_h.Inventory.Any(i => i.Definition.Id == "observer_ward") || _h.Inventory.Count >= HeroShop.InventorySize)
+            if (_h.Inventory.Any(i => i.Definition == wardItem) || _h.Inventory.Count >= HeroShop.InventorySize)
                 return false;
             HeroDecision self = this;
-            return _state.Units.Count(u => u.Team == self._hero.Team && u.TypeId == "observer_ward" && u.IsAlive) < 2;
+            string wardType = Math.WardUnitType(_state.Ruleset, wardItem)!;
+            return _state.Units.Count(u => u.Team == self._hero.Team && u.TypeId == wardType && u.IsAlive) < 2;
         }
 
         private string? NextBuildItem()
@@ -1594,6 +1596,29 @@ namespace Dynasty.HeroAI
         }
 
         public static bool IsTeleport(AbilityDefinition ability) => ability.Effects.Any(e => e.Kind == EffectKind.Teleport);
+
+        /// <summary>
+        /// The observer ward: an item whose active summons an immobile, invisible unit without true sight (a
+        /// sentry has true sight). Found by its mechanics, so packs may name it as they like.
+        /// </summary>
+        public static ItemDefinition? ObserverWardItem(RulesetContent ruleset) =>
+            ruleset.Items.FirstOrDefault(i => WardUnitType(ruleset, i) != null);
+
+        /// <summary>The unit type an observer ward item places, or null when the item is not one.</summary>
+        public static string? WardUnitType(RulesetContent ruleset, ItemDefinition item)
+        {
+            AbilityDefinition? active = item.ActiveAbilityId != null ? ruleset.FindAbility(item.ActiveAbilityId) : null;
+            if (active == null)
+                return null;
+            foreach (EffectDefinition effect in active.Effects)
+            {
+                CreepType? type = effect.Kind == EffectKind.Summon && effect.SummonTypeId != null ? ruleset.FindCreepType(effect.SummonTypeId) : null;
+                if (type != null && type.Stats.MoveSpeed == 0 && (type.Stats.InnateFlags & ModifierFlags.Invisible) != 0 && type.Stats.TrueSightRange == 0)
+                    return type.Id;
+            }
+
+            return null;
+        }
 
         /// <summary>A healing consumable: a no-target item ability with charges that only applies healing over time.</summary>
         public static bool IsHealingConsumable(ItemDefinition item, AbilityDefinition? ability) =>

@@ -66,8 +66,14 @@ namespace Dynasty.MatchSimulation.Combat
             bool dispellable = true,
             int strengthBonus = 0,
             int agilityBonus = 0,
-            int intelligenceBonus = 0)
+            int intelligenceBonus = 0,
+            Fixed manaRegenBonus = default,
+            int moveSpeedBonus = 0,
+            int attackRangeBonus = 0)
         {
+            ManaRegenBonus = manaRegenBonus;
+            MoveSpeedBonus = moveSpeedBonus;
+            AttackRangeBonus = attackRangeBonus;
             StrengthBonus = strengthBonus;
             AgilityBonus = agilityBonus;
             IntelligenceBonus = intelligenceBonus;
@@ -108,6 +114,13 @@ namespace Dynasty.MatchSimulation.Combat
         public int StrengthBonus { get; }
         public int AgilityBonus { get; }
         public int IntelligenceBonus { get; }
+
+        public Fixed ManaRegenBonus { get; }
+
+        /// <summary>Flat movement speed (boots), added before <see cref="MoveSpeedPercent"/> multiplies.</summary>
+        public int MoveSpeedBonus { get; }
+
+        public int AttackRangeBonus { get; }
 
         /// <summary>Percent change of move speed; negative slows.</summary>
         public int MoveSpeedPercent { get; }
@@ -191,6 +204,9 @@ namespace Dynasty.MatchSimulation.Combat
             w.WriteInt64(StrengthBonus);
             w.WriteInt64(AgilityBonus);
             w.WriteInt64(IntelligenceBonus);
+            w.WriteFixed(ManaRegenBonus);
+            w.WriteInt64(MoveSpeedBonus);
+            w.WriteInt64(AttackRangeBonus);
         }
 
         public static ModifierSpec Status(string key, int durationMs, ModifierFlags flags) => new ModifierSpec(key, durationMs, flags);

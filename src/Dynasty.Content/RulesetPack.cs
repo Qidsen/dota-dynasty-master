@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Dynasty.Core.Json;
 using Dynasty.Core.Mathematics;
+using Dynasty.MatchSimulation.Combat;
 using Dynasty.MatchSimulation.Rules;
 
 namespace Dynasty.Content
@@ -15,9 +16,10 @@ namespace Dynasty.Content
     }
 
     /// <summary>
-    /// Gameplay ruleset packs (spec §27, decision D-048): a JSON document that replaces the heroes and hero
-    /// rules of a base ruleset; the map, creeps, structures, waves and the rest stay from the base. Format
-    /// <c>dynasty.ruleset-pack</c>, version 1 (documented in <c>docs/DOTA_PACK.md</c>).
+    /// Gameplay ruleset packs (spec §27, decision D-048): a JSON document that replaces the heroes, hero
+    /// rules, abilities and items of a base ruleset and adds unit types for summons; the map, lane creeps,
+    /// structures, waves and the rest stay from the base. Format <c>dynasty.ruleset-pack</c>, version 1
+    /// (documented in <c>docs/DOTA_PACK.md</c>). Unknown fields are errors, so a typo cannot pass silently.
     /// </summary>
     public static class RulesetPack
     {
@@ -46,11 +48,19 @@ namespace Dynasty.Content
 
             string id = reader.String("id");
             int version = reader.Int("version");
+            reader.OptionalString("name");
+            reader.Ignore("provenance");
             IReadOnlyList<HeroDefinition> heroes = reader.Array("heroes").Select(ReadHero).ToList();
             HeroRules? heroRules = reader.OptionalObject("heroRules") is Reader rules ? ReadHeroRules(rules, baseRules.HeroRules) : baseRules.HeroRules;
+            List<CreepType> unitTypes = reader.OptionalArray("unitTypes").Select(ReadUnitType).ToList();
+            IReadOnlyList<AbilityDefinition> abilities = reader.Has("abilities") ? reader.Array("abilities").Select(ReadAbility).ToList() : baseRules.Abilities;
+            IReadOnlyList<ItemDefinition> items = reader.Has("items") ? reader.Array("items").Select(ReadItem).ToList() : baseRules.Items;
+            reader.RejectUnknown();
 
-            var content = new RulesetContent(id, version, baseRules.TicksPerSecond, baseRules.Combat, baseRules.CreepTypes, baseRules.StructureTypes,
-                baseRules.Map, baseRules.Waves, heroes, heroRules, baseRules.Abilities, baseRules.Items, baseRules.Boss, baseRules.Runes,
+            var unitIds = new HashSet<string>(unitTypes.Select(u => u.Id));
+            IReadOnlyList<CreepType> creepTypes = baseRules.CreepTypes.Where(c => !unitIds.Contains(c.Id)).Concat(unitTypes).ToList();
+            var content = new RulesetContent(id, version, baseRules.TicksPerSecond, baseRules.Combat, creepTypes, baseRules.StructureTypes,
+                baseRules.Map, baseRules.Waves, heroes, heroRules, abilities, items, baseRules.Boss, baseRules.Runes,
                 baseRules.DayNight, baseRules.Draft);
             IReadOnlyList<string> errors = content.Validate();
             if (errors.Count > 0)
@@ -75,30 +85,196 @@ namespace Dynasty.Content
                 _ => throw h.Error("primaryAttribute", "expected strength, agility, intelligence or universal"),
             };
             int day = h.Int("dayVision");
+            int projectileSpeed = h.Int("projectileSpeed");
             var stats = new UnitStats(
                 h.Int("baseHealth"), h.Fixed("baseArmor"), h.Int("moveSpeed"), h.Int("attackDamageMin"), h.Int("attackDamageMax"),
                 h.Int("attackRange"), h.Milliseconds("baseAttackTime"), h.Milliseconds("attackPoint"),
                 acquisitionRange: System.Math.Max(800, h.Int("attackRange")), boundingRadius: 24, magicResistPercent: h.Int("magicResist"),
-                visionRange: day, projectileSpeed: melee ? 0 : h.Int("projectileSpeed"), nightVisionRange: h.Int("nightVision"));
+                visionRange: day, projectileSpeed: melee ? 0 : projectileSpeed, nightVisionRange: h.Int("nightVision"));
             var attributes = new HeroAttributes(primary, h.Int("strength"), h.Int("agility"), h.Int("intelligence"),
                 h.Fixed("strengthGain"), h.Fixed("agilityGain"), h.Fixed("intelligenceGain"), h.Int("baseAttackSpeed"));
-            return new HeroDefinition(h.String("id"), h.String("name"), h.Strings("roles"), stats,
+            var hero = new HeroDefinition(h.String("id"), h.String("name"), h.Strings("roles"), stats,
                 hpPerLevel: 0, armorPerLevel: Fixed.Zero, damagePerLevel: 0, baseMana: h.Int("baseMana"), manaPerLevel: 0,
                 hpRegenPerSecond: h.Fixed("baseHealthRegen"), manaRegenPerSecond: h.Fixed("baseManaRegen"),
                 abilityIds: h.OptionalStrings("abilities"), itemBuild: h.OptionalStrings("itemBuild"), attributes: attributes);
+            h.RejectUnknown();
+            return hero;
         }
 
         private static HeroRules ReadHeroRules(Reader r, HeroRules? b)
         {
             if (b == null)
                 throw r.Error("heroRules", "the base ruleset has no hero rules to extend");
-            return new HeroRules(
+            var rules = new HeroRules(
                 r.OptionalInts("xpForLevel") ?? b.XpForLevel, r.OptionalInt("xpShareRadius") ?? b.XpShareRadius,
                 r.OptionalInt("heroKillXpBase") ?? b.HeroKillXpBase, r.OptionalInt("heroKillXpPerLevel") ?? 0,
                 b.HeroKillGoldBase, b.HeroKillGoldPerLevel, b.AssistWindowMs, b.GoldPerMinute, b.StartingGold,
                 b.RespawnBaseMs, b.RespawnPerLevelMs, b.GoldLossPerLevel, b.StructureTeamGold, b.FountainHealPercentPerSecond,
                 b.BuybackBaseGold, b.BuybackGoldPerLevel, b.BuybackCooldownMs,
                 r.OptionalInt("heroKillXpPercentOfVictim") ?? b.HeroKillXpPercentOfVictim, b.Attributes);
+            r.RejectUnknown();
+            return rules;
+        }
+
+        private static CreepType ReadUnitType(Reader u)
+        {
+            string? classText = u.OptionalString("attackClass");
+            AttackClass attackClass = classText switch
+            {
+                null => AttackClass.Basic,
+                "basic" => AttackClass.Basic,
+                "runty" => AttackClass.Runty,
+                "piercing" => AttackClass.Piercing,
+                "reinforced" => AttackClass.Reinforced,
+                _ => throw u.Error("attackClass", "expected basic, runty, piercing or reinforced"),
+            };
+            int vision = u.Int("visionRange");
+            var stats = new UnitStats(u.Int("health"), u.Fixed("armor"), u.Int("moveSpeed"), u.OptionalInt("attackDamageMin") ?? 0, u.OptionalInt("attackDamageMax") ?? 0,
+                u.OptionalInt("attackRange") ?? 0, u.OptionalMilliseconds("baseAttackTime") ?? 1000, u.OptionalMilliseconds("attackPoint") ?? 0,
+                u.OptionalInt("acquisitionRange") ?? 0, u.OptionalInt("radius") ?? 16, u.OptionalInt("magicResist") ?? 0, vision,
+                u.OptionalInt("trueSight") ?? 0, u.OptionalBool("invisible") == true ? ModifierFlags.Invisible : ModifierFlags.None,
+                u.OptionalInt("projectileSpeed") ?? 0, u.OptionalInt("nightVision") ?? vision, attackClass);
+            Bounty bounty = Bounty.None;
+            if (u.OptionalObject("bounty") is Reader b)
+            {
+                bounty = new Bounty(b.Int("goldMin"), b.Int("goldMax"), b.Int("xp"));
+                b.RejectUnknown();
+            }
+
+            var type = new CreepType(u.String("id"), stats, bounty);
+            u.RejectUnknown();
+            return type;
+        }
+
+        private static AbilityDefinition ReadAbility(Reader a)
+        {
+            AbilityTargeting targeting = a.String("targeting") switch
+            {
+                "noTarget" => AbilityTargeting.NoTarget,
+                "unit" => AbilityTargeting.Unit,
+                "point" => AbilityTargeting.Point,
+                "passive" => AbilityTargeting.Passive,
+                _ => throw a.Error("targeting", "expected noTarget, unit, point or passive"),
+            };
+            IReadOnlyList<int> levels = a.Ints("requiredLevels");
+            IReadOnlyList<int> cooldowns = a.Seconds("cooldown");
+            IReadOnlyList<int> mana = a.OptionalInts("manaCost") ?? (targeting == AbilityTargeting.Passive ? new int[0] : levels.Select(_ => 0).ToArray());
+            var ability = new AbilityDefinition(a.String("id"), a.String("name"), targeting, ReadTeam(a, "targetTeam"), a.Int("castRange"), a.Milliseconds("castPoint"),
+                cooldowns, mana, levels, a.Array("effects").Select(ReadEffect).ToList(),
+                a.OptionalArray("passive").Select(ReadModifier).ToList(), a.OptionalBool("targetsStructures") ?? false);
+            a.RejectUnknown();
+            return ability;
+        }
+
+        private static TargetTeam ReadTeam(Reader r, string field) => r.String(field) switch
+        {
+            "enemy" => TargetTeam.Enemy,
+            "ally" => TargetTeam.Ally,
+            "any" => TargetTeam.Any,
+            _ => throw r.Error(field, "expected enemy, ally or any"),
+        };
+
+        private static EffectDefinition ReadEffect(Reader e)
+        {
+            EffectDefinition effect;
+            switch (e.String("kind"))
+            {
+                case "damage":
+                    effect = EffectDefinition.Damage(ReadDamageType(e, "damageType"), e.Ints("amounts").ToArray());
+                    break;
+                case "heal":
+                    effect = EffectDefinition.Heal(e.Ints("amounts").ToArray());
+                    break;
+                case "modifier":
+                    effect = EffectDefinition.Modifier(e.Array("modifiers").Select(ReadModifier).ToArray());
+                    break;
+                case "area":
+                    AreaCenter center = e.String("center") switch
+                    {
+                        "caster" => AreaCenter.Caster,
+                        "target" => AreaCenter.Target,
+                        "point" => AreaCenter.Point,
+                        _ => throw e.Error("center", "expected caster, target or point"),
+                    };
+                    effect = EffectDefinition.Area(e.Int("radius"), center, ReadTeam(e, "team"), e.OptionalBool("heroesOnly") ?? false,
+                        e.Array("effects").Select(ReadEffect).ToArray());
+                    break;
+                case "dash":
+                    effect = EffectDefinition.Dash();
+                    break;
+                case "knockback":
+                    effect = EffectDefinition.Knockback(e.Ints("amounts").ToArray());
+                    break;
+                case "summon":
+                    string unit = e.String("unitType");
+                    int duration = e.Milliseconds("duration");
+                    int[] counts = e.Ints("counts").ToArray();
+                    effect = e.OptionalBool("atPoint") == true ? EffectDefinition.SummonAtPoint(unit, duration, counts) : EffectDefinition.Summon(unit, duration, counts);
+                    break;
+                case "teleport":
+                    effect = EffectDefinition.Teleport();
+                    break;
+                case "dispel":
+                    effect = EffectDefinition.Dispel(e.OptionalBool("strong") ?? false);
+                    break;
+                case "projectile":
+                    effect = EffectDefinition.Projectile(e.Int("speed"), e.Array("effects").Select(ReadEffect).ToArray());
+                    break;
+                default:
+                    throw e.Error("kind", "unknown effect kind");
+            }
+
+            e.RejectUnknown();
+            return effect;
+        }
+
+        private static DamageType ReadDamageType(Reader r, string field) => r.String(field) switch
+        {
+            "physical" => DamageType.Physical,
+            "magical" => DamageType.Magical,
+            "pure" => DamageType.Pure,
+            _ => throw r.Error(field, "expected physical, magical or pure"),
+        };
+
+        private static ModifierFlags ReadFlag(Reader r, string flag) => flag switch
+        {
+            "stunned" => ModifierFlags.Stunned,
+            "rooted" => ModifierFlags.Rooted,
+            "silenced" => ModifierFlags.Silenced,
+            "disarmed" => ModifierFlags.Disarmed,
+            "invisible" => ModifierFlags.Invisible,
+            _ => throw r.Error("flags", "unknown flag '" + flag + "'"),
+        };
+
+        private static ModifierSpec ReadModifier(Reader m)
+        {
+            ModifierFlags flags = ModifierFlags.None;
+            foreach (string flag in m.OptionalStrings("flags") ?? new string[0])
+                flags |= ReadFlag(m, flag);
+
+            var spec = new ModifierSpec(m.String("key"), m.OptionalMilliseconds("duration") ?? -1, flags,
+                armorBonus: m.OptionalFixed("armor") ?? Fixed.Zero, moveSpeedPercent: m.OptionalInt("moveSpeedPercent") ?? 0,
+                attackSpeedBonus: m.OptionalInt("attackSpeed") ?? 0, damageBonus: m.OptionalInt("damage") ?? 0, magicResistBonus: m.OptionalInt("magicResist") ?? 0,
+                damagePerSecond: m.OptionalFixed("damagePerSecond") ?? Fixed.Zero,
+                damageType: m.Has("damageType") ? ReadDamageType(m, "damageType") : DamageType.Magical,
+                healPerSecond: m.OptionalFixed("healPerSecond") ?? Fixed.Zero, periodMs: m.OptionalMilliseconds("period") ?? 1000,
+                critChancePercent: m.OptionalInt("critChance") ?? 0, critMultiplierPercent: m.OptionalInt("critMultiplier") ?? 0,
+                structureDamagePercent: m.OptionalInt("structureDamage") ?? 0, lifestealPercent: m.OptionalInt("lifesteal") ?? 0,
+                maxHpBonus: m.OptionalInt("maxHealth") ?? 0, maxManaBonus: m.OptionalInt("maxMana") ?? 0, hpRegenBonus: m.OptionalFixed("healthRegen") ?? Fixed.Zero,
+                breakOnAction: m.OptionalBool("breakOnAction") ?? false, breakRadius: m.OptionalInt("breakRadius") ?? 0, dispellable: m.OptionalBool("dispellable") ?? true,
+                strengthBonus: m.OptionalInt("strength") ?? 0, agilityBonus: m.OptionalInt("agility") ?? 0, intelligenceBonus: m.OptionalInt("intelligence") ?? 0,
+                manaRegenBonus: m.OptionalFixed("manaRegen") ?? Fixed.Zero, moveSpeedBonus: m.OptionalInt("moveSpeed") ?? 0, attackRangeBonus: m.OptionalInt("attackRange") ?? 0);
+            m.RejectUnknown();
+            return spec;
+        }
+
+        private static ItemDefinition ReadItem(Reader i)
+        {
+            ModifierSpec? bonuses = i.OptionalObject("bonuses") is Reader b ? ReadModifier(b) : null;
+            var item = new ItemDefinition(i.String("id"), i.String("name"), i.Int("cost"), bonuses, i.OptionalStrings("components"),
+                i.OptionalString("active"), i.OptionalInt("charges") ?? 0);
+            i.RejectUnknown();
+            return item;
         }
 
         /// <summary>Reads fields of one JSON object and names the field in every error (e.g. <c>heroes[1].agility</c>).</summary>
@@ -106,6 +282,7 @@ namespace Dynasty.Content
         {
             private readonly JsonValue _value;
             private readonly string _path;
+            private readonly HashSet<string> _read = new HashSet<string>();
 
             public Reader(JsonValue value, string path)
             {
@@ -120,8 +297,28 @@ namespace Dynasty.Content
 
             private string Path(string field) => _path.Length == 0 ? field : _path + "." + field;
 
+            public bool Has(string field)
+            {
+                _read.Add(field);
+                return _value.Has(field);
+            }
+
+            /// <summary>A known field this build does not use.</summary>
+            public void Ignore(string field) => _read.Add(field);
+
+            /// <summary>A field the format does not know is a mistake: a typo would otherwise be dropped silently.</summary>
+            public void RejectUnknown()
+            {
+                foreach (KeyValuePair<string, JsonValue> member in _value.Members)
+                {
+                    if (!_read.Contains(member.Key))
+                        throw Error(member.Key, "unknown field");
+                }
+            }
+
             private T Read<T>(string field, Func<JsonValue, T> read)
             {
+                _read.Add(field);
                 JsonValue? value = _value.Get(field);
                 if (value == null)
                     throw Error(field, "missing");
@@ -140,15 +337,24 @@ namespace Dynasty.Content
             public Fixed Fixed(string field) => Read(field, v => v.AsFixed());
 
             /// <summary>Seconds in the document, milliseconds in the ruleset.</summary>
-            public int Milliseconds(string field) => (Read(field, v => v.AsFixed()) * Dynasty.Core.Mathematics.Fixed.FromInt(1000) + Dynasty.Core.Mathematics.Fixed.FromRatio(1, 2)).ToIntFloor();
+            public int Milliseconds(string field) => ToMilliseconds(Read(field, v => v.AsFixed()));
 
-            public int? OptionalInt(string field) => _value.Has(field) ? Int(field) : (int?)null;
+            public int? OptionalInt(string field) => Has(field) ? Int(field) : (int?)null;
+            public Fixed? OptionalFixed(string field) => Has(field) ? Fixed(field) : (Fixed?)null;
+            public bool? OptionalBool(string field) => Has(field) ? Read(field, v => v.AsBool()) : (bool?)null;
+            public string? OptionalString(string field) => Has(field) ? String(field) : null;
+            public int? OptionalMilliseconds(string field) => Has(field) ? Milliseconds(field) : (int?)null;
+
+            public IReadOnlyList<int> Ints(string field) => Read(field, v => ItemsOf(v).Select(i => i.AsInt()).ToList());
+
+            /// <summary>Seconds per level in the document, milliseconds in the ruleset.</summary>
+            public IReadOnlyList<int> Seconds(string field) => Read(field, v => ItemsOf(v).Select(i => ToMilliseconds(i.AsFixed())).ToList());
 
             public IReadOnlyList<string> Strings(string field) => Read(field, v => ItemsOf(v).Select(i => i.AsString()).ToList());
 
-            public IReadOnlyList<string>? OptionalStrings(string field) => _value.Has(field) ? Strings(field) : null;
+            public IReadOnlyList<string>? OptionalStrings(string field) => Has(field) ? Strings(field) : null;
 
-            public IReadOnlyList<int>? OptionalInts(string field) => _value.Has(field) ? Read(field, v => ItemsOf(v).Select(i => i.AsInt()).ToList()) : null;
+            public IReadOnlyList<int>? OptionalInts(string field) => Has(field) ? Ints(field) : null;
 
             public IEnumerable<Reader> Array(string field)
             {
@@ -157,7 +363,12 @@ namespace Dynasty.Content
                     yield return new Reader(items[i], Path(field) + "[" + i + "]");
             }
 
-            public Reader? OptionalObject(string field) => _value.Has(field) ? new Reader(_value[field], Path(field)) : null;
+            public IEnumerable<Reader> OptionalArray(string field) => Has(field) ? Array(field) : Enumerable.Empty<Reader>();
+
+            public Reader? OptionalObject(string field) => Has(field) ? new Reader(_value[field], Path(field)) : null;
+
+            private static int ToMilliseconds(Fixed seconds) =>
+                (seconds * Dynasty.Core.Mathematics.Fixed.FromInt(1000) + Dynasty.Core.Mathematics.Fixed.FromRatio(1, 2)).ToIntFloor();
 
             private static IReadOnlyList<JsonValue> ItemsOf(JsonValue v) =>
                 v.Kind == JsonKind.Array ? v.Items : throw new JsonException("Expected Array, found " + v.Kind + ".");

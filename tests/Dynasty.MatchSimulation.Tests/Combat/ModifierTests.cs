@@ -138,4 +138,34 @@ public class ModifierTests
         Assert.Equal("stun", removed.Key);
         Assert.Equal(15, tick);
     }
+
+    /// <summary>Dota: flat movement speed bonuses (boots) add to the base before percentage bonuses multiply; the speed is capped at 550.</summary>
+    [Fact]
+    public void FlatMoveSpeed_AddsBeforePercent_UpToTheCap()
+    {
+        var kernel = LoneDawnCreep().Start();
+        ApplyAt(kernel, 0, FirstDawnCreep, new ModifierSpec("boots", -1, moveSpeedBonus: 45, moveSpeedPercent: 10));
+        ApplyAt(kernel, 1, FirstDawnCreep, new ModifierSpec("haste", -1, moveSpeedPercent: 100));
+
+        kernel.Step();
+        Assert.Equal((300 + 45) * 110 / 100, FirstDawnCreep(kernel.State).MoveSpeed);
+
+        kernel.Step();
+        Assert.Equal(550, FirstDawnCreep(kernel.State).MoveSpeed);
+    }
+
+    /// <summary>Items give mana regeneration and attack range (Dragon Lance) as well.</summary>
+    [Fact]
+    public void ManaRegenAndAttackRangeBonuses_AddToTheHero()
+    {
+        var kernel = new RulesetDraft().WithoutWaves().StartWithHeroes(new[] { ("alpha", "mid") }, Array.Empty<(string, string)>());
+        MatchUnit Alpha(MatchState s) => s.Units.Single(u => u.Hero != null);
+        ApplyAt(kernel, 0, Alpha, new ModifierSpec("item", -1, manaRegenBonus: Fixed.FromRatio(5, 2), attackRangeBonus: 150));
+
+        kernel.Step();
+
+        MatchUnit alpha = Alpha(kernel.State);
+        Assert.Equal(alpha.Hero!.Definition.ManaRegenPerSecond + Fixed.FromRatio(5, 2), alpha.ManaRegenPerSecond);
+        Assert.Equal(alpha.Stats.AttackRange + 150, alpha.AttackRange);
+    }
 }
