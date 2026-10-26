@@ -409,8 +409,11 @@ namespace Dynasty.MatchSimulation.Systems
         {
             MatchState state = context.State;
             long now = context.Tick.Value;
-            foreach (MatchUnit unit in state.Units)
+            // On-hit effects may create units (Juxtapose's illusions); they are appended and attack from the next tick.
+            IReadOnlyList<MatchUnit> units = state.Units;
+            for (int i = 0, count = units.Count; i < count; i++)
             {
+                MatchUnit unit = units[i];
                 if (!unit.CanAttackAtAll)
                     continue;
 

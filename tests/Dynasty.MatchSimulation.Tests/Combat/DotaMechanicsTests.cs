@@ -565,4 +565,17 @@ public class DotaMechanicsTests
         int refreshes = kernel.EventsOf<ModifierApplied>().Count(m => m.Key == "vortex");
         Assert.InRange(refreshes, (30 * 3 - 2) / AuraSystem.IntervalTicks, (30 * 3 - 2) / AuraSystem.IntervalTicks + 1);   // with each aura refresh, not every tick
     }
+
+    /// <summary>Juxtapose: an attack that creates an illusion (a new unit) in the middle of the attack pass; the new unit attacks from the next tick on.</summary>
+    [Fact]
+    public void OnHitIllusion_IsCreatedDuringTheAttackPass()
+    {
+        var image = new ModifierSpec("image", -1, incomingDamagePercent: 300, attackDamagePercent: -80);
+        var juxtapose = new ModifierSpec("juxtapose", -1, onHit: new[] { EffectDefinition.OnCaster(EffectDefinition.Illusion(4000, new[] { image }, 1)) });
+        var kernel = Run(Duel(onAlpha: juxtapose));
+
+        MatchUnit alpha = H(kernel.State, "alpha");
+        Assert.True(kernel.State.Units.Count(u => u.IllusionOf == alpha.Id) >= 2);
+        Assert.Contains(kernel.EventsOf<DamageDealt>(), d => kernel.State.Find(d.Attacker)?.IllusionOf == alpha.Id);
+    }
 }

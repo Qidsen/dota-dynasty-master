@@ -2186,7 +2186,7 @@
   },
   "necrolyte_reapers_scythe": {
     "status": "simplified",
-    "note": "the damage lands at once with the stun, not after it; no regen gained from kills",
+    "note": "the damage lands at once with the stun, not after it; the permanent regen goes to whoever lands the killing blow during the stun (the kill is not credited to Necrophos)",
     "targeting": "unit",
     "targetTeam": "enemy",
     "effects": [
@@ -2197,6 +2197,18 @@
           "duration": "$stun_duration",
           "flags": [
             "stunned"
+          ],
+          "onDeath": [
+            {
+              "kind": "modifier",
+              "modifiers": {
+                "key": "necrolyte_reapers_scythe_regen",
+                "stacking": true,
+                "dispellable": false,
+                "healthRegen": "$hp_per_kill",
+                "manaRegen": "$mana_per_kill"
+              }
+            }
           ]
         }
       },
@@ -2210,7 +2222,7 @@
   },
   "life_stealer_feast": {
     "status": "simplified",
-    "note": "damage only: no heal from the target's health, no max health from kills",
+    "note": "damage only: no heal from the target's health; every kill gives the creep value of max health (heroes give more in Dota); the kill stacks restart when Feast levels up",
     "targeting": "passive",
     "targetTeam": "ally",
     "passive": {
@@ -2221,6 +2233,22 @@
           "damageType": "physical",
           "scaling": "targetMaxHealthPercent",
           "amounts": "$hp_damage_percent"
+        }
+      ],
+      "onKill": [
+        {
+          "kind": "onCaster",
+          "effects": [
+            {
+              "kind": "modifier",
+              "modifiers": {
+                "key": "life_stealer_feast_hp",
+                "stacking": true,
+                "dispellable": false,
+                "maxHealth": "$bonus_hp_per_creep"
+              }
+            }
+          ]
         }
       ]
     }
@@ -2716,7 +2744,7 @@
   },
   "enigma_black_hole": {
     "status": "simplified",
-    "note": "Enigma does not channel; the pull to the center is instant at the cast (gradual in Dota); units entering later are not caught",
+    "note": "Enigma does not channel; the pull to the center is instant at the cast (gradual in Dota) and units entering later are held where they are, not pulled; the hold lasts up to 1 s after the hole ends",
     "targeting": "point",
     "targetTeam": "enemy",
     "effects": [
@@ -2730,12 +2758,21 @@
             "kind": "pull",
             "toward": "point",
             "amounts": "$radius"
-          },
+          }
+        ]
+      },
+      {
+        "kind": "zone",
+        "radius": "$radius",
+        "center": "point",
+        "team": "enemy",
+        "duration": "$duration",
+        "effects": [
           {
             "kind": "modifier",
             "modifiers": {
               "key": "enigma_black_hole",
-              "duration": "$duration",
+              "duration": 1,
               "flags": [
                 "stunned"
               ],
@@ -4177,7 +4214,7 @@
   },
   "largo_frogstomp": {
     "status": "simplified",
-    "note": "the first stomp comes one stomp interval after the cast (0.5 s delay in Dota); the slow is applied by each stomp for one interval instead of a continuous area slow",
+    "note": "the first stomp comes one stomp interval after the cast (0.5 s delay in Dota)",
     "targeting": "point",
     "targetTeam": "enemy",
     "effects": [
@@ -4203,12 +4240,21 @@
                 "stunned"
               ]
             }
-          },
+          }
+        ]
+      },
+      {
+        "kind": "zone",
+        "radius": "$radius",
+        "center": "point",
+        "team": "enemy",
+        "duration": "$total_ticks*$stomp_interval",
+        "effects": [
           {
             "kind": "modifier",
             "modifiers": {
               "key": "largo_frogstomp",
-              "duration": "$stomp_interval",
+              "duration": 1,
               "moveSpeedPercent": "-$slow"
             }
           }
@@ -4694,21 +4740,22 @@
   },
   "viper_nethertoxin": {
     "status": "simplified",
-    "note": "the starting damage rate throughout, without the increase; the debuff hits units in the area at the cast and lasts the zone's duration",
+    "note": "the starting damage rate throughout, without the increase; units keep the debuff 1 s after leaving the area",
     "targeting": "point",
     "targetTeam": "enemy",
     "effects": [
       {
-        "kind": "area",
+        "kind": "zone",
         "radius": "$radius",
         "center": "point",
         "team": "enemy",
+        "duration": "$duration",
         "effects": [
           {
             "kind": "modifier",
             "modifiers": {
               "key": "viper_nethertoxin",
-              "duration": "$duration",
+              "duration": 1,
               "damagePerSecond": "$min_damage",
               "attackSpeed": "-$attack_slow"
             }
@@ -6487,7 +6534,7 @@
   },
   "drow_ranger_glacier": {
     "status": "simplified",
-    "note": "a self buff for the hill's duration: no hill (she keeps it when moving), no range for allies, no knockback, no vision; the damage bonus applies to any target",
+    "note": "a field at Drow's position instead of a hill: allies on it (melee too) gain the attack range; Drow's damage bonus is a self buff for the hill's duration (kept when she moves off) and applies to any target; no knockback, no vision",
     "targeting": "noTarget",
     "targetTeam": "ally",
     "effects": [
@@ -6496,9 +6543,25 @@
         "modifiers": {
           "key": "drow_ranger_glacier",
           "duration": "$shard_duration",
-          "attackRange": "$attack_range_bonus",
           "attackDamagePercent": "$damage_bonus"
         }
+      },
+      {
+        "kind": "zone",
+        "radius": "$ramp_radius",
+        "center": "caster",
+        "team": "ally",
+        "duration": "$shard_duration",
+        "effects": [
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "drow_ranger_glacier_range",
+              "duration": 1,
+              "attackRange": "$attack_range_bonus"
+            }
+          }
+        ]
       }
     ]
   },
@@ -6521,7 +6584,7 @@
   },
   "phantom_lancer_spirit_lance": {
     "status": "simplified",
-    "note": "no illusion",
+    "note": "the illusion appears next to Phantom Lancer at the cast (not at the target on the lance's arrival)",
     "targeting": "unit",
     "targetTeam": "enemy",
     "effects": [
@@ -6540,6 +6603,23 @@
               "key": "phantom_lancer_spirit_lance",
               "duration": "$duration",
               "moveSpeedPercent": "$movement_speed_pct"
+            }
+          }
+        ]
+      },
+      {
+        "kind": "onCaster",
+        "effects": [
+          {
+            "kind": "illusion",
+            "counts": [
+              1
+            ],
+            "duration": "$illusion_duration",
+            "modifiers": {
+              "key": "phantom_lancer_spirit_lance_illusion",
+              "attackDamagePercent": "$illusion_damage_out_pct",
+              "incomingDamagePercent": "$illusion_damage_in_pct"
             }
           }
         ]
@@ -8600,7 +8680,7 @@
   },
   "jakiro_macropyre": {
     "status": "simplified",
-    "note": "a lasting circle at the point (half the path width as the radius) instead of a line; no 1 s linger of the burn after leaving the fire",
+    "note": "a lasting circle at the point (half the path width as the radius) instead of a line",
     "targeting": "point",
     "targetTeam": "enemy",
     "effects": [
@@ -8610,12 +8690,16 @@
         "center": "point",
         "team": "enemy",
         "duration": "$duration",
-        "period": "$burn_interval",
         "effects": [
           {
-            "kind": "damage",
-            "damageType": "magical",
-            "amounts": "$damage*$burn_interval"
+            "kind": "modifier",
+            "modifiers": {
+              "key": "jakiro_macropyre",
+              "duration": "$linger_duration",
+              "damagePerSecond": "$damage",
+              "damageType": "magical",
+              "period": "$burn_interval"
+            }
           }
         ]
       }
@@ -8650,21 +8734,22 @@
   },
   "ancient_apparition_ice_vortex": {
     "status": "simplified",
-    "note": "no drag; units in the area at the cast keep the debuff for the whole duration",
+    "note": "no drag",
     "targeting": "point",
     "targetTeam": "enemy",
     "effects": [
       {
-        "kind": "area",
+        "kind": "zone",
         "radius": "$radius",
         "center": "point",
         "team": "enemy",
+        "duration": "$vortex_duration",
         "effects": [
           {
             "kind": "modifier",
             "modifiers": {
               "key": "ancient_apparition_ice_vortex",
-              "duration": "$vortex_duration",
+              "duration": 1,
               "moveSpeedPercent": "$movement_speed_pct",
               "magicResist": "$spell_resist_pct",
               "damagePerSecond": "$damage_per_second",
@@ -9226,21 +9311,22 @@
   },
   "riki_smoke_screen": {
     "status": "simplified",
-    "note": "enemies in the area at the cast are silenced for the whole duration (no lingering cloud); no miss chance",
+    "note": "a lingering cloud that silences enemies inside (lost 1 s after leaving); no miss chance",
     "targeting": "point",
     "targetTeam": "enemy",
     "effects": [
       {
-        "kind": "area",
+        "kind": "zone",
         "radius": "$radius",
         "center": "point",
         "team": "enemy",
+        "duration": "$abilityduration",
         "effects": [
           {
             "kind": "modifier",
             "modifiers": {
               "key": "riki_smoke_screen",
-              "duration": "$abilityduration",
+              "duration": 1,
               "flags": [
                 "silenced"
               ]
@@ -9415,21 +9501,22 @@
   },
   "faceless_void_chronosphere": {
     "status": "simplified",
-    "note": "enemies in the area at the cast are stunned for the full duration; allies are not frozen; no speed for Void inside",
+    "note": "allies are not frozen; no speed for Void inside; the freeze lasts up to 1 s after the field ends",
     "targeting": "point",
     "targetTeam": "enemy",
     "effects": [
       {
-        "kind": "area",
+        "kind": "zone",
         "radius": "$radius",
         "center": "point",
         "team": "enemy",
+        "duration": "$duration",
         "effects": [
           {
             "kind": "modifier",
             "modifiers": {
               "key": "faceless_void_chronosphere",
-              "duration": "$duration",
+              "duration": 1,
               "flags": [
                 "stunned"
               ]
@@ -10004,21 +10091,22 @@
   },
   "arc_warden_magnetic_field": {
     "status": "simplified",
-    "note": "allies in the area at the cast keep the bonus for the whole duration; evasion against all attacks, not only from outside the field; no rune pull",
+    "note": "evasion against all attacks, not only from outside the field; no rune pull",
     "targeting": "point",
     "targetTeam": "ally",
     "effects": [
       {
-        "kind": "area",
+        "kind": "zone",
         "radius": "$radius",
         "center": "point",
         "team": "ally",
+        "duration": "$duration",
         "effects": [
           {
             "kind": "modifier",
             "modifiers": {
               "key": "arc_warden_magnetic_field",
-              "duration": "$duration",
+              "duration": 1,
               "attackSpeed": "$attack_speed_bonus",
               "evasion": "$evasion_chance"
             }
@@ -10088,7 +10176,7 @@
   },
   "muerta_the_calling": {
     "status": "simplified",
-    "note": "one hit at the cast on every enemy inside the revenants' circle (the dead-zone distance as the radius) instead of circling revenants; the aura slow lasts the whole duration",
+    "note": "one hit at the cast on every enemy inside the revenants' circle (the dead-zone distance as the radius) instead of circling revenants; the aura slow covers the whole circle",
     "targeting": "point",
     "targetTeam": "enemy",
     "effects": [
@@ -10112,12 +10200,21 @@
                 "silenced"
               ]
             }
-          },
+          }
+        ]
+      },
+      {
+        "kind": "zone",
+        "radius": "$dead_zone_distance",
+        "center": "point",
+        "team": "enemy",
+        "duration": "$duration",
+        "effects": [
           {
             "kind": "modifier",
             "modifiers": {
               "key": "muerta_the_calling_slow",
-              "duration": "$duration",
+              "duration": 1,
               "moveSpeedPercent": "$aura_movespeed_slow"
             }
           }
@@ -10613,11 +10710,12 @@
   },
   "slark_essence_shift": {
     "status": "simplified",
-    "note": "innate at its base values; procs on every attacked unit, not only heroes (creeps also give Agility); the stacks share one duration; no permanent Agility steal on a kill",
+    "note": "innate at its base values; the stacks share one duration; no permanent Agility steal on a kill",
     "targeting": "passive",
     "targetTeam": "ally",
     "passive": {
       "key": "slark_essence_shift",
+      "onHitHeroesOnly": true,
       "onHit": [
         {
           "kind": "modifier",
@@ -10699,5 +10797,384 @@
         }
       ]
     }
+  },
+  "earthshaker_aftershock": {
+    "status": "full",
+    "targeting": "passive",
+    "passive": {
+      "key": "earthshaker_aftershock",
+      "onCast": [
+        {
+          "kind": "area",
+          "radius": "$aftershock_range",
+          "center": "caster",
+          "team": "enemy",
+          "effects": [
+            {
+              "kind": "damage",
+              "damageType": "magical",
+              "amounts": "$aftershock_damage"
+            },
+            {
+              "kind": "modifier",
+              "modifiers": {
+                "key": "earthshaker_aftershock",
+                "duration": "$abilityduration",
+                "flags": [
+                  "stunned"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "bristleback_warpath": {
+    "status": "simplified",
+    "note": "damage per stack only: no movement speed per stack (fractional percents); stacks share one duration (independent per-stack timers in Dota)",
+    "targeting": "passive",
+    "passive": {
+      "key": "bristleback_warpath",
+      "onCast": [
+        {
+          "kind": "onCaster",
+          "effects": [
+            {
+              "kind": "modifier",
+              "modifiers": {
+                "key": "bristleback_warpath_stack",
+                "duration": "$stack_duration",
+                "stacking": true,
+                "maxStacks": "$max_stacks",
+                "damage": "$damage_per_stack"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "chaos_knight_phantasm": {
+    "status": "simplified",
+    "note": "no invulnerability while the phantasms appear; the illusions do not copy Chaos Strike",
+    "targeting": "noTarget",
+    "targetTeam": "ally",
+    "effects": [
+      {
+        "kind": "dispel"
+      },
+      {
+        "kind": "illusion",
+        "counts": "$images_count",
+        "duration": "$illusion_duration",
+        "modifiers": {
+          "key": "chaos_knight_phantasm_illusion",
+          "attackDamagePercent": "$outgoing_damage",
+          "incomingDamagePercent": "$incoming_damage"
+        }
+      }
+    ]
+  },
+  "naga_siren_mirror_image": {
+    "status": "simplified",
+    "note": "no 0.5 s invulnerability and no dispel at the cast; the images appear next to Naga at once; they do not carry Rip Tide or other passives",
+    "targeting": "noTarget",
+    "targetTeam": "ally",
+    "effects": [
+      {
+        "kind": "illusion",
+        "counts": "$images_count",
+        "duration": "$illusion_duration",
+        "modifiers": {
+          "key": "naga_siren_mirror_image",
+          "attackDamagePercent": "$outgoing_damage",
+          "incomingDamagePercent": "$incoming_damage"
+        }
+      }
+    ]
+  },
+  "phantom_lancer_juxtapose": {
+    "status": "simplified",
+    "note": "no cap on the number of illusions (max_illusions); illusions do not fracture further (they carry no passives); no Illusory Armaments damage floor",
+    "targeting": "passive",
+    "targetTeam": "ally",
+    "passive": {
+      "key": "phantom_lancer_juxtapose",
+      "onHitChance": "$proc_chance_pct",
+      "onHit": [
+        {
+          "kind": "onCaster",
+          "effects": [
+            {
+              "kind": "illusion",
+              "counts": [
+                1
+              ],
+              "duration": "$illusion_duration",
+              "modifiers": {
+                "key": "phantom_lancer_juxtapose_illusion",
+                "attackDamagePercent": "$illusion_damage_out_pct",
+                "incomingDamagePercent": "$illusion_damage_in_pct"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "phantom_lancer_doppelwalk": {
+    "status": "simplified",
+    "note": "no vanish and 1 s delay: Phantom Lancer dashes to the point and the two doppelgangers appear next to him; nearby illusions are neither moved nor extended",
+    "targeting": "point",
+    "targetTeam": "ally",
+    "effects": [
+      {
+        "kind": "dash"
+      },
+      {
+        "kind": "illusion",
+        "counts": [
+          1
+        ],
+        "duration": "$illusion_duration",
+        "modifiers": {
+          "key": "phantom_lancer_doppelwalk_illusion_1",
+          "attackDamagePercent": "$illusion_1_damage_out_pct",
+          "incomingDamagePercent": "$illusion_1_damage_in_pct"
+        }
+      },
+      {
+        "kind": "illusion",
+        "counts": "$illusion_2_amount",
+        "duration": "$illusion_duration",
+        "modifiers": {
+          "key": "phantom_lancer_doppelwalk_illusion_2",
+          "attackDamagePercent": "$illusion_2_damage_out_pct",
+          "incomingDamagePercent": "$illusion_2_damage_in_pct"
+        }
+      }
+    ]
+  },
+  "lina_fiery_soul": {
+    "status": "simplified",
+    "note": "a stack for every ability Lina casts (in Dota: for every spell that hits an enemy); attack speed only: no movement speed bonus (fractional percents); stacks share one duration",
+    "targeting": "passive",
+    "targetTeam": "ally",
+    "passive": {
+      "key": "lina_fiery_soul",
+      "onCast": [
+        {
+          "kind": "onCaster",
+          "effects": [
+            {
+              "kind": "modifier",
+              "modifiers": {
+                "key": "lina_fiery_soul_stack",
+                "duration": "$fiery_soul_stack_duration",
+                "stacking": true,
+                "maxStacks": "$fiery_soul_max_stacks",
+                "attackSpeed": "$fiery_soul_attack_speed_bonus"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "storm_spirit_overload": {
+    "status": "simplified",
+    "note": "item activations also charge it",
+    "targeting": "passive",
+    "targetTeam": "ally",
+    "passive": {
+      "key": "storm_spirit_overload",
+      "onCast": [
+        {
+          "kind": "onCaster",
+          "effects": [
+            {
+              "kind": "modifier",
+              "modifiers": {
+                "key": "storm_spirit_overload_charge",
+                "consumedOnHit": true,
+                "onHit": [
+                  {
+                    "kind": "area",
+                    "radius": "$overload_aoe",
+                    "center": "target",
+                    "team": "enemy",
+                    "effects": [
+                      {
+                        "kind": "damage",
+                        "damageType": "magical",
+                        "amounts": "$overload_damage"
+                      },
+                      {
+                        "kind": "modifier",
+                        "modifiers": {
+                          "key": "storm_spirit_overload_slow",
+                          "duration": "$abilityduration",
+                          "moveSpeedPercent": "$overload_move_slow",
+                          "attackSpeed": "$overload_attack_slow"
+                        }
+                      }
+                    ]
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "windrunner_tailwind": {
+    "status": "simplified",
+    "note": "innate at its base values; the speed does not fade over the second half; no raised movement speed cap; the stacks share one duration; item activations also trigger it",
+    "targeting": "passive",
+    "targetTeam": "ally",
+    "innate": true,
+    "passive": {
+      "key": "windrunner_tailwind",
+      "onCast": [
+        {
+          "kind": "onCaster",
+          "effects": [
+            {
+              "kind": "modifier",
+              "modifiers": {
+                "key": "windrunner_tailwind_buff",
+                "duration": "$duration",
+                "stacking": true,
+                "moveSpeedPercent": "$movespeed_bonus"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "sandking_caustic_finale": {
+    "status": "simplified",
+    "note": "innate at its base values; the explosion deals the flat damage only (no share of the dying unit's max health); the damage is dealt by the dying unit",
+    "targeting": "passive",
+    "targetTeam": "ally",
+    "innate": true,
+    "passive": {
+      "key": "sandking_caustic_finale",
+      "onHit": [
+        {
+          "kind": "modifier",
+          "modifiers": {
+            "key": "sandking_caustic_finale_debuff",
+            "duration": "$caustic_finale_duration",
+            "onDeath": [
+              {
+                "kind": "area",
+                "radius": "$caustic_finale_radius",
+                "center": "caster",
+                "team": "ally",
+                "effects": [
+                  {
+                    "kind": "damage",
+                    "damageType": "magical",
+                    "amounts": "$caustic_finale_damage_flat"
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      ]
+    }
+  },
+  "terrorblade_conjure_image": {
+    "status": "simplified",
+    "note": "the illusion does not copy passives or item effects",
+    "targeting": "noTarget",
+    "targetTeam": "ally",
+    "effects": [
+      {
+        "kind": "illusion",
+        "counts": [
+          1
+        ],
+        "duration": "$illusion_duration",
+        "modifiers": {
+          "key": "terrorblade_conjure_image",
+          "attackDamagePercent": "$illusion_outgoing_damage",
+          "incomingDamagePercent": "$illusion_incoming_damage"
+        }
+      }
+    ]
+  },
+  "terrorblade_reflection": {
+    "status": "simplified",
+    "note": "the reflections are not invulnerable and may attack any enemy (not only their original); they do not copy passives or items",
+    "targeting": "point",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "area",
+        "radius": "$range",
+        "center": "point",
+        "team": "enemy",
+        "heroesOnly": true,
+        "effects": [
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "terrorblade_reflection_slow",
+              "duration": "$illusion_duration",
+              "moveSpeedPercent": "-$move_slow",
+              "attackSpeed": "-$attack_slow"
+            }
+          },
+          {
+            "kind": "illusion",
+            "counts": [
+              1
+            ],
+            "duration": "$illusion_duration",
+            "modifiers": {
+              "key": "terrorblade_reflection",
+              "attackDamagePercent": "$illusion_outgoing_damage"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "shadow_demon_disruption": {
+    "status": "simplified",
+    "note": "enemies only; the banish is a stun (the target can still be damaged); the illusions appear at once instead of when the banish ends; one charge (the cooldown)",
+    "targeting": "unit",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "modifier",
+        "modifiers": {
+          "key": "shadow_demon_disruption",
+          "duration": "$disruption_duration",
+          "flags": [
+            "stunned"
+          ]
+        }
+      },
+      {
+        "kind": "illusion",
+        "counts": [
+          2
+        ],
+        "duration": "$illusion_duration",
+        "modifiers": {
+          "key": "shadow_demon_disruption_illusion",
+          "attackDamagePercent": "$illusion_outgoing_damage",
+          "incomingDamagePercent": "$illusion_incoming_damage",
+          "damage": "$illusion_flat_damage"
+        }
+      }
+    ]
   }
 }
