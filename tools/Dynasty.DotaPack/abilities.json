@@ -3000,5 +3000,266 @@
         ]
       }
     ]
+  },
+  "obsidian_destroyer_astral_imprisonment": {
+    "status": "simplified",
+    "note": "the target is stunned but stays vulnerable; the damage lands at once; no mana steal; enemies only",
+    "targeting": "unit",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "modifier",
+        "modifiers": {
+          "key": "obsidian_destroyer_astral_imprisonment",
+          "duration": "$prison_duration",
+          "flags": [
+            "stunned"
+          ]
+        }
+      },
+      {
+        "kind": "damage",
+        "damageType": "magical",
+        "amounts": "$damage"
+      }
+    ]
+  },
+  "obsidian_destroyer_objurgation": {
+    "status": "simplified",
+    "note": "the flat barrier only: no share of max mana, no max mana bonus",
+    "targeting": "noTarget",
+    "targetTeam": "ally",
+    "effects": [
+      {
+        "kind": "modifier",
+        "modifiers": {
+          "key": "obsidian_destroyer_objurgation",
+          "duration": "$barrier_duration",
+          "barrier": "$barrier_flat"
+        }
+      }
+    ]
+  },
+  "disruptor_thunder_strike": {
+    "status": "simplified",
+    "note": "the target only, the first strike after one interval instead of at once; no slow",
+    "targeting": "unit",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "modifier",
+        "modifiers": {
+          "key": "disruptor_thunder_strike",
+          "duration": "$strikes*$strike_interval",
+          "damagePerSecond": "$strike_damage/$strike_interval",
+          "period": "$strike_interval"
+        }
+      }
+    ]
+  },
+  "nyx_assassin_impale": {
+    "status": "simplified",
+    "note": "unit-targeted: hits the target only, not a line",
+    "targeting": "unit",
+    "targetTeam": "enemy",
+    "castRange": "$length",
+    "effects": [
+      {
+        "kind": "projectile",
+        "speed": "$speed",
+        "effects": [
+          {
+            "kind": "damage",
+            "damageType": "magical",
+            "amounts": "$impale_damage"
+          },
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "nyx_assassin_impale",
+              "duration": "$duration",
+              "flags": [
+                "stunned"
+              ]
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "nyx_assassin_jolt": {
+    "status": "simplified",
+    "note": "damage from max mana only: no mana burn, no echo of recent damage",
+    "targeting": "unit",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "damage",
+        "damageType": "magical",
+        "scaling": "targetMaxManaPercent",
+        "amounts": "$max_mana_as_damage_pct"
+      }
+    ]
+  },
+  "nyx_assassin_vendetta": {
+    "status": "simplified",
+    "note": "spells do not break the invisibility; no break on the target",
+    "targeting": "noTarget",
+    "targetTeam": "ally",
+    "effects": [
+      {
+        "kind": "modifier",
+        "modifiers": {
+          "key": "nyx_assassin_vendetta",
+          "duration": "$duration",
+          "flags": [
+            "invisible"
+          ],
+          "moveSpeedPercent": "$movement_speed",
+          "onHit": [
+            {
+              "kind": "damage",
+              "damageType": "pure",
+              "amounts": "$bonus_damage"
+            }
+          ],
+          "consumedOnHit": true
+        }
+      }
+    ]
+  },
+  "bane_enfeeble": {
+    "status": "simplified",
+    "note": "no cast range reduction",
+    "targeting": "unit",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "modifier",
+        "modifiers": {
+          "key": "bane_enfeeble",
+          "duration": "$duration",
+          "attackDamagePercent": "-$damage_reduction",
+          "damagePerSecond": "$enfeeble_tick_damage",
+          "period": "$damage_tick_rate",
+          "damageType": "pure"
+        }
+      }
+    ]
+  },
+  "bane_brain_sap": {
+    "status": "simplified",
+    "note": "damage only: no heal for Bane",
+    "targeting": "unit",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "damage",
+        "damageType": "pure",
+        "amounts": "$brain_sap_damage"
+      }
+    ]
+  },
+  "bane_nightmare": {
+    "status": "simplified",
+    "note": "a stun that damage does not wake from; enemies only",
+    "targeting": "unit",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "modifier",
+        "modifiers": {
+          "key": "bane_nightmare",
+          "duration": "$abilityduration",
+          "flags": [
+            "stunned"
+          ]
+        }
+      }
+    ]
+  },
+  "bane_fiends_grip": {
+    "status": "simplified",
+    "note": "a disable with damage over time that Bane does not channel; no mana drain",
+    "targeting": "unit",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "modifier",
+        "modifiers": {
+          "key": "bane_fiends_grip",
+          "duration": "$abilitychanneltime",
+          "flags": [
+            "stunned"
+          ],
+          "damagePerSecond": "$fiend_grip_damage",
+          "period": "$fiend_grip_tick_interval",
+          "damageType": "pure"
+        }
+      }
+    ]
+  },
+  "storm_spirit_electric_vortex": {
+    "status": "simplified",
+    "note": "a disable without the pull; no self slow",
+    "targeting": "unit",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "modifier",
+        "modifiers": {
+          "key": "storm_spirit_electric_vortex",
+          "duration": "$abilityduration",
+          "flags": [
+            "stunned"
+          ]
+        }
+      }
+    ]
+  },
+  "ursa_earthshock": {
+    "status": "simplified",
+    "note": "no hop forward",
+    "targeting": "noTarget",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "area",
+        "radius": "$shock_radius",
+        "center": "caster",
+        "team": "enemy",
+        "effects": [
+          {
+            "kind": "damage",
+            "damageType": "magical",
+            "amounts": "$dmg"
+          },
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "ursa_earthshock",
+              "duration": "$abilityduration",
+              "moveSpeedPercent": "$movement_slow"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "ursa_enrage": {
+    "status": "simplified",
+    "note": "damage reduction only: no status resistance, no dispel",
+    "targeting": "noTarget",
+    "targetTeam": "ally",
+    "effects": [
+      {
+        "kind": "modifier",
+        "modifiers": {
+          "key": "ursa_enrage",
+          "duration": "$duration",
+          "incomingDamagePercent": "-$damage_reduction"
+        }
+      }
+    ]
   }
 }

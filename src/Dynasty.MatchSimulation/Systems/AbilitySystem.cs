@@ -178,6 +178,8 @@ namespace Dynasty.MatchSimulation.Systems
                     return (Fixed.FromInt(target.MaxHp) - target.Hp) * percent;
                 case DamageScaling.TargetCurrentHealthPercent:
                     return target.Hp * percent;
+                case DamageScaling.TargetMaxManaPercent:
+                    return target.Hero == null ? Fixed.Zero : Fixed.FromInt(target.Hero.MaxMana) * percent;
                 case DamageScaling.TargetMissingManaPercent:
                     return target.Hero == null ? Fixed.Zero : (Fixed.FromInt(target.Hero.MaxMana) - target.Hero.Mana) * percent;
                 default:

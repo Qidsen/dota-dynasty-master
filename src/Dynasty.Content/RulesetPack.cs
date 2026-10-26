@@ -249,7 +249,8 @@ namespace Dynasty.Content
             "targetMissingHealthPercent" => DamageScaling.TargetMissingHealthPercent,
             "targetMissingManaPercent" => DamageScaling.TargetMissingManaPercent,
             "targetCurrentHealthPercent" => DamageScaling.TargetCurrentHealthPercent,
-            _ => throw r.Error(field, "expected flat, targetMaxHealthPercent, targetMissingHealthPercent, targetCurrentHealthPercent or targetMissingManaPercent"),
+            "targetMaxManaPercent" => DamageScaling.TargetMaxManaPercent,
+            _ => throw r.Error(field, "expected flat, targetMaxHealthPercent, targetMissingHealthPercent, targetCurrentHealthPercent, targetMaxManaPercent or targetMissingManaPercent"),
         };
 
         private static ModifierFlags ReadFlag(Reader r, string flag) => flag switch

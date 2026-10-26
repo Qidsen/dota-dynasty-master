@@ -158,6 +158,7 @@ public class PackContentTests
             { ""kind"": ""damage"", ""damageType"": ""magical"", ""scaling"": ""targetMissingHealthPercent"", ""amounts"": [70] },
             { ""kind"": ""damage"", ""damageType"": ""pure"", ""scaling"": ""targetMaxHealthPercent"", ""amounts"": [5] },
             { ""kind"": ""damage"", ""damageType"": ""magical"", ""scaling"": ""targetCurrentHealthPercent"", ""amounts"": [1.45, 3.45] },
+            { ""kind"": ""damage"", ""damageType"": ""magical"", ""scaling"": ""targetMaxManaPercent"", ""amounts"": [25] },
             { ""kind"": ""modifier"", ""modifiers"": [ { ""key"": ""burn"", ""duration"": 3, ""damagePerSecondMaxHealthPercent"": 1.5, ""consumedOnHit"": true } ] } ] }], ""items"": []",
             Hero("lion", @"[""void""]"));
 
@@ -169,7 +170,8 @@ public class PackContentTests
             effects.Skip(1).Take(4).Select(e => e.Scaling));
         Assert.Equal(new[] { 8000, 9500 }, effects[1].Amounts);   // scaled amounts: percents in the pack, hundredths of a percent in the ruleset
         Assert.Equal(new[] { 145, 345 }, effects[4].Amounts);
-        ModifierSpec burn = effects[5].Modifiers.Single();
+        Assert.Equal(DamageScaling.TargetMaxManaPercent, effects[5].Scaling);
+        ModifierSpec burn = effects[6].Modifiers.Single();
         Assert.Equal((Fixed.FromRatio(15, 10), true), (burn.DamagePerSecondMaxHealthPercent, burn.ConsumedOnHit));
     }
 

@@ -66,6 +66,7 @@ namespace Dynasty.MatchSimulation.Rules
         TargetMissingHealthPercent = 2,
         TargetMissingManaPercent = 3,
         TargetCurrentHealthPercent = 4,
+        TargetMaxManaPercent = 5,
     }
 
     public enum AreaCenter

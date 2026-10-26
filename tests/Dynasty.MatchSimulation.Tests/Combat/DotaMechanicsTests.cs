@@ -254,6 +254,7 @@ public class DotaMechanicsTests
     [InlineData(DamageScaling.TargetMissingHealthPercent, 7000, 210)]     // 70% of 300 missing
     [InlineData(DamageScaling.TargetMissingManaPercent, 10000, 200)]      // 100% of 200 missing mana
     [InlineData(DamageScaling.TargetCurrentHealthPercent, 345, 10.35)]    // 3.45% of 300 left
+    [InlineData(DamageScaling.TargetMaxManaPercent, 2500, 0)]             // 25% of max mana, checked below against the hero's pool
     public void ScaledDamage_FollowsTheTargetsHealthOrMana(DamageScaling scaling, int percent, double expected)
     {
         var kernel = Cast(ctx =>
@@ -264,6 +265,9 @@ public class DotaMechanicsTests
         }, EffectDefinition.ScaledDamage(DamageType.Pure, scaling, percent));
 
         Assert.Equal(600, H(kernel.State, "beta").MaxHp);
+        if (scaling == DamageScaling.TargetMaxManaPercent)
+            expected = H(kernel.State, "beta").Hero!.MaxMana * 0.25;
+        Assert.True(expected > 0);
         Assert.InRange(HitsOnBeta(kernel).Single().Amount.ToDouble(), expected - 0.01, expected + 0.01);
     }
 
