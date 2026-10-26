@@ -183,6 +183,8 @@ namespace Dynasty.Content
                     DamageScaling scaling = e.Has("scaling") ? ReadScaling(e, "scaling") : DamageScaling.Flat;
                     effect = scaling == DamageScaling.Flat
                         ? EffectDefinition.Damage(ReadDamageType(e, "damageType"), e.Ints("amounts").ToArray())
+                        : scaling == DamageScaling.PerTargetStack
+                        ? EffectDefinition.DamagePerStack(ReadDamageType(e, "damageType"), e.String("stackKey"), e.Ints("amounts").ToArray())
                         : EffectDefinition.ScaledDamage(ReadDamageType(e, "damageType"), scaling, e.Hundredths("amounts").ToArray());
                     break;
                 case "manaBurn":
@@ -229,6 +231,12 @@ namespace Dynasty.Content
                 case "projectile":
                     effect = EffectDefinition.Projectile(e.Int("speed"), e.Array("effects").Select(ReadEffect).ToArray());
                     break;
+                case "onCaster":
+                    effect = EffectDefinition.OnCaster(e.Array("effects").Select(ReadEffect).ToArray());
+                    break;
+                case "attack":
+                    effect = EffectDefinition.Attack(e.Ints("amounts").ToArray());
+                    break;
                 default:
                     throw e.Error("kind", "unknown effect kind");
             }
@@ -253,7 +261,13 @@ namespace Dynasty.Content
             "targetMissingManaPercent" => DamageScaling.TargetMissingManaPercent,
             "targetCurrentHealthPercent" => DamageScaling.TargetCurrentHealthPercent,
             "targetMaxManaPercent" => DamageScaling.TargetMaxManaPercent,
-            _ => throw r.Error(field, "expected flat, targetMaxHealthPercent, targetMissingHealthPercent, targetCurrentHealthPercent, targetMaxManaPercent or targetMissingManaPercent"),
+            "casterAttackDamagePercent" => DamageScaling.CasterAttackDamagePercent,
+            "casterStrengthPercent" => DamageScaling.CasterStrengthPercent,
+            "casterAgilityPercent" => DamageScaling.CasterAgilityPercent,
+            "casterIntelligencePercent" => DamageScaling.CasterIntelligencePercent,
+            "perTargetStack" => DamageScaling.PerTargetStack,
+            _ => throw r.Error(field, "expected flat, targetMaxHealthPercent, targetMissingHealthPercent, targetCurrentHealthPercent, targetMaxManaPercent, " +
+                                      "targetMissingManaPercent, casterAttackDamagePercent, casterStrengthPercent, casterAgilityPercent, casterIntelligencePercent or perTargetStack"),
         };
 
         private static ModifierFlags ReadFlag(Reader r, string flag) => flag switch
@@ -292,7 +306,9 @@ namespace Dynasty.Content
                 cleavePercent: m.OptionalInt("cleavePercent") ?? 0, cleaveRadius: m.OptionalInt("cleaveRadius") ?? 0, barrier: m.OptionalInt("barrier") ?? 0, consumedOnHit: m.OptionalBool("consumedOnHit") ?? false,
                 damagePerSecondMaxHealthPercent: m.OptionalFixed("damagePerSecondMaxHealthPercent") ?? Fixed.Zero,
                 onHitAfterAttacks: m.OptionalInt("onHitAfterAttacks") ?? 0, whenAttacked: m.OptionalArray("whenAttacked").Select(ReadEffect).ToList(),
-                whenAttackedEvery: m.OptionalInt("whenAttackedEvery") ?? 1);
+                whenAttackedEvery: m.OptionalInt("whenAttackedEvery") ?? 1,
+                maxStacks: m.OptionalBool("stacking") == true ? m.OptionalInt("maxStacks") ?? int.MaxValue : 0,
+                procCooldownMs: m.OptionalMilliseconds("procCooldown") ?? 0, whenAttackedChancePercent: m.OptionalInt("whenAttackedChance") ?? 100);
             m.RejectUnknown();
             return spec;
         }

@@ -59,6 +59,12 @@ namespace Dynasty.MatchSimulation.Rules
 
         /// <summary>Restores the target's mana (amounts), not above its max.</summary>
         RestoreMana = 11,
+
+        /// <summary>Runs the inner effects on the caster (a self buff inside a targeted ability or an attack's on-hit effects).</summary>
+        OnCaster = 12,
+
+        /// <summary>The caster instantly attacks the target with a percent (amounts) of its attack damage; the attack's on-hit effects apply.</summary>
+        Attack = 13,
     }
 
     /// <summary>What a damage effect's amounts mean: flat damage, or a percent of the target's health or mana.</summary>
@@ -70,6 +76,15 @@ namespace Dynasty.MatchSimulation.Rules
         TargetMissingManaPercent = 3,
         TargetCurrentHealthPercent = 4,
         TargetMaxManaPercent = 5,
+
+        /// <summary>A percent of the caster's average attack damage.</summary>
+        CasterAttackDamagePercent = 6,
+        CasterStrengthPercent = 7,
+        CasterAgilityPercent = 8,
+        CasterIntelligencePercent = 9,
+
+        /// <summary>Flat damage for each stack of the modifier <see cref="EffectDefinition.StackKey"/> the caster put on the target.</summary>
+        PerTargetStack = 10,
     }
 
     public enum AreaCenter
@@ -101,8 +116,10 @@ namespace Dynasty.MatchSimulation.Rules
             bool strong = false,
             int speed = 0,
             DamageScaling scaling = DamageScaling.Flat,
-            int damagePercent = 0)
+            int damagePercent = 0,
+            string? stackKey = null)
         {
+            StackKey = stackKey;
             Scaling = scaling;
             DamagePercent = damagePercent;
             Speed = speed;
@@ -155,6 +172,9 @@ namespace Dynasty.MatchSimulation.Rules
         /// <summary>Mana burn: percent of the mana burnt dealt as damage.</summary>
         public int DamagePercent { get; }
 
+        /// <summary>Damage per stack: the key of the stacking modifier counted on the target.</summary>
+        public string? StackKey { get; }
+
         public static EffectDefinition Damage(DamageType type, params int[] perLevel) =>
             new EffectDefinition(EffectKind.Damage, perLevel, type);
 
@@ -167,6 +187,15 @@ namespace Dynasty.MatchSimulation.Rules
         /// <summary>Burns mana (per level) and deals the given percent of the mana burnt as damage.</summary>
         public static EffectDefinition ManaBurn(int damagePercent, DamageType type, params int[] manaPerLevel) =>
             new EffectDefinition(EffectKind.ManaBurn, manaPerLevel, type, damagePercent: damagePercent);
+
+        /// <summary>Damage for each stack of the caster's modifier <paramref name="stackKey"/> on the target (Fury Swipes).</summary>
+        public static EffectDefinition DamagePerStack(DamageType type, string stackKey, params int[] perStackPerLevel) =>
+            new EffectDefinition(EffectKind.Damage, perStackPerLevel, type, scaling: DamageScaling.PerTargetStack, stackKey: stackKey);
+
+        public static EffectDefinition OnCaster(params EffectDefinition[] inner) => new EffectDefinition(EffectKind.OnCaster, inner: inner);
+
+        /// <summary>An instant attack with the given percent of the attack's damage per level (100 = a normal attack).</summary>
+        public static EffectDefinition Attack(params int[] damagePercentPerLevel) => new EffectDefinition(EffectKind.Attack, damagePercentPerLevel);
 
         public static EffectDefinition RestoreMana(params int[] manaPerLevel) => new EffectDefinition(EffectKind.RestoreMana, manaPerLevel);
 
@@ -237,6 +266,7 @@ namespace Dynasty.MatchSimulation.Rules
             w.WriteInt64(Speed);
             w.WriteInt64((int)Scaling);
             w.WriteInt64(DamagePercent);
+            w.WriteString(StackKey ?? "");
             w.WriteInt64(Inner.Count);
             foreach (EffectDefinition child in Inner)
                 child.WriteCanonical(w);

@@ -225,25 +225,26 @@ namespace Dynasty.MatchSimulation
                     critMultiplier = spec.CritMultiplierPercent;
                 }
 
-                structurePercent += spec.StructureDamagePercent;
-                lifesteal += spec.LifestealPercent;
-                maxHpBonus += spec.MaxHpBonus;
-                maxManaBonus += spec.MaxManaBonus;
-                hpRegenBonus += spec.HpRegenBonus;
-                strengthBonus += spec.StrengthBonus;
-                agilityBonus += spec.AgilityBonus;
-                intelligenceBonus += spec.IntelligenceBonus;
-                armor += spec.ArmorBonus;
-                magicResist += spec.MagicResistBonus;
-                damageBonus += spec.DamageBonus;
-                attackSpeed += spec.AttackSpeedBonus;
-                movePercent += spec.MoveSpeedPercent;
-                moveFlat += spec.MoveSpeedBonus;
-                incomingDamage += spec.IncomingDamagePercent;
-                attackDamagePercent += spec.AttackDamagePercent;
-                evasion += spec.EvasionPercent;
-                attackRangeBonus += spec.AttackRangeBonus;
-                manaRegenBonus += spec.ManaRegenBonus;
+                int n = modifier.Stacks;
+                structurePercent += spec.StructureDamagePercent * n;
+                lifesteal += spec.LifestealPercent * n;
+                maxHpBonus += spec.MaxHpBonus * n;
+                maxManaBonus += spec.MaxManaBonus * n;
+                hpRegenBonus += spec.HpRegenBonus * Fixed.FromInt(n);
+                strengthBonus += spec.StrengthBonus * n;
+                agilityBonus += spec.AgilityBonus * n;
+                intelligenceBonus += spec.IntelligenceBonus * n;
+                armor += spec.ArmorBonus * Fixed.FromInt(n);
+                magicResist += spec.MagicResistBonus * n;
+                damageBonus += spec.DamageBonus * n;
+                attackSpeed += spec.AttackSpeedBonus * n;
+                movePercent += spec.MoveSpeedPercent * n;
+                moveFlat += spec.MoveSpeedBonus * n;
+                incomingDamage += spec.IncomingDamagePercent * n;
+                attackDamagePercent += spec.AttackDamagePercent * n;
+                evasion += spec.EvasionPercent * n;
+                attackRangeBonus += spec.AttackRangeBonus * n;
+                manaRegenBonus += spec.ManaRegenBonus * Fixed.FromInt(n);
                 flags |= spec.Flags;
             }
 

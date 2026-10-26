@@ -113,7 +113,7 @@ namespace Dynasty.MatchSimulation.Systems
                     ModifierSpec spec = modifier.Spec;
                     if (spec.IsPeriodic && now >= modifier.NextPeriodTick)
                     {
-                        Fixed periodFraction = Fixed.FromRatio(spec.PeriodMs, 1000);
+                        Fixed periodFraction = Fixed.FromRatio(spec.PeriodMs, 1000) * Fixed.FromInt(modifier.Stacks);
                         if (spec.DamagePerSecond > Fixed.Zero)
                             Damage.Deal(context, modifier.Source, unit, spec.DamagePerSecond * periodFraction, spec.DamageType);
                         if (spec.DamagePerSecondMaxHealthPercent > Fixed.Zero)
@@ -421,20 +421,7 @@ namespace Dynasty.MatchSimulation.Systems
             if (target == null || !context.State.CanAttack(unit, target))
                 return;
 
-            int roll = context.Random("combat").NextInt(unit.AttackDamageMin, unit.AttackDamageMax + 1);
-            Fixed damage = Fixed.FromInt(roll);
-
-            bool critical = unit.CritChancePercent > 0 && context.Random("combat").NextInt(0, 100) < unit.CritChancePercent;
-            if (critical)
-                damage = damage * Fixed.FromInt(unit.CritMultiplierPercent) / Fixed.FromInt(100);
-            if (unit.AttackDamagePercent != 0)
-                damage = damage * Fixed.FromInt(100 + unit.AttackDamagePercent) / Fixed.FromInt(100);
-            int classPercent = context.State.Ruleset.Combat.AttackClasses.Percent(AttackClassOf(unit), DefenseClassOf(target));
-            if (classPercent != 100)
-                damage = damage * Fixed.FromInt(classPercent) / Fixed.FromInt(100);
-            if (target.Kind == UnitKind.Structure && unit.StructureDamagePercent != 0)
-                damage = damage * Fixed.FromInt(100 + unit.StructureDamagePercent) / Fixed.FromInt(100);
-
+            Fixed damage = RollDamage(context, unit, target, out bool critical);
             if (unit.Stats.ProjectileSpeed > 0)
             {
                 // Ranged: the rolled hit travels; it lands (or is dodged) in the projectile system.
@@ -446,6 +433,32 @@ namespace Dynasty.MatchSimulation.Systems
             }
 
             ApplyHit(context, unit, target, damage, critical);
+        }
+
+        /// <summary>An instant attack made by an ability, with a percent of the attack's damage; it lands at once, even for ranged units.</summary>
+        internal static void Strike(SimulationContext<MatchState> context, MatchUnit unit, MatchUnit target, int damagePercent)
+        {
+            Fixed damage = RollDamage(context, unit, target, out bool critical);
+            ApplyHit(context, unit, target, damage * Fixed.FromInt(damagePercent) / Fixed.FromInt(100), critical);
+        }
+
+        /// <summary>One attack's damage roll: critical strike, attack damage percent, attack and armor classes, structures.</summary>
+        private static Fixed RollDamage(SimulationContext<MatchState> context, MatchUnit unit, MatchUnit target, out bool critical)
+        {
+            int roll = context.Random("combat").NextInt(unit.AttackDamageMin, unit.AttackDamageMax + 1);
+            Fixed damage = Fixed.FromInt(roll);
+
+            critical = unit.CritChancePercent > 0 && context.Random("combat").NextInt(0, 100) < unit.CritChancePercent;
+            if (critical)
+                damage = damage * Fixed.FromInt(unit.CritMultiplierPercent) / Fixed.FromInt(100);
+            if (unit.AttackDamagePercent != 0)
+                damage = damage * Fixed.FromInt(100 + unit.AttackDamagePercent) / Fixed.FromInt(100);
+            int classPercent = context.State.Ruleset.Combat.AttackClasses.Percent(AttackClassOf(unit), DefenseClassOf(target));
+            if (classPercent != 100)
+                damage = damage * Fixed.FromInt(classPercent) / Fixed.FromInt(100);
+            if (target.Kind == UnitKind.Structure && unit.StructureDamagePercent != 0)
+                damage = damage * Fixed.FromInt(100 + unit.StructureDamagePercent) / Fixed.FromInt(100);
+            return damage;
         }
 
         private static AttackClass AttackClassOf(MatchUnit unit) =>
@@ -480,26 +493,41 @@ namespace Dynasty.MatchSimulation.Systems
             // On-hit effects (bash, bonus magic damage, slows) of the attacker's modifiers, in their order on the unit.
             foreach (ActiveModifier modifier in attacker.Modifiers.Where(m => m.Spec.OnHit.Count > 0).ToList())
             {
-                int chance = modifier.Spec.OnHitChancePercent;
+                if (context.Tick.Value < modifier.NextProcTick)
+                    continue;
                 if (modifier.Spec.OnHitAfterAttacks > 0 && modifier.AttackCount++ < modifier.Spec.OnHitAfterAttacks)
                     continue;
                 modifier.AttackCount = 0;
-                if (chance <= 0 || (chance < 100 && context.Random("combat").NextInt(0, 100) >= chance))
+                if (!Rolls(context, modifier.Spec.OnHitChancePercent))
                     continue;
+                StartProcCooldown(context, modifier);
                 Effects.Run(context, attacker, modifier.Spec.OnHit, 1, target, target.Position);
             }
 
             // Effects of the target's modifiers on being hit (Counter Helix), every Nth landing attack.
             foreach (ActiveModifier modifier in target.Modifiers.Where(m => m.Spec.WhenAttacked.Count > 0).ToList())
             {
-                if (++modifier.AttackCount < modifier.Spec.WhenAttackedEvery || !target.IsAlive)
+                if (context.Tick.Value < modifier.NextProcTick || ++modifier.AttackCount < modifier.Spec.WhenAttackedEvery || !target.IsAlive)
                     continue;
                 modifier.AttackCount = 0;
+                if (!Rolls(context, modifier.Spec.WhenAttackedChancePercent))
+                    continue;
+                StartProcCooldown(context, modifier);
                 Effects.Run(context, target, modifier.Spec.WhenAttacked, 1, attacker, attacker.Position);
             }
 
             foreach (ActiveModifier used in attacker.Modifiers.Where(m => m.Spec.ConsumedOnHit).ToList())
                 Modifiers.Remove(context, attacker, used, "consumed");
+        }
+
+        /// <summary>A percent chance; draws from the combat stream only when it is neither 0 nor 100.</summary>
+        private static bool Rolls(SimulationContext<MatchState> context, int chancePercent) =>
+            chancePercent >= 100 || (chancePercent > 0 && context.Random("combat").NextInt(0, 100) < chancePercent);
+
+        private static void StartProcCooldown(SimulationContext<MatchState> context, ActiveModifier modifier)
+        {
+            if (modifier.Spec.ProcCooldownMs > 0)
+                modifier.NextProcTick = context.Tick.Value + context.TickRate.TicksFor(modifier.Spec.ProcCooldownMs);
         }
     }
 

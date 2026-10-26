@@ -191,6 +191,30 @@ public class PackContentTests
         Assert.Equal((3, 7, DamageType.Pure), (bash.OnHitAfterAttacks, bash.WhenAttackedEvery, bash.WhenAttacked.Single().DamageType));
     }
 
+    [Fact]
+    public void Effects_ReadStacksAttacksCasterEffectsAndProcLimits()
+    {
+        RulesetContent rules = Apply(@"""abilities"": [{ ""id"": ""swipes"", ""name"": ""Swipes"", ""targeting"": ""unit"", ""targetTeam"": ""enemy"", ""castRange"": 900, ""castPoint"": 0,
+            ""cooldown"": [18], ""requiredLevels"": [1], ""effects"": [
+                { ""kind"": ""attack"", ""amounts"": [150] },
+                { ""kind"": ""onCaster"", ""effects"": [ { ""kind"": ""heal"", ""amounts"": [50] } ] },
+                { ""kind"": ""damage"", ""damageType"": ""physical"", ""scaling"": ""perTargetStack"", ""stackKey"": ""fury"", ""amounts"": [15] },
+                { ""kind"": ""damage"", ""damageType"": ""magical"", ""scaling"": ""casterIntelligencePercent"", ""amounts"": [37.5] } ],
+            ""passive"": [ { ""key"": ""fury"", ""duration"": 20, ""stacking"": true, ""procCooldown"": 1.5, ""whenAttackedChance"": 25,
+                          ""whenAttacked"": [ { ""kind"": ""damage"", ""damageType"": ""pure"", ""amounts"": [100] } ] },
+                          { ""key"": ""shift"", ""stacking"": true, ""maxStacks"": 4 } ] }], ""items"": []",
+            Hero("lion", @"[""swipes""]"));
+
+        AbilityDefinition swipes = rules.FindAbility("swipes")!;
+        Assert.Equal((EffectKind.Attack, 150), (swipes.Effects[0].Kind, swipes.Effects[0].Amounts[0]));
+        Assert.Equal((EffectKind.OnCaster, EffectKind.Heal), (swipes.Effects[1].Kind, swipes.Effects[1].Inner.Single().Kind));
+        Assert.Equal((DamageScaling.PerTargetStack, "fury", 15), (swipes.Effects[2].Scaling, swipes.Effects[2].StackKey, swipes.Effects[2].Amounts[0]));
+        Assert.Equal((DamageScaling.CasterIntelligencePercent, 3750), (swipes.Effects[3].Scaling, swipes.Effects[3].Amounts[0]));
+        ModifierSpec fury = swipes.PassiveModifiers[0];
+        Assert.Equal((int.MaxValue, 1500, 25), (fury.MaxStacks, fury.ProcCooldownMs, fury.WhenAttackedChancePercent));
+        Assert.Equal(4, swipes.PassiveModifiers[1].MaxStacks);
+    }
+
     [Theory]
     [InlineData(@"""abilities"": [{ ""id"": ""x"", ""name"": ""X"", ""targeting"": ""sideways"", ""targetTeam"": ""enemy"", ""castRange"": 0, ""castPoint"": 0, ""cooldown"": [1], ""requiredLevels"": [1], ""effects"": [] }]", "abilities[0].targeting")]
     [InlineData(@"""abilities"": [{ ""id"": ""x"", ""name"": ""X"", ""targeting"": ""noTarget"", ""targetTeam"": ""enemy"", ""castRange"": 0, ""castPoint"": 0, ""cooldown"": [1], ""requiredLevels"": [1], ""effects"": [{ ""kind"": ""teleport"", ""bogus"": 1 }] }]", "abilities[0].effects[0].bogus")]

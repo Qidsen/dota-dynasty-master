@@ -340,4 +340,104 @@ public class DotaMechanicsTests
         Assert.True(taken >= 6);
         Assert.Equal(taken / 3, helixes);
     }
+
+    /// <summary>Stacking modifiers (Fury Swipes, Essence Shift, Reactive Armor): each application adds a stack up to the max, and every stack adds the modifier's stats.</summary>
+    [Fact]
+    public void StackingModifier_AddsAStackPerApplication_UpToTheMax()
+    {
+        var shred = new ModifierSpec("shred", 5000, armorBonus: Fixed.FromInt(-2), maxStacks: 3);
+        Fixed before = Fixed.Zero;
+        var kernel = Cast(ctx => before = H(ctx.State, "beta").Armor,
+            EffectDefinition.Modifier(shred), EffectDefinition.Modifier(shred), EffectDefinition.Modifier(shred), EffectDefinition.Modifier(shred));
+
+        Assert.Equal(before - Fixed.FromInt(6), H(kernel.State, "beta").Armor);
+    }
+
+    /// <summary>Fury Swipes: damage for each stack of a modifier the caster put on the target.</summary>
+    [Fact]
+    public void DamagePerStack_CountsTheCastersStacksOnTheTarget()
+    {
+        var swipes = new ModifierSpec("swipes", 5000, maxStacks: 99);
+        EffectDefinition perStack = EffectDefinition.DamagePerStack(DamageType.Pure, "swipes", 10);
+        var kernel = Cast(_ => { },
+            EffectDefinition.Modifier(swipes), perStack, EffectDefinition.Modifier(swipes), perStack, EffectDefinition.Modifier(swipes), perStack);
+
+        Assert.Equal(new[] { 10, 20, 30 }, HitsOnBeta(kernel).Select(d => d.Amount.ToIntFloor()));
+    }
+
+    /// <summary>Effects on the caster from inside an attack or a targeted ability (Essence Shift's stolen agility, a self buff after a nuke).</summary>
+    [Fact]
+    public void CasterEffect_RunsOnTheCaster()
+    {
+        Fixed alphaBefore = Fixed.Zero, betaBefore = Fixed.Zero;
+        var kernel = Cast(ctx => { alphaBefore = H(ctx.State, "alpha").Armor; betaBefore = H(ctx.State, "beta").Armor; },
+            EffectDefinition.OnCaster(EffectDefinition.Modifier(new ModifierSpec("guard", 5000, armorBonus: Fixed.FromInt(5)))));
+
+        Assert.Equal(alphaBefore + Fixed.FromInt(5), H(kernel.State, "alpha").Armor);
+        Assert.Equal(betaBefore, H(kernel.State, "beta").Armor);
+    }
+
+    /// <summary>An ability that performs an attack (Moment of Courage, Stifling Dagger): a percent of the attack's damage, with its on-hit effects.</summary>
+    [Fact]
+    public void AttackEffect_HitsWithAPercentOfTheAttack_AndItsOnHitEffects()
+    {
+        var kernel = Duel(onAlpha: new ModifierSpec("burn", -1, onHit: new[] { EffectDefinition.Damage(DamageType.Pure, 40) }), attack: false);
+        kernel.AddSystem(new LambdaSystem(2, ctx => Effects.Run(ctx, H(ctx.State, "alpha"), new[] { EffectDefinition.Attack(200) }, 1, H(ctx.State, "beta"), H(ctx.State, "beta").Position)));
+        kernel.RunTicks(3);
+
+        MatchUnit alpha = H(kernel.State, "alpha"), beta = H(kernel.State, "beta");
+        double multiplier = DamageMath.ArmorMultiplier(beta.Armor, kernel.State.Ruleset.Combat.ArmorFactor).ToDouble();
+        DamageDealt hit = HitsOnBeta(kernel).Single(d => d.DamageType == DamageType.Physical);
+        Assert.InRange(hit.Amount.ToDouble(), alpha.AttackDamageMin * 2 * multiplier - 0.01, alpha.AttackDamageMax * 2 * multiplier + 0.01);
+        Assert.Equal(40, HitsOnBeta(kernel).Single(d => d.DamageType == DamageType.Pure).Amount.ToIntFloor());
+    }
+
+    /// <summary>Damage as a percent of the caster's attack damage (Echo Slash) or of an attribute (Glaives of Wisdom, Ion Shell).</summary>
+    [Theory]
+    [InlineData(DamageScaling.CasterAttackDamagePercent, 15000)]
+    [InlineData(DamageScaling.CasterStrengthPercent, 5000)]
+    [InlineData(DamageScaling.CasterIntelligencePercent, 20000)]
+    public void ScaledDamage_FollowsTheCastersAttackOrAttributes(DamageScaling scaling, int percent)
+    {
+        var draft = new RulesetDraft().WithoutWaves();
+        draft.Heroes[0] = new HeroDefinition("alpha", "alpha", new[] { "carry" }, HeroStats(), hpPerLevel: 80, armorPerLevel: Fixed.FromRatio(3, 10),
+            damagePerLevel: 3, baseMana: 300, manaPerLevel: 40, hpRegenPerSecond: Fixed.FromInt(2), manaRegenPerSecond: Fixed.One,
+            attributes: new HeroAttributes(PrimaryAttribute.Strength, strength: 20, agility: 10, intelligence: 30, Fixed.Zero, Fixed.Zero, Fixed.Zero));
+        var kernel = Duel(attack: false, draft: draft);
+        kernel.AddSystem(new LambdaSystem(2, ctx => Effects.Run(ctx, H(ctx.State, "alpha"), new[] { EffectDefinition.ScaledDamage(DamageType.Pure, scaling, percent) },
+            1, H(ctx.State, "beta"), H(ctx.State, "beta").Position)));
+        kernel.RunTicks(3);
+
+        MatchUnit alpha = H(kernel.State, "alpha");
+        double expected = scaling == DamageScaling.CasterAttackDamagePercent ? (alpha.AttackDamageMin + alpha.AttackDamageMax) / 2.0 * 1.5
+            : scaling == DamageScaling.CasterStrengthPercent ? 20 * 0.5 : 30 * 2.0;
+        Assert.InRange(HitsOnBeta(kernel).Single().Amount.ToDouble(), expected - 0.01, expected + 0.01);
+    }
+
+    /// <summary>Proc cooldown (Greater Bash, Mortal Strike): after an on-hit proc, no other proc until the cooldown is over.</summary>
+    [Fact]
+    public void ProcCooldown_StopsOnHitEffectsUntilItIsOver()
+    {
+        var bash = new ModifierSpec("bash", -1, onHit: new[] { EffectDefinition.Damage(DamageType.Magical, 40) }, procCooldownMs: 60000);
+        var kernel = Run(Duel(onAlpha: bash));
+
+        List<DamageDealt> hits = HitsOnBeta(kernel);
+        Assert.True(hits.Count(d => d.DamageType == DamageType.Physical) >= 3);
+        Assert.Single(hits, d => d.DamageType == DamageType.Magical);
+    }
+
+    /// <summary>Effects on being attacked with a chance for each attack taken (Storm Surge).</summary>
+    [Theory]
+    [InlineData(0)]
+    [InlineData(100)]
+    public void WhenAttackedChance_RollsForEachAttackTaken(int chance)
+    {
+        var surge = new ModifierSpec("surge", -1, whenAttacked: new[] { EffectDefinition.Damage(DamageType.Pure, 30) }, whenAttackedChancePercent: chance);
+        var kernel = Run(Duel(onBeta: surge));
+
+        int taken = HitsOnBeta(kernel).Count;
+        int procs = kernel.EventsOf<DamageDealt>().Count(d => d.Attacker == H(kernel.State, "beta").Id && d.DamageType == DamageType.Pure);
+        Assert.True(taken >= 3);
+        Assert.Equal(chance == 0 ? 0 : taken, procs);
+    }
 }

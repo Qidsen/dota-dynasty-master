@@ -166,7 +166,7 @@ namespace Dynasty.MatchSimulation.Systems
         private static readonly Fixed KnockbackStep = Fixed.FromInt(25);
 
         /// <summary>A damage effect's amount for this target: flat, or a percent of its max health, missing health or missing mana.</summary>
-        private static Fixed ScaledAmount(EffectDefinition effect, int level, MatchUnit target)
+        private static Fixed ScaledAmount(EffectDefinition effect, int level, MatchUnit caster, MatchUnit target)
         {
             Fixed amount = Fixed.FromInt(effect.AmountAt(level));
             Fixed percent = amount / Fixed.FromInt(10000);   // scaled amounts are hundredths of a percent
@@ -182,6 +182,16 @@ namespace Dynasty.MatchSimulation.Systems
                     return target.Hero == null ? Fixed.Zero : Fixed.FromInt(target.Hero.MaxMana) * percent;
                 case DamageScaling.TargetMissingManaPercent:
                     return target.Hero == null ? Fixed.Zero : (Fixed.FromInt(target.Hero.MaxMana) - target.Hero.Mana) * percent;
+                case DamageScaling.CasterAttackDamagePercent:
+                    return Fixed.FromRatio(caster.AttackDamageMin + caster.AttackDamageMax, 2) * percent;
+                case DamageScaling.CasterStrengthPercent:
+                    return caster.Strength * percent;
+                case DamageScaling.CasterAgilityPercent:
+                    return caster.Agility * percent;
+                case DamageScaling.CasterIntelligencePercent:
+                    return caster.Intelligence * percent;
+                case DamageScaling.PerTargetStack:
+                    return amount * Fixed.FromInt(target.FindModifier(effect.StackKey!, caster.Id)?.Stacks ?? 0);
                 default:
                     return amount;
             }
@@ -219,7 +229,7 @@ namespace Dynasty.MatchSimulation.Systems
             switch (effect.Kind)
             {
                 case EffectKind.Damage:
-                    Damage.Deal(context, caster.Id, target, ScaledAmount(effect, level, target), effect.DamageType);
+                    Damage.Deal(context, caster.Id, target, ScaledAmount(effect, level, caster, target), effect.DamageType);
                     break;
                 case EffectKind.ManaBurn:
                     if (target.Hero != null)
@@ -267,6 +277,14 @@ namespace Dynasty.MatchSimulation.Systems
                     break;
                 case EffectKind.Dispel:
                     Dispel(context, caster, target, effect.Strong);
+                    break;
+                case EffectKind.OnCaster:
+                    foreach (EffectDefinition inner in effect.Inner)
+                        RunOne(context, caster, inner, level, caster, point);
+                    break;
+                case EffectKind.Attack:
+                    if (target.IsAlive && context.State.CanAttack(caster, target))
+                        AttackSystem.Strike(context, caster, target, effect.AmountAt(level));
                     break;
             }
         }

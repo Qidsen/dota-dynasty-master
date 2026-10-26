@@ -118,8 +118,14 @@ namespace Dynasty.MatchSimulation.Combat
             Fixed damagePerSecondMaxHealthPercent = default,
             int onHitAfterAttacks = 0,
             IReadOnlyList<Rules.EffectDefinition>? whenAttacked = null,
-            int whenAttackedEvery = 1)
+            int whenAttackedEvery = 1,
+            int maxStacks = 0,
+            int procCooldownMs = 0,
+            int whenAttackedChancePercent = 100)
         {
+            MaxStacks = maxStacks;
+            ProcCooldownMs = procCooldownMs;
+            WhenAttackedChancePercent = whenAttackedChancePercent;
             OnHitAfterAttacks = onHitAfterAttacks;
             WhenAttacked = whenAttacked?.ToArray() ?? System.Array.Empty<Rules.EffectDefinition>();
             WhenAttackedEvery = whenAttackedEvery;
@@ -207,6 +213,18 @@ namespace Dynasty.MatchSimulation.Combat
         /// </summary>
         public IReadOnlyList<Rules.EffectDefinition> WhenAttacked { get; }
         public int WhenAttackedEvery { get; }
+
+        /// <summary>Chance that <see cref="WhenAttacked"/> runs on an attack taken (Storm Surge).</summary>
+        public int WhenAttackedChancePercent { get; }
+
+        /// <summary>After its on-hit or on-attacked effects run, they do not run again for this long (Greater Bash, Mortal Strike).</summary>
+        public int ProcCooldownMs { get; }
+
+        /// <summary>
+        /// Above 0, reapplying the modifier from the same source adds a stack (up to this many) and refreshes the
+        /// duration; every stack adds the modifier's stats and damage over time (Fury Swipes, Essence Shift).
+        /// </summary>
+        public int MaxStacks { get; }
 
         public AuraSpec? Aura { get; }
 
@@ -327,6 +345,9 @@ namespace Dynasty.MatchSimulation.Combat
             foreach (Rules.EffectDefinition effect in WhenAttacked)
                 effect.WriteCanonical(w);
             w.WriteInt64(WhenAttackedEvery);
+            w.WriteInt64(WhenAttackedChancePercent);
+            w.WriteInt64(ProcCooldownMs);
+            w.WriteInt64(MaxStacks);
         }
 
         public static ModifierSpec Status(string key, int durationMs, ModifierFlags flags) => new ModifierSpec(key, durationMs, flags);
@@ -358,6 +379,12 @@ namespace Dynasty.MatchSimulation.Combat
 
         /// <summary>Attacks counted toward <see cref="ModifierSpec.OnHitAfterAttacks"/> or <see cref="ModifierSpec.WhenAttackedEvery"/>.</summary>
         internal int AttackCount { get; set; }
+
+        /// <summary>Stacks of a stacking modifier (<see cref="ModifierSpec.MaxStacks"/>); 1 for others.</summary>
+        public int Stacks { get; internal set; } = 1;
+
+        /// <summary>Tick from which its on-hit or on-attacked effects may run again (<see cref="ModifierSpec.ProcCooldownMs"/>).</summary>
+        internal long NextProcTick { get; set; }
     }
 
     public static class Modifiers
@@ -385,6 +412,11 @@ namespace Dynasty.MatchSimulation.Combat
                 existing.ExpiresTick = expires;
                 existing.BarrierLeft = spec.Barrier;
                 modifier = existing;
+                if (spec.MaxStacks > existing.Stacks)
+                {
+                    existing.Stacks++;
+                    target.Recalculate();
+                }
             }
             else
             {
