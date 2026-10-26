@@ -28,7 +28,11 @@ namespace Dynasty.MatchSimulation.Systems
             {
                 MatchUnit unit = units[i];
                 HeroState? hero = unit.Hero;
-                if (hero == null || hero.IsDead || !unit.IsAlive)
+                if (hero == null)
+                    continue;
+                foreach (AbilityState charged in hero.Abilities)
+                    charged.RestoreCharges(now, context.TickRate);   // charges come back while dead too
+                if (hero.IsDead || !unit.IsAlive)
                     continue;
 
                 if (hero.UnspentSkillPoints > 0)
@@ -125,6 +129,7 @@ namespace Dynasty.MatchSimulation.Systems
 
             hero.Mana -= Fixed.FromInt(definition.ManaCostAt(ability.Level));
             ability.CooldownReadyTick = now + context.TickRate.TicksFor(definition.CooldownAt(ability.Level));
+            ability.SpendCharge(now, context.TickRate);
             ConsumeCharge(context, caster, hero, ability);
             hero.CastEndTick = -1;
             HeroOrders.Issue(caster, HeroOrder.Idle);

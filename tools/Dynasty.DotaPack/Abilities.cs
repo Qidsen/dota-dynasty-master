@@ -223,6 +223,12 @@ static class Abilities
             ability["cooldown"] = new JsonArray(0);
         }
 
+        if (entry["charges"] is JsonNode charges)
+        {
+            ability["charges"] = PerLevel(charges, values, levels, fallback: null);
+            ability["chargeRestore"] = PerLevel(entry["chargeRestore"] ?? throw new InvalidDataException(key + ": charges without chargeRestore"), values, levels, fallback: null);
+        }
+
         if (entry["targetsStructures"] is JsonNode structures)
             ability["targetsStructures"] = structures.DeepClone();
         ability["effects"] = new JsonArray((entry["effects"] as JsonArray ?? new JsonArray()).Select(e => (JsonNode)ResolveEffect(e!.AsObject(), values, levels)).ToArray());

@@ -113,4 +113,41 @@ public class TriggerTests
         Assert.Single(PureOn(kernel, "beta"));
         Assert.DoesNotContain(kernel.EventsOf<DamageDealt>(), d => d.Target == summon!.Id && d.DamageType == DamageType.Pure);
     }
+
+    /// <summary>Flesh Heap, Feast's hero bonus: on-kill effects limited to hero victims.</summary>
+    [Fact]
+    public void OnKillHeroesOnly_IgnoresCreepKills()
+    {
+        var heap = new ModifierSpec("heap", -1, onKill: new[] { EffectDefinition.OnCaster(EffectDefinition.Heal(100)) }, onKillHeroesOnly: true);
+        var kernel = Arena(onAlpha: heap);
+        kernel.AddSystem(new LambdaSystem(2, ctx =>
+        {
+            H(ctx.State, "alpha").Hp = Fixed.FromInt(200);
+            MatchUnit bug = ctx.State.SpawnSummon(ctx.Ids.Allocate(), H(ctx.State, "beta"), ctx.State.Ruleset.CreepTypes.First(), ctx.Tick.Value, ctx.Tick.Value + 100000);
+            Damage.Deal(ctx, H(ctx.State, "alpha").Id, bug, Fixed.FromInt(5000), DamageType.Pure);
+        }));
+        kernel.AddSystem(new LambdaSystem(4, ctx => Damage.Deal(ctx, H(ctx.State, "alpha").Id, H(ctx.State, "beta"), Fixed.FromInt(5000), DamageType.Pure)));
+
+        double afterCreep = 0;
+        kernel.AddSystem(new LambdaSystem(4, ctx => afterCreep = H(ctx.State, "alpha").Hp.ToDouble()));
+        kernel.RunTicks(6);
+
+        Assert.InRange(afterCreep, 200, 201);   // the creep kill healed nothing
+        Assert.InRange(H(kernel.State, "alpha").Hp.ToDouble(), 300, 301);
+    }
+
+    /// <summary>Guardian Angel, Ghost Scepter: physical damage (attacks) does nothing; magical damage still lands.</summary>
+    [Fact]
+    public void PhysicalImmunity_BlocksPhysicalDamageOnly()
+    {
+        var kernel = Arena(onBeta: ModifierSpec.Status("angel", 10000, ModifierFlags.PhysicalImmune));
+        kernel.AddSystem(new LambdaSystem(2, ctx =>
+        {
+            Damage.Deal(ctx, H(ctx.State, "alpha").Id, H(ctx.State, "beta"), Fixed.FromInt(100), DamageType.Physical);
+            Damage.Deal(ctx, H(ctx.State, "alpha").Id, H(ctx.State, "beta"), Fixed.FromInt(100), DamageType.Pure);
+        }));
+        kernel.RunTicks(3);
+
+        Assert.Equal(new[] { 0, 100 }, kernel.EventsOf<DamageDealt>().Where(d => d.Target == H(kernel.State, "beta").Id).Select(d => d.Amount.ToIntFloor()));
+    }
 }

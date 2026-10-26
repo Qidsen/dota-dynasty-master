@@ -40,6 +40,9 @@ namespace Dynasty.MatchSimulation.Combat
 
         /// <summary>Damage cannot bring the unit below 1 health (Shallow Grave, False Promise).</summary>
         CannotDie = 64,
+
+        /// <summary>Physical damage (attacks included) does nothing (Guardian Angel, Ghost Scepter).</summary>
+        PhysicalImmune = 128,
     }
 
     /// <summary>
@@ -125,8 +128,16 @@ namespace Dynasty.MatchSimulation.Combat
             IReadOnlyList<Rules.EffectDefinition>? onCast = null,
             IReadOnlyList<Rules.EffectDefinition>? onKill = null,
             IReadOnlyList<Rules.EffectDefinition>? onDeath = null,
-            bool onHitHeroesOnly = false)
+            bool onHitHeroesOnly = false,
+            int extraTargets = 0,
+            int extraTargetRadius = 0,
+            int extraTargetDamagePercent = 100,
+            bool onKillHeroesOnly = false)
         {
+            OnKillHeroesOnly = onKillHeroesOnly;
+            ExtraTargets = extraTargets;
+            ExtraTargetRadius = extraTargetRadius;
+            ExtraTargetDamagePercent = extraTargetDamagePercent;
             OnCast = onCast?.ToArray() ?? System.Array.Empty<Rules.EffectDefinition>();
             OnKill = onKill?.ToArray() ?? System.Array.Empty<Rules.EffectDefinition>();
             OnDeath = onDeath?.ToArray() ?? System.Array.Empty<Rules.EffectDefinition>();
@@ -237,11 +248,22 @@ namespace Dynasty.MatchSimulation.Combat
         /// <summary>On-hit effects run only when the attacked unit is a hero (Essence Shift).</summary>
         public bool OnHitHeroesOnly { get; }
 
+        /// <summary>
+        /// Each attack also hits up to this many other enemies within <see cref="ExtraTargetRadius"/> of the attacker,
+        /// nearest first, with <see cref="ExtraTargetDamagePercent"/> of the attack and its on-hit effects (Split Shot, Flak Cannon).
+        /// </summary>
+        public int ExtraTargets { get; }
+        public int ExtraTargetRadius { get; }
+        public int ExtraTargetDamagePercent { get; }
+
         /// <summary>Effects run when the bearer casts an ability, after its effects: the cast's target (the bearer for untargeted casts) and point (Aftershock).</summary>
         public IReadOnlyList<Rules.EffectDefinition> OnCast { get; }
 
         /// <summary>Effects run when the bearer kills a unit, with the victim as the target (Sadist).</summary>
         public IReadOnlyList<Rules.EffectDefinition> OnKill { get; }
+
+        /// <summary><see cref="OnKill"/> runs only for hero victims (Flesh Heap).</summary>
+        public bool OnKillHeroesOnly { get; }
 
         /// <summary>Effects run when the bearer dies, with the bearer as the caster and its killer as the target (Caustic Finale, Retribution).</summary>
         public IReadOnlyList<Rules.EffectDefinition> OnDeath { get; }
@@ -369,6 +391,10 @@ namespace Dynasty.MatchSimulation.Combat
             w.WriteInt64(ProcCooldownMs);
             w.WriteInt64(MaxStacks);
             w.WriteBool(OnHitHeroesOnly);
+            w.WriteInt64(ExtraTargets);
+            w.WriteInt64(ExtraTargetRadius);
+            w.WriteInt64(ExtraTargetDamagePercent);
+            w.WriteBool(OnKillHeroesOnly);
             foreach (IReadOnlyList<Rules.EffectDefinition> list in new[] { OnCast, OnKill, OnDeath })
             {
                 w.WriteInt64(list.Count);
@@ -514,7 +540,8 @@ namespace Dynasty.MatchSimulation.Combat
             if (!target.IsAlive)
                 return Fixed.Zero;
 
-            Fixed amount = DamageMath.Mitigate(rawAmount, type, target.Armor, target.MagicResistPercent, context.State.Ruleset.Combat.ArmorFactor);
+            Fixed amount = type == DamageType.Physical && (target.Flags & ModifierFlags.PhysicalImmune) != 0 ? Fixed.Zero
+                : DamageMath.Mitigate(rawAmount, type, target.Armor, target.MagicResistPercent, context.State.Ruleset.Combat.ArmorFactor);
             if (target.IncomingDamagePercent != 0)
                 amount = amount * Fixed.FromInt(100 + target.IncomingDamagePercent) / Fixed.FromInt(100);
             amount = Absorb(context, target, amount);

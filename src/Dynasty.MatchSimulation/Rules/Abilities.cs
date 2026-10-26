@@ -319,8 +319,12 @@ namespace Dynasty.MatchSimulation.Rules
             IReadOnlyList<EffectDefinition> effects,
             IReadOnlyList<ModifierSpec>? passiveModifiers = null,
             bool targetsStructures = false,
-            bool innate = false)
+            bool innate = false,
+            IReadOnlyList<int>? maxCharges = null,
+            IReadOnlyList<int>? chargeRestoreMs = null)
         {
+            MaxCharges = (maxCharges ?? Array.Empty<int>()).ToArray();
+            ChargeRestoreMs = (chargeRestoreMs ?? Array.Empty<int>()).ToArray();
             Innate = innate;
             TargetsStructures = targetsStructures;
             Id = id;
@@ -360,6 +364,16 @@ namespace Dynasty.MatchSimulation.Rules
         /// <summary>Learned at level one for free and never levelled with skill points (Dota's innate abilities).</summary>
         public bool Innate { get; }
 
+        /// <summary>Charges per level (Shrapnel, Phantom Strike); empty for abilities without charges.</summary>
+        public IReadOnlyList<int> MaxCharges { get; }
+
+        /// <summary>Time for a spent charge to come back, per level.</summary>
+        public IReadOnlyList<int> ChargeRestoreMs { get; }
+
+        public int MaxChargesAt(int level) => MaxCharges.Count == 0 || level <= 0 ? 0 : EffectDefinition.ValueAt(MaxCharges, level);
+
+        public int ChargeRestoreAt(int level) => EffectDefinition.ValueAt(ChargeRestoreMs, level);
+
         public int CooldownAt(int level) => EffectDefinition.ValueAt(CooldownMs, level);
 
         /// <summary>Mana needed to cast at the given level; passives (no costs listed) need none.</summary>
@@ -373,7 +387,7 @@ namespace Dynasty.MatchSimulation.Rules
             w.WriteInt64((int)TargetTeam);
             w.WriteInt64(CastRange);
             w.WriteInt64(CastPointMs);
-            foreach (IReadOnlyList<int> list in new[] { CooldownMs, ManaCost, RequiredHeroLevel })
+            foreach (IReadOnlyList<int> list in new[] { CooldownMs, ManaCost, RequiredHeroLevel, MaxCharges, ChargeRestoreMs })
             {
                 w.WriteInt64(list.Count);
                 foreach (int value in list)

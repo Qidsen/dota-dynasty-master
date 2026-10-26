@@ -131,7 +131,36 @@ namespace Dynasty.MatchSimulation.Heroes
         /// <summary>First tick the ability can be cast again.</summary>
         public long CooldownReadyTick { get; internal set; }
 
-        public bool IsReady(long now) => Level > 0 && now >= CooldownReadyTick;
+        public bool IsReady(long now) => Level > 0 && now >= CooldownReadyTick && (Definition.MaxChargesAt(Level) == 0 || Charges > 0);
+
+        /// <summary>Charges left (abilities with charges).</summary>
+        public int Charges { get; internal set; }
+
+        /// <summary>Tick the next spent charge comes back; -1 while all charges are there.</summary>
+        internal long NextChargeTick { get; set; } = -1;
+
+        /// <summary>Learning or levelling grants the charges the new level adds (all of them when first learned).</summary>
+        internal void GainLevelCharges(int previousLevel) =>
+            Charges += System.Math.Max(0, Definition.MaxChargesAt(Level) - Definition.MaxChargesAt(previousLevel));
+
+        /// <summary>Spends a charge; the restore timer runs while any charge is missing.</summary>
+        internal void SpendCharge(long now, Dynasty.Core.Time.TickRate rate)
+        {
+            if (Definition.MaxChargesAt(Level) == 0)
+                return;
+            Charges--;
+            if (NextChargeTick < 0)
+                NextChargeTick = now + rate.TicksFor(Definition.ChargeRestoreAt(Level));
+        }
+
+        /// <summary>Brings back a charge whose restore time is over.</summary>
+        internal void RestoreCharges(long now, Dynasty.Core.Time.TickRate rate)
+        {
+            if (NextChargeTick < 0 || now < NextChargeTick)
+                return;
+            Charges++;
+            NextChargeTick = Charges < Definition.MaxChargesAt(Level) ? NextChargeTick + rate.TicksFor(Definition.ChargeRestoreAt(Level)) : -1;
+        }
     }
 
     public enum HeroOrderKind
@@ -227,6 +256,7 @@ namespace Dynasty.MatchSimulation.Heroes
             foreach (AbilityState innate in state.Abilities.Where(a => a.Definition.Innate && a.Level == 0).ToList())
             {
                 innate.Level = 1;   // free, at level one, never levelled further
+                innate.GainLevelCharges(0);
                 if (innate.Definition.Targeting == AbilityTargeting.Passive)
                     Combat.Modifiers.Apply(context, hero, innate.Definition.PassiveModifiers[0], hero.Id);
                 context.Emit(new AbilityLearned(hero.Id, innate.Definition.Id, 1));
@@ -240,6 +270,7 @@ namespace Dynasty.MatchSimulation.Heroes
                     return;
 
                 next.Level++;
+                next.GainLevelCharges(next.Level - 1);
                 if (next.Definition.Targeting == AbilityTargeting.Passive)
                     Combat.Modifiers.Apply(context, hero, next.Definition.PassiveModifiers[next.Level - 1], hero.Id);
                 context.Emit(new AbilityLearned(hero.Id, next.Definition.Id, next.Level));

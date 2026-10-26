@@ -451,6 +451,7 @@ namespace Dynasty.MatchSimulation.Systems
                 return;
 
             Fixed damage = RollDamage(context, unit, target, out bool critical);
+            HitExtraTargets(context, unit, target);
             if (unit.Stats.ProjectileSpeed > 0)
             {
                 // Ranged: the rolled hit travels; it lands (or is dodged) in the projectile system.
@@ -462,6 +463,25 @@ namespace Dynasty.MatchSimulation.Systems
             }
 
             ApplyHit(context, unit, target, damage, critical);
+        }
+
+        /// <summary>Split attacks: the other enemies nearest to the attacker (then by id) take an instant share of the attack.</summary>
+        private static void HitExtraTargets(SimulationContext<MatchState> context, MatchUnit unit, MatchUnit target)
+        {
+            if (unit.Modifiers.Count == 0)
+                return;
+            MatchState state = context.State;
+            foreach (ActiveModifier split in unit.Modifiers.Where(m => m.Spec.ExtraTargets > 0).ToList())
+            {
+                ModifierSpec spec = split.Spec;
+                List<MatchUnit> others = state.Units
+                    .Where(u => u != target && Effects.Matches(state, unit, u, TargetTeam.Enemy) && state.CanAttack(unit, u) && state.IsVisibleTo(unit.Team, u) &&
+                                Geometry.WithinRange(unit.Position, u.Position, spec.ExtraTargetRadius + u.BoundingRadius))
+                    .OrderBy(u => FixedVector2.Distance(unit.Position, u.Position)).ThenBy(u => u.Id.Value)
+                    .Take(spec.ExtraTargets).ToList();
+                foreach (MatchUnit other in others)
+                    Strike(context, unit, other, spec.ExtraTargetDamagePercent);
+            }
         }
 
         /// <summary>An instant attack made by an ability, with a percent of the attack's damage; it lands at once, even for ranged units.</summary>
@@ -629,7 +649,7 @@ namespace Dynasty.MatchSimulation.Systems
                 Effects.Run(context, unit, modifier.Spec.OnDeath, 1, killer ?? unit, unit.Position);
             if (killer == null || killer == unit)
                 return;
-            foreach (ActiveModifier modifier in killer.Modifiers.Where(m => m.Spec.OnKill.Count > 0).ToList())
+            foreach (ActiveModifier modifier in killer.Modifiers.Where(m => m.Spec.OnKill.Count > 0 && (!m.Spec.OnKillHeroesOnly || unit.Hero != null)).ToList())
                 Effects.Run(context, killer, modifier.Spec.OnKill, 1, unit, unit.Position);
         }
 

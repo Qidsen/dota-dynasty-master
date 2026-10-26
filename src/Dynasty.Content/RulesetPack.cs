@@ -161,7 +161,8 @@ namespace Dynasty.Content
             IReadOnlyList<int> mana = a.OptionalInts("manaCost") ?? (targeting == AbilityTargeting.Passive ? new int[0] : levels.Select(_ => 0).ToArray());
             var ability = new AbilityDefinition(a.String("id"), a.String("name"), targeting, ReadTeam(a, "targetTeam"), a.Int("castRange"), a.Milliseconds("castPoint"),
                 cooldowns, mana, levels, a.Array("effects").Select(ReadEffect).ToList(),
-                a.OptionalArray("passive").Select(ReadModifier).ToList(), a.OptionalBool("targetsStructures") ?? false, a.OptionalBool("innate") ?? false);
+                a.OptionalArray("passive").Select(ReadModifier).ToList(), a.OptionalBool("targetsStructures") ?? false, a.OptionalBool("innate") ?? false,
+                a.OptionalInts("charges"), a.Has("charges") ? a.Seconds("chargeRestore") : null);
             a.RejectUnknown();
             return ability;
         }
@@ -299,6 +300,7 @@ namespace Dynasty.Content
             "invisible" => ModifierFlags.Invisible,
             "debuffImmune" => ModifierFlags.DebuffImmune,
             "cannotDie" => ModifierFlags.CannotDie,
+            "physicalImmune" => ModifierFlags.PhysicalImmune,
             _ => throw r.Error("flags", "unknown flag '" + flag + "'"),
         };
 
@@ -330,7 +332,9 @@ namespace Dynasty.Content
                 maxStacks: m.OptionalBool("stacking") == true ? m.OptionalInt("maxStacks") ?? int.MaxValue : 0,
                 procCooldownMs: m.OptionalMilliseconds("procCooldown") ?? 0, whenAttackedChancePercent: m.OptionalInt("whenAttackedChance") ?? 100,
                 onCast: m.OptionalArray("onCast").Select(ReadEffect).ToList(), onKill: m.OptionalArray("onKill").Select(ReadEffect).ToList(),
-                onDeath: m.OptionalArray("onDeath").Select(ReadEffect).ToList(), onHitHeroesOnly: m.OptionalBool("onHitHeroesOnly") ?? false);
+                onDeath: m.OptionalArray("onDeath").Select(ReadEffect).ToList(), onHitHeroesOnly: m.OptionalBool("onHitHeroesOnly") ?? false,
+                extraTargets: m.OptionalInt("extraTargets") ?? 0, extraTargetRadius: m.OptionalInt("extraTargetRadius") ?? 0,
+                extraTargetDamagePercent: m.OptionalInt("extraTargetDamagePercent") ?? 100, onKillHeroesOnly: m.OptionalBool("onKillHeroesOnly") ?? false);
             m.RejectUnknown();
             return spec;
         }

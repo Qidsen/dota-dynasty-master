@@ -578,4 +578,40 @@ public class DotaMechanicsTests
         Assert.True(kernel.State.Units.Count(u => u.IllusionOf == alpha.Id) >= 2);
         Assert.Contains(kernel.EventsOf<DamageDealt>(), d => kernel.State.Find(d.Attacker)?.IllusionOf == alpha.Id);
     }
+
+    /// <summary>Split Shot, Flak Cannon: each attack also hits up to N other enemies near the attacker, with a percent of its damage and its on-hit effects.</summary>
+    [Fact]
+    public void ExtraTargets_SplitTheAttackOntoNearbyEnemies()
+    {
+        var split = new ModifierSpec("split", -1, extraTargets: 3, extraTargetRadius: 500, extraTargetDamagePercent: 50,
+            onHit: new[] { EffectDefinition.Damage(DamageType.Pure, 7) });
+        var kernel = Duel(onAlpha: split);
+        var bugs = new List<MatchUnit>();
+        kernel.AddSystem(new LambdaSystem(1, ctx =>
+        {
+            CreepType melee = ctx.State.Ruleset.CreepTypes.First();
+            foreach (int y in new[] { 5100, 4900, 4000 })   // two in reach, one far away
+            {
+                MatchUnit bug = ctx.State.SpawnSummon(ctx.Ids.Allocate(), H(ctx.State, "beta"), melee, ctx.Tick.Value, ctx.Tick.Value + 100000);
+                bug.Position = P(5050, y);
+                bug.StartPosition = bug.Position;
+                bugs.Add(bug);
+            }
+        }));
+        kernel.AddSystem(new LambdaSystem(2, ctx => { foreach (MatchUnit bug in bugs) Modifiers.Apply(ctx, bug, ModifierSpec.Status("hold", 100000, ModifierFlags.Stunned | ModifierFlags.Disarmed), EntityId.None); }));
+        kernel.RunTicks(30 * 4);
+
+        List<DamageDealt> onBeta = HitsOnBeta(kernel).Where(d => d.DamageType == DamageType.Physical).ToList();
+        Assert.NotEmpty(onBeta);
+        for (int i = 0; i < 2; i++)
+        {
+            List<DamageDealt> onBug = kernel.EventsOf<DamageDealt>().Where(d => d.Target == bugs[i].Id).ToList();
+            Assert.Equal(onBeta.Count, onBug.Count(d => d.DamageType == DamageType.Physical));
+            Assert.Equal(onBeta.Count, onBug.Count(d => d.DamageType == DamageType.Pure));
+        }
+
+        Assert.DoesNotContain(kernel.EventsOf<DamageDealt>(), d => d.Target == bugs[2].Id);
+        double main = onBeta.Average(d => d.Amount.ToDouble()), side = kernel.EventsOf<DamageDealt>().Where(d => d.Target == bugs[0].Id && d.DamageType == DamageType.Physical).Average(d => d.Amount.ToDouble());
+        Assert.True(side < main * 0.75);   // half the attack (armor differs a little between the hero and the creep)
+    }
 }
