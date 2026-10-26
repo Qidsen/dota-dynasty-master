@@ -197,12 +197,13 @@ public class PackContentTests
         RulesetContent rules = Apply(@"""abilities"": [{ ""id"": ""swipes"", ""name"": ""Swipes"", ""targeting"": ""unit"", ""targetTeam"": ""enemy"", ""castRange"": 900, ""castPoint"": 0,
             ""cooldown"": [18], ""requiredLevels"": [1], ""effects"": [
                 { ""kind"": ""attack"", ""amounts"": [150] }, { ""kind"": ""attack"" },
+                { ""kind"": ""ifHero"", ""effects"": [ { ""kind"": ""execute"", ""amounts"": [250] } ] },
                 { ""kind"": ""onCaster"", ""effects"": [ { ""kind"": ""heal"", ""amounts"": [50] } ] },
                 { ""kind"": ""damage"", ""damageType"": ""physical"", ""scaling"": ""perTargetStack"", ""stackKey"": ""fury"", ""amounts"": [15] },
                 { ""kind"": ""damage"", ""damageType"": ""magical"", ""scaling"": ""casterIntelligencePercent"", ""amounts"": [37.5] } ],
             ""passive"": [ { ""key"": ""fury"", ""duration"": 20, ""stacking"": true, ""procCooldown"": 1.5, ""whenAttackedChance"": 25,
                           ""whenAttacked"": [ { ""kind"": ""damage"", ""damageType"": ""pure"", ""amounts"": [100] } ] },
-                          { ""key"": ""shift"", ""stacking"": true, ""maxStacks"": 4, ""onHitHeroesOnly"": true, ""onKillHeroesOnly"": true, ""revives"": true, ""flags"": [""physicalImmune"", ""feared"", ""taunted""],
+                          { ""key"": ""shift"", ""stacking"": true, ""maxStacks"": 4, ""onHitHeroesOnly"": true, ""onKillHeroesOnly"": true, ""revives"": true, ""attackCharges"": 4, ""extraTargetRadiusFromAttackRange"": true, ""extraTargetChance"": 35, ""flags"": [""physicalImmune"", ""feared"", ""taunted""],
                             ""extraTargets"": 2, ""extraTargetRadius"": 700, ""extraTargetDamagePercent"": 60,
                             ""onCast"": [ { ""kind"": ""heal"", ""amounts"": [1] } ], ""onKill"": [ { ""kind"": ""heal"", ""amounts"": [2] } ],
                             ""onDeath"": [ { ""kind"": ""heal"", ""amounts"": [3] } ] } ] }], ""items"": []",
@@ -211,15 +212,28 @@ public class PackContentTests
         AbilityDefinition swipes = rules.FindAbility("swipes")!;
         Assert.Equal((EffectKind.Attack, 150), (swipes.Effects[0].Kind, swipes.Effects[0].Amounts[0]));
         Assert.Equal(100, swipes.Effects[1].Amounts.Single());   // without amounts: a normal attack
-        Assert.Equal((EffectKind.OnCaster, EffectKind.Heal), (swipes.Effects[2].Kind, swipes.Effects[2].Inner.Single().Kind));
-        Assert.Equal((DamageScaling.PerTargetStack, "fury", 15), (swipes.Effects[3].Scaling, swipes.Effects[3].StackKey, swipes.Effects[3].Amounts[0]));
-        Assert.Equal((DamageScaling.CasterIntelligencePercent, 3750), (swipes.Effects[4].Scaling, swipes.Effects[4].Amounts[0]));
+        Assert.Equal((EffectKind.IfHero, EffectKind.Execute, 250), (swipes.Effects[2].Kind, swipes.Effects[2].Inner[0].Kind, swipes.Effects[2].Inner[0].Amounts[0]));
+        Assert.Equal((EffectKind.OnCaster, EffectKind.Heal), (swipes.Effects[3].Kind, swipes.Effects[3].Inner.Single().Kind));
+        Assert.Equal((DamageScaling.PerTargetStack, "fury", 15), (swipes.Effects[4].Scaling, swipes.Effects[4].StackKey, swipes.Effects[4].Amounts[0]));
+        Assert.Equal((DamageScaling.CasterIntelligencePercent, 3750), (swipes.Effects[5].Scaling, swipes.Effects[5].Amounts[0]));
         ModifierSpec fury = swipes.PassiveModifiers[0];
         Assert.Equal((int.MaxValue, 1500, 25), (fury.MaxStacks, fury.ProcCooldownMs, fury.WhenAttackedChancePercent));
         ModifierSpec shift = swipes.PassiveModifiers[1];
         Assert.Equal((4, true, true, ModifierFlags.PhysicalImmune | ModifierFlags.Feared | ModifierFlags.Taunted), (shift.MaxStacks, shift.OnHitHeroesOnly, shift.OnKillHeroesOnly, shift.Flags));
         Assert.Equal((2, 700, 60, true), (shift.ExtraTargets, shift.ExtraTargetRadius, shift.ExtraTargetDamagePercent, shift.Revives));
+        Assert.Equal((4, true, 35), (shift.AttackCharges, shift.ExtraTargetRadiusFromAttackRange, shift.ExtraTargetChancePercent));
         Assert.Equal((1, 2, 3), (shift.OnCast.Single().Amounts[0], shift.OnKill.Single().Amounts[0], shift.OnDeath.Single().Amounts[0]));
+    }
+
+    [Fact]
+    public void ExtraTargetDamage_CanBeGivenAsAReduction()
+    {
+        RulesetContent rules = Apply(@"""abilities"": [{ ""id"": ""glaive"", ""name"": ""Glaive"", ""targeting"": ""passive"", ""targetTeam"": ""enemy"", ""castRange"": 0, ""castPoint"": 0,
+            ""cooldown"": [0], ""requiredLevels"": [1], ""effects"": [],
+            ""passive"": [ { ""key"": ""glaive"", ""extraTargets"": 4, ""extraTargetRadius"": 500, ""extraTargetDamageReduction"": 35 } ] }], ""items"": []",
+            Hero("lion", @"[""glaive""]"));
+
+        Assert.Equal(65, rules.FindAbility("glaive")!.PassiveModifiers[0].ExtraTargetDamagePercent);
     }
 
     [Fact]

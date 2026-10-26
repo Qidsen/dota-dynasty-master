@@ -139,8 +139,14 @@ namespace Dynasty.MatchSimulation.Combat
             int extraTargetRadius = 0,
             int extraTargetDamagePercent = 100,
             bool onKillHeroesOnly = false,
-            bool revives = false)
+            bool revives = false,
+            int attackCharges = 0,
+            bool extraTargetRadiusFromAttackRange = false,
+            int extraTargetChancePercent = 100)
         {
+            AttackCharges = attackCharges;
+            ExtraTargetRadiusFromAttackRange = extraTargetRadiusFromAttackRange;
+            ExtraTargetChancePercent = extraTargetChancePercent;
             Revives = revives;
             OnKillHeroesOnly = onKillHeroesOnly;
             ExtraTargets = extraTargets;
@@ -263,6 +269,15 @@ namespace Dynasty.MatchSimulation.Combat
         public int ExtraTargets { get; }
         public int ExtraTargetRadius { get; }
         public int ExtraTargetDamagePercent { get; }
+
+        /// <summary>The radius of extra targets is counted from the edge of the bearer's attack range (Split Shot: attack range + bonus).</summary>
+        public bool ExtraTargetRadiusFromAttackRange { get; }
+
+        /// <summary>Chance per attack that the extra targets are hit (Gunslinger).</summary>
+        public int ExtraTargetChancePercent { get; }
+
+        /// <summary>The modifier ends after this many of the bearer's attacks land (Overpower, Lil' Shredder); 0 = no limit.</summary>
+        public int AttackCharges { get; }
 
         /// <summary>Effects run when the bearer casts an ability, after its effects: the cast's target (the bearer for untargeted casts) and point (Aftershock).</summary>
         public IReadOnlyList<Rules.EffectDefinition> OnCast { get; }
@@ -410,6 +425,9 @@ namespace Dynasty.MatchSimulation.Combat
             w.WriteInt64(ExtraTargetDamagePercent);
             w.WriteBool(OnKillHeroesOnly);
             w.WriteBool(Revives);
+            w.WriteInt64(AttackCharges);
+            w.WriteBool(ExtraTargetRadiusFromAttackRange);
+            w.WriteInt64(ExtraTargetChancePercent);
             foreach (IReadOnlyList<Rules.EffectDefinition> list in new[] { OnCast, OnKill, OnDeath })
             {
                 w.WriteInt64(list.Count);
@@ -456,6 +474,9 @@ namespace Dynasty.MatchSimulation.Combat
 
         /// <summary>Its on-hit effects are running: an attack they make does not run them again (no chain of procs).</summary>
         internal bool Procing { get; set; }
+
+        /// <summary>The bearer's attacks landed since the modifier was applied (<see cref="ModifierSpec.AttackCharges"/>).</summary>
+        internal int AttacksLanded { get; set; }
     }
 
     public static class Modifiers
@@ -482,6 +503,7 @@ namespace Dynasty.MatchSimulation.Combat
                 existing.AppliedTick = now;
                 existing.ExpiresTick = expires;
                 existing.BarrierLeft = spec.Barrier;
+                existing.AttacksLanded = 0;
                 modifier = existing;
                 if (spec.MaxStacks > existing.Stacks)
                 {
@@ -589,6 +611,23 @@ namespace Dynasty.MatchSimulation.Combat
             }
 
             return amount;
+        }
+
+        /// <summary>
+        /// Kills the target outright (Culling Blade): no armor, damage reduction or barrier applies, but a unit
+        /// that cannot die keeps 1 health.
+        /// </summary>
+        public static void Execute(SimulationContext<MatchState> context, EntityId attacker, MatchUnit target)
+        {
+            if (!target.IsAlive)
+                return;
+            Fixed amount = (target.Flags & ModifierFlags.CannotDie) != 0 ? target.Hp - Fixed.One : target.Hp;
+            target.Hp -= amount;
+            target.LastAttackerId = attacker;
+            MatchUnit? source = context.State.Find(attacker);
+            if (target.Hero != null && source?.Hero != null && source.Team != target.Team)
+                target.Hero.RecentHeroAttackers[attacker.Value] = context.Tick.Value;
+            context.Emit(new DamageDealt(attacker, target.Id, amount, target.Hp, DamageType.Pure, false));
         }
 
         public static Fixed Heal(SimulationContext<MatchState> context, EntityId source, MatchUnit target, Fixed amount)

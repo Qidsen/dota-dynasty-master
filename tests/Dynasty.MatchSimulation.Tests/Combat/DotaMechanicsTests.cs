@@ -614,4 +614,70 @@ public class DotaMechanicsTests
         double main = onBeta.Average(d => d.Amount.ToDouble()), side = kernel.EventsOf<DamageDealt>().Where(d => d.Target == bugs[0].Id && d.DamageType == DamageType.Physical).Average(d => d.Amount.ToDouble());
         Assert.True(side < main * 0.75);   // half the attack (armor differs a little between the hero and the creep)
     }
+
+    /// <summary>Overpower, Lil' Shredder: a buff for the next N landing attacks, then it is gone.</summary>
+    [Fact]
+    public void AttackCharges_EndTheBuffAfterThatManyAttacks()
+    {
+        var overpower = new ModifierSpec("overpower", 60000, onHit: new[] { EffectDefinition.Damage(DamageType.Pure, 5) }, attackCharges: 3);
+        var kernel = Run(Duel(onAlpha: overpower));
+
+        Assert.True(HitsOnBeta(kernel).Count(d => d.DamageType == DamageType.Physical) >= 4);
+        Assert.Equal(3, HitsOnBeta(kernel).Count(d => d.DamageType == DamageType.Pure));
+        Assert.DoesNotContain(H(kernel.State, "alpha").Modifiers, m => m.Spec.Key == "overpower");
+    }
+
+    /// <summary>A part of an effect list that applies to heroes only (Feast's hero bonus, Glaives' intelligence steal).</summary>
+    [Fact]
+    public void IfHero_RunsItsEffectsOnHeroesOnly()
+    {
+        var kernel = Duel(attack: false);
+        MatchUnit? bug = null;
+        kernel.AddSystem(new LambdaSystem(2, ctx =>
+        {
+            bug = ctx.State.SpawnSummon(ctx.Ids.Allocate(), H(ctx.State, "beta"), ctx.State.Ruleset.CreepTypes.First(), ctx.Tick.Value, ctx.Tick.Value + 100000);
+            EffectDefinition[] effects = { EffectDefinition.Damage(DamageType.Pure, 10), EffectDefinition.IfHero(EffectDefinition.Damage(DamageType.Pure, 7)) };
+            Effects.Run(ctx, H(ctx.State, "alpha"), effects, 1, H(ctx.State, "beta"), H(ctx.State, "beta").Position);
+            Effects.Run(ctx, H(ctx.State, "alpha"), effects, 1, bug, bug.Position);
+        }));
+        kernel.RunTicks(3);
+
+        Assert.Equal(new[] { 10, 7 }, HitsOnBeta(kernel).Select(d => d.Amount.ToIntFloor()));
+        Assert.Equal(new[] { 10 }, kernel.EventsOf<DamageDealt>().Where(d => d.Target == bug!.Id).Select(d => d.Amount.ToIntFloor()));
+    }
+
+    /// <summary>Culling Blade: a unit at or below the threshold dies; above it the effect does nothing (the damage is a separate effect).</summary>
+    [Theory]
+    [InlineData(250, true)]
+    [InlineData(251, false)]
+    public void Execute_KillsAtOrBelowTheThreshold(int hp, bool dies)
+    {
+        var kernel = Cast(ctx => H(ctx.State, "beta").Hp = Fixed.FromInt(hp), EffectDefinition.Execute(250));
+        kernel.RunTicks(2);
+
+        Assert.Equal(dies, H(kernel.State, "beta").Hero!.IsDead);
+    }
+
+    /// <summary>Split Shot's reach is the attack range plus a bonus; Gunslinger's extra target comes with a chance.</summary>
+    [Theory]
+    [InlineData(100, true)]
+    [InlineData(0, false)]
+    public void ExtraTargets_CanReachFromTheAttackRange_WithAChance(int chance, bool hit)
+    {
+        var split = new ModifierSpec("split", -1, extraTargets: 1, extraTargetRadius: 100, extraTargetRadiusFromAttackRange: true, extraTargetChancePercent: chance);
+        var kernel = Duel(onAlpha: split);
+        MatchUnit? bug = null;
+        kernel.AddSystem(new LambdaSystem(1, ctx =>
+        {
+            // 240 away: outside a plain 100 radius, inside the attack range (150) + 100.
+            bug = ctx.State.SpawnSummon(ctx.Ids.Allocate(), H(ctx.State, "beta"), ctx.State.Ruleset.CreepTypes.First(), ctx.Tick.Value, ctx.Tick.Value + 100000);
+            bug.Position = P(5000, 4760);
+            bug.StartPosition = bug.Position;
+            Modifiers.Apply(ctx, bug, ModifierSpec.Status("hold", 100000, ModifierFlags.Stunned), EntityId.None);
+        }));
+        kernel.RunTicks(30 * 3);
+
+        Assert.NotEmpty(HitsOnBeta(kernel));
+        Assert.Equal(hit, kernel.EventsOf<DamageDealt>().Any(d => d.Target == bug!.Id));
+    }
 }

@@ -74,6 +74,12 @@ namespace Dynasty.MatchSimulation.Rules
 
         /// <summary>Creates illusions (amounts per level) of the target hero for the duration, each carrying the level's modifier (damage dealt and taken).</summary>
         Illusion = 16,
+
+        /// <summary>Runs the inner effects only when the effect's unit is a hero.</summary>
+        IfHero = 17,
+
+        /// <summary>Kills the unit outright if its health is at or below the amount (Culling Blade's threshold).</summary>
+        Execute = 18,
     }
 
     /// <summary>What a damage effect's amounts mean: flat damage, or a percent of the target's health or mana.</summary>
@@ -226,6 +232,11 @@ namespace Dynasty.MatchSimulation.Rules
         /// <summary>Illusions of the effect's unit (counts per level) that last <paramref name="durationMs"/> and carry the level's modifier.</summary>
         public static EffectDefinition Illusion(int durationMs, ModifierSpec[] modifierPerLevel, params int[] countPerLevel) =>
             new EffectDefinition(EffectKind.Illusion, countPerLevel, modifiers: modifierPerLevel, durationMs: durationMs);
+
+        public static EffectDefinition IfHero(params EffectDefinition[] inner) => new EffectDefinition(EffectKind.IfHero, inner: inner);
+
+        /// <summary>Kills a unit whose health is at or below the threshold (per level).</summary>
+        public static EffectDefinition Execute(params int[] thresholdPerLevel) => new EffectDefinition(EffectKind.Execute, thresholdPerLevel);
 
         public static EffectDefinition RestoreMana(params int[] manaPerLevel) => new EffectDefinition(EffectKind.RestoreMana, manaPerLevel);
 

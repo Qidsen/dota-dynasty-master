@@ -311,6 +311,18 @@ namespace Dynasty.MatchSimulation.Systems
                     }
 
                     break;
+                case EffectKind.IfHero:
+                    if (target.Hero != null)
+                    {
+                        foreach (EffectDefinition inner in effect.Inner)
+                            RunOne(context, caster, inner, level, target, point);
+                    }
+
+                    break;
+                case EffectKind.Execute:
+                    if (target.IsAlive && target.Hp <= Fixed.FromInt(effect.AmountAt(level)))
+                        Damage.Execute(context, caster.Id, target);
+                    break;
                 case EffectKind.Attack:
                     if (target.IsAlive && context.State.CanAttack(caster, target))
                         AttackSystem.Strike(context, caster, target, effect.AmountAt(level));

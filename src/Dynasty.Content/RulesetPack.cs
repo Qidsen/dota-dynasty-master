@@ -247,6 +247,12 @@ namespace Dynasty.Content
                 case "illusion":
                     effect = EffectDefinition.Illusion(e.Milliseconds("duration"), e.Array("modifiers").Select(ReadModifier).ToArray(), e.Ints("counts").ToArray());
                     break;
+                case "ifHero":
+                    effect = EffectDefinition.IfHero(e.Array("effects").Select(ReadEffect).ToArray());
+                    break;
+                case "execute":
+                    effect = EffectDefinition.Execute(e.Ints("amounts").ToArray());
+                    break;
                 case "attack":
                     effect = EffectDefinition.Attack(e.OptionalInts("amounts")?.ToArray() ?? new[] { 100 });   // no amounts: a normal attack
                     break;
@@ -336,8 +342,11 @@ namespace Dynasty.Content
                 onCast: m.OptionalArray("onCast").Select(ReadEffect).ToList(), onKill: m.OptionalArray("onKill").Select(ReadEffect).ToList(),
                 onDeath: m.OptionalArray("onDeath").Select(ReadEffect).ToList(), onHitHeroesOnly: m.OptionalBool("onHitHeroesOnly") ?? false,
                 extraTargets: m.OptionalInt("extraTargets") ?? 0, extraTargetRadius: m.OptionalInt("extraTargetRadius") ?? 0,
-                extraTargetDamagePercent: m.OptionalInt("extraTargetDamagePercent") ?? 100, onKillHeroesOnly: m.OptionalBool("onKillHeroesOnly") ?? false,
-                revives: m.OptionalBool("revives") ?? false);
+                // Dota gives bounces either as the share dealt or as a reduction (Moon Glaive: damage_reduction_percent).
+                extraTargetDamagePercent: m.OptionalInt("extraTargetDamagePercent") ?? 100 - (m.OptionalInt("extraTargetDamageReduction") ?? 0), onKillHeroesOnly: m.OptionalBool("onKillHeroesOnly") ?? false,
+                revives: m.OptionalBool("revives") ?? false, attackCharges: m.OptionalInt("attackCharges") ?? 0,
+                extraTargetRadiusFromAttackRange: m.OptionalBool("extraTargetRadiusFromAttackRange") ?? false,
+                extraTargetChancePercent: m.OptionalInt("extraTargetChance") ?? 100);
             m.RejectUnknown();
             return spec;
         }

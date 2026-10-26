@@ -474,9 +474,12 @@ namespace Dynasty.MatchSimulation.Systems
             foreach (ActiveModifier split in unit.Modifiers.Where(m => m.Spec.ExtraTargets > 0).ToList())
             {
                 ModifierSpec spec = split.Spec;
+                if (!Rolls(context, spec.ExtraTargetChancePercent))
+                    continue;
+                int radius = spec.ExtraTargetRadius + (spec.ExtraTargetRadiusFromAttackRange ? unit.AttackRange : 0);
                 List<MatchUnit> others = state.Units
                     .Where(u => u != target && Effects.Matches(state, unit, u, TargetTeam.Enemy) && state.CanAttack(unit, u) && state.IsVisibleTo(unit.Team, u) &&
-                                Geometry.WithinRange(unit.Position, u.Position, spec.ExtraTargetRadius + u.BoundingRadius))
+                                Geometry.WithinRange(unit.Position, u.Position, radius + u.BoundingRadius))
                     .OrderBy(u => FixedVector2.Distance(unit.Position, u.Position)).ThenBy(u => u.Id.Value)
                     .Take(spec.ExtraTargets).ToList();
                 foreach (MatchUnit other in others)
@@ -571,6 +574,11 @@ namespace Dynasty.MatchSimulation.Systems
 
             foreach (ActiveModifier used in attacker.Modifiers.Where(m => m.Spec.ConsumedOnHit).ToList())
                 Modifiers.Remove(context, attacker, used, "consumed");
+            foreach (ActiveModifier charged in attacker.Modifiers.Where(m => m.Spec.AttackCharges > 0).ToList())
+            {
+                if (++charged.AttacksLanded >= charged.Spec.AttackCharges)
+                    Modifiers.Remove(context, attacker, charged, "consumed");
+            }
         }
 
         /// <summary>A percent chance; draws from the combat stream only when it is neither 0 nor 100.</summary>
