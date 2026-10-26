@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using Dynasty.Core.Ids;
 using Dynasty.Core.Kernel;
@@ -33,6 +34,37 @@ namespace Dynasty.MatchSimulation.Combat
 
         /// <summary>Not visible to enemies unless inside one of their true-sight radii.</summary>
         Invisible = 16,
+
+        /// <summary>Enemy debuffs are not applied (Dota's debuff immunity, Black King Bar); damage still is.</summary>
+        DebuffImmune = 32,
+    }
+
+    /// <summary>
+    /// An aura: while the modifier carrying it is active, units of the given team within the radius around its
+    /// bearer keep receiving the aura's own modifier (refreshed regularly, so it fades soon after leaving).
+    /// </summary>
+    public sealed class AuraSpec
+    {
+        public AuraSpec(int radius, Rules.TargetTeam team, bool heroesOnly, ModifierSpec modifier)
+        {
+            Radius = radius;
+            Team = team;
+            HeroesOnly = heroesOnly;
+            Modifier = modifier;
+        }
+
+        public int Radius { get; }
+        public Rules.TargetTeam Team { get; }
+        public bool HeroesOnly { get; }
+        public ModifierSpec Modifier { get; }
+
+        internal void WriteCanonical(Dynasty.Core.Hashing.CanonicalWriter w)
+        {
+            w.WriteInt64(Radius);
+            w.WriteInt64((int)Team);
+            w.WriteBool(HeroesOnly);
+            Modifier.WriteCanonical(w);
+        }
     }
 
     /// <summary>
@@ -69,8 +101,20 @@ namespace Dynasty.MatchSimulation.Combat
             int intelligenceBonus = 0,
             Fixed manaRegenBonus = default,
             int moveSpeedBonus = 0,
-            int attackRangeBonus = 0)
+            int attackRangeBonus = 0,
+            int incomingDamagePercent = 0,
+            int attackDamagePercent = 0,
+            int evasionPercent = 0,
+            IReadOnlyList<Rules.EffectDefinition>? onHit = null,
+            int onHitChancePercent = 100,
+            AuraSpec? aura = null)
         {
+            IncomingDamagePercent = incomingDamagePercent;
+            AttackDamagePercent = attackDamagePercent;
+            EvasionPercent = evasionPercent;
+            OnHit = onHit?.ToArray() ?? System.Array.Empty<Rules.EffectDefinition>();
+            OnHitChancePercent = onHitChancePercent;
+            Aura = aura;
             ManaRegenBonus = manaRegenBonus;
             MoveSpeedBonus = moveSpeedBonus;
             AttackRangeBonus = attackRangeBonus;
@@ -121,6 +165,21 @@ namespace Dynasty.MatchSimulation.Combat
         public int MoveSpeedBonus { get; }
 
         public int AttackRangeBonus { get; }
+
+        /// <summary>Percent added to the damage the unit takes (negative: damage reduction).</summary>
+        public int IncomingDamagePercent { get; }
+
+        /// <summary>Percent added to the unit's attack damage (negative: e.g. Breathe Fire's reduction).</summary>
+        public int AttackDamagePercent { get; }
+
+        /// <summary>Chance that an attack on the unit misses.</summary>
+        public int EvasionPercent { get; }
+
+        /// <summary>Effects run on the target of each of the unit's landing attacks (bash, bonus magic damage, slows), with <see cref="OnHitChancePercent"/>.</summary>
+        public IReadOnlyList<Rules.EffectDefinition> OnHit { get; }
+        public int OnHitChancePercent { get; }
+
+        public AuraSpec? Aura { get; }
 
         /// <summary>Percent change of move speed; negative slows.</summary>
         public int MoveSpeedPercent { get; }
@@ -207,6 +266,15 @@ namespace Dynasty.MatchSimulation.Combat
             w.WriteFixed(ManaRegenBonus);
             w.WriteInt64(MoveSpeedBonus);
             w.WriteInt64(AttackRangeBonus);
+            w.WriteInt64(IncomingDamagePercent);
+            w.WriteInt64(AttackDamagePercent);
+            w.WriteInt64(EvasionPercent);
+            w.WriteInt64(OnHit.Count);
+            foreach (Rules.EffectDefinition effect in OnHit)
+                effect.WriteCanonical(w);
+            w.WriteInt64(OnHitChancePercent);
+            w.WriteBool(Aura != null);
+            Aura?.WriteCanonical(w);
         }
 
         public static ModifierSpec Status(string key, int durationMs, ModifierFlags flags) => new ModifierSpec(key, durationMs, flags);
@@ -235,8 +303,11 @@ namespace Dynasty.MatchSimulation.Combat
 
     public static class Modifiers
     {
-        public static ActiveModifier Apply(SimulationContext<MatchState> context, MatchUnit target, ModifierSpec spec, EntityId source)
+        /// <summary>Applies or refreshes the modifier; an enemy debuff on a debuff-immune unit is not applied (null).</summary>
+        public static ActiveModifier? Apply(SimulationContext<MatchState> context, MatchUnit target, ModifierSpec spec, EntityId source)
         {
+            if (spec.IsDebuff && (target.Flags & ModifierFlags.DebuffImmune) != 0 && context.State.Find(source)?.Team != target.Team)
+                return null;
             long now = context.Tick.Value;
             long expires = spec.DurationMs < 0 ? -1 : now + context.TickRate.TicksFor(spec.DurationMs);
 
@@ -322,6 +393,8 @@ namespace Dynasty.MatchSimulation.Combat
                 return Fixed.Zero;
 
             Fixed amount = DamageMath.Mitigate(rawAmount, type, target.Armor, target.MagicResistPercent, context.State.Ruleset.Combat.ArmorFactor);
+            if (target.IncomingDamagePercent != 0)
+                amount = amount * Fixed.FromInt(100 + target.IncomingDamagePercent) / Fixed.FromInt(100);
             target.Hp = Fixed.Max(Fixed.Zero, target.Hp - amount);
             if (attacker.IsValid)
             {

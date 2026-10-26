@@ -1,0 +1,692 @@
+{
+  "_about": "Dota hero abilities in the engine's effect tree (docs/DOTA_PACK.md, wave 2). Values are references to dotaconstants keys: \"$key\", \"-$key\" (negated). Cooldown, mana cost, cast range and cast point come from the data unless given here. status: full or simplified (with a note on what is left out).",
+  "hoodwink_acorn_shot": {
+    "status": "simplified",
+    "note": "no bounces; the attack-damage part is left out",
+    "targeting": "unit",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "damage",
+        "damageType": "physical",
+        "amounts": "$acorn_shot_damage"
+      },
+      {
+        "kind": "modifier",
+        "modifiers": {
+          "key": "hoodwink_acorn_shot",
+          "duration": "$debuff_duration",
+          "moveSpeedPercent": "-$slow"
+        }
+      }
+    ]
+  },
+  "hoodwink_bushwhack": {
+    "status": "simplified",
+    "note": "no trees: always stuns, no pull; the damage lands at once",
+    "targeting": "point",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "area",
+        "radius": "$trap_radius",
+        "center": "point",
+        "team": "enemy",
+        "effects": [
+          {
+            "kind": "damage",
+            "damageType": "magical",
+            "amounts": "$total_damage"
+          },
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "hoodwink_bushwhack",
+              "duration": "$debuff_duration",
+              "flags": [
+                "stunned"
+              ]
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "hoodwink_scurry": {
+    "status": "simplified",
+    "note": "no phased movement or tree walking",
+    "targeting": "noTarget",
+    "targetTeam": "ally",
+    "effects": [
+      {
+        "kind": "modifier",
+        "modifiers": {
+          "key": "hoodwink_scurry",
+          "duration": "$duration",
+          "moveSpeedPercent": "$movement_speed_pct"
+        }
+      }
+    ]
+  },
+  "hoodwink_sharpshooter": {
+    "status": "simplified",
+    "note": "unit-targeted bolt instead of a line; fixed 1.5 s charge at full damage; no break, no knockback",
+    "targeting": "unit",
+    "targetTeam": "enemy",
+    "castPoint": 1.5,
+    "effects": [
+      {
+        "kind": "projectile",
+        "speed": "$arrow_speed",
+        "effects": [
+          {
+            "kind": "damage",
+            "damageType": "magical",
+            "amounts": "$max_damage"
+          },
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "hoodwink_sharpshooter",
+              "duration": "$max_slow_debuff_duration",
+              "moveSpeedPercent": "-$slow_move_pct"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "windrunner_shackleshot": {
+    "status": "simplified",
+    "note": "always the full stun: no check for a unit or tree behind the target",
+    "targeting": "unit",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "projectile",
+        "speed": 1650,
+        "effects": [
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "windrunner_shackleshot",
+              "duration": "$stun_duration",
+              "flags": [
+                "stunned"
+              ]
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "windrunner_powershot": {
+    "status": "simplified",
+    "note": "one target instead of a line; full channel",
+    "targeting": "unit",
+    "targetTeam": "enemy",
+    "castPoint": "$abilitychanneltime",
+    "effects": [
+      {
+        "kind": "projectile",
+        "speed": 3000,
+        "effects": [
+          {
+            "kind": "damage",
+            "damageType": "magical",
+            "amounts": "$powershot_damage"
+          },
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "windrunner_powershot",
+              "duration": "$slow_duration",
+              "moveSpeedPercent": "-$slow"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "windrunner_windrun": {
+    "status": "full",
+    "targeting": "noTarget",
+    "targetTeam": "ally",
+    "effects": [
+      {
+        "kind": "modifier",
+        "modifiers": {
+          "key": "windrunner_windrun",
+          "duration": "$abilityduration",
+          "moveSpeedPercent": "$movespeed_bonus_pct",
+          "evasion": "$evasion_pct_tooltip"
+        }
+      }
+    ]
+  },
+  "windrunner_focusfire": {
+    "status": "simplified",
+    "note": "attack speed and damage reduction against any target, not only the chosen one",
+    "targeting": "noTarget",
+    "targetTeam": "ally",
+    "effects": [
+      {
+        "kind": "modifier",
+        "modifiers": {
+          "key": "windrunner_focusfire",
+          "duration": "$abilityduration",
+          "attackSpeed": "$bonus_attack_speed",
+          "attackDamagePercent": "$focusfire_damage_reduction"
+        }
+      }
+    ]
+  },
+  "dragon_knight_breathe_fire": {
+    "status": "simplified",
+    "note": "a circle at the target instead of a cone",
+    "targeting": "unit",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "area",
+        "radius": "$end_radius",
+        "center": "target",
+        "team": "enemy",
+        "effects": [
+          {
+            "kind": "damage",
+            "damageType": "magical",
+            "amounts": "$damage"
+          },
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "dragon_knight_breathe_fire",
+              "duration": "$duration",
+              "attackDamagePercent": "-$reduction"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "dragon_knight_dragon_tail": {
+    "status": "full",
+    "targeting": "unit",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "damage",
+        "damageType": "magical",
+        "amounts": "$damage"
+      },
+      {
+        "kind": "modifier",
+        "modifiers": {
+          "key": "dragon_knight_dragon_tail",
+          "duration": "$stun_duration",
+          "flags": [
+            "stunned"
+          ]
+        }
+      }
+    ]
+  },
+  "dragon_knight_wyrms_wrath": {
+    "status": "simplified",
+    "note": "no AoE bonus for abilities and items",
+    "targeting": "passive",
+    "targetTeam": "ally",
+    "passive": {
+      "key": "dragon_knight_wyrms_wrath",
+      "onHit": [
+        {
+          "kind": "damage",
+          "damageType": "magical",
+          "amounts": "$magic_damage"
+        }
+      ]
+    }
+  },
+  "dragon_knight_elder_dragon_form": {
+    "status": "simplified",
+    "note": "corrosive damage on hit only: no splash or frost; melee attack without projectile",
+    "targeting": "noTarget",
+    "targetTeam": "ally",
+    "effects": [
+      {
+        "kind": "modifier",
+        "modifiers": {
+          "key": "dragon_knight_elder_dragon_form",
+          "duration": "$duration",
+          "moveSpeed": "$bonus_movement_speed",
+          "attackRange": "$bonus_attack_range",
+          "onHit": [
+            {
+              "kind": "modifier",
+              "modifiers": {
+                "key": "dragon_knight_corrosive",
+                "duration": "$corrosive_duration",
+                "damagePerSecond": "$corrosive_damage_per_second"
+              }
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "witch_doctor_paralyzing_cask": {
+    "status": "simplified",
+    "note": "no bounces: the first target only",
+    "targeting": "unit",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "projectile",
+        "speed": 1000,
+        "effects": [
+          {
+            "kind": "damage",
+            "damageType": "magical",
+            "amounts": "$base_damage"
+          },
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "witch_doctor_paralyzing_cask",
+              "duration": "$hero_duration",
+              "flags": [
+                "stunned"
+              ]
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "witch_doctor_voodoo_restoration": {
+    "status": "simplified",
+    "note": "a 5 s heal of allies around instead of a toggle draining mana every second",
+    "targeting": "noTarget",
+    "targetTeam": "ally",
+    "cooldown": [
+      5,
+      5,
+      5,
+      5
+    ],
+    "effects": [
+      {
+        "kind": "area",
+        "radius": "$radius",
+        "center": "caster",
+        "team": "ally",
+        "effects": [
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "witch_doctor_voodoo_restoration",
+              "duration": 5,
+              "healPerSecond": "$heal"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "witch_doctor_death_ward": {
+    "status": "simplified",
+    "note": "a ward that cannot be stopped by interrupting; physical attacks at the top level's damage",
+    "targeting": "point",
+    "targetTeam": "enemy",
+    "unitTypes": [
+      {
+        "id": "witch_doctor_death_ward_unit",
+        "health": 5000,
+        "armor": 0,
+        "moveSpeed": 0,
+        "attackDamageMin": "$damage",
+        "attackDamageMax": "$damage",
+        "attackRange": "$attack_range_tooltip",
+        "baseAttackTime": 0.22,
+        "acquisitionRange": 700,
+        "visionRange": 700,
+        "projectileSpeed": 1000
+      }
+    ],
+    "effects": [
+      {
+        "kind": "summon",
+        "unitType": "witch_doctor_death_ward_unit",
+        "duration": "$abilitychanneltime",
+        "counts": [
+          1
+        ],
+        "atPoint": true
+      }
+    ]
+  },
+  "dark_willow_bramble_maze": {
+    "status": "simplified",
+    "note": "everyone in the area is rooted at once instead of brambles to walk into",
+    "targeting": "point",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "area",
+        "radius": 500,
+        "center": "point",
+        "team": "enemy",
+        "effects": [
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "dark_willow_bramble_maze",
+              "duration": "$latch_duration",
+              "flags": [
+                "rooted"
+              ],
+              "damagePerSecond": "$damage_per_tick*2"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "dark_willow_shadow_realm": {
+    "status": "simplified",
+    "note": "invisible instead of untargetable; the bonus damage applies to every attack, no range bonus",
+    "targeting": "noTarget",
+    "targetTeam": "ally",
+    "effects": [
+      {
+        "kind": "modifier",
+        "modifiers": {
+          "key": "dark_willow_shadow_realm",
+          "duration": "$duration",
+          "flags": [
+            "invisible"
+          ],
+          "damage": "$damage",
+          "breakOnAction": true
+        }
+      }
+    ]
+  },
+  "dark_willow_cursed_crown": {
+    "status": "simplified",
+    "note": "stuns at once instead of after the delay",
+    "targeting": "unit",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "area",
+        "radius": "$stun_radius",
+        "center": "target",
+        "team": "enemy",
+        "effects": [
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "dark_willow_cursed_crown",
+              "duration": "$stun_duration",
+              "flags": [
+                "stunned"
+              ]
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "dark_willow_bedlam": {
+    "status": "simplified",
+    "note": "damage over time on enemies near her at the cast instead of a roaming wisp",
+    "targeting": "noTarget",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "area",
+        "radius": "$attack_radius",
+        "center": "caster",
+        "team": "enemy",
+        "effects": [
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "dark_willow_bedlam",
+              "duration": "$roaming_duration",
+              "damagePerSecond": "$attack_damage*4"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "dark_willow_terrorize": {
+    "status": "simplified",
+    "note": "fear as a stun (no running home)",
+    "targeting": "point",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "area",
+        "radius": "$destination_radius",
+        "center": "point",
+        "team": "enemy",
+        "effects": [
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "dark_willow_terrorize",
+              "duration": "$destination_status_duration",
+              "flags": [
+                "stunned"
+              ]
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "earth_spirit_boulder_smash": {
+    "status": "simplified",
+    "note": "hits the target only; no remnants",
+    "targeting": "unit",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "damage",
+        "damageType": "magical",
+        "amounts": "$rock_damage"
+      },
+      {
+        "kind": "knockback",
+        "amounts": "$unit_distance"
+      },
+      {
+        "kind": "modifier",
+        "modifiers": {
+          "key": "earth_spirit_boulder_smash",
+          "duration": "$duration",
+          "moveSpeedPercent": "-$move_slow"
+        }
+      }
+    ]
+  },
+  "earth_spirit_rolling_boulder": {
+    "status": "simplified",
+    "note": "instant roll to the point, damage and stun around the end; no strength damage, no remnants",
+    "targeting": "point",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "dash"
+      },
+      {
+        "kind": "area",
+        "radius": 200,
+        "center": "point",
+        "team": "enemy",
+        "effects": [
+          {
+            "kind": "damage",
+            "damageType": "magical",
+            "amounts": "$damage"
+          },
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "earth_spirit_rolling_boulder",
+              "duration": "$stun_duration",
+              "flags": [
+                "stunned"
+              ]
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "earth_spirit_magnetize": {
+    "status": "simplified",
+    "note": "no remnant refresh",
+    "targeting": "noTarget",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "area",
+        "radius": "$cast_radius",
+        "center": "caster",
+        "team": "enemy",
+        "effects": [
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "earth_spirit_magnetize",
+              "duration": "$damage_duration",
+              "damagePerSecond": "$damage_per_second"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "winter_wyvern_arctic_burn": {
+    "status": "simplified",
+    "note": "the burn is a fixed slow, without the percent-of-current-health damage; no flying",
+    "targeting": "noTarget",
+    "targetTeam": "ally",
+    "effects": [
+      {
+        "kind": "modifier",
+        "modifiers": {
+          "key": "winter_wyvern_arctic_burn",
+          "duration": "$duration",
+          "attackRange": "$attack_range_bonus",
+          "onHit": [
+            {
+              "kind": "modifier",
+              "modifiers": {
+                "key": "winter_wyvern_arctic_burn_slow",
+                "duration": "$damage_duration",
+                "moveSpeedPercent": "-$move_slow"
+              }
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "winter_wyvern_splinter_blast": {
+    "status": "simplified",
+    "note": "the primary target is hit too",
+    "targeting": "unit",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "projectile",
+        "speed": 650,
+        "effects": [
+          {
+            "kind": "area",
+            "radius": "$split_radius",
+            "center": "target",
+            "team": "enemy",
+            "effects": [
+              {
+                "kind": "damage",
+                "damageType": "magical",
+                "amounts": "$damage"
+              },
+              {
+                "kind": "modifier",
+                "modifiers": {
+                  "key": "winter_wyvern_splinter_blast",
+                  "duration": "$slow_duration",
+                  "moveSpeedPercent": "-$movespeed_slow_tooltip"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "winter_wyvern_cold_embrace": {
+    "status": "simplified",
+    "note": "base heal only (no percent of max health); no physical damage block",
+    "targeting": "unit",
+    "targetTeam": "ally",
+    "effects": [
+      {
+        "kind": "modifier",
+        "modifiers": {
+          "key": "winter_wyvern_cold_embrace",
+          "duration": "$duration",
+          "flags": [
+            "stunned"
+          ],
+          "healPerSecond": "$heal_additive"
+        }
+      }
+    ]
+  },
+  "winter_wyvern_winters_curse": {
+    "status": "simplified",
+    "note": "everyone around is frozen instead of cursed to attack the frozen target",
+    "targeting": "unit",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "area",
+        "radius": "$radius",
+        "center": "target",
+        "team": "enemy",
+        "effects": [
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "winter_wyvern_winters_curse",
+              "duration": "$duration",
+              "flags": [
+                "stunned"
+              ]
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "dragon_knight_dragon_blood": {
+    "status": "simplified",
+    "note": "not increased during Elder Dragon Form",
+    "targeting": "passive",
+    "targetTeam": "ally",
+    "passive": {
+      "key": "dragon_knight_dragon_blood",
+      "healthRegen": "$health_regen",
+      "armor": "$armor"
+    }
+  }
+}

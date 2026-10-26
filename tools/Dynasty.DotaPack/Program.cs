@@ -17,6 +17,9 @@ JsonArray xpLevels = data.Constants("xp_level").AsArray();
 JsonObject shopData = data.Constants("items").AsObject();
 JsonObject itemIds = data.Constants("item_ids").AsObject();
 Items.Result items = Items.Convert(shopData, data.ShopItemNames());
+string mapFile = Path.Combine(AppContext.BaseDirectory, "abilities.json");
+JsonObject abilityMap = JsonNode.Parse(File.ReadAllText(mapFile), documentOptions: new JsonDocumentOptions { CommentHandling = JsonCommentHandling.Skip })!.AsObject();
+Abilities.Result heroAbilities = Abilities.Convert(data.Constants("abilities").AsObject(), data.Constants("hero_abilities").AsObject(), abilityMap);
 
 var packHeroes = new JsonArray();
 foreach (var (_, node) in heroes.OrderBy(h => h.Value!["id"]!.GetValue<int>()))
@@ -60,6 +63,7 @@ foreach (var (_, node) in heroes.OrderBy(h => h.Value!["id"]!.GetValue<int>()))
         ["moveSpeed"] = DotaData.Number(h["move_speed"]),
         ["dayVision"] = DotaData.Number(h["day_vision"]),
         ["nightVision"] = DotaData.Number(h["night_vision"]),
+        ["abilities"] = heroAbilities.HeroAbilities.TryGetValue(id, out JsonArray? own) ? own.DeepClone() : new JsonArray(),
         ["itemBuild"] = Builds.For(data, h["id"]!.GetValue<int>(), itemIds, shopData, items.Ids),
     });
 }
@@ -85,8 +89,8 @@ var pack = new JsonObject
         ["heroKillXpPercentOfVictim"] = 13,
     },
     ["heroes"] = packHeroes,
-    ["unitTypes"] = items.UnitTypes,
-    ["abilities"] = items.Abilities,
+    ["unitTypes"] = new JsonArray(items.UnitTypes.Concat(heroAbilities.UnitTypes).Select(u => u!.DeepClone()).ToArray()),
+    ["abilities"] = new JsonArray(items.Abilities.Concat(heroAbilities.Abilities).Select(a => a!.DeepClone()).ToArray()),
     ["items"] = items.Items,
 };
 
@@ -95,6 +99,10 @@ RulesetContent applied = RulesetPack.Apply(BaseRuleset.Create(), json);   // the
 Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(output))!);
 File.WriteAllText(output, json);
 string report = Path.ChangeExtension(output, ".coverage.txt");
-File.WriteAllLines(report, new[] { "Dota pack " + Patch + ": what is not carried over yet (docs/DOTA_PACK.md)", "" }.Concat(items.Coverage));
-Console.WriteLine($"{output}: {applied.Heroes.Count} heroes, {applied.Items.Count} items ({items.Coverage.Count} with gaps, {report}), " +
+File.WriteAllLines(report, new[]
+{
+    "Dota pack " + Patch + ": what is not carried over yet (docs/DOTA_PACK.md)", "",
+    $"hero abilities: {heroAbilities.Mapped} of {heroAbilities.Total} mapped", "",
+}.Concat(heroAbilities.Coverage).Append("").Concat(items.Coverage));
+Console.WriteLine($"{output}: {applied.Heroes.Count} heroes, abilities {heroAbilities.Mapped}/{heroAbilities.Total}, {applied.Items.Count} items ({items.Coverage.Count} with gaps, {report}), " +
                   $"levels 1-{applied.HeroRules!.MaxLevel}, fingerprint {applied.ToDescriptor().Fingerprint}");

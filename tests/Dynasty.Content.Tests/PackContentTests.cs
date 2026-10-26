@@ -124,6 +124,27 @@ public class PackContentTests
         Assert.Equal((true, 1000, false), (m.BreakOnAction, m.BreakRadius, m.Dispellable));
     }
 
+    /// <summary>Dota mechanics in modifiers: damage percents, evasion, on-hit effects with a chance, auras, debuff immunity; innate abilities.</summary>
+    [Fact]
+    public void Modifier_ReadsDotaMechanics_AndInnateAbilities()
+    {
+        RulesetContent rules = Apply(@"""abilities"": [{ ""id"": ""bash"", ""name"": ""Bash"", ""targeting"": ""passive"", ""targetTeam"": ""ally"", ""castRange"": 0, ""castPoint"": 0,
+            ""cooldown"": [0], ""requiredLevels"": [1], ""effects"": [], ""innate"": true, ""passive"": [{ ""key"": ""bash"", ""incomingDamagePercent"": -10, ""attackDamagePercent"": 15,
+            ""evasion"": 20, ""onHitChance"": 25, ""onHit"": [ { ""kind"": ""damage"", ""damageType"": ""magical"", ""amounts"": [40] },
+            { ""kind"": ""modifier"", ""modifiers"": [ { ""key"": ""bashed"", ""duration"": 1, ""flags"": [""stunned""] } ] } ],
+            ""aura"": { ""radius"": 900, ""team"": ""ally"", ""heroesOnly"": true, ""modifier"": { ""key"": ""bash.aura"", ""duration"": 1, ""armor"": 3 } },
+            ""flags"": [""debuffImmune""] }] }], ""items"": []", Hero("lion", @"[""bash""]"));
+
+        AbilityDefinition bash = rules.FindAbility("bash")!;
+        ModifierSpec m = bash.PassiveModifiers.Single();
+
+        Assert.True(bash.Innate);
+        Assert.Equal((-10, 15, 20, 25), (m.IncomingDamagePercent, m.AttackDamagePercent, m.EvasionPercent, m.OnHitChancePercent));
+        Assert.Equal(new[] { EffectKind.Damage, EffectKind.ApplyModifier }, m.OnHit.Select(e => e.Kind));
+        Assert.Equal((900, TargetTeam.Ally, true, 3), (m.Aura!.Radius, m.Aura.Team, m.Aura.HeroesOnly, m.Aura.Modifier.ArmorBonus.ToIntFloor()));
+        Assert.Equal(ModifierFlags.DebuffImmune, m.Flags);
+    }
+
     [Theory]
     [InlineData(@"""abilities"": [{ ""id"": ""x"", ""name"": ""X"", ""targeting"": ""sideways"", ""targetTeam"": ""enemy"", ""castRange"": 0, ""castPoint"": 0, ""cooldown"": [1], ""requiredLevels"": [1], ""effects"": [] }]", "abilities[0].targeting")]
     [InlineData(@"""abilities"": [{ ""id"": ""x"", ""name"": ""X"", ""targeting"": ""noTarget"", ""targetTeam"": ""enemy"", ""castRange"": 0, ""castPoint"": 0, ""cooldown"": [1], ""requiredLevels"": [1], ""effects"": [{ ""kind"": ""teleport"", ""bogus"": 1 }] }]", "abilities[0].effects[0].bogus")]

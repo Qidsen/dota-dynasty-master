@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using System.Linq;
 using Dynasty.Core.Ids;
 using Dynasty.Core.Kernel;
 using Dynasty.Core.Mathematics;
@@ -93,7 +94,11 @@ namespace Dynasty.MatchSimulation.Heroes
             {
                 int spent = 0;
                 foreach (AbilityState ability in _abilities)
-                    spent += ability.Level;
+                {
+                    if (!ability.Definition.Innate)
+                        spent += ability.Level;
+                }
+
                 return Level - spent;
             }
         }
@@ -208,7 +213,7 @@ namespace Dynasty.MatchSimulation.Heroes
             foreach (string abilityId in state.Definition.SkillPriority)
             {
                 AbilityState? candidate = state.Ability(abilityId);
-                if (candidate != null && (!unlearnedOnly || candidate.Level == 0) && candidate.Level < candidate.Definition.MaxLevel &&
+                if (candidate != null && !candidate.Definition.Innate && (!unlearnedOnly || candidate.Level == 0) && candidate.Level < candidate.Definition.MaxLevel &&
                     candidate.Definition.RequiredHeroLevel[candidate.Level] <= state.Level)
                     return candidate;
             }
@@ -219,6 +224,14 @@ namespace Dynasty.MatchSimulation.Heroes
         public static void LearnSkills(SimulationContext<MatchState> context, MatchUnit hero)
         {
             HeroState state = hero.Hero!;
+            foreach (AbilityState innate in state.Abilities.Where(a => a.Definition.Innate && a.Level == 0).ToList())
+            {
+                innate.Level = 1;   // free, at level one, never levelled further
+                if (innate.Definition.Targeting == AbilityTargeting.Passive)
+                    Combat.Modifiers.Apply(context, hero, innate.Definition.PassiveModifiers[0], hero.Id);
+                context.Emit(new AbilityLearned(hero.Id, innate.Definition.Id, 1));
+            }
+
             while (state.UnspentSkillPoints > 0)
             {
                 AbilityState? next = NextToLearn(state, unlearnedOnly: true) ?? NextToLearn(state, unlearnedOnly: false);

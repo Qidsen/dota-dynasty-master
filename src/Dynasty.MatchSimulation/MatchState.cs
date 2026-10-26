@@ -70,6 +70,11 @@ namespace Dynasty.MatchSimulation
         public ModifierFlags Flags { get; private set; }
         public int AttackRange { get; private set; }
 
+        /// <summary>Percent added to damage taken, to the unit's attack damage, and the chance attacks on it miss (from modifiers).</summary>
+        public int IncomingDamagePercent { get; private set; }
+        public int AttackDamagePercent { get; private set; }
+        public int EvasionPercent { get; private set; }
+
         private const int MaxMoveSpeed = 550;
         public int AcquisitionRange => Stats.AcquisitionRange;
         public int BoundingRadius => Stats.BoundingRadius;
@@ -198,6 +203,7 @@ namespace Dynasty.MatchSimulation
             int attackSpeed = Hero != null ? Hero.Definition.AttackSpeedPerLevel * (Hero.Level - 1) : 0;
             int movePercent = 0;
             int moveFlat = 0;
+            int incomingDamage = 0, attackDamagePercent = 0, evasion = 0;
             int attackRangeBonus = 0;
             Fixed manaRegenBonus = Fixed.Zero;
             int critChance = 0;
@@ -233,6 +239,9 @@ namespace Dynasty.MatchSimulation
                 attackSpeed += spec.AttackSpeedBonus;
                 movePercent += spec.MoveSpeedPercent;
                 moveFlat += spec.MoveSpeedBonus;
+                incomingDamage += spec.IncomingDamagePercent;
+                attackDamagePercent += spec.AttackDamagePercent;
+                evasion += spec.EvasionPercent;
                 attackRangeBonus += spec.AttackRangeBonus;
                 manaRegenBonus += spec.ManaRegenBonus;
                 flags |= spec.Flags;
@@ -297,6 +306,9 @@ namespace Dynasty.MatchSimulation
             int speed = Math.Min((Stats.MoveSpeed + moveFlat) * (100 + movePercent) / 100, MaxMoveSpeed);
             MoveSpeed = Stats.MoveSpeed == 0 ? 0 : Math.Max(speed, Math.Min(100, Stats.MoveSpeed));
             AttackRange = Stats.AttackRange + attackRangeBonus;
+            IncomingDamagePercent = Math.Max(incomingDamage, -100);
+            AttackDamagePercent = Math.Max(attackDamagePercent, -100);
+            EvasionPercent = Math.Min(evasion, 100);
             StepPerTick = Fixed.FromRatio(MoveSpeed, _rate.TicksPerSecond);
             AttackIntervalTicks = Math.Max(1, _rate.TicksFor(Stats.AttackIntervalMs * 100 / (100 + AttackSpeedBonus)));
             AttackPointTicks = _rate.TicksFor(Stats.AttackPointMs * 100 / (100 + AttackSpeedBonus));

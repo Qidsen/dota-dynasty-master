@@ -161,7 +161,7 @@ namespace Dynasty.Content
             IReadOnlyList<int> mana = a.OptionalInts("manaCost") ?? (targeting == AbilityTargeting.Passive ? new int[0] : levels.Select(_ => 0).ToArray());
             var ability = new AbilityDefinition(a.String("id"), a.String("name"), targeting, ReadTeam(a, "targetTeam"), a.Int("castRange"), a.Milliseconds("castPoint"),
                 cooldowns, mana, levels, a.Array("effects").Select(ReadEffect).ToList(),
-                a.OptionalArray("passive").Select(ReadModifier).ToList(), a.OptionalBool("targetsStructures") ?? false);
+                a.OptionalArray("passive").Select(ReadModifier).ToList(), a.OptionalBool("targetsStructures") ?? false, a.OptionalBool("innate") ?? false);
             a.RejectUnknown();
             return ability;
         }
@@ -243,6 +243,7 @@ namespace Dynasty.Content
             "silenced" => ModifierFlags.Silenced,
             "disarmed" => ModifierFlags.Disarmed,
             "invisible" => ModifierFlags.Invisible,
+            "debuffImmune" => ModifierFlags.DebuffImmune,
             _ => throw r.Error("flags", "unknown flag '" + flag + "'"),
         };
 
@@ -263,9 +264,19 @@ namespace Dynasty.Content
                 maxHpBonus: m.OptionalInt("maxHealth") ?? 0, maxManaBonus: m.OptionalInt("maxMana") ?? 0, hpRegenBonus: m.OptionalFixed("healthRegen") ?? Fixed.Zero,
                 breakOnAction: m.OptionalBool("breakOnAction") ?? false, breakRadius: m.OptionalInt("breakRadius") ?? 0, dispellable: m.OptionalBool("dispellable") ?? true,
                 strengthBonus: m.OptionalInt("strength") ?? 0, agilityBonus: m.OptionalInt("agility") ?? 0, intelligenceBonus: m.OptionalInt("intelligence") ?? 0,
-                manaRegenBonus: m.OptionalFixed("manaRegen") ?? Fixed.Zero, moveSpeedBonus: m.OptionalInt("moveSpeed") ?? 0, attackRangeBonus: m.OptionalInt("attackRange") ?? 0);
+                manaRegenBonus: m.OptionalFixed("manaRegen") ?? Fixed.Zero, moveSpeedBonus: m.OptionalInt("moveSpeed") ?? 0, attackRangeBonus: m.OptionalInt("attackRange") ?? 0,
+                incomingDamagePercent: m.OptionalInt("incomingDamagePercent") ?? 0, attackDamagePercent: m.OptionalInt("attackDamagePercent") ?? 0,
+                evasionPercent: m.OptionalInt("evasion") ?? 0, onHit: m.OptionalArray("onHit").Select(ReadEffect).ToList(),
+                onHitChancePercent: m.OptionalInt("onHitChance") ?? 100, aura: m.OptionalObject("aura") is Reader a ? ReadAura(a) : null);
             m.RejectUnknown();
             return spec;
+        }
+
+        private static AuraSpec ReadAura(Reader a)
+        {
+            var aura = new AuraSpec(a.Int("radius"), ReadTeam(a, "team"), a.OptionalBool("heroesOnly") ?? false, ReadModifier(a.OptionalObject("modifier") ?? throw a.Error("modifier", "missing")));
+            a.RejectUnknown();
+            return aura;
         }
 
         private static ItemDefinition ReadItem(Reader i)

@@ -218,8 +218,10 @@ namespace Dynasty.MatchSimulation.Rules
             IReadOnlyList<int> requiredHeroLevel,
             IReadOnlyList<EffectDefinition> effects,
             IReadOnlyList<ModifierSpec>? passiveModifiers = null,
-            bool targetsStructures = false)
+            bool targetsStructures = false,
+            bool innate = false)
         {
+            Innate = innate;
             TargetsStructures = targetsStructures;
             Id = id;
             Name = name;
@@ -255,6 +257,9 @@ namespace Dynasty.MatchSimulation.Rules
         /// <summary>Unit-target abilities only: allied structures are valid targets (teleports).</summary>
         public bool TargetsStructures { get; }
 
+        /// <summary>Learned at level one for free and never levelled with skill points (Dota's innate abilities).</summary>
+        public bool Innate { get; }
+
         public int CooldownAt(int level) => EffectDefinition.ValueAt(CooldownMs, level);
 
         /// <summary>Mana needed to cast at the given level; passives (no costs listed) need none.</summary>
@@ -282,6 +287,7 @@ namespace Dynasty.MatchSimulation.Rules
             foreach (ModifierSpec modifier in PassiveModifiers)
                 modifier.WriteCanonical(w);
             w.WriteBool(TargetsStructures);
+            w.WriteBool(Innate);
         }
     }
 }

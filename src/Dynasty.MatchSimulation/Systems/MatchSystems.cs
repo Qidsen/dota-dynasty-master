@@ -54,6 +54,44 @@ namespace Dynasty.MatchSimulation.Systems
     /// Periodic damage/heal of modifiers, then expiry. Runs before targeting so expired
     /// stuns and slows no longer affect this tick's actions.
     /// </summary>
+    /// <summary>
+    /// Auras: every few ticks each unit's aura-carrying modifiers give their aura modifier to the matching units
+    /// in range (refreshing it; it fades after its own duration once out of range). Depends only on positions,
+    /// so the order units are processed in does not matter.
+    /// </summary>
+    internal sealed class AuraSystem : ISimulationSystem<MatchState>
+    {
+        public const int IntervalTicks = 10;
+
+        public string Name => "auras";
+
+        public void Tick(SimulationContext<MatchState> context)
+        {
+            if (context.Tick.Value % IntervalTicks != 0)
+                return;
+            MatchState state = context.State;
+            IReadOnlyList<MatchUnit> units = state.Units;
+            for (int i = 0, count = units.Count; i < count; i++)
+            {
+                MatchUnit bearer = units[i];
+                if (!bearer.IsAlive || bearer.Modifiers.Count == 0)
+                    continue;
+                foreach (ActiveModifier modifier in bearer.Modifiers.Where(m => m.Spec.Aura != null).ToList())
+                {
+                    AuraSpec aura = modifier.Spec.Aura!;
+                    for (int j = 0; j < count; j++)
+                    {
+                        MatchUnit unit = units[j];
+                        if ((aura.HeroesOnly && unit.Kind != UnitKind.Hero) || !Effects.Matches(state, bearer, unit, aura.Team) ||
+                            !Geometry.WithinRange(unit.Position, bearer.Position, aura.Radius))
+                            continue;
+                        Modifiers.Apply(context, unit, aura.Modifier, bearer.Id);
+                    }
+                }
+            }
+        }
+    }
+
     internal sealed class ModifierSystem : ISimulationSystem<MatchState>
     {
         private readonly List<ActiveModifier> _scratch = new List<ActiveModifier>();
@@ -387,6 +425,8 @@ namespace Dynasty.MatchSimulation.Systems
             bool critical = unit.CritChancePercent > 0 && context.Random("combat").NextInt(0, 100) < unit.CritChancePercent;
             if (critical)
                 damage = damage * Fixed.FromInt(unit.CritMultiplierPercent) / Fixed.FromInt(100);
+            if (unit.AttackDamagePercent != 0)
+                damage = damage * Fixed.FromInt(100 + unit.AttackDamagePercent) / Fixed.FromInt(100);
             int classPercent = context.State.Ruleset.Combat.AttackClasses.Percent(AttackClassOf(unit), DefenseClassOf(target));
             if (classPercent != 100)
                 damage = damage * Fixed.FromInt(classPercent) / Fixed.FromInt(100);
@@ -416,9 +456,21 @@ namespace Dynasty.MatchSimulation.Systems
 
         internal static void ApplyHit(SimulationContext<MatchState> context, MatchUnit attacker, MatchUnit target, Fixed damage, bool critical)
         {
+            // Draw only when there is a chance to roll, so matches without evasion or chance procs keep their random streams.
+            if (target.EvasionPercent > 0 && context.Random("combat").NextInt(0, 100) < target.EvasionPercent)
+                return;
             Fixed dealt = Damage.Deal(context, attacker.Id, target, damage, DamageType.Physical, critical);
             if (attacker.LifestealPercent > 0 && attacker.IsAlive)
                 Damage.Heal(context, attacker.Id, attacker, dealt * Fixed.FromInt(attacker.LifestealPercent) / Fixed.FromInt(100));
+
+            // On-hit effects (bash, bonus magic damage, slows) of the attacker's modifiers, in their order on the unit.
+            foreach (ActiveModifier modifier in attacker.Modifiers.Where(m => m.Spec.OnHit.Count > 0).ToList())
+            {
+                int chance = modifier.Spec.OnHitChancePercent;
+                if (chance <= 0 || (chance < 100 && context.Random("combat").NextInt(0, 100) >= chance))
+                    continue;
+                Effects.Run(context, attacker, modifier.Spec.OnHit, 1, target, target.Position);
+            }
         }
     }
 
