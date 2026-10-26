@@ -109,7 +109,7 @@ namespace Dynasty.MatchSimulation.Systems
                 if (source != null && now >= zone.NextPulseTick && zone.NextPulseTick <= zone.ExpiresTick)
                 {
                     Effects.Pulse(context, source, zone);
-                    zone.NextPulseTick += context.TickRate.TicksFor(zone.Definition.PeriodMs);
+                    zone.NextPulseTick += zone.Definition.PeriodMs > 0 ? context.TickRate.TicksFor(zone.Definition.PeriodMs) : AuraSystem.IntervalTicks;
                 }
 
                 if (source == null || now >= zone.ExpiresTick)
@@ -491,7 +491,7 @@ namespace Dynasty.MatchSimulation.Systems
             unit.Kind == UnitKind.Hero ? AttackClass.Hero : unit.Kind == UnitKind.Structure ? AttackClass.Reinforced : unit.Stats.AttackClass;
 
         private static DefenseClass DefenseClassOf(MatchUnit unit) =>
-            unit.Kind == UnitKind.Hero ? DefenseClass.Hero
+            unit.Kind == UnitKind.Hero || unit.IllusionOf.IsValid ? DefenseClass.Hero
             : unit.Kind == UnitKind.Structure || unit.Stats.AttackClass == AttackClass.Reinforced ? DefenseClass.Reinforced
             : DefenseClass.Unit;
 

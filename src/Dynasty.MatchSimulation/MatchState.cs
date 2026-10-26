@@ -101,6 +101,9 @@ namespace Dynasty.MatchSimulation
         /// <summary>Hero that summoned this unit; None otherwise.</summary>
         public EntityId Owner { get; internal set; }
 
+        /// <summary>The hero this unit is an illusion of; None for other units.</summary>
+        public EntityId IllusionOf { get; internal set; }
+
         /// <summary>Tick a temporary unit disappears; -1 for permanent units.</summary>
         public long ExpiresTick { get; internal set; } = -1;
 
@@ -409,6 +412,7 @@ namespace Dynasty.MatchSimulation
 
         internal GroundZone AddZone(EntityId source, FixedVector2 position, EffectDefinition definition, int level, long now)
         {
+            // A zone without a period is continuous: it pulses at once and then with every aura refresh.
             var zone = new GroundZone(_nextZoneId++, source, position, definition, level, now + Rate.TicksFor(definition.DurationMs), now + Rate.TicksFor(definition.PeriodMs));
             _zones.Add(zone);
             return zone;
@@ -582,6 +586,29 @@ namespace Dynasty.MatchSimulation
                 ExpiresTick = expiresTick,
                 LastActiveTick = tick,
             };
+            Add(unit);
+            return unit;
+        }
+
+        /// <summary>
+        /// An illusion of <paramref name="original"/> for <paramref name="owner"/>: a summon with the hero's current
+        /// health, armor, magic resistance, speed and attack (attack speed folded into the attack interval).
+        /// </summary>
+        internal MatchUnit SpawnIllusion(EntityId id, MatchUnit owner, MatchUnit original, long tick, long expiresTick)
+        {
+            UnitStats o = original.Stats;
+            int speedPercent = 100 + original.AttackSpeedBonus;
+            var stats = new UnitStats(original.MaxHp, original.Armor, original.MoveSpeed, original.AttackDamageMin, original.AttackDamageMax,
+                original.AttackRange, o.AttackIntervalMs * 100 / speedPercent, o.AttackPointMs * 100 / speedPercent, o.AcquisitionRange,
+                o.BoundingRadius, original.MagicResistPercent, o.VisionRange, 0, ModifierFlags.None, o.ProjectileSpeed, o.NightVisionRange, AttackClass.Hero);
+            var unit = new MatchUnit(id, owner.Team, UnitKind.Summon, "illusion:" + original.TypeId, stats, original.Position, Rate)
+            {
+                Owner = owner.Id,
+                IllusionOf = original.Id,
+                ExpiresTick = expiresTick,
+                LastActiveTick = tick,
+            };
+            unit.Hp = Fixed.Min(original.Hp, Fixed.FromInt(unit.MaxHp));
             Add(unit);
             return unit;
         }

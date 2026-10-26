@@ -227,7 +227,8 @@ public class PackContentTests
             ""cooldown"": [18], ""requiredLevels"": [1], ""effects"": [
                 { ""kind"": ""zone"", ""radius"": 260, ""center"": ""point"", ""team"": ""enemy"", ""duration"": 10, ""period"": 0.5, ""heroesOnly"": true,
                   ""effects"": [ { ""kind"": ""damage"", ""damageType"": ""magical"", ""amounts"": [50] } ] },
-                { ""kind"": ""area"", ""radius"": 400, ""center"": ""point"", ""team"": ""enemy"", ""effects"": [ { ""kind"": ""pull"", ""toward"": ""point"", ""amounts"": [300] } ] } ] }], ""items"": []",
+                { ""kind"": ""area"", ""radius"": 400, ""center"": ""point"", ""team"": ""enemy"", ""effects"": [ { ""kind"": ""pull"", ""toward"": ""point"", ""amounts"": [300] } ] },
+                { ""kind"": ""illusion"", ""counts"": [2], ""duration"": 8, ""modifiers"": [ { ""key"": ""image"", ""incomingDamagePercent"": 250, ""attackDamagePercent"": -84 } ] } ] }], ""items"": []",
             Hero("lion", @"[""pyre""]"));
 
         EffectDefinition zone = rules.FindAbility("pyre")!.Effects[0];
@@ -235,12 +236,15 @@ public class PackContentTests
         Assert.True(zone.HeroesOnly);
         EffectDefinition pull = rules.FindAbility("pyre")!.Effects[1].Inner.Single();
         Assert.Equal((EffectKind.Pull, AreaCenter.Point, 300), (pull.Kind, pull.Center, pull.Amounts[0]));
+        EffectDefinition images = rules.FindAbility("pyre")!.Effects[2];
+        Assert.Equal((EffectKind.Illusion, 2, 8000, 250, -84), (images.Kind, images.Amounts[0], images.DurationMs, images.Modifiers[0].IncomingDamagePercent, images.Modifiers[0].AttackDamagePercent));
     }
 
     [Theory]
     [InlineData(@"""abilities"": [{ ""id"": ""x"", ""name"": ""X"", ""targeting"": ""sideways"", ""targetTeam"": ""enemy"", ""castRange"": 0, ""castPoint"": 0, ""cooldown"": [1], ""requiredLevels"": [1], ""effects"": [] }]", "abilities[0].targeting")]
     [InlineData(@"""abilities"": [{ ""id"": ""x"", ""name"": ""X"", ""targeting"": ""noTarget"", ""targetTeam"": ""enemy"", ""castRange"": 0, ""castPoint"": 0, ""cooldown"": [1], ""requiredLevels"": [1], ""effects"": [{ ""kind"": ""teleport"", ""bogus"": 1 }] }]", "abilities[0].effects[0].bogus")]
     [InlineData(@"""abilities"": [{ ""id"": ""x"", ""name"": ""X"", ""targeting"": ""noTarget"", ""targetTeam"": ""enemy"", ""castRange"": 0, ""castPoint"": 0, ""cooldown"": [1], ""requiredLevels"": [1], ""effects"": [{ ""kind"": ""modifier"", ""modifiers"": [{ ""key"": ""m"", ""flags"": [""asleep""] }] }] }]", "abilities[0].effects[0].modifiers[0].flags")]
+    [InlineData(@"""abilities"": [{ ""id"": ""x"", ""name"": ""X"", ""targeting"": ""noTarget"", ""targetTeam"": ""enemy"", ""castRange"": 0, ""castPoint"": 0, ""cooldown"": [1], ""requiredLevels"": [1], ""effects"": [{ ""kind"": ""zone"", ""radius"": 300, ""center"": ""caster"", ""team"": ""enemy"", ""duration"": 5, ""effects"": [{ ""kind"": ""damage"", ""damageType"": ""pure"", ""amounts"": [10] }] }] }]", "abilities[0].effects[0].effects")]
     public void Mistakes_AreReportedWithThePath(string extra, string path)
     {
         var error = Assert.Throws<RulesetPackException>(() => Apply(extra, Hero("lion", "[]")));

@@ -229,14 +229,22 @@ namespace Dynasty.Content
                     effect = EffectDefinition.OnCaster(e.Array("effects").Select(ReadEffect).ToArray());
                     break;
                 case "zone":
-                    effect = EffectDefinition.Zone(e.Int("radius"), ReadCenter(e, "center"), ReadTeam(e, "team"), e.Milliseconds("duration"), e.Milliseconds("period"),
-                        e.OptionalBool("heroesOnly") ?? false, e.Array("effects").Select(ReadEffect).ToArray());
+                    EffectDefinition[] pulse = e.Array("effects").Select(ReadEffect).ToArray();
+                    int period = e.OptionalMilliseconds("period") ?? 0;
+                    // Without a period the zone refreshes its effects continuously: only lasting modifiers make sense there.
+                    if (period == 0 && pulse.Any(p => p.Kind != EffectKind.ApplyModifier || p.Modifiers.Any(m => m.IsPermanent)))
+                        throw e.Error("effects", "a zone without a period may only apply modifiers with a duration");
+                    effect = EffectDefinition.Zone(e.Int("radius"), ReadCenter(e, "center"), ReadTeam(e, "team"), e.Milliseconds("duration"), period,
+                        e.OptionalBool("heroesOnly") ?? false, pulse);
                     break;
                 case "pull":
                     AreaCenter toward = e.Has("toward") ? ReadCenter(e, "toward") : AreaCenter.Caster;
                     if (toward == AreaCenter.Target)
                         throw e.Error("toward", "expected caster or point");
                     effect = EffectDefinition.Pull(toward, e.Ints("amounts").ToArray());
+                    break;
+                case "illusion":
+                    effect = EffectDefinition.Illusion(e.Milliseconds("duration"), e.Array("modifiers").Select(ReadModifier).ToArray(), e.Ints("counts").ToArray());
                     break;
                 case "attack":
                     effect = EffectDefinition.Attack(e.OptionalInts("amounts")?.ToArray() ?? new[] { 100 });   // no amounts: a normal attack

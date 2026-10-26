@@ -517,4 +517,52 @@ public class DotaMechanicsTests
         Assert.True(kernel.State.Zones.Single().Definition.HeroesOnly);
         Assert.Single(HitsOnBeta(kernel));
     }
+
+    /// <summary>Illusions (Juxtapose, Mirror Image, Conjure Image): copies of the hero with its current stats that deal and take a changed share of damage, gone after the duration.</summary>
+    [Fact]
+    public void Illusion_CopiesTheHerosStats_AndCarriesItsDamageModifier()
+    {
+        var weak = new ModifierSpec("image", -1, incomingDamagePercent: 200, attackDamagePercent: -70);
+        var kernel = Duel(onAlpha: new ModifierSpec("boots", -1, moveSpeedBonus: 45, armorBonus: Fixed.FromInt(3)), attack: false);
+        kernel.AddSystem(new LambdaSystem(2, ctx =>
+        {
+            H(ctx.State, "alpha").Hp = Fixed.FromInt(400);
+            Effects.Run(ctx, H(ctx.State, "alpha"), new[] { EffectDefinition.Illusion(4000, new[] { weak }, 2) }, 1, H(ctx.State, "alpha"), H(ctx.State, "alpha").Position);
+        }));
+        kernel.RunTicks(3);
+
+        MatchUnit alpha = H(kernel.State, "alpha");
+        List<MatchUnit> images = kernel.State.Units.Where(u => u.IllusionOf == alpha.Id).ToList();
+        Assert.Equal(2, images.Count);
+        foreach (MatchUnit image in images)
+        {
+            Assert.Equal((alpha.Team, alpha.Id, alpha.MaxHp, alpha.Armor, alpha.MoveSpeed), (image.Team, image.Owner, image.MaxHp, image.Armor, image.MoveSpeed));
+            Assert.Equal((alpha.AttackDamageMin, alpha.AttackRange, Fixed.FromInt(400)), (image.AttackDamageMin, image.AttackRange, image.Hp));
+            Assert.Equal((200, -70), (image.IncomingDamagePercent, image.AttackDamagePercent));
+        }
+
+        kernel.RunTicks(30 * 4);
+        Assert.DoesNotContain(kernel.State.Units, u => u.IllusionOf == alpha.Id);
+    }
+
+    /// <summary>A zone without a period (Ice Vortex, Chronosphere): like an aura on the ground, it keeps refreshing its modifiers on the units inside; they fade soon after leaving.</summary>
+    [Fact]
+    public void ContinuousZone_KeepsItsModifierOnUnitsInside()
+    {
+        var vortex = new ModifierSpec("vortex", 1000, moveSpeedPercent: -20);
+        var kernel = Duel(attack: false);
+        kernel.AddSystem(new LambdaSystem(2, ctx => Effects.Run(ctx, H(ctx.State, "alpha"),
+            new[] { EffectDefinition.Zone(150, AreaCenter.Point, TargetTeam.Enemy, 6000, 0, EffectDefinition.Modifier(vortex)) },
+            1, H(ctx.State, "alpha"), H(ctx.State, "beta").Position)));
+        bool slowedAtOnce = false, slowedLater = false, slowedAfterLeaving = true;
+        kernel.AddSystem(new LambdaSystem(2 + AuraSystem.IntervalTicks + 1, ctx => slowedAtOnce = H(ctx.State, "beta").MoveSpeed < 300));
+        kernel.AddSystem(new LambdaSystem(30 * 3, ctx => slowedLater = H(ctx.State, "beta").MoveSpeed < 300));
+        kernel.AddSystem(new LambdaSystem(30 * 3 + 1, ctx => H(ctx.State, "beta").Position = P(5200, 5800)));
+        kernel.AddSystem(new LambdaSystem(30 * 3 + 40, ctx => slowedAfterLeaving = H(ctx.State, "beta").MoveSpeed < 300));
+        kernel.RunTicks(30 * 3 + 41);
+
+        Assert.Equal((true, true, false), (slowedAtOnce, slowedLater, slowedAfterLeaving));
+        int refreshes = kernel.EventsOf<ModifierApplied>().Count(m => m.Key == "vortex");
+        Assert.InRange(refreshes, (30 * 3 - 2) / AuraSystem.IntervalTicks, (30 * 3 - 2) / AuraSystem.IntervalTicks + 1);   // with each aura refresh, not every tick
+    }
 }

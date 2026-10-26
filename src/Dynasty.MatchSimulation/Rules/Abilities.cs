@@ -71,6 +71,9 @@ namespace Dynasty.MatchSimulation.Rules
 
         /// <summary>Pulls the target toward the caster or the point (<see cref="EffectDefinition.Center"/>) by up to the amounts, without passing it.</summary>
         Pull = 15,
+
+        /// <summary>Creates illusions (amounts per level) of the target hero for the duration, each carrying the level's modifier (damage dealt and taken).</summary>
+        Illusion = 16,
     }
 
     /// <summary>What a damage effect's amounts mean: flat damage, or a percent of the target's health or mana.</summary>
@@ -183,7 +186,7 @@ namespace Dynasty.MatchSimulation.Rules
         /// <summary>Damage per stack: the key of the stacking modifier counted on the target.</summary>
         public string? StackKey { get; }
 
-        /// <summary>Zones only: time between pulses.</summary>
+        /// <summary>Zones only: time between pulses; 0 = continuous (modifiers refreshed like an aura's).</summary>
         public int PeriodMs { get; }
 
         public static EffectDefinition Damage(DamageType type, params int[] perLevel) =>
@@ -219,6 +222,10 @@ namespace Dynasty.MatchSimulation.Rules
         /// <summary>Pulls the target toward the caster or the point by up to the distance (per level).</summary>
         public static EffectDefinition Pull(AreaCenter toward, params int[] distancePerLevel) =>
             new EffectDefinition(EffectKind.Pull, distancePerLevel, center: toward);
+
+        /// <summary>Illusions of the effect's unit (counts per level) that last <paramref name="durationMs"/> and carry the level's modifier.</summary>
+        public static EffectDefinition Illusion(int durationMs, ModifierSpec[] modifierPerLevel, params int[] countPerLevel) =>
+            new EffectDefinition(EffectKind.Illusion, countPerLevel, modifiers: modifierPerLevel, durationMs: durationMs);
 
         public static EffectDefinition RestoreMana(params int[] manaPerLevel) => new EffectDefinition(EffectKind.RestoreMana, manaPerLevel);
 

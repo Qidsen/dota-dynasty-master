@@ -292,6 +292,20 @@ namespace Dynasty.MatchSimulation.Systems
                     Pull(context.State, caster, target, effect.Center == AreaCenter.Point ? point : caster.Position,
                         effect.Center == AreaCenter.Point ? 0 : caster.BoundingRadius + target.BoundingRadius, effect.AmountAt(level));
                     break;
+                case EffectKind.Illusion:
+                    if (target.Hero != null || target.IllusionOf.IsValid)
+                    {
+                        long expires = context.Tick.Value + context.TickRate.TicksFor(effect.DurationMs);
+                        MatchUnit original = context.State.Find(target.IllusionOf) ?? target;
+                        for (int i = 0; i < effect.AmountAt(level); i++)
+                        {
+                            MatchUnit image = context.State.SpawnIllusion(context.Ids.Allocate(), caster, original, context.Tick.Value, expires);
+                            Modifiers.AddInstance(context, image, effect.ModifierAt(level), caster.Id);
+                            context.Emit(new UnitSummoned(image.Id, caster.Id, image.TypeId, expires));
+                        }
+                    }
+
+                    break;
                 case EffectKind.Attack:
                     if (target.IsAlive && context.State.CanAttack(caster, target))
                         AttackSystem.Strike(context, caster, target, effect.AmountAt(level));

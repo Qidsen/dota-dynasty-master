@@ -86,25 +86,28 @@ static class Abilities
 
     /// <summary>
     /// The map refers to the data for every number (docs/DOTA_PACK.md). Allowed literals are the engine's own
-    /// conventions: an aura's modifier lasts 1 s and is refreshed by the aura, 20000 and more means "global",
+    /// conventions: an aura's modifier (and a modifier of a zone without a period) lasts 1 s and is refreshed, 20000 and more means "global",
     /// and summon counts.
     /// </summary>
-    private static void RejectHandTypedNumbers(string key, JsonNode? node, string path)
+    private static void RejectHandTypedNumbers(string key, JsonNode? node, string path, bool inContinuousZone = false)
     {
         switch (node)
         {
             case JsonObject obj:
+                // A zone without a period refreshes its modifiers like an aura: they last 1 s by the same convention.
+                bool continuous = inContinuousZone || (obj["kind"]?.GetValue<string>() == "zone" && obj["period"] == null);
                 foreach (var (field, child) in obj)
-                    RejectHandTypedNumbers(key, child, path + "." + field);
+                    RejectHandTypedNumbers(key, child, path + "." + field, continuous);
                 break;
             case JsonArray list:
                 for (int i = 0; i < list.Count; i++)
-                    RejectHandTypedNumbers(key, list[i], path + "[" + i + "]");
+                    RejectHandTypedNumbers(key, list[i], path + "[" + i + "]", inContinuousZone);
                 break;
             case JsonValue text when text.TryGetValue(out string? s) && decimal.TryParse(s, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out decimal written):
                 throw new InvalidDataException($"abilities.json: {key}{path} = \"{written}\" is a number typed by hand; refer to the data (\"$key\")");
             case JsonValue v when v.TryGetValue(out decimal number):
-                bool allowed = (path.EndsWith(".aura.modifier.duration") && number == 1) || number >= 20000 || path.Contains(".counts[");
+                bool allowed = ((path.EndsWith(".aura.modifier.duration") || (inContinuousZone && path.EndsWith(".modifiers.duration"))) && number == 1) ||
+                               number >= 20000 || path.Contains(".counts[");
                 if (!allowed)
                     throw new InvalidDataException($"abilities.json: {key}{path} = {number} is typed by hand; refer to the data (\"$key\")");
                 break;
