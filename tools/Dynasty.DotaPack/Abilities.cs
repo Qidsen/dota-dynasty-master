@@ -189,6 +189,25 @@ static class Abilities
     }
 
     /// <summary>
+    /// An item's active from the item map (items.json): an ability "item_&lt;id&gt;" of one level, its numbers from the
+    /// item's data; the same rule as for hero abilities (no hand-typed numbers).
+    /// </summary>
+    public static JsonObject BuildItemActive(string itemId, JsonObject source, JsonObject entry)
+    {
+        RejectHandTypedNumbers("items.json " + itemId, entry, ".active");
+        JsonObject ability = Build("item_" + itemId, source, entry, ultimate: false, innate: true);
+        ability["name"] = source["dname"]?.GetValue<string>() ?? itemId;
+        return ability;
+    }
+
+    /// <summary>An item's passive from the item map: one modifier template made concrete with the item's data.</summary>
+    public static JsonObject BuildItemPassive(string itemId, JsonObject source, JsonObject template)
+    {
+        RejectHandTypedNumbers("items.json " + itemId, template, ".passive");
+        return Modifiers(template, ValuesOf(source), 1)[0]!.AsObject();
+    }
+
+    /// <summary>
     /// The pack ability. An innate has one level, learned at level 1: per-level values take their first value
     /// (simplification: innates that grow with the hero or another ability stay at their base value).
     /// </summary>

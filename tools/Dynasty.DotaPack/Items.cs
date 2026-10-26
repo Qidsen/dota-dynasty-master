@@ -60,7 +60,8 @@ static class Items
 
     public sealed record Result(JsonArray Items, JsonArray Abilities, JsonArray UnitTypes, List<string> Coverage, HashSet<string> Ids);
 
-    public static Result Convert(JsonObject items, HashSet<string> shopNames)
+    /// <param name="map">The item map (items.json): per item, the "passive" merged into its bonuses and the "active" ability.</param>
+    public static Result Convert(JsonObject items, HashSet<string> shopNames, JsonObject map)
     {
         var shop = items.Where(kv => !kv.Key.StartsWith("recipe_") && kv.Value!["cost"] != null && kv.Value["dname"] is JsonValue name && shopNames.Contains(name.GetValue<string>()))
             .ToDictionary(kv => kv.Key, kv => kv.Value!.AsObject());
@@ -122,20 +123,49 @@ static class Items
                 packItem["components"] = new JsonArray(components.Select(c => (JsonNode)c!).ToArray());
             if (bonuses.Count > 1)
                 packItem["bonuses"] = bonuses;
+            JsonObject? entry = map[id] as JsonObject;
+            if (entry?["passive"] is JsonObject passive)
+            {
+                foreach (var (field, value) in Abilities.BuildItemPassive(id, item, passive))
+                {
+                    if (field == "key")
+                        continue;
+                    if (bonuses.ContainsKey(field))
+                        throw new InvalidDataException($"items.json {id}: passive field {field} is already a stat bonus of the item");
+                    bonuses[field] = value?.DeepClone();
+                }
+
+                if (!packItem.ContainsKey("bonuses"))
+                    packItem["bonuses"] = bonuses;
+            }
+
+            if (entry?["active"] is JsonObject activeEntry)
+            {
+                if (consumables.Actives.ContainsKey(id))
+                    throw new InvalidDataException($"items.json {id}: the consumable's active is built in code");
+                consumables.Abilities.Add(Abilities.BuildItemActive(id, item, activeEntry));
+                packItem["active"] = "item_" + id;
+            }
+
             if (consumables.Actives.TryGetValue(id, out (string Ability, int Charges) active))
             {
                 packItem["active"] = active.Ability;
                 packItem["charges"] = active.Charges;
             }
-            else if (item["abilities"] is JsonArray abilities)
+            else if (item["abilities"] is JsonArray abilities && entry == null)
             {
                 foreach (JsonNode? ability in abilities)
                     missing.Add(ability!["type"]!.GetValue<string>() + " \"" + ability["title"]!.GetValue<string>() + "\"");
             }
 
             packItems.Add(packItem);
+            var gaps = new List<string>();
             if (missing.Count > 0)
-                coverage.Add($"item {id}: not carried over: {string.Join(", ", missing)}");
+                gaps.Add("not carried over: " + string.Join(", ", missing));
+            if (entry?["status"]?.GetValue<string>() == "simplified")
+                gaps.Add("simplified: " + entry["note"]?.GetValue<string>());
+            if (gaps.Count > 0)
+                coverage.Add($"item {id}: {string.Join("; ", gaps)}");
         }
 
         return new Result(packItems, consumables.Abilities, consumables.UnitTypes, coverage, ids);

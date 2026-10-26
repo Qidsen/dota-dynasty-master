@@ -6,6 +6,7 @@
 
   <ItemGroup>
     <None Update="abilities.json" CopyToOutputDirectory="PreserveNewest" />
+    <None Update="items.json" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
   <PropertyGroup>

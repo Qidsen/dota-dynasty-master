@@ -7959,7 +7959,7 @@
   },
   "phantom_assassin_blur": {
     "status": "simplified",
-    "note": "invisibility that ends for good near enemies (in Dota it resumes after leaving); towers not checked; no projectile disjoint on cast; no 9.5% movement speed (the engine takes whole percents)",
+    "note": "invisibility that ends for good near enemies (in Dota it resumes after leaving); towers not checked; no projectile disjoint on cast",
     "targeting": "noTarget",
     "targetTeam": "ally",
     "effects": [
@@ -7972,6 +7972,14 @@
             "invisible"
           ],
           "breakRadius": "$radius"
+        }
+      },
+      {
+        "kind": "modifier",
+        "modifiers": {
+          "key": "phantom_assassin_blur_speed",
+          "duration": "$duration",
+          "moveSpeedPercent": "$active_movespeed_bonus"
         }
       }
     ]
@@ -10354,7 +10362,7 @@
   },
   "batrider_sticky_napalm": {
     "status": "simplified",
-    "note": "each cast adds one stack worth the data's stacks_per_cast stacks (damage per stack x stacks_per_cast, max stacks / stacks_per_cast); amplifies Batrider's attacks only, not his abilities; no movement or turn-rate slow (fractional percents); no reduced bonus against creeps; stacks share one duration",
+    "note": "each cast adds one stack worth the data's stacks_per_cast stacks (damage and slow per stack x stacks_per_cast, max stacks / stacks_per_cast); amplifies Batrider's attacks only, not his abilities; no turn-rate slow; no reduced bonus against creeps; stacks share one duration",
     "targeting": "point",
     "targetTeam": "enemy",
     "effects": [
@@ -10375,7 +10383,8 @@
               "key": "batrider_sticky_napalm",
               "duration": "$duration",
               "stacking": true,
-              "maxStacks": "$max_stacks/$stacks_per_cast"
+              "maxStacks": "$max_stacks/$stacks_per_cast",
+              "moveSpeedPercent": "$movement_speed_pct*$stacks_per_cast"
             }
           }
         ]
@@ -10915,7 +10924,7 @@
   },
   "bristleback_warpath": {
     "status": "simplified",
-    "note": "damage per stack only: no movement speed per stack (fractional percents); stacks share one duration (independent per-stack timers in Dota)",
+    "note": "stacks share one duration (independent per-stack timers in Dota)",
     "targeting": "passive",
     "passive": {
       "key": "bristleback_warpath",
@@ -10930,7 +10939,8 @@
                 "duration": "$stack_duration",
                 "stacking": true,
                 "maxStacks": "$max_stacks",
-                "damage": "$damage_per_stack"
+                "damage": "$damage_per_stack",
+                "moveSpeedPercent": "$move_speed_per_stack"
               }
             }
           ]
@@ -11041,7 +11051,7 @@
   },
   "lina_fiery_soul": {
     "status": "simplified",
-    "note": "a stack for every ability Lina casts (in Dota: for every spell that hits an enemy); attack speed only: no movement speed bonus (fractional percents); stacks share one duration",
+    "note": "a stack for every ability Lina casts (in Dota: for every spell that hits an enemy); stacks share one duration",
     "targeting": "passive",
     "targetTeam": "ally",
     "passive": {
@@ -11057,7 +11067,8 @@
                 "duration": "$fiery_soul_stack_duration",
                 "stacking": true,
                 "maxStacks": "$fiery_soul_max_stacks",
-                "attackSpeed": "$fiery_soul_attack_speed_bonus"
+                "attackSpeed": "$fiery_soul_attack_speed_bonus",
+                "moveSpeedPercent": "$fiery_soul_move_speed_bonus"
               }
             }
           ]

@@ -1,0 +1,28 @@
+{
+  "_about": "Dota item actives and passives in the engine's effect tree (docs/DOTA_PACK.md). Same format and rules as abilities.json: values are references to the item's dotaconstants keys (\"$key\"); \"passive\" is one modifier template merged into the item's stat bonuses, \"active\" is an ability (id item_<item>). status: full or simplified (with a note).",
+  "basher": {
+    "status": "simplified",
+    "note": "the melee chance for every hero (ranged heroes have the ranged chance in Dota)",
+    "passive": {
+      "key": "item_basher_bash",
+      "onHit": [
+        { "kind": "modifier", "modifiers": { "key": "item_basher_stun", "duration": "$bash_duration", "flags": [ "stunned" ] } },
+        { "kind": "damage", "damageType": "physical", "amounts": "$bonus_chance_damage" }
+      ],
+      "onHitChance": "$bash_chance_melee",
+      "procCooldown": "$bash_cooldown"
+    }
+  },
+  "black_king_bar": {
+    "status": "simplified",
+    "note": "basic dispel, debuff immunity and the magic resistance: no immunity to pure and reflected damage",
+    "active": {
+      "targeting": "noTarget",
+      "targetTeam": "ally",
+      "effects": [
+        { "kind": "dispel" },
+        { "kind": "modifier", "modifiers": { "key": "item_black_king_bar_avatar", "duration": "$duration", "flags": [ "debuffImmune" ], "magicResist": "$spell_reduce" } }
+      ]
+    }
+  }
+}
