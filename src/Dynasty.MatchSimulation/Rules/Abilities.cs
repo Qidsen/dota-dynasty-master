@@ -56,6 +56,9 @@ namespace Dynasty.MatchSimulation.Rules
 
         /// <summary>Burns the target's mana (amounts) and deals <see cref="EffectDefinition.DamagePercent"/> of the mana burnt as damage.</summary>
         ManaBurn = 10,
+
+        /// <summary>Restores the target's mana (amounts), not above its max.</summary>
+        RestoreMana = 11,
     }
 
     /// <summary>What a damage effect's amounts mean: flat damage, or a percent of the target's health or mana.</summary>
@@ -164,6 +167,8 @@ namespace Dynasty.MatchSimulation.Rules
         /// <summary>Burns mana (per level) and deals the given percent of the mana burnt as damage.</summary>
         public static EffectDefinition ManaBurn(int damagePercent, DamageType type, params int[] manaPerLevel) =>
             new EffectDefinition(EffectKind.ManaBurn, manaPerLevel, type, damagePercent: damagePercent);
+
+        public static EffectDefinition RestoreMana(params int[] manaPerLevel) => new EffectDefinition(EffectKind.RestoreMana, manaPerLevel);
 
         public static EffectDefinition Modifier(params ModifierSpec[] perLevel) =>
             new EffectDefinition(EffectKind.ApplyModifier, modifiers: perLevel);

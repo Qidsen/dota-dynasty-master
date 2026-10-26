@@ -191,6 +191,9 @@ namespace Dynasty.Content
                 case "heal":
                     effect = EffectDefinition.Heal(e.Ints("amounts").ToArray());
                     break;
+                case "restoreMana":
+                    effect = EffectDefinition.RestoreMana(e.Ints("amounts").ToArray());
+                    break;
                 case "modifier":
                     effect = EffectDefinition.Modifier(e.Array("modifiers").Select(ReadModifier).ToArray());
                     break;
@@ -287,7 +290,9 @@ namespace Dynasty.Content
                 evasionPercent: m.OptionalInt("evasion") ?? 0, onHit: m.OptionalArray("onHit").Select(ReadEffect).ToList(),
                 onHitChancePercent: m.OptionalInt("onHitChance") ?? 100, aura: m.OptionalObject("aura") is Reader a ? ReadAura(a) : null,
                 cleavePercent: m.OptionalInt("cleavePercent") ?? 0, cleaveRadius: m.OptionalInt("cleaveRadius") ?? 0, barrier: m.OptionalInt("barrier") ?? 0, consumedOnHit: m.OptionalBool("consumedOnHit") ?? false,
-                damagePerSecondMaxHealthPercent: m.OptionalFixed("damagePerSecondMaxHealthPercent") ?? Fixed.Zero);
+                damagePerSecondMaxHealthPercent: m.OptionalFixed("damagePerSecondMaxHealthPercent") ?? Fixed.Zero,
+                onHitAfterAttacks: m.OptionalInt("onHitAfterAttacks") ?? 0, whenAttacked: m.OptionalArray("whenAttacked").Select(ReadEffect).ToList(),
+                whenAttackedEvery: m.OptionalInt("whenAttackedEvery") ?? 1);
             m.RejectUnknown();
             return spec;
         }

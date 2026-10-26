@@ -3575,5 +3575,6168 @@
         }
       }
     ]
+  },
+  "witch_doctor_maledict": {
+    "status": "simplified",
+    "note": "only the damage per second; no bursts based on health lost since the curse began",
+    "targeting": "point",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "area",
+        "radius": "$radius",
+        "center": "point",
+        "team": "enemy",
+        "heroesOnly": true,
+        "effects": [
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "witch_doctor_maledict",
+              "duration": "$abilityduration",
+              "damagePerSecond": "$dmg",
+              "damageType": "magical"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "puck_dream_coil": {
+    "status": "simplified",
+    "note": "initial damage and stun only; no leash, no break damage and stun",
+    "targeting": "point",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "area",
+        "radius": "$coil_radius",
+        "center": "point",
+        "team": "enemy",
+        "heroesOnly": true,
+        "effects": [
+          {
+            "kind": "damage",
+            "damageType": "magical",
+            "amounts": "$coil_initial_damage"
+          },
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "puck_dream_coil",
+              "duration": "$stun_duration",
+              "flags": [
+                "stunned"
+              ]
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "lone_druid_spirit_link": {
+    "status": "simplified",
+    "note": "Lone Druid's movement speed bonus only; no Spirit Bear, so no bear speed and no shared lifesteal",
+    "targeting": "passive",
+    "targetTeam": "ally",
+    "passive": {
+      "key": "lone_druid_spirit_link",
+      "moveSpeed": "$bonus_movement_speed_druid"
+    }
+  },
+  "lone_druid_true_form": {
+    "status": "simplified",
+    "note": "stays ranged (no switch to melee); the transformation time is the cast point",
+    "targeting": "noTarget",
+    "targetTeam": "ally",
+    "castPoint": "$transformation_time",
+    "effects": [
+      {
+        "kind": "modifier",
+        "modifiers": {
+          "key": "lone_druid_true_form",
+          "duration": "$duration",
+          "armor": "$bonus_armor",
+          "maxHealth": "$bonus_hp",
+          "damage": "$bonus_attack_damage"
+        }
+      }
+    ]
+  },
+  "ember_spirit_fire_remnant": {
+    "status": "simplified",
+    "note": "one charge (the charge restore time as the cooldown): dashes to the point at once and explodes there; no remnants left behind, the mana cost of the activation is not paid",
+    "targeting": "point",
+    "targetTeam": "enemy",
+    "cooldown": "$abilitychargerestoretime",
+    "effects": [
+      {
+        "kind": "dash"
+      },
+      {
+        "kind": "area",
+        "radius": "$radius",
+        "center": "point",
+        "team": "enemy",
+        "effects": [
+          {
+            "kind": "damage",
+            "damageType": "magical",
+            "amounts": "$damage"
+          }
+        ]
+      }
+    ]
+  },
+  "kez_grappling_claw": {
+    "status": "simplified",
+    "note": "enemy units only (no trees); the slow lands on arrival; the landing attack is not forced",
+    "targeting": "unit",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "dash"
+      },
+      {
+        "kind": "modifier",
+        "modifiers": {
+          "key": "kez_grappling_claw",
+          "duration": "$debuff_duration",
+          "moveSpeedPercent": "-$katana_ms_slow_pct"
+        }
+      }
+    ]
+  },
+  "kez_raptor_dance": {
+    "status": "simplified",
+    "note": "all strikes at once after the cast; no heal from the damage dealt, no invulnerability window",
+    "targeting": "noTarget",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "dispel"
+      },
+      {
+        "kind": "area",
+        "radius": "$radius",
+        "center": "caster",
+        "team": "enemy",
+        "effects": [
+          {
+            "kind": "damage",
+            "damageType": "pure",
+            "amounts": "$base_damage*$strikes"
+          },
+          {
+            "kind": "damage",
+            "damageType": "pure",
+            "amounts": "$max_health_damage_pct*$strikes",
+            "scaling": "targetMaxHealthPercent"
+          }
+        ]
+      }
+    ]
+  },
+  "terrorblade_terror_wave": {
+    "status": "simplified",
+    "note": "fear as a stun (no running away); the wave hits at once; no Metamorphosis granted; learnable without Aghanim's Scepter",
+    "targeting": "noTarget",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "area",
+        "radius": "$scepter_radius",
+        "center": "caster",
+        "team": "enemy",
+        "heroesOnly": true,
+        "effects": [
+          {
+            "kind": "damage",
+            "damageType": "magical",
+            "amounts": "$damage"
+          },
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "terrorblade_terror_wave",
+              "duration": "$fear_duration",
+              "flags": [
+                "stunned"
+              ]
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "antimage_persectur": {
+    "status": "simplified",
+    "note": "always the minimum slow, on any target: not scaled by the target's missing mana, no 60% mana threshold",
+    "targeting": "passive",
+    "targetTeam": "ally",
+    "passive": {
+      "key": "antimage_persectur",
+      "onHit": [
+        {
+          "kind": "modifier",
+          "modifiers": {
+            "key": "antimage_persectur_slow",
+            "duration": "$slow_duration",
+            "moveSpeedPercent": "-$move_slow_min"
+          }
+        }
+      ]
+    }
+  },
+  "beastmaster_wild_axes": {
+    "status": "simplified",
+    "note": "one hit in a circle at the point instead of two axes sweeping out and back; the damage amplification counts damage from everyone and does not stack",
+    "targeting": "point",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "area",
+        "radius": "$radius",
+        "center": "point",
+        "team": "enemy",
+        "effects": [
+          {
+            "kind": "damage",
+            "damageType": "magical",
+            "amounts": "$axe_damage"
+          },
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "beastmaster_wild_axes",
+              "duration": "$duration",
+              "incomingDamagePercent": "$damage_amp"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "beastmaster_summon_razorback": {
+    "status": "simplified",
+    "note": "top-level boar stats; no poison attack (slow)",
+    "targeting": "noTarget",
+    "targetTeam": "ally",
+    "unitTypes": [
+      {
+        "id": "beastmaster_boar",
+        "gameUnit": "npc_dota_beastmaster_boar",
+        "health": "$boar_base_max_health",
+        "attackDamageMin": "$boar_base_damage",
+        "attackDamageMax": "$boar_base_damage",
+        "moveSpeed": "$boar_base_movespeed"
+      }
+    ],
+    "effects": [
+      {
+        "kind": "summon",
+        "unitType": "beastmaster_boar",
+        "duration": "$duration",
+        "counts": [
+          1
+        ]
+      }
+    ]
+  },
+  "beastmaster_summon_raptor": {
+    "status": "simplified",
+    "note": "hawks attack normally at the dive damage and dive interval instead of circling and dive-bombing; no root; top-level hawk stats",
+    "targeting": "noTarget",
+    "targetTeam": "ally",
+    "unitTypes": [
+      {
+        "id": "beastmaster_hawk",
+        "gameUnit": "npc_dota_beastmaster_hawk",
+        "health": "$hawk_base_max_health",
+        "magicResist": "$hawk_base_magic_resist",
+        "visionRange": "$hawk_base_vision_range",
+        "nightVision": "$hawk_base_vision_range",
+        "moveSpeed": "$min_move_speed",
+        "attackDamageMin": "$dive_damage",
+        "attackDamageMax": "$dive_damage",
+        "baseAttackTime": "$hawk_base_attack_interval",
+        "attackRange": "$attack_radius",
+        "acquisitionRange": "$attack_radius",
+        "bounty": {
+          "goldMin": "$hawk_base_gold_bounty",
+          "goldMax": "$hawk_base_gold_bounty",
+          "xp": "$hawk_base_xp_bounty"
+        }
+      }
+    ],
+    "effects": [
+      {
+        "kind": "summon",
+        "unitType": "beastmaster_hawk",
+        "duration": "$duration",
+        "counts": "$hawk_count"
+      }
+    ]
+  },
+  "dawnbreaker_celestial_hammer": {
+    "status": "simplified",
+    "note": "hits a circle at the point instead of the path; the fire trail is a burn and slow on the enemies hit; no return flight, no recall",
+    "targeting": "point",
+    "targetTeam": "enemy",
+    "castRange": "$range",
+    "effects": [
+      {
+        "kind": "area",
+        "radius": "$hammer_aoe_radius",
+        "center": "point",
+        "team": "enemy",
+        "effects": [
+          {
+            "kind": "damage",
+            "damageType": "magical",
+            "amounts": "$hammer_damage"
+          },
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "dawnbreaker_celestial_hammer",
+              "duration": "$flare_debuff_duration",
+              "moveSpeedPercent": "-$move_slow",
+              "damagePerSecond": "$burn_damage",
+              "damageType": "magical",
+              "period": "$burn_interval"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "dawnbreaker_solar_guardian": {
+    "status": "simplified",
+    "note": "any point on the map, not only near an allied hero; the pulses land at once with the landing (summed over the channel time, none during the flight); no daylight",
+    "targeting": "point",
+    "targetTeam": "enemy",
+    "castRange": 20000,
+    "castPoint": "$abilitychanneltime",
+    "effects": [
+      {
+        "kind": "dash"
+      },
+      {
+        "kind": "area",
+        "radius": "$radius",
+        "center": "point",
+        "team": "enemy",
+        "effects": [
+          {
+            "kind": "damage",
+            "damageType": "magical",
+            "amounts": "$base_damage*$abilitychanneltime/$pulse_interval"
+          },
+          {
+            "kind": "damage",
+            "damageType": "magical",
+            "amounts": "$land_damage"
+          },
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "dawnbreaker_solar_guardian",
+              "duration": "$land_stun_duration",
+              "flags": [
+                "stunned"
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "kind": "area",
+        "radius": "$radius",
+        "center": "point",
+        "team": "ally",
+        "effects": [
+          {
+            "kind": "heal",
+            "amounts": "$base_heal*$abilitychanneltime/$pulse_interval"
+          }
+        ]
+      }
+    ]
+  },
+  "largo_catchy_lick": {
+    "status": "simplified",
+    "note": "enemies only; no pull; no health regeneration reward for a kill or dispel",
+    "targeting": "unit",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "dispel"
+      },
+      {
+        "kind": "damage",
+        "damageType": "magical",
+        "amounts": "$damage"
+      }
+    ]
+  },
+  "largo_frogstomp": {
+    "status": "simplified",
+    "note": "a debuff on the enemies in the area at the cast instead of a zone they can leave; one ministun instead of one per stomp",
+    "targeting": "point",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "area",
+        "radius": "$radius",
+        "center": "point",
+        "team": "enemy",
+        "effects": [
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "largo_frogstomp_stun",
+              "duration": "$stun_duration",
+              "flags": [
+                "stunned"
+              ]
+            }
+          },
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "largo_frogstomp",
+              "duration": "$total_ticks*$stomp_interval",
+              "moveSpeedPercent": "-$slow",
+              "damagePerSecond": "$damage_per_stomp/$stomp_interval",
+              "damageType": "magical",
+              "period": "$stomp_interval"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "keeper_of_the_light_illuminate": {
+    "status": "simplified",
+    "note": "always channelled fully (the channel time as the cast point); hits a circle at the point instead of a wave along the path; no vision",
+    "targeting": "point",
+    "targetTeam": "enemy",
+    "castPoint": "$abilitychanneltime",
+    "effects": [
+      {
+        "kind": "area",
+        "radius": "$radius",
+        "center": "point",
+        "team": "enemy",
+        "effects": [
+          {
+            "kind": "damage",
+            "damageType": "magical",
+            "amounts": "$total_damage"
+          }
+        ]
+      }
+    ]
+  },
+  "lich_sinister_gaze": {
+    "status": "simplified",
+    "note": "a stun for the channel time: the target does not walk toward Lich, no mana drain, Lich is not channelling",
+    "targeting": "unit",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "modifier",
+        "modifiers": {
+          "key": "lich_sinister_gaze",
+          "duration": "$channel_duration",
+          "flags": [
+            "stunned"
+          ]
+        }
+      }
+    ]
+  },
+  "enigma_demonic_conversion": {
+    "status": "simplified",
+    "note": "eidolons do not split on attacks and do not take health from Enigma; top-level eidolon stats",
+    "targeting": "point",
+    "targetTeam": "ally",
+    "unitTypes": [
+      {
+        "id": "enigma_eidolon",
+        "gameUnit": "npc_dota_lesser_eidolon",
+        "health": "$eidelon_max_health",
+        "attackDamageMin": "$eidelon_base_damage",
+        "attackDamageMax": "$eidelon_base_damage",
+        "moveSpeed": "$eidelon_base_movespeed",
+        "magicResist": "$eidolon_magic_resist",
+        "attackRange": "$eidolon_attack_range",
+        "bounty": {
+          "goldMin": "$eidolon_gold_bounty_min",
+          "goldMax": "$eidolon_gold_bounty_max",
+          "xp": "$eidolon_xp_bounty"
+        }
+      }
+    ],
+    "effects": [
+      {
+        "kind": "summon",
+        "unitType": "enigma_eidolon",
+        "duration": "$abilityduration",
+        "counts": "$spawn_count",
+        "atPoint": true
+      }
+    ]
+  },
+  "spirit_breaker_charge_of_darkness": {
+    "status": "simplified",
+    "note": "a dash to the target at the engine's dash speed instead of a charge that builds up speed; stun on arrival without the Greater Bash; no bashes on units passed through",
+    "targeting": "unit",
+    "targetTeam": "enemy",
+    "castRange": 20000,
+    "effects": [
+      {
+        "kind": "dash"
+      },
+      {
+        "kind": "modifier",
+        "modifiers": {
+          "key": "spirit_breaker_charge_of_darkness",
+          "duration": "$stun_duration",
+          "flags": [
+            "stunned"
+          ]
+        }
+      }
+    ]
+  },
+  "spirit_breaker_greater_bash": {
+    "status": "simplified",
+    "note": "stun and knockback only: no damage from movement speed, no 1.2 s proc cooldown, no movement speed bonus",
+    "targeting": "passive",
+    "targetTeam": "ally",
+    "passive": {
+      "key": "spirit_breaker_greater_bash",
+      "onHitChance": "$chance_pct",
+      "onHit": [
+        {
+          "kind": "knockback",
+          "amounts": "$knockback_distance"
+        },
+        {
+          "kind": "modifier",
+          "modifiers": {
+            "key": "spirit_breaker_greater_bash_stun",
+            "duration": "$duration",
+            "flags": [
+              "stunned"
+            ]
+          }
+        }
+      ]
+    }
+  },
+  "spirit_breaker_nether_strike": {
+    "status": "simplified",
+    "note": "a dash to the target after the fade time instead of reappearing next to it; no Greater Bash (stun, knockback) on arrival",
+    "targeting": "unit",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "dash"
+      },
+      {
+        "kind": "damage",
+        "damageType": "magical",
+        "amounts": "$damage"
+      }
+    ]
+  },
+  "slardar_bash": {
+    "status": "full",
+    "targeting": "passive",
+    "targetTeam": "ally",
+    "passive": {
+      "key": "slardar_bash",
+      "onHitAfterAttacks": "$attack_count",
+      "onHit": [
+        {
+          "kind": "damage",
+          "damageType": "physical",
+          "amounts": "$bonus_damage"
+        },
+        {
+          "kind": "modifier",
+          "modifiers": {
+            "key": "slardar_bash_stun",
+            "duration": "$duration",
+            "flags": [
+              "stunned"
+            ]
+          }
+        }
+      ]
+    }
+  },
+  "keeper_of_the_light_chakra_magic": {
+    "status": "simplified",
+    "note": "mana restore only: no cooldown reduction, no 30% bonus on himself, no mana leak",
+    "targeting": "unit",
+    "targetTeam": "ally",
+    "effects": [
+      {
+        "kind": "restoreMana",
+        "amounts": "$mana_restore"
+      }
+    ]
+  },
+  "obsidian_destroyer_sanity_eclipse": {
+    "status": "simplified",
+    "note": "the base damage only: no damage from the difference in max mana",
+    "targeting": "point",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "area",
+        "radius": "$radius",
+        "center": "point",
+        "team": "enemy",
+        "effects": [
+          {
+            "kind": "damage",
+            "damageType": "magical",
+            "amounts": "$base_damage"
+          }
+        ]
+      }
+    ]
+  },
+  "disruptor_static_storm": {
+    "status": "simplified",
+    "note": "damage per second is the average of the data's linear ramp from 0 to damage_max per second (damage_max/2), even over the storm; the debuff lasts its full duration even after leaving the area",
+    "targeting": "point",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "area",
+        "radius": "$radius",
+        "center": "point",
+        "team": "enemy",
+        "effects": [
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "disruptor_static_storm",
+              "duration": "$duration",
+              "flags": [
+                "silenced"
+              ],
+              "damagePerSecond": "$damage_max/2"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "storm_spirit_static_remnant": {
+    "status": "simplified",
+    "note": "detonates at once around Storm Spirit instead of a remnant that waits for enemies",
+    "targeting": "noTarget",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "area",
+        "radius": "$static_remnant_damage_radius",
+        "center": "caster",
+        "team": "enemy",
+        "effects": [
+          {
+            "kind": "damage",
+            "damageType": "magical",
+            "amounts": "$static_remnant_damage"
+          }
+        ]
+      }
+    ]
+  },
+  "wisp_spirits": {
+    "status": "simplified",
+    "note": "one explosion on the enemy heroes around Io at the cast instead of five orbiting spirits; no creep damage",
+    "targeting": "noTarget",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "area",
+        "radius": "$default_radius",
+        "center": "caster",
+        "team": "enemy",
+        "heroesOnly": true,
+        "effects": [
+          {
+            "kind": "damage",
+            "damageType": "magical",
+            "amounts": "$hero_damage"
+          }
+        ]
+      }
+    ]
+  },
+  "wisp_overcharge": {
+    "status": "simplified",
+    "note": "attack speed only: no spell amplification, no regeneration from max health, not shared with a tethered ally",
+    "targeting": "noTarget",
+    "targetTeam": "ally",
+    "effects": [
+      {
+        "kind": "modifier",
+        "modifiers": {
+          "key": "wisp_overcharge",
+          "duration": "$duration",
+          "attackSpeed": "$bonus_attack_speed"
+        }
+      }
+    ]
+  },
+  "wisp_relocate": {
+    "status": "simplified",
+    "note": "one-way: Io does not return after the return time and no tethered ally comes along; the cast delay is the cast point",
+    "targeting": "point",
+    "targetTeam": "ally",
+    "castRange": 30000,
+    "castPoint": "$cast_delay",
+    "effects": [
+      {
+        "kind": "dash"
+      }
+    ]
+  },
+  "ringmaster_tame_the_beasts": {
+    "status": "simplified",
+    "note": "always the full channel (as the cast point), a circle at the point instead of a cone; fear as a stun",
+    "targeting": "point",
+    "targetTeam": "enemy",
+    "castPoint": "$abilitychanneltime",
+    "effects": [
+      {
+        "kind": "area",
+        "radius": "$end_width",
+        "center": "point",
+        "team": "enemy",
+        "effects": [
+          {
+            "kind": "damage",
+            "damageType": "magical",
+            "amounts": "$damage_max"
+          },
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "ringmaster_tame_the_beasts",
+              "duration": "$fear_duration_max",
+              "flags": [
+                "stunned"
+              ]
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "ringmaster_the_box": {
+    "status": "simplified",
+    "note": "invisible instead of untargetable; no phased movement, slow resistance or leash",
+    "targeting": "unit",
+    "targetTeam": "ally",
+    "effects": [
+      {
+        "kind": "modifier",
+        "modifiers": {
+          "key": "ringmaster_the_box",
+          "duration": "$invis_duration",
+          "flags": [
+            "invisible",
+            "silenced",
+            "disarmed"
+          ],
+          "magicResist": "$magic_resist",
+          "moveSpeedPercent": "$move_speed"
+        }
+      }
+    ]
+  },
+  "ringmaster_impalement": {
+    "status": "simplified",
+    "note": "unit-targeted instead of a skillshot; one charge (the cooldown is the charge restore time); the bleed is the hero value for every unit",
+    "targeting": "unit",
+    "targetTeam": "enemy",
+    "cooldown": "$charge_restore_time",
+    "effects": [
+      {
+        "kind": "projectile",
+        "speed": "$dagger_speed",
+        "effects": [
+          {
+            "kind": "damage",
+            "damageType": "magical",
+            "amounts": "$damage_impact"
+          },
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "ringmaster_impalement_slow",
+              "duration": "$slow_duration",
+              "moveSpeedPercent": "-$slow_percent"
+            }
+          },
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "ringmaster_impalement_bleed",
+              "duration": "$bleed_duration",
+              "damagePerSecondMaxHealthPercent": "$bleed_health_pct"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "ringmaster_wheel": {
+    "status": "simplified",
+    "note": "everything lands at once at the point: no rolling or knock aside, the explosion without the timer; mesmerize as a stun on every hero in range (no facing check, no pull); the aura damage taken as per second",
+    "targeting": "point",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "area",
+        "radius": "$mesmerize_radius",
+        "center": "point",
+        "team": "enemy",
+        "effects": [
+          {
+            "kind": "damage",
+            "damageType": "magical",
+            "amounts": "$explosion_damage"
+          },
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "ringmaster_wheel",
+              "duration": "$trap_duration",
+              "moveSpeedPercent": "$aura_slow",
+              "damagePerSecond": "$aura_damage",
+              "period": "$aura_tick_interval"
+            }
+          }
+        ]
+      },
+      {
+        "kind": "area",
+        "radius": "$mesmerize_radius",
+        "center": "point",
+        "team": "enemy",
+        "heroesOnly": true,
+        "effects": [
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "ringmaster_wheel_mesmerize",
+              "duration": "$wheel_stun",
+              "flags": [
+                "stunned"
+              ]
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "lycan_summon_wolves": {
+    "status": "simplified",
+    "note": "the top values of the data's wolf stats (its last level, which includes the bonus levels) at every level; no bash, invisibility or cripple",
+    "targeting": "noTarget",
+    "targetTeam": "ally",
+    "unitTypes": [
+      {
+        "id": "lycan_wolf",
+        "gameUnit": "npc_dota_lycan_wolf1",
+        "health": "$wolf_hp",
+        "attackDamageMin": "$wolf_damage",
+        "attackDamageMax": "$wolf_damage",
+        "baseAttackTime": "$wolf_bat"
+      }
+    ],
+    "effects": [
+      {
+        "kind": "summon",
+        "unitType": "lycan_wolf",
+        "duration": "$wolf_duration",
+        "counts": "$wolf_count"
+      }
+    ]
+  },
+  "viper_nethertoxin": {
+    "status": "simplified",
+    "note": "the starting damage rate throughout, without the increase; the debuff hits units in the area at the cast and lasts the zone's duration",
+    "targeting": "point",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "area",
+        "radius": "$radius",
+        "center": "point",
+        "team": "enemy",
+        "effects": [
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "viper_nethertoxin",
+              "duration": "$duration",
+              "damagePerSecond": "$min_damage",
+              "attackSpeed": "-$attack_slow"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "huskar_inner_fire": {
+    "status": "simplified",
+    "note": "no health cost; pushed by the knockback distance rather than to it",
+    "targeting": "noTarget",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "area",
+        "radius": "$radius",
+        "center": "caster",
+        "team": "enemy",
+        "effects": [
+          {
+            "kind": "damage",
+            "damageType": "magical",
+            "amounts": "$damage"
+          },
+          {
+            "kind": "knockback",
+            "amounts": "$knockback_distance"
+          },
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "huskar_inner_fire",
+              "duration": "$disarm_duration",
+              "flags": [
+                "disarmed"
+              ]
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "huskar_burning_spear": {
+    "status": "simplified",
+    "note": "always on, without the health cost; no stacks (each attack refreshes the burn)",
+    "targeting": "passive",
+    "targetTeam": "ally",
+    "passive": {
+      "key": "huskar_burning_spear",
+      "onHit": [
+        {
+          "kind": "modifier",
+          "modifiers": {
+            "key": "huskar_burning_spear_burn",
+            "duration": "$duration",
+            "damagePerSecond": "$burn_damage"
+          }
+        }
+      ]
+    }
+  },
+  "zuus_arc_lightning": {
+    "status": "simplified",
+    "note": "every enemy within the radius of the target instead of a chain of limited jumps",
+    "targeting": "unit",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "area",
+        "radius": "$radius",
+        "center": "target",
+        "team": "enemy",
+        "effects": [
+          {
+            "kind": "damage",
+            "damageType": "magical",
+            "amounts": "$arc_damage"
+          }
+        ]
+      }
+    ]
+  },
+  "zuus_lightning_bolt": {
+    "status": "simplified",
+    "note": "unit-targeted only (no ground cast); no vision or true sight",
+    "targeting": "unit",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "damage",
+        "damageType": "magical",
+        "amounts": "$damage"
+      },
+      {
+        "kind": "modifier",
+        "modifiers": {
+          "key": "zuus_lightning_bolt",
+          "duration": "$ministun_duration",
+          "flags": [
+            "stunned"
+          ]
+        }
+      }
+    ]
+  },
+  "zuus_heavenly_jump": {
+    "status": "simplified",
+    "note": "no hop; the shock hits a chosen enemy in range instead of the closest one; no vision",
+    "targeting": "unit",
+    "targetTeam": "enemy",
+    "castRange": "$range",
+    "effects": [
+      {
+        "kind": "damage",
+        "damageType": "magical",
+        "amounts": "$damage"
+      },
+      {
+        "kind": "modifier",
+        "modifiers": {
+          "key": "zuus_heavenly_jump",
+          "duration": "$duration",
+          "moveSpeedPercent": "-$move_slow",
+          "attackSpeed": "-$aspd_slow"
+        }
+      }
+    ]
+  },
+  "zuus_thundergods_wrath": {
+    "status": "simplified",
+    "note": "no vision or true sight on the struck heroes",
+    "targeting": "noTarget",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "area",
+        "radius": 20000,
+        "center": "caster",
+        "team": "enemy",
+        "heroesOnly": true,
+        "effects": [
+          {
+            "kind": "damage",
+            "damageType": "magical",
+            "amounts": "$damage"
+          }
+        ]
+      }
+    ]
+  },
+  "bloodseeker_bloodrage": {
+    "status": "simplified",
+    "note": "attack speed and the health drain only: no spell amplification",
+    "targeting": "noTarget",
+    "targetTeam": "ally",
+    "effects": [
+      {
+        "kind": "modifier",
+        "modifiers": {
+          "key": "bloodseeker_bloodrage",
+          "duration": "$duration",
+          "attackSpeed": "$attack_speed",
+          "damagePerSecondMaxHealthPercent": "$damage_pct",
+          "damageType": "pure"
+        }
+      }
+    ]
+  },
+  "bloodseeker_blood_bath": {
+    "status": "simplified",
+    "note": "lands at once without the delay",
+    "targeting": "point",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "area",
+        "radius": "$radius",
+        "center": "point",
+        "team": "enemy",
+        "effects": [
+          {
+            "kind": "damage",
+            "damageType": "pure",
+            "amounts": "$damage"
+          },
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "bloodseeker_blood_bath",
+              "duration": "$silence_duration",
+              "flags": [
+                "silenced"
+              ]
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "mars_bulwark": {
+    "status": "simplified",
+    "note": "the side value against all damage from every direction (Dota: physical attacks from the front and sides only); no toggle with attack redirection",
+    "targeting": "passive",
+    "targetTeam": "ally",
+    "passive": {
+      "key": "mars_bulwark",
+      "incomingDamagePercent": "-$physical_damage_reduction_side"
+    }
+  },
+  "grimstroke_dark_artistry": {
+    "status": "simplified",
+    "note": "unit-targeted: the target only instead of a curved line; no bonus damage per unit hit",
+    "targeting": "unit",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "projectile",
+        "speed": "$projectile_speed",
+        "effects": [
+          {
+            "kind": "damage",
+            "damageType": "magical",
+            "amounts": "$damage"
+          },
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "grimstroke_dark_artistry",
+              "duration": "$slow_duration",
+              "moveSpeedPercent": "-$movement_slow_pct"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "grimstroke_ink_creature": {
+    "status": "simplified",
+    "note": "the phantom cannot be attacked off: always the full latch; the pop damage lands on arrival; no cooldown refresh",
+    "targeting": "unit",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "projectile",
+        "speed": "$speed",
+        "effects": [
+          {
+            "kind": "damage",
+            "damageType": "magical",
+            "amounts": "$pop_damage"
+          },
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "grimstroke_ink_creature",
+              "duration": "$latch_duration",
+              "flags": [
+                "silenced"
+              ],
+              "damagePerSecond": "$damage_per_second"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "grimstroke_spirit_walk": {
+    "status": "simplified",
+    "note": "the final damage and stun land at once around the ally at the cast, always at the maximum (no build-up from time near heroes)",
+    "targeting": "unit",
+    "targetTeam": "ally",
+    "effects": [
+      {
+        "kind": "modifier",
+        "modifiers": {
+          "key": "grimstroke_spirit_walk",
+          "duration": "$buff_duration",
+          "moveSpeedPercent": "$movespeed_bonus_pct",
+          "aura": {
+            "radius": "$radius",
+            "team": "enemy",
+            "modifier": {
+              "key": "grimstroke_spirit_walk_tendrils",
+              "duration": 1,
+              "damagePerSecond": "$tick_dps_tooltip"
+            }
+          }
+        }
+      },
+      {
+        "kind": "area",
+        "radius": "$radius",
+        "center": "target",
+        "team": "enemy",
+        "effects": [
+          {
+            "kind": "damage",
+            "damageType": "magical",
+            "amounts": "$max_damage"
+          },
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "grimstroke_spirit_walk_stun",
+              "duration": "$max_stun",
+              "flags": [
+                "stunned"
+              ]
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "grimstroke_ink_trail": {
+    "status": "simplified",
+    "note": "on Grimstroke's attacks only (not spells); the enemy's attack damage is reduced against everyone, not only Grimstroke; no ink trail",
+    "targeting": "passive",
+    "targetTeam": "ally",
+    "passive": {
+      "key": "grimstroke_ink_trail",
+      "onHit": [
+        {
+          "kind": "modifier",
+          "modifiers": {
+            "key": "grimstroke_ink_trail_debuff",
+            "duration": "$debuff_duration",
+            "attackDamagePercent": "-$damage_reduction"
+          }
+        }
+      ]
+    }
+  },
+  "primal_beast_onslaught": {
+    "status": "simplified",
+    "note": "instant charge to the point, always the full charge-up (the max charge time as the cast point); hits around the end point only, not along the path; allies are not knocked back",
+    "targeting": "point",
+    "targetTeam": "enemy",
+    "castRange": "$max_distance",
+    "castPoint": "$max_charge_time",
+    "effects": [
+      {
+        "kind": "dash"
+      },
+      {
+        "kind": "area",
+        "radius": "$knockback_radius",
+        "center": "point",
+        "team": "enemy",
+        "effects": [
+          {
+            "kind": "damage",
+            "damageType": "physical",
+            "amounts": "$knockback_damage"
+          },
+          {
+            "kind": "knockback",
+            "amounts": "$knockback_distance"
+          },
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "primal_beast_onslaught",
+              "duration": "$stun_duration",
+              "flags": [
+                "stunned"
+              ]
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "primal_beast_pulverize": {
+    "status": "simplified",
+    "note": "Primal Beast does not channel; the target is held (stunned) for the channel time; the slams are damage over time on enemies around the target, without ministuns or the growing bonus per hit",
+    "targeting": "unit",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "modifier",
+        "modifiers": {
+          "key": "primal_beast_pulverize_grab",
+          "duration": "$channel_time",
+          "flags": [
+            "stunned"
+          ]
+        }
+      },
+      {
+        "kind": "area",
+        "radius": "$splash_radius",
+        "center": "target",
+        "team": "enemy",
+        "effects": [
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "primal_beast_pulverize",
+              "duration": "$channel_time",
+              "damagePerSecond": "$damage/$interval",
+              "period": "$interval"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "rattletrap_battery_assault": {
+    "status": "simplified",
+    "note": "every enemy in the radius takes the damage (in Dota each interval hits one random nearby enemy); no ministun",
+    "targeting": "noTarget",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "modifier",
+        "modifiers": {
+          "key": "rattletrap_battery_assault",
+          "duration": "$duration",
+          "aura": {
+            "radius": "$radius",
+            "team": "enemy",
+            "modifier": {
+              "key": "rattletrap_battery_assault_shrapnel",
+              "duration": 1,
+              "damagePerSecond": "$damage/$interval"
+            }
+          }
+        }
+      }
+    ]
+  },
+  "rattletrap_rocket_flare": {
+    "status": "simplified",
+    "note": "lands at once (no flight time); no vision",
+    "targeting": "point",
+    "targetTeam": "enemy",
+    "castRange": 30000,
+    "effects": [
+      {
+        "kind": "area",
+        "radius": "$radius",
+        "center": "point",
+        "team": "enemy",
+        "effects": [
+          {
+            "kind": "damage",
+            "damageType": "magical",
+            "amounts": "$damage"
+          },
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "rattletrap_rocket_flare",
+              "duration": "$slow_duration",
+              "moveSpeedPercent": "-$slow_pct"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "rattletrap_hookshot": {
+    "status": "simplified",
+    "note": "unit-targeted: latches to the chosen target (units in the path do not catch the hook); no damage to enemies along the way; no ally latch",
+    "targeting": "unit",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "dash"
+      },
+      {
+        "kind": "area",
+        "radius": "$stun_radius",
+        "center": "target",
+        "team": "enemy",
+        "effects": [
+          {
+            "kind": "damage",
+            "damageType": "magical",
+            "amounts": "$damage"
+          },
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "rattletrap_hookshot",
+              "duration": "$duration",
+              "flags": [
+                "stunned"
+              ]
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "skywrath_mage_arcane_bolt": {
+    "status": "simplified",
+    "note": "base damage only: no intelligence-based damage",
+    "targeting": "unit",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "projectile",
+        "speed": "$bolt_speed",
+        "effects": [
+          {
+            "kind": "damage",
+            "damageType": "magical",
+            "amounts": "$bolt_damage"
+          }
+        ]
+      }
+    ]
+  },
+  "skywrath_mage_concussive_shot": {
+    "status": "simplified",
+    "note": "aimed at a chosen target instead of the closest hero in range",
+    "targeting": "unit",
+    "targetTeam": "enemy",
+    "castRange": "$launch_radius",
+    "effects": [
+      {
+        "kind": "projectile",
+        "speed": "$speed",
+        "effects": [
+          {
+            "kind": "area",
+            "radius": "$slow_radius",
+            "center": "target",
+            "team": "enemy",
+            "effects": [
+              {
+                "kind": "damage",
+                "damageType": "magical",
+                "amounts": "$damage"
+              },
+              {
+                "kind": "modifier",
+                "modifiers": {
+                  "key": "skywrath_mage_concussive_shot",
+                  "duration": "$slow_duration",
+                  "moveSpeedPercent": "-$movement_speed_pct"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "skywrath_mage_ancient_seal": {
+    "status": "full",
+    "targeting": "unit",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "modifier",
+        "modifiers": {
+          "key": "skywrath_mage_ancient_seal",
+          "duration": "$seal_duration",
+          "flags": [
+            "silenced"
+          ],
+          "magicResist": "$resist_debuff"
+        }
+      }
+    ]
+  },
+  "skywrath_mage_mystic_flare": {
+    "status": "simplified",
+    "note": "every hero in the area at the cast takes the full damage (not split between heroes), and it follows them out of the area",
+    "targeting": "point",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "area",
+        "radius": "$radius",
+        "center": "point",
+        "team": "enemy",
+        "heroesOnly": true,
+        "effects": [
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "skywrath_mage_mystic_flare",
+              "duration": "$duration",
+              "damagePerSecond": "$damage/$duration",
+              "period": "$damage_interval"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "morphling_waveform": {
+    "status": "simplified",
+    "note": "damage around the end point instead of along the path; not invulnerable during the surge",
+    "targeting": "point",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "dash"
+      },
+      {
+        "kind": "area",
+        "radius": "$width",
+        "center": "point",
+        "team": "enemy",
+        "effects": [
+          {
+            "kind": "damage",
+            "damageType": "magical",
+            "amounts": "$dmg"
+          }
+        ]
+      }
+    ]
+  },
+  "morphling_adaptive_strike_agi": {
+    "status": "simplified",
+    "note": "base damage only, without the agility multiplier; always the minimum stun and knockback (no agility/strength comparison)",
+    "targeting": "unit",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "projectile",
+        "speed": "$projectile_speed",
+        "effects": [
+          {
+            "kind": "damage",
+            "damageType": "magical",
+            "amounts": "$damage_base"
+          },
+          {
+            "kind": "knockback",
+            "amounts": "$knockback_min"
+          },
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "morphling_adaptive_strike_agi",
+              "duration": "$stun_min",
+              "flags": [
+                "stunned"
+              ]
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "death_prophet_carrion_swarm": {
+    "status": "simplified",
+    "note": "a circle at the target instead of a cone",
+    "targeting": "unit",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "area",
+        "radius": "$end_radius",
+        "center": "target",
+        "team": "enemy",
+        "effects": [
+          {
+            "kind": "damage",
+            "damageType": "magical",
+            "amounts": "$damage"
+          }
+        ]
+      }
+    ]
+  },
+  "death_prophet_silence": {
+    "status": "simplified",
+    "note": "lands at once (no projectile flight)",
+    "targeting": "point",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "area",
+        "radius": "$radius",
+        "center": "point",
+        "team": "enemy",
+        "effects": [
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "death_prophet_silence",
+              "duration": "$abilityduration",
+              "flags": [
+                "silenced"
+              ]
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "death_prophet_spirit_siphon": {
+    "status": "simplified",
+    "note": "no charges (the charge restore time as the cooldown); damage over time only: no heal for Death Prophet; the link does not break with distance",
+    "targeting": "unit",
+    "targetTeam": "enemy",
+    "cooldown": "$abilitychargerestoretime",
+    "effects": [
+      {
+        "kind": "modifier",
+        "modifiers": {
+          "key": "death_prophet_spirit_siphon",
+          "duration": "$haunt_duration",
+          "damagePerSecond": "$damage"
+        }
+      }
+    ]
+  },
+  "batrider_flamebreak": {
+    "status": "simplified",
+    "note": "lands at once (no flight time); enemies are pushed away from Batrider rather than from the center",
+    "targeting": "point",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "area",
+        "radius": "$explosion_radius",
+        "center": "point",
+        "team": "enemy",
+        "effects": [
+          {
+            "kind": "damage",
+            "damageType": "magical",
+            "amounts": "$damage_impact"
+          },
+          {
+            "kind": "knockback",
+            "amounts": "$knockback_distance"
+          },
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "batrider_flamebreak_stun",
+              "duration": "$stun_duration",
+              "flags": [
+                "stunned"
+              ]
+            }
+          },
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "batrider_flamebreak",
+              "duration": "$damage_duration",
+              "damagePerSecond": "$damage_per_second",
+              "moveSpeedPercent": "-$slow"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "batrider_firefly": {
+    "status": "simplified",
+    "note": "burns enemies around Batrider instead of along a trail; the top movement speed bonus from the start; no flying",
+    "targeting": "noTarget",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "modifier",
+        "modifiers": {
+          "key": "batrider_firefly",
+          "duration": "$duration",
+          "moveSpeedPercent": "$movement_speed_pct_total",
+          "aura": {
+            "radius": "$radius",
+            "team": "enemy",
+            "modifier": {
+              "key": "batrider_firefly_burn",
+              "duration": 1,
+              "damagePerSecond": "$damage_per_second"
+            }
+          }
+        }
+      }
+    ]
+  },
+  "batrider_flaming_lasso": {
+    "status": "simplified",
+    "note": "the target is held in place (stunned) instead of dragged behind Batrider; the damage is spread over the duration; the lasso does not break with distance",
+    "targeting": "unit",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "modifier",
+        "modifiers": {
+          "key": "batrider_flaming_lasso",
+          "duration": "$duration",
+          "flags": [
+            "stunned"
+          ],
+          "damagePerSecond": "$damage/$duration",
+          "period": "$tick_rate"
+        }
+      }
+    ]
+  },
+  "shadow_demon_demonic_cleanse": {
+    "status": "simplified",
+    "note": "one dispel at the cast instead of over the duration; the heal lands at once",
+    "targeting": "unit",
+    "targetTeam": "ally",
+    "effects": [
+      {
+        "kind": "dispel"
+      },
+      {
+        "kind": "heal",
+        "amounts": "$purge_damage"
+      }
+    ]
+  },
+  "shadow_demon_demonic_purge": {
+    "status": "simplified",
+    "note": "a constant slow at the end value (in Dota it fades from the maximum); the damage lands at once",
+    "targeting": "unit",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "dispel"
+      },
+      {
+        "kind": "damage",
+        "damageType": "magical",
+        "amounts": "$purge_damage"
+      },
+      {
+        "kind": "modifier",
+        "modifiers": {
+          "key": "shadow_demon_demonic_purge",
+          "duration": "$abilityduration",
+          "moveSpeedPercent": "-$min_slow"
+        }
+      }
+    ]
+  },
+  "tusk_snowball": {
+    "status": "simplified",
+    "note": "instant roll to the target: no windup, no allies in the snowball; hits around the target, not along the path",
+    "targeting": "unit",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "dash"
+      },
+      {
+        "kind": "area",
+        "radius": "$snowball_radius",
+        "center": "target",
+        "team": "enemy",
+        "effects": [
+          {
+            "kind": "damage",
+            "damageType": "magical",
+            "amounts": "$snowball_damage"
+          },
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "tusk_snowball",
+              "duration": "$stun_duration",
+              "flags": [
+                "stunned"
+              ]
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "tusk_tag_team": {
+    "status": "simplified",
+    "note": "the bonus damage and slow on Tusk's own attacks only (in Dota any ally's attacks on enemies in the aura)",
+    "targeting": "noTarget",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "modifier",
+        "modifiers": {
+          "key": "tusk_tag_team",
+          "duration": "$debuff_duration",
+          "onHit": [
+            {
+              "kind": "damage",
+              "damageType": "physical",
+              "amounts": "$bonus_damage"
+            },
+            {
+              "kind": "modifier",
+              "modifiers": {
+                "key": "tusk_tag_team_slow",
+                "duration": "$slow_duration",
+                "moveSpeedPercent": "-$movement_slow"
+              }
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "tusk_drinking_buddies": {
+    "status": "simplified",
+    "note": "no pull; only the ally gets the buff (Tusk himself does not)",
+    "targeting": "unit",
+    "targetTeam": "ally",
+    "effects": [
+      {
+        "kind": "modifier",
+        "modifiers": {
+          "key": "tusk_drinking_buddies",
+          "duration": "$buff_duration",
+          "moveSpeedPercent": "$movespeed_bonus",
+          "armor": "$armor_bonus"
+        }
+      }
+    ]
+  },
+  "tusk_walrus_punch": {
+    "status": "simplified",
+    "note": "cast as a spell instead of an autocast attack modifier; the bonus damage only, without the critical attack; the air time as a stun; no slow after landing",
+    "targeting": "unit",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "damage",
+        "damageType": "physical",
+        "amounts": "$bonus_damage"
+      },
+      {
+        "kind": "modifier",
+        "modifiers": {
+          "key": "tusk_walrus_punch",
+          "duration": "$air_time",
+          "flags": [
+            "stunned"
+          ]
+        }
+      }
+    ]
+  },
+  "tusk_bitter_chill": {
+    "status": "full",
+    "targeting": "passive",
+    "targetTeam": "ally",
+    "passive": {
+      "key": "tusk_bitter_chill",
+      "aura": {
+        "radius": "$radius",
+        "team": "enemy",
+        "heroesOnly": true,
+        "modifier": {
+          "key": "tusk_bitter_chill_slow",
+          "duration": 1,
+          "attackSpeed": "-$attack_speed_slow"
+        }
+      }
+    }
+  },
+  "lina_dragon_slave": {
+    "status": "simplified",
+    "note": "a circle at the target (the wave's end width as the radius) instead of a line",
+    "targeting": "unit",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "area",
+        "radius": "$dragon_slave_width_end",
+        "center": "target",
+        "team": "enemy",
+        "effects": [
+          {
+            "kind": "damage",
+            "damageType": "magical",
+            "amounts": "$dragon_slave_damage"
+          }
+        ]
+      }
+    ]
+  },
+  "lina_light_strike_array": {
+    "status": "simplified",
+    "note": "lands at once (no delay)",
+    "targeting": "point",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "area",
+        "radius": "$light_strike_array_aoe",
+        "center": "point",
+        "team": "enemy",
+        "effects": [
+          {
+            "kind": "damage",
+            "damageType": "magical",
+            "amounts": "$light_strike_array_damage"
+          },
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "lina_light_strike_array",
+              "duration": "$light_strike_array_stun_duration",
+              "flags": [
+                "stunned"
+              ]
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "lina_flame_cloak": {
+    "status": "simplified",
+    "note": "magic resistance only: no spell amplification, no unobstructed movement, no Fiery Soul stacks",
+    "targeting": "noTarget",
+    "targetTeam": "ally",
+    "effects": [
+      {
+        "kind": "modifier",
+        "modifiers": {
+          "key": "lina_flame_cloak",
+          "duration": "$flame_cloak_duration",
+          "magicResist": "$magic_resistance"
+        }
+      }
+    ]
+  },
+  "lina_laguna_blade": {
+    "status": "simplified",
+    "note": "the damage lands at once (no delay)",
+    "targeting": "unit",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "damage",
+        "damageType": "magical",
+        "amounts": "$damage"
+      }
+    ]
+  },
+  "tidehunter_gush": {
+    "status": "full",
+    "targeting": "unit",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "projectile",
+        "speed": "$projectile_speed",
+        "effects": [
+          {
+            "kind": "damage",
+            "damageType": "magical",
+            "amounts": "$gush_damage"
+          },
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "tidehunter_gush",
+              "duration": "$abilityduration",
+              "moveSpeedPercent": "$movement_speed",
+              "armor": "-$negative_armor"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "tidehunter_anchor_smash": {
+    "status": "simplified",
+    "note": "the bonus damage only, without Tidehunter's attack; the radius is the bonus range only (his attack range is not added)",
+    "targeting": "noTarget",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "area",
+        "radius": "$additional_range",
+        "center": "caster",
+        "team": "enemy",
+        "effects": [
+          {
+            "kind": "damage",
+            "damageType": "physical",
+            "amounts": "$attack_damage"
+          },
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "tidehunter_anchor_smash",
+              "duration": "$reduction_duration",
+              "attackDamagePercent": "$damage_reduction"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "tidehunter_ravage": {
+    "status": "simplified",
+    "note": "every enemy in the radius is hit at once instead of by the expanding wave",
+    "targeting": "noTarget",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "area",
+        "radius": "$radius",
+        "center": "caster",
+        "team": "enemy",
+        "effects": [
+          {
+            "kind": "damage",
+            "damageType": "magical",
+            "amounts": "$dmg"
+          },
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "tidehunter_ravage",
+              "duration": "$duration",
+              "flags": [
+                "stunned"
+              ]
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "night_stalker_void": {
+    "status": "simplified",
+    "note": "day values always: no night ministun or longer duration",
+    "targeting": "unit",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "damage",
+        "damageType": "magical",
+        "amounts": "$damage"
+      },
+      {
+        "kind": "modifier",
+        "modifiers": {
+          "key": "night_stalker_void",
+          "duration": "$duration_day",
+          "moveSpeedPercent": "-$movespeed_slow",
+          "attackSpeed": "-$attackspeed_slow"
+        }
+      }
+    ]
+  },
+  "night_stalker_crippling_fear": {
+    "status": "simplified",
+    "note": "day duration always (no longer duration at night)",
+    "targeting": "noTarget",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "modifier",
+        "modifiers": {
+          "key": "night_stalker_crippling_fear",
+          "duration": "$duration_day",
+          "aura": {
+            "radius": "$radius",
+            "team": "enemy",
+            "modifier": {
+              "key": "night_stalker_crippling_fear_debuff",
+              "duration": 1,
+              "flags": [
+                "silenced"
+              ],
+              "damagePerSecond": "$dps"
+            }
+          }
+        }
+      }
+    ]
+  },
+  "night_stalker_darkness": {
+    "status": "simplified",
+    "note": "bonus damage only: no forced night, no flying, no unobstructed vision",
+    "targeting": "noTarget",
+    "targetTeam": "ally",
+    "effects": [
+      {
+        "kind": "modifier",
+        "modifiers": {
+          "key": "night_stalker_darkness",
+          "duration": "$duration",
+          "damage": "$bonus_damage"
+        }
+      }
+    ]
+  },
+  "undying_decay": {
+    "status": "simplified",
+    "note": "no double damage to creeps; stolen strength does not stack between casts and Undying gains it as from one hero",
+    "targeting": "point",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "area",
+        "radius": "$radius",
+        "center": "point",
+        "team": "enemy",
+        "effects": [
+          {
+            "kind": "damage",
+            "damageType": "magical",
+            "amounts": "$decay_damage"
+          }
+        ]
+      },
+      {
+        "kind": "area",
+        "radius": "$radius",
+        "center": "point",
+        "team": "enemy",
+        "heroesOnly": true,
+        "effects": [
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "undying_decay_debuff",
+              "duration": "$abilityduration",
+              "strength": "-$str_steal"
+            }
+          }
+        ]
+      },
+      {
+        "kind": "modifier",
+        "modifiers": {
+          "key": "undying_decay_buff",
+          "duration": "$abilityduration",
+          "strength": "$str_steal"
+        }
+      }
+    ]
+  },
+  "undying_flesh_golem": {
+    "status": "simplified",
+    "note": "no strength percentage bonus; attacks do not spawn zombies",
+    "targeting": "noTarget",
+    "targetTeam": "ally",
+    "effects": [
+      {
+        "kind": "modifier",
+        "modifiers": {
+          "key": "undying_flesh_golem",
+          "duration": "$duration",
+          "moveSpeed": "$movement_bonus",
+          "onHit": [
+            {
+              "kind": "modifier",
+              "modifiers": {
+                "key": "undying_flesh_golem_debuff",
+                "duration": "$slow_duration",
+                "moveSpeedPercent": "-$slow",
+                "incomingDamagePercent": "$damage_amp"
+              }
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "magnataur_shockwave": {
+    "status": "simplified",
+    "note": "unit-targeted: the target only instead of a line; no pull",
+    "targeting": "unit",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "projectile",
+        "speed": "$shock_speed",
+        "effects": [
+          {
+            "kind": "damage",
+            "damageType": "magical",
+            "amounts": "$shock_damage"
+          },
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "magnataur_shockwave",
+              "duration": "$basic_slow_duration",
+              "moveSpeedPercent": "-$movement_slow"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "magnataur_empower": {
+    "status": "simplified",
+    "note": "a circle (the cleave distance as the radius) instead of a cone; the bonus as a percent of the whole attack damage; no always-on bonus for Magnus himself",
+    "targeting": "unit",
+    "targetTeam": "ally",
+    "effects": [
+      {
+        "kind": "modifier",
+        "modifiers": {
+          "key": "magnataur_empower",
+          "duration": "$empower_duration",
+          "attackDamagePercent": "$bonus_damage_pct",
+          "cleavePercent": "$cleave_damage_pct",
+          "cleaveRadius": "$cleave_distance"
+        }
+      }
+    ]
+  },
+  "magnataur_skewer": {
+    "status": "simplified",
+    "note": "instant rush to the point; hits around the end point only: nobody is dragged; no damage bonus from the distance",
+    "targeting": "point",
+    "targetTeam": "enemy",
+    "castRange": "$range",
+    "effects": [
+      {
+        "kind": "dash"
+      },
+      {
+        "kind": "area",
+        "radius": "$skewer_radius",
+        "center": "point",
+        "team": "enemy",
+        "effects": [
+          {
+            "kind": "damage",
+            "damageType": "magical",
+            "amounts": "$skewer_damage"
+          },
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "magnataur_skewer",
+              "duration": "$slow_duration",
+              "moveSpeedPercent": "-$slow_pct"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "magnataur_reverse_polarity": {
+    "status": "simplified",
+    "note": "no pull in front of Magnus",
+    "targeting": "noTarget",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "area",
+        "radius": "$pull_radius",
+        "center": "caster",
+        "team": "enemy",
+        "effects": [
+          {
+            "kind": "damage",
+            "damageType": "magical",
+            "amounts": "$polarity_damage"
+          },
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "magnataur_reverse_polarity",
+              "duration": "$hero_stun_duration",
+              "flags": [
+                "stunned"
+              ]
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "monkey_king_boundless_strike": {
+    "status": "simplified",
+    "note": "unit-targeted: the target only instead of a line; the flat bonus damage only, without the critical attack",
+    "targeting": "unit",
+    "targetTeam": "enemy",
+    "castRange": "$strike_cast_range",
+    "effects": [
+      {
+        "kind": "damage",
+        "damageType": "physical",
+        "amounts": "$strike_flat_damage"
+      },
+      {
+        "kind": "modifier",
+        "modifiers": {
+          "key": "monkey_king_boundless_strike",
+          "duration": "$stun_duration",
+          "flags": [
+            "stunned"
+          ]
+        }
+      }
+    ]
+  },
+  "monkey_king_primal_spring": {
+    "status": "simplified",
+    "note": "cast from the ground (no tree perch needed); always the full channel (the channel time as the cast point); instant leap",
+    "targeting": "point",
+    "targetTeam": "enemy",
+    "castPoint": "$abilitychanneltime",
+    "effects": [
+      {
+        "kind": "dash"
+      },
+      {
+        "kind": "area",
+        "radius": "$impact_radius",
+        "center": "point",
+        "team": "enemy",
+        "effects": [
+          {
+            "kind": "damage",
+            "damageType": "magical",
+            "amounts": "$impact_damage"
+          },
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "monkey_king_primal_spring",
+              "duration": "$impact_slow_duration",
+              "moveSpeedPercent": "-$impact_movement_slow"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "void_spirit_aether_remnant": {
+    "status": "simplified",
+    "note": "triggers at once on enemies within the watch range of the point instead of a remnant watching a line; the pull is a stun of the pull duration without moving the target",
+    "targeting": "point",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "area",
+        "radius": "$remnant_watch_distance",
+        "center": "point",
+        "team": "enemy",
+        "effects": [
+          {
+            "kind": "damage",
+            "damageType": "magical",
+            "amounts": "$impact_damage"
+          },
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "void_spirit_aether_remnant",
+              "duration": "$pull_duration",
+              "flags": [
+                "stunned"
+              ]
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "void_spirit_dissimilate": {
+    "status": "simplified",
+    "note": "damages enemies around him where he stands: no vanishing, no portals to choose the exit from",
+    "targeting": "noTarget",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "area",
+        "radius": "$damage_radius",
+        "center": "caster",
+        "team": "enemy",
+        "effects": [
+          {
+            "kind": "damage",
+            "damageType": "magical",
+            "amounts": "$dmg"
+          }
+        ]
+      }
+    ]
+  },
+  "void_spirit_resonant_pulse": {
+    "status": "simplified",
+    "note": "the shield absorbs damage of any type (physical only in Dota) and does not grow per hero hit; the pulse lands at once",
+    "targeting": "noTarget",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "area",
+        "radius": "$radius",
+        "center": "caster",
+        "team": "enemy",
+        "effects": [
+          {
+            "kind": "damage",
+            "damageType": "magical",
+            "amounts": "$damage"
+          }
+        ]
+      },
+      {
+        "kind": "modifier",
+        "modifiers": {
+          "key": "void_spirit_resonant_pulse",
+          "duration": "$buff_duration",
+          "barrier": "$base_absorb_amount"
+        }
+      }
+    ]
+  },
+  "void_spirit_astral_step": {
+    "status": "simplified",
+    "note": "one charge (the charge restore time as the cooldown); hits enemies around the end point only, not along the path, without the attack; the void mark's damage lands at once with the slow",
+    "targeting": "point",
+    "targetTeam": "enemy",
+    "castRange": "$max_travel_distance",
+    "cooldown": "$abilitychargerestoretime",
+    "effects": [
+      {
+        "kind": "dash"
+      },
+      {
+        "kind": "area",
+        "radius": "$radius",
+        "center": "point",
+        "team": "enemy",
+        "effects": [
+          {
+            "kind": "damage",
+            "damageType": "magical",
+            "amounts": "$pop_damage"
+          },
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "void_spirit_astral_step",
+              "duration": "$pop_damage_delay",
+              "moveSpeedPercent": "-$movement_slow_pct"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "snapfire_scatterblast": {
+    "status": "simplified",
+    "note": "a circle at the point instead of a cone; no point-blank bonus",
+    "targeting": "point",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "area",
+        "radius": "$blast_width_end",
+        "center": "point",
+        "team": "enemy",
+        "effects": [
+          {
+            "kind": "damage",
+            "damageType": "magical",
+            "amounts": "$damage"
+          },
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "snapfire_scatterblast",
+              "duration": "$debuff_duration",
+              "moveSpeedPercent": "-$movement_slow_pct",
+              "attackSpeed": "-$attack_slow_pct"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "snapfire_firesnap_cookie": {
+    "status": "simplified",
+    "note": "the ally does not hop: enemies around it are damaged and stunned at once",
+    "targeting": "unit",
+    "targetTeam": "ally",
+    "effects": [
+      {
+        "kind": "area",
+        "radius": "$impact_radius",
+        "center": "target",
+        "team": "enemy",
+        "effects": [
+          {
+            "kind": "damage",
+            "damageType": "magical",
+            "amounts": "$impact_damage"
+          },
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "snapfire_firesnap_cookie",
+              "duration": "$impact_stun_duration",
+              "flags": [
+                "stunned"
+              ]
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "snapfire_mortimer_kisses": {
+    "status": "simplified",
+    "note": "one glob at the point instead of 8 over 5.5 s; the firespit pool is a burn and slow on the enemies hit, lasting the pool's duration",
+    "targeting": "point",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "area",
+        "radius": "$impact_radius",
+        "center": "point",
+        "team": "enemy",
+        "effects": [
+          {
+            "kind": "damage",
+            "damageType": "magical",
+            "amounts": "$damage_per_impact"
+          },
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "snapfire_mortimer_kisses",
+              "duration": "$burn_ground_duration",
+              "damagePerSecond": "$burn_damage",
+              "damageType": "magical",
+              "period": "$burn_interval",
+              "moveSpeedPercent": "-$move_slow_pct"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "drow_ranger_frost_arrows": {
+    "status": "simplified",
+    "note": "always on, without mana cost; the bonus damage is a separate physical hit",
+    "targeting": "passive",
+    "targetTeam": "ally",
+    "passive": {
+      "key": "drow_ranger_frost_arrows",
+      "onHit": [
+        {
+          "kind": "damage",
+          "damageType": "physical",
+          "amounts": "$damage"
+        },
+        {
+          "kind": "modifier",
+          "modifiers": {
+            "key": "drow_ranger_frost_arrows_slow",
+            "duration": "$abilityduration",
+            "moveSpeedPercent": "$frost_arrows_movement_speed"
+          }
+        }
+      ]
+    }
+  },
+  "drow_ranger_wave_of_silence": {
+    "status": "simplified",
+    "note": "a circle of the wave's width at the point instead of a 900-long wave; full knockback regardless of distance; no reveal",
+    "targeting": "point",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "area",
+        "radius": "$wave_width",
+        "center": "point",
+        "team": "enemy",
+        "effects": [
+          {
+            "kind": "knockback",
+            "amounts": "$knockback_distance_max"
+          },
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "drow_ranger_wave_of_silence",
+              "duration": "$silence_duration",
+              "flags": [
+                "silenced"
+              ]
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "drow_ranger_glacier": {
+    "status": "simplified",
+    "note": "a self buff for the hill's duration: no hill (she keeps it when moving), no range for allies, no knockback, no vision; the damage bonus applies to any target",
+    "targeting": "noTarget",
+    "targetTeam": "ally",
+    "effects": [
+      {
+        "kind": "modifier",
+        "modifiers": {
+          "key": "drow_ranger_glacier",
+          "duration": "$shard_duration",
+          "attackRange": "$attack_range_bonus",
+          "attackDamagePercent": "$damage_bonus"
+        }
+      }
+    ]
+  },
+  "drow_ranger_marksmanship": {
+    "status": "simplified",
+    "note": "the proc adds its bonus damage as a physical hit: no base-armor pierce; not disabled by nearby enemy heroes",
+    "targeting": "passive",
+    "targetTeam": "ally",
+    "passive": {
+      "key": "drow_ranger_marksmanship",
+      "onHitChance": "$chance",
+      "onHit": [
+        {
+          "kind": "damage",
+          "damageType": "physical",
+          "amounts": "$bonus_damage"
+        }
+      ]
+    }
+  },
+  "phantom_lancer_spirit_lance": {
+    "status": "simplified",
+    "note": "no illusion",
+    "targeting": "unit",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "projectile",
+        "speed": "$lance_speed",
+        "effects": [
+          {
+            "kind": "damage",
+            "damageType": "magical",
+            "amounts": "$lance_damage"
+          },
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "phantom_lancer_spirit_lance",
+              "duration": "$duration",
+              "moveSpeedPercent": "$movement_speed_pct"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "phantom_lancer_phantom_edge": {
+    "status": "simplified",
+    "note": "a cast dash to the target instead of a rush when ordered to attack; no bonus speed or evasion",
+    "targeting": "unit",
+    "targetTeam": "enemy",
+    "castRange": "$max_distance",
+    "effects": [
+      {
+        "kind": "dash"
+      }
+    ]
+  },
+  "enchantress_enchant": {
+    "status": "simplified",
+    "note": "heroes only: dispel and slow; no creep control, no bonus attack range against the target",
+    "targeting": "unit",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "dispel"
+      },
+      {
+        "kind": "modifier",
+        "modifiers": {
+          "key": "enchantress_enchant",
+          "duration": "$slow_duration",
+          "moveSpeedPercent": "$slow_movement_speed"
+        }
+      }
+    ]
+  },
+  "enchantress_natures_attendants": {
+    "status": "simplified",
+    "note": "every ally in the radius gets the heal of all wisps (in Dota the wisps spread among the units); the cloud stays around her",
+    "targeting": "noTarget",
+    "targetTeam": "ally",
+    "effects": [
+      {
+        "kind": "modifier",
+        "modifiers": {
+          "key": "enchantress_natures_attendants",
+          "duration": "$heal_duration",
+          "aura": {
+            "radius": "$radius",
+            "team": "ally",
+            "modifier": {
+              "key": "enchantress_natures_attendants_heal",
+              "duration": 1,
+              "healPerSecond": "$heal*$wisp_count"
+            }
+          }
+        }
+      }
+    ]
+  },
+  "enchantress_little_friends": {
+    "status": "simplified",
+    "note": "the root only, for its base duration: nearby units are not made to attack the target and get no speed, the root does not grow per unit",
+    "targeting": "unit",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "modifier",
+        "modifiers": {
+          "key": "enchantress_little_friends",
+          "duration": "$root_base_duration",
+          "flags": [
+            "rooted"
+          ]
+        }
+      }
+    ]
+  },
+  "silencer_curse_of_the_silent": {
+    "status": "simplified",
+    "note": "the duration is not extended by casting and not paused by silence",
+    "targeting": "point",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "area",
+        "radius": "$radius",
+        "center": "point",
+        "team": "enemy",
+        "effects": [
+          {
+            "kind": "damage",
+            "damageType": "magical",
+            "amounts": "$application_damage"
+          },
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "silencer_curse_of_the_silent",
+              "duration": "$duration",
+              "damagePerSecond": "$damage",
+              "damageType": "magical",
+              "moveSpeedPercent": "$movespeed"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "silencer_last_word": {
+    "status": "simplified",
+    "note": "damage and silence land at once instead of on the target's cast or when the timer ends; no Intelligence-difference damage",
+    "targeting": "unit",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "damage",
+        "damageType": "magical",
+        "amounts": "$damage"
+      },
+      {
+        "kind": "modifier",
+        "modifiers": {
+          "key": "silencer_last_word",
+          "duration": "$debuff_duration",
+          "flags": [
+            "silenced"
+          ]
+        }
+      }
+    ]
+  },
+  "silencer_global_silence": {
+    "status": "full",
+    "targeting": "noTarget",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "area",
+        "radius": 30000,
+        "center": "caster",
+        "team": "enemy",
+        "effects": [
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "silencer_global_silence",
+              "duration": "$abilityduration",
+              "flags": [
+                "silenced"
+              ]
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "sniper_shrapnel": {
+    "status": "simplified",
+    "note": "one charge (the charge restore time as the cooldown); no zone: enemies in the area at the impact get the damage over time and slow for the zone's whole duration, without the delay",
+    "targeting": "point",
+    "targetTeam": "enemy",
+    "cooldown": "$abilitychargerestoretime",
+    "effects": [
+      {
+        "kind": "area",
+        "radius": "$radius",
+        "center": "point",
+        "team": "enemy",
+        "effects": [
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "sniper_shrapnel",
+              "duration": "$duration",
+              "damagePerSecond": "$shrapnel_damage",
+              "damageType": "magical",
+              "moveSpeedPercent": "$slow_movement_speed"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "sniper_headshot": {
+    "status": "simplified",
+    "note": "fixed knockback distance (not by closeness); movement slow only, no attack slow",
+    "targeting": "passive",
+    "targetTeam": "ally",
+    "passive": {
+      "key": "sniper_headshot",
+      "onHitChance": "$proc_chance",
+      "onHit": [
+        {
+          "kind": "damage",
+          "damageType": "physical",
+          "amounts": "$damage"
+        },
+        {
+          "kind": "knockback",
+          "amounts": "$knockback_distance"
+        },
+        {
+          "kind": "modifier",
+          "modifiers": {
+            "key": "sniper_headshot_slow",
+            "duration": "$slow_duration",
+            "moveSpeedPercent": "$slow"
+          }
+        }
+      ]
+    }
+  },
+  "sniper_take_aim": {
+    "status": "simplified",
+    "note": "the passive attack range only: no active (extra range, sure Headshot, self slow, vision)",
+    "targeting": "passive",
+    "targetTeam": "ally",
+    "passive": {
+      "key": "sniper_take_aim",
+      "attackRange": "$passive_attack_range_bonus"
+    }
+  },
+  "sniper_concussive_grenade": {
+    "status": "simplified",
+    "note": "enemies are pushed away from Sniper rather than from the grenade; Sniper is not pushed himself",
+    "targeting": "point",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "area",
+        "radius": "$radius",
+        "center": "point",
+        "team": "enemy",
+        "effects": [
+          {
+            "kind": "damage",
+            "damageType": "magical",
+            "amounts": "$damage"
+          },
+          {
+            "kind": "knockback",
+            "amounts": "$knockback_distance"
+          },
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "sniper_concussive_grenade",
+              "duration": "$debuff_duration",
+              "flags": [
+                "disarmed"
+              ],
+              "moveSpeedPercent": "-$slow"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "sniper_assassinate": {
+    "status": "simplified",
+    "note": "the bonus damage only, without Sniper's attack damage; no mini-stun; no refresh on a kill",
+    "targeting": "unit",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "projectile",
+        "speed": "$projectile_speed",
+        "effects": [
+          {
+            "kind": "damage",
+            "damageType": "magical",
+            "amounts": "$damage"
+          }
+        ]
+      }
+    ]
+  },
+  "queenofpain_shadow_strike": {
+    "status": "full",
+    "targeting": "unit",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "projectile",
+        "speed": "$projectile_speed",
+        "effects": [
+          {
+            "kind": "damage",
+            "damageType": "magical",
+            "amounts": "$strike_damage"
+          },
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "queenofpain_shadow_strike",
+              "duration": "$duration",
+              "damagePerSecond": "$duration_damage/$damage_interval",
+              "damageType": "magical",
+              "period": "$damage_interval",
+              "moveSpeedPercent": "$movement_slow"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "queenofpain_blink": {
+    "status": "full",
+    "targeting": "point",
+    "targetTeam": "ally",
+    "effects": [
+      {
+        "kind": "dash"
+      }
+    ]
+  },
+  "queenofpain_scream_of_pain": {
+    "status": "simplified",
+    "note": "lands at once (no projectiles); no damage reflected to herself",
+    "targeting": "noTarget",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "area",
+        "radius": "$area_of_effect",
+        "center": "caster",
+        "team": "enemy",
+        "effects": [
+          {
+            "kind": "damage",
+            "damageType": "magical",
+            "amounts": "$damage"
+          }
+        ]
+      }
+    ]
+  },
+  "queenofpain_sonic_wave": {
+    "status": "simplified",
+    "note": "a circle of the final width at the point instead of a travelling cone; the knockback is instant",
+    "targeting": "point",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "area",
+        "radius": "$final_aoe",
+        "center": "point",
+        "team": "enemy",
+        "effects": [
+          {
+            "kind": "damage",
+            "damageType": "pure",
+            "amounts": "$damage"
+          },
+          {
+            "kind": "knockback",
+            "amounts": "$knockback_distance"
+          }
+        ]
+      }
+    ]
+  },
+  "skeleton_king_hellfire_blast": {
+    "status": "simplified",
+    "note": "the burn and slow start together with the stun, not after it",
+    "targeting": "unit",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "projectile",
+        "speed": "$blast_speed",
+        "effects": [
+          {
+            "kind": "damage",
+            "damageType": "magical",
+            "amounts": "$damage"
+          },
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "skeleton_king_hellfire_blast",
+              "duration": "$blast_stun_duration",
+              "flags": [
+                "stunned"
+              ]
+            }
+          },
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "skeleton_king_hellfire_blast_burn",
+              "duration": "$blast_dot_duration",
+              "damagePerSecond": "$blast_dot_damage",
+              "damageType": "magical",
+              "moveSpeedPercent": "$blast_slow"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "skeleton_king_vampiric_spirit": {
+    "status": "simplified",
+    "note": "lifesteal only: no Wraith form on death",
+    "targeting": "passive",
+    "targetTeam": "ally",
+    "passive": {
+      "key": "skeleton_king_vampiric_spirit",
+      "lifesteal": "$vampiric_aura"
+    }
+  },
+  "clinkz_strafe": {
+    "status": "simplified",
+    "note": "Clinkz only: no bonus for Skeleton Archers",
+    "targeting": "noTarget",
+    "targetTeam": "ally",
+    "effects": [
+      {
+        "kind": "modifier",
+        "modifiers": {
+          "key": "clinkz_strafe",
+          "duration": "$duration",
+          "attackSpeed": "$attack_speed_bonus",
+          "attackRange": "$attack_range_bonus"
+        }
+      }
+    ]
+  },
+  "clinkz_searing_arrows": {
+    "status": "simplified",
+    "note": "always on, without mana cost; Skeleton Archers do not fire it",
+    "targeting": "passive",
+    "targetTeam": "ally",
+    "passive": {
+      "key": "clinkz_searing_arrows",
+      "onHit": [
+        {
+          "kind": "damage",
+          "damageType": "physical",
+          "amounts": "$damage_bonus"
+        }
+      ]
+    }
+  },
+  "clinkz_wind_walk": {
+    "status": "simplified",
+    "note": "no Skeleton Archers on leaving it; no fade time; no free pathing through units",
+    "targeting": "noTarget",
+    "targetTeam": "ally",
+    "effects": [
+      {
+        "kind": "modifier",
+        "modifiers": {
+          "key": "clinkz_wind_walk",
+          "duration": "$duration",
+          "flags": [
+            "invisible"
+          ],
+          "moveSpeedPercent": "$move_speed_bonus_pct",
+          "breakOnAction": true
+        }
+      }
+    ]
+  },
+  "weaver_the_swarm": {
+    "status": "simplified",
+    "note": "the beetles latch at once on enemies around the point instead of flying in a line; they cannot be killed; the armor reduction does not stack per attack",
+    "targeting": "point",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "area",
+        "radius": "$spawn_radius",
+        "center": "point",
+        "team": "enemy",
+        "effects": [
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "weaver_the_swarm",
+              "duration": "$duration",
+              "damagePerSecond": "$damage/$attack_rate",
+              "damageType": "physical",
+              "period": "$attack_rate",
+              "armor": "-$armor_reduction"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "weaver_shukuchi": {
+    "status": "simplified",
+    "note": "damages enemies around him at the cast instead of those he passes through; a flat speed bonus instead of the minimum speed",
+    "targeting": "noTarget",
+    "targetTeam": "ally",
+    "effects": [
+      {
+        "kind": "area",
+        "radius": "$radius",
+        "center": "caster",
+        "team": "enemy",
+        "effects": [
+          {
+            "kind": "damage",
+            "damageType": "magical",
+            "amounts": "$damage"
+          }
+        ]
+      },
+      {
+        "kind": "modifier",
+        "modifiers": {
+          "key": "weaver_shukuchi",
+          "duration": "$duration",
+          "flags": [
+            "invisible"
+          ],
+          "moveSpeed": "$speed",
+          "breakOnAction": true
+        }
+      }
+    ]
+  },
+  "spectre_spectral_dagger": {
+    "status": "simplified",
+    "note": "unit-targeted dagger: the target is slowed for the hero path's duration; no Shadow Path on the ground, no speed or free pathing for Spectre",
+    "targeting": "unit",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "projectile",
+        "speed": "$speed",
+        "effects": [
+          {
+            "kind": "damage",
+            "damageType": "magical",
+            "amounts": "$damage"
+          },
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "spectre_spectral_dagger",
+              "duration": "$hero_path_duration",
+              "moveSpeedPercent": "-$bonus_movespeed"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "ogre_magi_fireblast": {
+    "status": "full",
+    "targeting": "unit",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "damage",
+        "damageType": "magical",
+        "amounts": "$fireblast_damage"
+      },
+      {
+        "kind": "modifier",
+        "modifiers": {
+          "key": "ogre_magi_fireblast",
+          "duration": "$stun_duration",
+          "flags": [
+            "stunned"
+          ]
+        }
+      }
+    ]
+  },
+  "ogre_magi_ignite": {
+    "status": "simplified",
+    "note": "the target only, without the second random unit",
+    "targeting": "unit",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "projectile",
+        "speed": "$projectile_speed",
+        "effects": [
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "ogre_magi_ignite",
+              "duration": "$duration",
+              "damagePerSecond": "$burn_damage",
+              "damageType": "magical",
+              "moveSpeedPercent": "$slow_movement_speed_pct"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "ogre_magi_bloodlust": {
+    "status": "simplified",
+    "note": "no extra attack speed when cast on Ogre himself; not cast on towers",
+    "targeting": "unit",
+    "targetTeam": "ally",
+    "effects": [
+      {
+        "kind": "modifier",
+        "modifiers": {
+          "key": "ogre_magi_bloodlust",
+          "duration": "$duration",
+          "moveSpeedPercent": "$bonus_movement_speed",
+          "attackSpeed": "$bonus_attack_speed"
+        }
+      }
+    ]
+  },
+  "naga_siren_ensnare": {
+    "status": "full",
+    "targeting": "unit",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "projectile",
+        "speed": "$net_speed",
+        "effects": [
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "naga_siren_ensnare",
+              "duration": "$duration",
+              "flags": [
+                "rooted"
+              ]
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "legion_commander_overwhelming_odds": {
+    "status": "simplified",
+    "note": "base damage only: no extra damage per hero or unit in the area",
+    "targeting": "noTarget",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "area",
+        "radius": "$radius",
+        "center": "caster",
+        "team": "enemy",
+        "effects": [
+          {
+            "kind": "damage",
+            "damageType": "magical",
+            "amounts": "$damage"
+          },
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "legion_commander_overwhelming_odds_slow",
+              "duration": "$slow_duration",
+              "moveSpeedPercent": "-$movement_slow"
+            }
+          }
+        ]
+      },
+      {
+        "kind": "modifier",
+        "modifiers": {
+          "key": "legion_commander_overwhelming_odds",
+          "duration": "$duration",
+          "attackSpeed": "$bonus_attack_speed"
+        }
+      }
+    ]
+  },
+  "legion_commander_press_the_attack": {
+    "status": "full",
+    "targeting": "unit",
+    "targetTeam": "ally",
+    "effects": [
+      {
+        "kind": "dispel",
+        "strong": true
+      },
+      {
+        "kind": "modifier",
+        "modifiers": {
+          "key": "legion_commander_press_the_attack",
+          "duration": "$duration",
+          "moveSpeedPercent": "$move_speed",
+          "healthRegen": "$hp_regen"
+        }
+      }
+    ]
+  },
+  "abyssal_underlord_firestorm": {
+    "status": "simplified",
+    "note": "no zone: enemies in the area at the cast take the waves as damage over time for all waves and the max-health burn throughout",
+    "targeting": "point",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "area",
+        "radius": "$radius",
+        "center": "point",
+        "team": "enemy",
+        "effects": [
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "abyssal_underlord_firestorm",
+              "duration": "$wave_interval*$wave_count",
+              "damagePerSecond": "$wave_damage/$wave_interval",
+              "damageType": "magical",
+              "period": "$wave_interval",
+              "damagePerSecondMaxHealthPercent": "$burn_damage/$burn_interval"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "abyssal_underlord_pit_of_malice": {
+    "status": "simplified",
+    "note": "no pit: enemies in the area at the cast are damaged and rooted once",
+    "targeting": "point",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "area",
+        "radius": "$radius",
+        "center": "point",
+        "team": "enemy",
+        "effects": [
+          {
+            "kind": "damage",
+            "damageType": "magical",
+            "amounts": "$pit_damage"
+          },
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "abyssal_underlord_pit_of_malice",
+              "duration": "$ensnare_duration",
+              "flags": [
+                "rooted"
+              ]
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "abyssal_underlord_atrophy_aura": {
+    "status": "simplified",
+    "note": "reduces all attack damage (base damage only in Dota); no bonus damage for Underlord from deaths",
+    "targeting": "passive",
+    "targetTeam": "ally",
+    "passive": {
+      "key": "abyssal_underlord_atrophy_aura",
+      "aura": {
+        "radius": "$radius",
+        "team": "enemy",
+        "modifier": {
+          "key": "abyssal_underlord_atrophy_aura_debuff",
+          "duration": 1,
+          "attackDamagePercent": "-$damage_reduction_pct"
+        }
+      }
+    }
+  },
+  "phoenix_icarus_dive": {
+    "status": "simplified",
+    "note": "a dash to the point that burns enemies around its end only, not along the arc; no return, no health cost",
+    "targeting": "point",
+    "targetTeam": "enemy",
+    "castRange": "$dash_length",
+    "effects": [
+      {
+        "kind": "dash"
+      },
+      {
+        "kind": "area",
+        "radius": "$hit_radius",
+        "center": "point",
+        "team": "enemy",
+        "effects": [
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "phoenix_icarus_dive",
+              "duration": "$burn_duration",
+              "damagePerSecond": "$damage_per_second",
+              "damageType": "magical",
+              "moveSpeedPercent": "-$slow_movement_speed_pct"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "phoenix_fire_spirits": {
+    "status": "simplified",
+    "note": "one spirit launched at the point on the cast instead of spirits launched one by one; no health cost",
+    "targeting": "point",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "area",
+        "radius": "$radius",
+        "center": "point",
+        "team": "enemy",
+        "effects": [
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "phoenix_fire_spirits",
+              "duration": "$duration",
+              "damagePerSecond": "$damage_per_second",
+              "damageType": "magical",
+              "attackSpeed": "$attackspeed_slow"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "naga_siren_rip_tide": {
+    "status": "simplified",
+    "note": "procs on the attack after 6 plain attacks (every 7th attack; every 6th in Dota); hits enemies around Naga; no illusions to share it",
+    "targeting": "passive",
+    "targetTeam": "ally",
+    "passive": {
+      "key": "naga_siren_rip_tide",
+      "onHitAfterAttacks": "$hits",
+      "onHit": [
+        {
+          "kind": "area",
+          "radius": "$radius",
+          "center": "caster",
+          "team": "enemy",
+          "effects": [
+            {
+              "kind": "damage",
+              "damageType": "magical",
+              "amounts": "$damage"
+            },
+            {
+              "kind": "modifier",
+              "modifiers": {
+                "key": "naga_siren_rip_tide_debuff",
+                "duration": "$duration",
+                "armor": "$armor_reduction"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "enchantress_untouchable": {
+    "status": "simplified",
+    "note": "the attack slow is applied when the attack lands, not when the attacker starts it",
+    "targeting": "passive",
+    "targetTeam": "ally",
+    "passive": {
+      "key": "enchantress_untouchable",
+      "whenAttacked": [
+        {
+          "kind": "modifier",
+          "modifiers": {
+            "key": "enchantress_untouchable_slow",
+            "duration": "$slow_duration",
+            "attackSpeed": "$slow_attack_speed"
+          }
+        }
+      ]
+    }
+  },
+  "marci_grapple": {
+    "status": "simplified",
+    "note": "enemies only; no throw behind Marci: the target and enemies around it are damaged and slowed where they stand",
+    "targeting": "unit",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "area",
+        "radius": "$landing_radius",
+        "center": "target",
+        "team": "enemy",
+        "effects": [
+          {
+            "kind": "damage",
+            "damageType": "magical",
+            "amounts": "$impact_damage"
+          },
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "marci_grapple",
+              "duration": "$debuff_duration",
+              "moveSpeedPercent": "-$movement_slow_pct"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "marci_companion_run": {
+    "status": "simplified",
+    "note": "lands next to the ally instead of springing past it to a chosen point; no alt-cast ally buff",
+    "targeting": "unit",
+    "targetTeam": "ally",
+    "effects": [
+      {
+        "kind": "dash"
+      },
+      {
+        "kind": "area",
+        "radius": "$landing_radius",
+        "center": "target",
+        "team": "enemy",
+        "effects": [
+          {
+            "kind": "damage",
+            "damageType": "magical",
+            "amounts": "$impact_damage"
+          },
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "marci_companion_run",
+              "duration": "$debuff_duration",
+              "flags": [
+                "stunned"
+              ]
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "marci_bodyguard": {
+    "status": "simplified",
+    "note": "the passive lifesteal and damage bonus only: no cast on an ally, no shared barrier",
+    "targeting": "passive",
+    "targetTeam": "ally",
+    "passive": {
+      "key": "marci_bodyguard",
+      "lifesteal": "$lifesteal_pct",
+      "attackDamagePercent": "$bonus_damage"
+    }
+  },
+  "crystal_maiden_crystal_nova": {
+    "status": "full",
+    "targeting": "point",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "area",
+        "radius": "$radius",
+        "center": "point",
+        "team": "enemy",
+        "effects": [
+          {
+            "kind": "damage",
+            "damageType": "magical",
+            "amounts": "$nova_damage"
+          },
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "crystal_maiden_crystal_nova",
+              "duration": "$duration",
+              "moveSpeedPercent": "$movespeed_slow",
+              "attackSpeed": "$attackspeed_slow"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "crystal_maiden_frostbite": {
+    "status": "simplified",
+    "note": "no 4x damage against creeps",
+    "targeting": "unit",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "modifier",
+        "modifiers": {
+          "key": "crystal_maiden_frostbite",
+          "duration": "$duration",
+          "flags": [
+            "rooted",
+            "disarmed"
+          ],
+          "damagePerSecond": "$damage_per_second",
+          "damageType": "magical",
+          "period": "$tick_interval"
+        }
+      }
+    ]
+  },
+  "crystal_maiden_brilliance_aura": {
+    "status": "simplified",
+    "note": "the proximity value within 1200 only: no map-wide base regen, no mana regen amplification for Crystal Maiden",
+    "targeting": "passive",
+    "targetTeam": "ally",
+    "passive": {
+      "key": "crystal_maiden_brilliance_aura",
+      "aura": {
+        "radius": "$proximity_bonus_radius",
+        "team": "ally",
+        "modifier": {
+          "key": "crystal_maiden_brilliance_aura_regen",
+          "duration": 1,
+          "manaRegen": "$proximity_mana_regen_tooltip"
+        }
+      }
+    }
+  },
+  "razor_plasma_field": {
+    "status": "simplified",
+    "note": "one hit at the edge (maximum) damage and slow on everyone in the radius instead of two hits scaling with distance",
+    "targeting": "noTarget",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "area",
+        "radius": "$radius",
+        "center": "caster",
+        "team": "enemy",
+        "effects": [
+          {
+            "kind": "damage",
+            "damageType": "magical",
+            "amounts": "$damage_max"
+          },
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "razor_plasma_field",
+              "duration": "$slow_duration",
+              "moveSpeedPercent": "-$slow_max"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "kunkka_torrent": {
+    "status": "simplified",
+    "note": "erupts at once (no 1.6 s delay); damage at once, not over the stun",
+    "targeting": "point",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "area",
+        "radius": "$radius",
+        "center": "point",
+        "team": "enemy",
+        "effects": [
+          {
+            "kind": "damage",
+            "damageType": "magical",
+            "amounts": "$torrent_damage"
+          },
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "kunkka_torrent_stun",
+              "duration": "$stun_duration",
+              "flags": [
+                "stunned"
+              ]
+            }
+          },
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "kunkka_torrent",
+              "duration": "$slow_duration",
+              "moveSpeedPercent": "$movespeed_bonus"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "kunkka_tidebringer": {
+    "status": "simplified",
+    "note": "a cast that empowers the next attack (no autocast); the cleave is a circle around the target instead of a widening cone",
+    "targeting": "noTarget",
+    "targetTeam": "ally",
+    "effects": [
+      {
+        "kind": "modifier",
+        "modifiers": {
+          "key": "kunkka_tidebringer",
+          "damage": "$damage_bonus",
+          "cleavePercent": "$cleave_damage",
+          "cleaveRadius": "$cleave_distance",
+          "consumedOnHit": true,
+          "onHit": []
+        }
+      }
+    ]
+  },
+  "kunkka_ghostship": {
+    "status": "simplified",
+    "note": "crashes at the point at once (no sailing, no delay); the ship width as the crash radius; no rum for allies",
+    "targeting": "point",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "area",
+        "radius": "$ghostship_width",
+        "center": "point",
+        "team": "enemy",
+        "effects": [
+          {
+            "kind": "damage",
+            "damageType": "magical",
+            "amounts": "$dmg"
+          },
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "kunkka_ghostship",
+              "duration": "$stun_duration",
+              "flags": [
+                "stunned"
+              ]
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "warlock_shadow_word": {
+    "status": "simplified",
+    "note": "enemies only (no heal on allies); no splash to units around the target",
+    "targeting": "unit",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "modifier",
+        "modifiers": {
+          "key": "warlock_shadow_word",
+          "duration": "$duration",
+          "damagePerSecond": "$damage",
+          "damageType": "magical",
+          "period": "$tick_interval"
+        }
+      }
+    ]
+  },
+  "warlock_rain_of_chaos": {
+    "status": "simplified",
+    "note": "stuns at once (no 0.5 s delay); the golem has no Flaming Fists, Permanent Immolation, spell damage reduction or slow resistance; top-level golem stats",
+    "targeting": "point",
+    "targetTeam": "enemy",
+    "unitTypes": [
+      {
+        "id": "warlock_golem",
+        "gameUnit": "npc_dota_warlock_golem",
+        "health": "$golem_hp",
+        "armor": "$golem_armor",
+        "moveSpeed": "$golem_movement_speed",
+        "attackDamageMin": "$golem_dmg",
+        "attackDamageMax": "$golem_dmg"
+      }
+    ],
+    "effects": [
+      {
+        "kind": "area",
+        "radius": "$aoe",
+        "center": "point",
+        "team": "enemy",
+        "effects": [
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "warlock_rain_of_chaos",
+              "duration": "$stun_duration",
+              "flags": [
+                "stunned"
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "kind": "summon",
+        "unitType": "warlock_golem",
+        "duration": "$golem_duration",
+        "counts": [
+          1
+        ],
+        "atPoint": true
+      }
+    ]
+  },
+  "phantom_assassin_stifling_dagger": {
+    "status": "simplified",
+    "note": "the base damage only: no part of the attack damage, no attack effects",
+    "targeting": "unit",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "projectile",
+        "speed": "$dagger_speed",
+        "effects": [
+          {
+            "kind": "damage",
+            "damageType": "physical",
+            "amounts": "$base_damage"
+          },
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "phantom_assassin_stifling_dagger",
+              "duration": "$duration",
+              "moveSpeedPercent": "$move_slow"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "phantom_assassin_phantom_strike": {
+    "status": "simplified",
+    "note": "enemies only; no attack speed bonus; one charge (the charge restore time as the cooldown)",
+    "targeting": "unit",
+    "targetTeam": "enemy",
+    "cooldown": "$charge_restore_time",
+    "effects": [
+      {
+        "kind": "dash"
+      }
+    ]
+  },
+  "phantom_assassin_blur": {
+    "status": "simplified",
+    "note": "invisibility that ends for good near enemies (in Dota it resumes after leaving); towers not checked; no projectile disjoint on cast; no 9.5% movement speed (the engine takes whole percents)",
+    "targeting": "noTarget",
+    "targetTeam": "ally",
+    "effects": [
+      {
+        "kind": "modifier",
+        "modifiers": {
+          "key": "phantom_assassin_blur",
+          "duration": "$duration",
+          "flags": [
+            "invisible"
+          ],
+          "breakRadius": "$radius"
+        }
+      }
+    ]
+  },
+  "phantom_assassin_immaterial": {
+    "status": "full",
+    "targeting": "passive",
+    "targetTeam": "ally",
+    "passive": {
+      "key": "phantom_assassin_immaterial",
+      "evasion": "$evasion"
+    }
+  },
+  "phantom_assassin_coup_de_grace": {
+    "status": "simplified",
+    "note": "a plain crit chance per attack instead of a Deadly Focus buff; no bonus chance from Stifling Dagger",
+    "targeting": "passive",
+    "targetTeam": "ally",
+    "passive": {
+      "key": "phantom_assassin_coup_de_grace",
+      "critChance": "$crit_chance",
+      "critMultiplier": "$crit_bonus"
+    }
+  },
+  "templar_assassin_meld": {
+    "status": "simplified",
+    "note": "invisibility does not break on moving; the bonus damage and armor reduction hit the attacked unit only (no spill)",
+    "targeting": "noTarget",
+    "targetTeam": "ally",
+    "effects": [
+      {
+        "kind": "modifier",
+        "modifiers": {
+          "key": "templar_assassin_meld",
+          "flags": [
+            "invisible"
+          ],
+          "consumedOnHit": true,
+          "onHit": [
+            {
+              "kind": "damage",
+              "damageType": "physical",
+              "amounts": "$bonus_damage"
+            },
+            {
+              "kind": "modifier",
+              "modifiers": {
+                "key": "templar_assassin_meld_armor",
+                "duration": "$debuff_duration",
+                "armor": "$bonus_armor"
+              }
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "templar_assassin_psi_blades": {
+    "status": "simplified",
+    "note": "attack range only: no spill damage behind the target",
+    "targeting": "passive",
+    "targetTeam": "ally",
+    "passive": {
+      "key": "templar_assassin_psi_blades",
+      "attackRange": "$bonus_attack_range"
+    }
+  },
+  "broodmother_insatiable_hunger": {
+    "status": "simplified",
+    "note": "Broodmother only: no lifesteal aura for her spiderlings",
+    "targeting": "noTarget",
+    "targetTeam": "ally",
+    "effects": [
+      {
+        "kind": "modifier",
+        "modifiers": {
+          "key": "broodmother_insatiable_hunger",
+          "duration": "$duration",
+          "attackDamagePercent": "$bonus_damage",
+          "lifesteal": "$lifesteal_pct"
+        }
+      }
+    ]
+  },
+  "broodmother_incapacitating_bite": {
+    "status": "simplified",
+    "note": "the slow only: no miss chance, no extra damage taken from attacks",
+    "targeting": "passive",
+    "targetTeam": "ally",
+    "passive": {
+      "key": "broodmother_incapacitating_bite",
+      "onHit": [
+        {
+          "kind": "modifier",
+          "modifiers": {
+            "key": "broodmother_incapacitating_bite_debuff",
+            "duration": "$duration",
+            "moveSpeedPercent": "$bonus_movespeed"
+          }
+        }
+      ]
+    }
+  },
+  "broodmother_spawn_spiderlings": {
+    "status": "simplified",
+    "note": "damage and slow only: no spiderlings hatch on a kill",
+    "targeting": "unit",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "projectile",
+        "speed": "$projectile_speed",
+        "effects": [
+          {
+            "kind": "damage",
+            "damageType": "magical",
+            "amounts": "$damage"
+          },
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "broodmother_spawn_spiderlings",
+              "duration": "$slow_duration",
+              "moveSpeedPercent": "-$movement_speed"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "alchemist_acid_spray": {
+    "status": "simplified",
+    "note": "no lasting pool: units in the area at the cast get the debuff for the whole duration",
+    "targeting": "point",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "area",
+        "radius": "$radius",
+        "center": "point",
+        "team": "enemy",
+        "effects": [
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "alchemist_acid_spray",
+              "duration": "$duration",
+              "armor": "-$armor_reduction",
+              "damagePerSecond": "$damage/$tick_rate",
+              "damageType": "physical",
+              "period": "$tick_rate"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "alchemist_unstable_concoction": {
+    "status": "simplified",
+    "note": "thrown at once at a target with the full brew damage and stun: no brewing time, no self-explosion, no projectile, no Corrosive stacks",
+    "targeting": "unit",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "area",
+        "radius": "$radius",
+        "center": "target",
+        "team": "enemy",
+        "effects": [
+          {
+            "kind": "damage",
+            "damageType": "physical",
+            "amounts": "$max_damage"
+          },
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "alchemist_unstable_concoction",
+              "duration": "$max_stun",
+              "flags": [
+                "stunned"
+              ]
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "alchemist_chemical_rage": {
+    "status": "simplified",
+    "note": "regen and movement speed only: no base attack time reduction; no dispel",
+    "targeting": "noTarget",
+    "targetTeam": "ally",
+    "effects": [
+      {
+        "kind": "modifier",
+        "modifiers": {
+          "key": "alchemist_chemical_rage",
+          "duration": "$duration",
+          "healthRegen": "$bonus_health_regen",
+          "moveSpeed": "$bonus_movespeed"
+        }
+      }
+    ]
+  },
+  "oracle_fortunes_end": {
+    "status": "simplified",
+    "note": "enemies only; always channelled fully (the channel time as the cast point), root for the maximum duration",
+    "targeting": "unit",
+    "targetTeam": "enemy",
+    "castPoint": "$channel_time",
+    "effects": [
+      {
+        "kind": "projectile",
+        "speed": "$bolt_speed",
+        "effects": [
+          {
+            "kind": "area",
+            "radius": "$radius",
+            "center": "target",
+            "team": "enemy",
+            "effects": [
+              {
+                "kind": "dispel"
+              },
+              {
+                "kind": "damage",
+                "damageType": "magical",
+                "amounts": "$damage"
+              },
+              {
+                "kind": "modifier",
+                "modifiers": {
+                  "key": "oracle_fortunes_end",
+                  "duration": "$maximum_purge_duration",
+                  "flags": [
+                    "rooted"
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "oracle_fates_edict": {
+    "status": "full",
+    "targeting": "unit",
+    "targetTeam": "any",
+    "effects": [
+      {
+        "kind": "modifier",
+        "modifiers": {
+          "key": "oracle_fates_edict",
+          "duration": "$duration",
+          "flags": [
+            "disarmed"
+          ],
+          "magicResist": "$magic_damage_resistance_pct_tooltip"
+        }
+      }
+    ]
+  },
+  "oracle_purifying_flames": {
+    "status": "full",
+    "targeting": "unit",
+    "targetTeam": "any",
+    "effects": [
+      {
+        "kind": "damage",
+        "damageType": "magical",
+        "amounts": "$damage"
+      },
+      {
+        "kind": "modifier",
+        "modifiers": {
+          "key": "oracle_purifying_flames",
+          "duration": "$duration",
+          "healPerSecond": "$heal_per_second"
+        }
+      }
+    ]
+  },
+  "oracle_rain_of_destiny": {
+    "status": "simplified",
+    "note": "damage to enemies only: no heal for allies, no heal amplification change; units in the area at the cast keep it for the whole duration",
+    "targeting": "point",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "area",
+        "radius": "$radius",
+        "center": "point",
+        "team": "enemy",
+        "effects": [
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "oracle_rain_of_destiny",
+              "duration": "$duration",
+              "damagePerSecond": "$damage/$tick_rate",
+              "damageType": "magical",
+              "period": "$tick_rate"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "shadow_shaman_ether_shock": {
+    "status": "simplified",
+    "note": "a circle at the target instead of a cone; no limit on the number of targets",
+    "targeting": "unit",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "area",
+        "radius": "$end_radius",
+        "center": "target",
+        "team": "enemy",
+        "effects": [
+          {
+            "kind": "damage",
+            "damageType": "magical",
+            "amounts": "$damage"
+          }
+        ]
+      }
+    ]
+  },
+  "shadow_shaman_voodoo": {
+    "status": "simplified",
+    "note": "disarm and silence: no fixed movement speed, items still usable",
+    "targeting": "unit",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "modifier",
+        "modifiers": {
+          "key": "shadow_shaman_voodoo",
+          "duration": "$duration",
+          "flags": [
+            "disarmed",
+            "silenced"
+          ]
+        }
+      }
+    ]
+  },
+  "shadow_shaman_shackles": {
+    "status": "simplified",
+    "note": "a disable with damage over time that Shadow Shaman does not channel; no heal for him",
+    "targeting": "unit",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "modifier",
+        "modifiers": {
+          "key": "shadow_shaman_shackles",
+          "duration": "$channel_time",
+          "flags": [
+            "stunned"
+          ],
+          "damagePerSecond": "$total_damage/$channel_time",
+          "damageType": "magical",
+          "period": "$tick_interval"
+        }
+      }
+    ]
+  },
+  "shadow_shaman_urnaconda": {
+    "status": "simplified",
+    "note": "the impact only: no Massive Serpent Ward; lands at once",
+    "targeting": "point",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "area",
+        "radius": "$impact_radius",
+        "center": "point",
+        "team": "enemy",
+        "effects": [
+          {
+            "kind": "damage",
+            "damageType": "magical",
+            "amounts": "$impact_damage"
+          }
+        ]
+      }
+    ]
+  },
+  "shadow_shaman_mass_serpent_ward": {
+    "status": "simplified",
+    "note": "the ward 4 health is a hit count in Dota (heroes need 2 hits), here plain health; no magic immunity, creeps deal full damage; top-level ward damage",
+    "targeting": "point",
+    "targetTeam": "enemy",
+    "unitTypes": [
+      {
+        "id": "shadow_shaman_serpent_ward",
+        "gameUnit": "npc_dota_shadow_shaman_ward_1",
+        "health": "$ward_health",
+        "attackDamageMin": "$ward_damage_tooltip",
+        "attackDamageMax": "$ward_damage_tooltip"
+      }
+    ],
+    "effects": [
+      {
+        "kind": "summon",
+        "unitType": "shadow_shaman_serpent_ward",
+        "duration": "$duration",
+        "counts": "$ward_count",
+        "atPoint": true
+      }
+    ]
+  },
+  "venomancer_venomous_gale": {
+    "status": "simplified",
+    "note": "an area at the point instead of a line; a constant slow",
+    "targeting": "point",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "area",
+        "radius": "$radius",
+        "center": "point",
+        "team": "enemy",
+        "effects": [
+          {
+            "kind": "damage",
+            "damageType": "magical",
+            "amounts": "$strike_damage"
+          },
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "venomancer_venomous_gale",
+              "duration": "$duration",
+              "damagePerSecond": "$tick_damage/$tick_interval",
+              "damageType": "magical",
+              "period": "$tick_interval",
+              "moveSpeedPercent": "$movement_slow"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "venomancer_snakebite": {
+    "status": "simplified",
+    "note": "the initial damage is not repeated when the target attacks",
+    "targeting": "unit",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "damage",
+        "damageType": "magical",
+        "amounts": "$base_damage"
+      },
+      {
+        "kind": "modifier",
+        "modifiers": {
+          "key": "venomancer_snakebite",
+          "duration": "$duration",
+          "damagePerSecond": "$tick_damage",
+          "damageType": "magical",
+          "period": "$damage_interval"
+        }
+      }
+    ]
+  },
+  "venomancer_plague_ward": {
+    "status": "simplified",
+    "note": "the ward has no Poison Sting; top-level ward stats",
+    "targeting": "point",
+    "targetTeam": "enemy",
+    "unitTypes": [
+      {
+        "id": "venomancer_plague_ward_unit",
+        "gameUnit": "npc_dota_venomancer_plague_ward",
+        "health": "$ward_hp_tooltip",
+        "attackDamageMin": "$ward_damage_tooltip",
+        "attackDamageMax": "$ward_damage_tooltip"
+      }
+    ],
+    "effects": [
+      {
+        "kind": "summon",
+        "unitType": "venomancer_plague_ward_unit",
+        "duration": "$duration",
+        "counts": [
+          1
+        ],
+        "atPoint": true
+      }
+    ]
+  },
+  "venomancer_poison_sting": {
+    "status": "full",
+    "targeting": "passive",
+    "targetTeam": "ally",
+    "passive": {
+      "key": "venomancer_poison_sting",
+      "onHit": [
+        {
+          "kind": "modifier",
+          "modifiers": {
+            "key": "venomancer_poison_sting_debuff",
+            "duration": "$duration",
+            "damagePerSecond": "$damage",
+            "damageType": "magical",
+            "moveSpeedPercent": "-$movement_speed"
+          }
+        }
+      ]
+    }
+  },
+  "venomancer_noxious_plague": {
+    "status": "simplified",
+    "note": "no spread to nearby units when it ends",
+    "targeting": "unit",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "projectile",
+        "speed": "$projectile_speed",
+        "effects": [
+          {
+            "kind": "damage",
+            "damageType": "magical",
+            "amounts": "$impact_damage"
+          },
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "venomancer_noxious_plague",
+              "duration": "$debuff_duration",
+              "damagePerSecondMaxHealthPercent": "$damage_per_second",
+              "damageType": "magical",
+              "period": "$damage_tick_rate",
+              "moveSpeedPercent": "-$movement_slow"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "pugna_nether_blast": {
+    "status": "simplified",
+    "note": "explodes at once (no 0.8 s delay); full damage to structures (65% in Dota)",
+    "targeting": "point",
+    "targetTeam": "enemy",
+    "targetsStructures": true,
+    "effects": [
+      {
+        "kind": "area",
+        "radius": "$radius",
+        "center": "point",
+        "team": "enemy",
+        "effects": [
+          {
+            "kind": "damage",
+            "damageType": "magical",
+            "amounts": "$blast_damage"
+          }
+        ]
+      }
+    ]
+  },
+  "pugna_decrepify": {
+    "status": "simplified",
+    "note": "enemies only; the target can still be attacked (no ethereal state), it only cannot attack",
+    "targeting": "unit",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "modifier",
+        "modifiers": {
+          "key": "pugna_decrepify",
+          "duration": "$abilityduration",
+          "flags": [
+            "disarmed"
+          ],
+          "moveSpeedPercent": "$bonus_movement_speed",
+          "magicResist": "$bonus_spell_damage_pct"
+        }
+      }
+    ]
+  },
+  "pugna_life_drain": {
+    "status": "simplified",
+    "note": "enemies only, damage only: no heal for Pugna; Pugna does not channel, the drain does not break on distance",
+    "targeting": "unit",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "modifier",
+        "modifiers": {
+          "key": "pugna_life_drain",
+          "duration": "$abilitychanneltime",
+          "damagePerSecond": "$health_drain",
+          "damageType": "magical",
+          "period": "$tick_rate"
+        }
+      }
+    ]
+  },
+  "jakiro_dual_breath": {
+    "status": "simplified",
+    "note": "unit-targeted; a circle at the target instead of a cone",
+    "targeting": "unit",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "area",
+        "radius": "$end_radius",
+        "center": "target",
+        "team": "enemy",
+        "effects": [
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "jakiro_dual_breath",
+              "duration": "$abilityduration",
+              "moveSpeedPercent": "$slow_movement_speed_pct",
+              "attackSpeed": "$slow_attack_speed_pct",
+              "damagePerSecond": "$burn_damage",
+              "damageType": "magical"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "jakiro_ice_path": {
+    "status": "simplified",
+    "note": "a circle at the point instead of a lasting path from Jakiro",
+    "targeting": "point",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "area",
+        "radius": "$path_radius",
+        "center": "point",
+        "team": "enemy",
+        "effects": [
+          {
+            "kind": "damage",
+            "damageType": "magical",
+            "amounts": "$damage"
+          },
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "jakiro_ice_path",
+              "duration": "$stun_duration",
+              "flags": [
+                "stunned"
+              ]
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "jakiro_liquid_fire": {
+    "status": "simplified",
+    "note": "cast directly on a unit instead of an attack modifier (no autocast); no reduced damage to buildings",
+    "targeting": "unit",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "area",
+        "radius": "$radius",
+        "center": "target",
+        "team": "enemy",
+        "effects": [
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "jakiro_liquid_fire",
+              "duration": "$abilityduration",
+              "damagePerSecond": "$damage",
+              "damageType": "magical",
+              "period": "$tick_rate",
+              "attackSpeed": "$slow_attack_speed_pct"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "jakiro_liquid_ice": {
+    "status": "simplified",
+    "note": "cast directly on a unit instead of an attack modifier (no autocast); no bonus damage from Jakiro's other attacks and abilities",
+    "targeting": "unit",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "modifier",
+        "modifiers": {
+          "key": "jakiro_liquid_ice",
+          "duration": "$duration",
+          "damagePerSecond": "$damage",
+          "damageType": "magical",
+          "period": "$tick_rate",
+          "moveSpeedPercent": "-$movement_slow"
+        }
+      }
+    ]
+  },
+  "jakiro_macropyre": {
+    "status": "simplified",
+    "note": "a circle at the point (half the path width as the radius) instead of a line; units there at the cast burn the whole duration",
+    "targeting": "point",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "area",
+        "radius": "$path_width/2",
+        "center": "point",
+        "team": "enemy",
+        "effects": [
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "jakiro_macropyre",
+              "duration": "$duration",
+              "damagePerSecond": "$damage",
+              "damageType": "magical",
+              "period": "$burn_interval"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "ancient_apparition_cold_feet": {
+    "status": "simplified",
+    "note": "the freeze always happens and at once (no 4 s delay, no break distance)",
+    "targeting": "unit",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "modifier",
+        "modifiers": {
+          "key": "ancient_apparition_cold_feet",
+          "duration": "$abilityduration",
+          "damagePerSecond": "$damage_per_second",
+          "damageType": "magical"
+        }
+      },
+      {
+        "kind": "modifier",
+        "modifiers": {
+          "key": "ancient_apparition_cold_feet_freeze",
+          "duration": "$stun_duration",
+          "flags": [
+            "stunned"
+          ]
+        }
+      }
+    ]
+  },
+  "ancient_apparition_ice_vortex": {
+    "status": "simplified",
+    "note": "no drag; units in the area at the cast keep the debuff for the whole duration",
+    "targeting": "point",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "area",
+        "radius": "$radius",
+        "center": "point",
+        "team": "enemy",
+        "effects": [
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "ancient_apparition_ice_vortex",
+              "duration": "$vortex_duration",
+              "moveSpeedPercent": "$movement_speed_pct",
+              "magicResist": "$spell_resist_pct",
+              "damagePerSecond": "$damage_per_second",
+              "damageType": "magical"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "ancient_apparition_chilling_touch": {
+    "status": "simplified",
+    "note": "a cast that empowers the next attack (no autocast)",
+    "targeting": "noTarget",
+    "targetTeam": "ally",
+    "effects": [
+      {
+        "kind": "modifier",
+        "modifiers": {
+          "key": "ancient_apparition_chilling_touch",
+          "attackRange": "$attack_range_bonus",
+          "consumedOnHit": true,
+          "onHit": [
+            {
+              "kind": "damage",
+              "damageType": "magical",
+              "amounts": "$damage"
+            },
+            {
+              "kind": "modifier",
+              "modifiers": {
+                "key": "ancient_apparition_chilling_touch_slow",
+                "duration": "$slow_duration",
+                "moveSpeedPercent": "-$slow"
+              }
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "ancient_apparition_ice_blast": {
+    "status": "simplified",
+    "note": "explodes at once at the point with the minimum radius (no tracer, no growth); no heal prevention and no shatter below the health threshold",
+    "targeting": "point",
+    "targetTeam": "enemy",
+    "castRange": 20000,
+    "effects": [
+      {
+        "kind": "area",
+        "radius": "$radius_min",
+        "center": "point",
+        "team": "enemy",
+        "effects": [
+          {
+            "kind": "damage",
+            "damageType": "magical",
+            "amounts": "$dmg"
+          },
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "ancient_apparition_ice_blast",
+              "duration": "$frostbite_duration",
+              "damagePerSecond": "$damage_per_second",
+              "damageType": "magical"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "meepo_earthbind": {
+    "status": "simplified",
+    "note": "lands at once (no net travel)",
+    "targeting": "point",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "area",
+        "radius": "$radius",
+        "center": "point",
+        "team": "enemy",
+        "effects": [
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "meepo_earthbind",
+              "duration": "$duration",
+              "flags": [
+                "rooted"
+              ]
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "meepo_poof": {
+    "status": "simplified",
+    "note": "no clones to teleport to: a self-Poof that damages around Meepo once after the 1.5 s cast",
+    "targeting": "noTarget",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "area",
+        "radius": "$radius",
+        "center": "caster",
+        "team": "enemy",
+        "effects": [
+          {
+            "kind": "damage",
+            "damageType": "magical",
+            "amounts": "$poof_damage"
+          }
+        ]
+      }
+    ]
+  },
+  "meepo_ransack": {
+    "status": "simplified",
+    "note": "damage only: no heal for the Meepos; full amount against creeps (60% in Dota)",
+    "targeting": "passive",
+    "targetTeam": "ally",
+    "passive": {
+      "key": "meepo_ransack",
+      "onHit": [
+        {
+          "kind": "damage",
+          "damageType": "pure",
+          "amounts": "$health_steal_heroes"
+        }
+      ]
+    }
+  },
+  "medusa_mystic_snake": {
+    "status": "simplified",
+    "note": "the first target only: no jumps, no damage growth, no mana steal",
+    "targeting": "unit",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "projectile",
+        "speed": "$initial_speed",
+        "effects": [
+          {
+            "kind": "damage",
+            "damageType": "magical",
+            "amounts": "$snake_damage"
+          }
+        ]
+      }
+    ]
+  },
+  "medusa_gorgon_grasp": {
+    "status": "simplified",
+    "note": "one volley at the point at once with the initial radius instead of three growing volleys along a line; no damage per second while rooted",
+    "targeting": "point",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "area",
+        "radius": "$radius",
+        "center": "point",
+        "team": "enemy",
+        "effects": [
+          {
+            "kind": "damage",
+            "damageType": "physical",
+            "amounts": "$damage"
+          },
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "medusa_gorgon_grasp",
+              "duration": "$duration",
+              "flags": [
+                "rooted"
+              ]
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "medusa_stone_gaze": {
+    "status": "simplified",
+    "note": "every enemy in the radius is petrified at once (no facing check, no 2 s gaze build-up); the slow is on movement only; petrified units take more damage of every type, not only physical attacks; no speed boost",
+    "targeting": "noTarget",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "area",
+        "radius": "$radius",
+        "center": "caster",
+        "team": "enemy",
+        "effects": [
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "medusa_stone_gaze_slow",
+              "duration": "$duration",
+              "moveSpeedPercent": "-$slow"
+            }
+          },
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "medusa_stone_gaze_stone",
+              "duration": "$stone_duration",
+              "flags": [
+                "stunned"
+              ],
+              "incomingDamagePercent": "$bonus_physical_damage"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "troll_warlord_whirling_axes_ranged": {
+    "status": "simplified",
+    "note": "unit-targeted: hits the target only instead of a cone of axes",
+    "targeting": "unit",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "projectile",
+        "speed": "$axe_speed",
+        "effects": [
+          {
+            "kind": "damage",
+            "damageType": "magical",
+            "amounts": "$axe_damage"
+          },
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "troll_warlord_whirling_axes_ranged",
+              "duration": "$axe_slow_duration",
+              "moveSpeedPercent": "-$movement_speed"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "troll_warlord_whirling_axes_melee": {
+    "status": "simplified",
+    "note": "damage around Troll at once instead of spinning axes; no blind (miss chance)",
+    "targeting": "noTarget",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "area",
+        "radius": "$max_range",
+        "center": "caster",
+        "team": "enemy",
+        "effects": [
+          {
+            "kind": "damage",
+            "damageType": "magical",
+            "amounts": "$damage"
+          }
+        ]
+      }
+    ]
+  },
+  "troll_warlord_berserkers_rage": {
+    "status": "simplified",
+    "note": "the ranged-form maim only (no stance switch): no melee ensnare, no melee movement speed",
+    "targeting": "passive",
+    "targetTeam": "ally",
+    "passive": {
+      "key": "troll_warlord_berserkers_rage",
+      "onHitChance": "$maim_chance",
+      "onHit": [
+        {
+          "kind": "damage",
+          "damageType": "physical",
+          "amounts": "$maim_damage"
+        },
+        {
+          "kind": "modifier",
+          "modifiers": {
+            "key": "troll_warlord_berserkers_rage_maim",
+            "duration": "$maim_duration",
+            "moveSpeedPercent": "-$maim_slow",
+            "attackSpeed": "-$maim_attack_slow"
+          }
+        }
+      ]
+    }
+  },
+  "troll_warlord_battle_trance": {
+    "status": "simplified",
+    "note": "no forced attacks on the closest enemy, no slow resistance",
+    "targeting": "noTarget",
+    "targetTeam": "ally",
+    "effects": [
+      {
+        "kind": "dispel",
+        "strong": false
+      },
+      {
+        "kind": "modifier",
+        "modifiers": {
+          "key": "troll_warlord_battle_trance",
+          "duration": "$trance_duration",
+          "flags": [
+            "cannotDie"
+          ],
+          "lifesteal": "$lifesteal",
+          "attackSpeed": "$attack_speed",
+          "moveSpeedPercent": "$movement_speed"
+        }
+      }
+    ]
+  },
+  "bristleback_viscous_nasal_goo": {
+    "status": "simplified",
+    "note": "one stack at the base values: no stacking of armor reduction and slow",
+    "targeting": "unit",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "projectile",
+        "speed": "$goo_speed",
+        "effects": [
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "bristleback_viscous_nasal_goo",
+              "duration": "$goo_duration",
+              "armor": "-$base_armor",
+              "moveSpeedPercent": "-$base_move_slow"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "bristleback_quill_spray": {
+    "status": "simplified",
+    "note": "base damage only: no bonus from recent quill hits; no autocast",
+    "targeting": "noTarget",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "area",
+        "radius": "$radius",
+        "center": "caster",
+        "team": "enemy",
+        "effects": [
+          {
+            "kind": "damage",
+            "damageType": "physical",
+            "amounts": "$quill_base_damage"
+          }
+        ]
+      }
+    ]
+  },
+  "elder_titan_echo_stomp": {
+    "status": "simplified",
+    "note": "the channel as a cast point; the sleep is a stun that damage does not wake from; Titan's physical stomp only, without the Astral Spirit's magical stomp",
+    "targeting": "noTarget",
+    "targetTeam": "enemy",
+    "castPoint": "$abilitychanneltime",
+    "effects": [
+      {
+        "kind": "area",
+        "radius": "$radius",
+        "center": "caster",
+        "team": "enemy",
+        "effects": [
+          {
+            "kind": "damage",
+            "damageType": "physical",
+            "amounts": "$stomp_damage"
+          },
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "elder_titan_echo_stomp",
+              "duration": "$sleep_duration",
+              "flags": [
+                "stunned"
+              ]
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "elder_titan_ancestral_spirit": {
+    "status": "simplified",
+    "note": "damage around the target point at once: no spirit unit, no damage and speed bonus for Titan from the units passed",
+    "targeting": "point",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "area",
+        "radius": "$radius",
+        "center": "point",
+        "team": "enemy",
+        "effects": [
+          {
+            "kind": "damage",
+            "damageType": "magical",
+            "amounts": "$pass_damage"
+          }
+        ]
+      }
+    ]
+  },
+  "elder_titan_earth_splitter": {
+    "status": "simplified",
+    "note": "a circle at the point (the crack width as the radius) instead of a line; no delay; the damage split half magical, half physical as the description says",
+    "targeting": "point",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "area",
+        "radius": "$crack_width",
+        "center": "point",
+        "team": "enemy",
+        "effects": [
+          {
+            "kind": "damage",
+            "damageType": "magical",
+            "amounts": "$damage_pct/2",
+            "scaling": "targetMaxHealthPercent"
+          },
+          {
+            "kind": "damage",
+            "damageType": "physical",
+            "amounts": "$damage_pct/2",
+            "scaling": "targetMaxHealthPercent"
+          },
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "elder_titan_earth_splitter",
+              "duration": "$slow_duration",
+              "moveSpeedPercent": "-$slow_pct"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "vengefulspirit_magic_missile": {
+    "status": "full",
+    "targeting": "unit",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "projectile",
+        "speed": "$magic_missile_speed",
+        "effects": [
+          {
+            "kind": "damage",
+            "damageType": "magical",
+            "amounts": "$magic_missile_damage"
+          },
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "vengefulspirit_magic_missile",
+              "duration": "$magic_missile_stun",
+              "flags": [
+                "stunned"
+              ]
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "vengefulspirit_wave_of_terror": {
+    "status": "simplified",
+    "note": "a circle at the point (the wave width as the radius) instead of a line; no vision",
+    "targeting": "point",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "area",
+        "radius": "$wave_width",
+        "center": "point",
+        "team": "enemy",
+        "effects": [
+          {
+            "kind": "damage",
+            "damageType": "magical",
+            "amounts": "$damage"
+          },
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "vengefulspirit_wave_of_terror",
+              "duration": "$abilityduration",
+              "armor": "$armor_reduction",
+              "attackDamagePercent": "-$attack_reduction"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "vengefulspirit_command_aura": {
+    "status": "simplified",
+    "note": "the bonus applies to the whole attack damage, not only base damage; no extra bonus for Vengeful Spirit herself",
+    "targeting": "passive",
+    "targetTeam": "ally",
+    "passive": {
+      "key": "vengefulspirit_command_aura",
+      "aura": {
+        "radius": "$aura_radius",
+        "team": "ally",
+        "heroesOnly": true,
+        "modifier": {
+          "key": "vengefulspirit_command_aura_bonus",
+          "duration": 1,
+          "attackDamagePercent": "$bonus_base_damage"
+        }
+      }
+    }
+  },
+  "riki_smoke_screen": {
+    "status": "simplified",
+    "note": "enemies in the area at the cast are silenced for the whole duration (no lingering cloud); no miss chance",
+    "targeting": "point",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "area",
+        "radius": "$radius",
+        "center": "point",
+        "team": "enemy",
+        "effects": [
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "riki_smoke_screen",
+              "duration": "$abilityduration",
+              "flags": [
+                "silenced"
+              ]
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "riki_blink_strike": {
+    "status": "simplified",
+    "note": "enemies only; a dash to the target instead of a teleport behind it; the bonus damage without Riki's attack",
+    "targeting": "unit",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "dash"
+      },
+      {
+        "kind": "damage",
+        "damageType": "physical",
+        "amounts": "$bonus_damage"
+      },
+      {
+        "kind": "modifier",
+        "modifiers": {
+          "key": "riki_blink_strike",
+          "duration": "$slow",
+          "moveSpeedPercent": "-$slow_pct_tooltip"
+        }
+      }
+    ]
+  },
+  "riki_tricks_of_the_trade": {
+    "status": "simplified",
+    "note": "every enemy in the area takes all strikes at once as plain damage (in Dota each strike hits 2 random units over the channel); Riki does not channel or phase out",
+    "targeting": "point",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "area",
+        "radius": "$radius",
+        "center": "point",
+        "team": "enemy",
+        "effects": [
+          {
+            "kind": "damage",
+            "damageType": "physical",
+            "amounts": "$attack_damage*$attack_count"
+          }
+        ]
+      }
+    ]
+  },
+  "tinker_laser": {
+    "status": "simplified",
+    "note": "damage only: no blind (miss chance)",
+    "targeting": "unit",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "damage",
+        "damageType": "pure",
+        "amounts": "$laser_damage"
+      }
+    ]
+  },
+  "tinker_deploy_turrets": {
+    "status": "simplified",
+    "note": "the drop lands at once; no knockback for Tinker; turrets fire plain physical attacks at the top level's stats (magical splashing missiles in Dota)",
+    "targeting": "point",
+    "targetTeam": "enemy",
+    "unitTypes": [
+      {
+        "id": "tinker_turret",
+        "gameUnit": "npc_dota_tinker_turret1",
+        "health": "$turret_hp",
+        "attackDamageMin": "$missile_damage",
+        "attackDamageMax": "$missile_damage",
+        "baseAttackTime": "$missile_spawn_interval",
+        "attackRange": "$missile_target_range",
+        "projectileSpeed": "$missile_speed"
+      }
+    ],
+    "effects": [
+      {
+        "kind": "area",
+        "radius": "$drop_aoe_radius",
+        "center": "point",
+        "team": "enemy",
+        "effects": [
+          {
+            "kind": "damage",
+            "damageType": "magical",
+            "amounts": "$drop_damage"
+          },
+          {
+            "kind": "knockback",
+            "amounts": "$drop_knockback_distance"
+          }
+        ]
+      },
+      {
+        "kind": "summon",
+        "unitType": "tinker_turret",
+        "duration": "$turret_duration",
+        "counts": "$turrets_per_drop",
+        "atPoint": true
+      }
+    ]
+  },
+  "tinker_keen_teleport": {
+    "status": "simplified",
+    "note": "any allied unit or structure from level 1 (structures only at level 1, heroes from level 3 in Dota); the channel as a cast point",
+    "targeting": "unit",
+    "targetTeam": "ally",
+    "targetsStructures": true,
+    "castRange": 20000,
+    "castPoint": "$abilitychanneltime",
+    "effects": [
+      {
+        "kind": "teleport"
+      }
+    ]
+  },
+  "faceless_void_time_walk": {
+    "status": "simplified",
+    "note": "the dash only: no backtracking of recent damage",
+    "targeting": "point",
+    "targetTeam": "ally",
+    "castRange": "$range",
+    "effects": [
+      {
+        "kind": "dash"
+      }
+    ]
+  },
+  "faceless_void_time_lock": {
+    "status": "simplified",
+    "note": "no second attack: the bonus damage and the stun only",
+    "targeting": "passive",
+    "targetTeam": "ally",
+    "passive": {
+      "key": "faceless_void_time_lock",
+      "onHitChance": "$chance_pct",
+      "onHit": [
+        {
+          "kind": "damage",
+          "damageType": "magical",
+          "amounts": "$bonus_damage"
+        },
+        {
+          "kind": "modifier",
+          "modifiers": {
+            "key": "faceless_void_time_lock_stun",
+            "duration": "$duration",
+            "flags": [
+              "stunned"
+            ]
+          }
+        }
+      ]
+    }
+  },
+  "faceless_void_chronosphere": {
+    "status": "simplified",
+    "note": "enemies in the area at the cast are stunned for the full duration; allies are not frozen; no speed for Void inside",
+    "targeting": "point",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "area",
+        "radius": "$radius",
+        "center": "point",
+        "team": "enemy",
+        "effects": [
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "faceless_void_chronosphere",
+              "duration": "$duration",
+              "flags": [
+                "stunned"
+              ]
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "leshrac_split_earth": {
+    "status": "simplified",
+    "note": "no delay: lands at once",
+    "targeting": "point",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "area",
+        "radius": "$radius",
+        "center": "point",
+        "team": "enemy",
+        "effects": [
+          {
+            "kind": "damage",
+            "damageType": "magical",
+            "amounts": "$dmg"
+          },
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "leshrac_split_earth",
+              "duration": "$duration",
+              "flags": [
+                "stunned"
+              ]
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "leshrac_diabolic_edict": {
+    "status": "simplified",
+    "note": "steady damage per second to every enemy nearby at the single-target rate (all explosions on each unit; in Dota they are split between the units around)",
+    "targeting": "noTarget",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "modifier",
+        "modifiers": {
+          "key": "leshrac_diabolic_edict",
+          "duration": "$abilityduration",
+          "aura": {
+            "radius": "$radius",
+            "team": "enemy",
+            "modifier": {
+              "key": "leshrac_diabolic_edict_burn",
+              "duration": 1,
+              "damagePerSecond": "$damage*$num_explosions/$abilityduration",
+              "damageType": "pure"
+            }
+          }
+        }
+      }
+    ]
+  },
+  "leshrac_lightning_storm": {
+    "status": "simplified",
+    "note": "the first target only: no jumps",
+    "targeting": "unit",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "damage",
+        "damageType": "magical",
+        "amounts": "$damage"
+      },
+      {
+        "kind": "modifier",
+        "modifiers": {
+          "key": "leshrac_lightning_storm",
+          "duration": "$slow_duration",
+          "moveSpeedPercent": "-$movespeed_slow"
+        }
+      }
+    ]
+  },
+  "leshrac_greater_lightning_storm": {
+    "status": "simplified",
+    "note": "enemies are disarmed and slowed, the magic amplification as a magic resistance reduction; no ethereal form (no physical immunity) and no speed for Leshrac",
+    "targeting": "noTarget",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "area",
+        "radius": "$radius",
+        "center": "caster",
+        "team": "enemy",
+        "effects": [
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "leshrac_greater_lightning_storm",
+              "duration": "$duration",
+              "flags": [
+                "disarmed"
+              ],
+              "moveSpeedPercent": "-$slow",
+              "magicResist": "-$magic_amp"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "omniknight_purification": {
+    "status": "full",
+    "targeting": "unit",
+    "targetTeam": "ally",
+    "effects": [
+      {
+        "kind": "heal",
+        "amounts": "$heal"
+      },
+      {
+        "kind": "area",
+        "radius": "$radius",
+        "center": "target",
+        "team": "enemy",
+        "effects": [
+          {
+            "kind": "damage",
+            "damageType": "pure",
+            "amounts": "$heal"
+          }
+        ]
+      }
+    ]
+  },
+  "omniknight_martyr": {
+    "status": "full",
+    "targeting": "unit",
+    "targetTeam": "ally",
+    "effects": [
+      {
+        "kind": "dispel",
+        "strong": false
+      },
+      {
+        "kind": "modifier",
+        "modifiers": {
+          "key": "omniknight_martyr",
+          "duration": "$duration",
+          "flags": [
+            "debuffImmune"
+          ],
+          "magicResist": "$magic_resist",
+          "healthRegen": "$base_hpregen"
+        }
+      }
+    ]
+  },
+  "omniknight_hammer_of_purity": {
+    "status": "simplified",
+    "note": "cast to charge the next attack instead of an autocast attack modifier; the flat bonus damage only (no percent of base damage), no heal, no range bonus",
+    "targeting": "noTarget",
+    "targetTeam": "ally",
+    "effects": [
+      {
+        "kind": "modifier",
+        "modifiers": {
+          "key": "omniknight_hammer_of_purity",
+          "consumedOnHit": true,
+          "onHit": [
+            {
+              "kind": "damage",
+              "damageType": "pure",
+              "amounts": "$bonus_damage"
+            },
+            {
+              "kind": "modifier",
+              "modifiers": {
+                "key": "omniknight_hammer_of_purity_slow",
+                "duration": "$duration",
+                "moveSpeedPercent": "-$movement_slow"
+              }
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "omniknight_degen_aura": {
+    "status": "full",
+    "targeting": "passive",
+    "targetTeam": "ally",
+    "passive": {
+      "key": "omniknight_degen_aura",
+      "aura": {
+        "radius": "$radius",
+        "team": "enemy",
+        "modifier": {
+          "key": "omniknight_degen_aura_slow",
+          "duration": 1,
+          "moveSpeedPercent": "-$speed_bonus"
+        }
+      }
+    }
+  },
+  "chen_penitence": {
+    "status": "simplified",
+    "note": "no attack speed bonus for allies attacking the target",
+    "targeting": "unit",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "projectile",
+        "speed": "$speed",
+        "effects": [
+          {
+            "kind": "damage",
+            "damageType": "pure",
+            "amounts": "$damage"
+          },
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "chen_penitence",
+              "duration": "$duration",
+              "moveSpeedPercent": "$bonus_movement_speed"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "chen_hand_of_god": {
+    "status": "full",
+    "targeting": "noTarget",
+    "targetTeam": "ally",
+    "effects": [
+      {
+        "kind": "area",
+        "radius": 20000,
+        "center": "caster",
+        "team": "ally",
+        "heroesOnly": true,
+        "effects": [
+          {
+            "kind": "heal",
+            "amounts": "$heal_amount"
+          },
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "chen_hand_of_god",
+              "duration": "$hot_duration",
+              "healPerSecond": "$heal_per_second"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "chaos_knight_chaos_bolt": {
+    "status": "simplified",
+    "note": "always the minimum damage and stun (random between minimum and maximum in Dota)",
+    "targeting": "unit",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "projectile",
+        "speed": "$chaos_bolt_speed",
+        "effects": [
+          {
+            "kind": "damage",
+            "damageType": "magical",
+            "amounts": "$damage_min"
+          },
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "chaos_knight_chaos_bolt",
+              "duration": "$stun_min",
+              "flags": [
+                "stunned"
+              ]
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "chaos_knight_reality_rift": {
+    "status": "simplified",
+    "note": "Chaos Knight dashes to the target instead of both teleporting to a point between them; the target is not pulled; illusions do not follow",
+    "targeting": "unit",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "dash"
+      },
+      {
+        "kind": "modifier",
+        "modifiers": {
+          "key": "chaos_knight_reality_rift",
+          "duration": "$duration",
+          "armor": "-$armor_reduction"
+        }
+      }
+    ]
+  },
+  "treant_natures_grasp": {
+    "status": "simplified",
+    "note": "a small circle at the point (latch range) instead of a line of vines; enemies hit keep the slow and damage for the vines' whole duration",
+    "targeting": "point",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "area",
+        "radius": "$latch_range",
+        "center": "point",
+        "team": "enemy",
+        "effects": [
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "treant_natures_grasp",
+              "duration": "$vines_duration",
+              "moveSpeedPercent": "-$movement_slow",
+              "damagePerSecond": "$damage_per_second",
+              "damageType": "magical"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "treant_leech_seed": {
+    "status": "simplified",
+    "note": "cast to charge the next attack instead of an autocast attack modifier; heals every ally around the target at once with the flat heal only (no share of the damage, no cap of 5 units)",
+    "targeting": "noTarget",
+    "targetTeam": "ally",
+    "effects": [
+      {
+        "kind": "modifier",
+        "modifiers": {
+          "key": "treant_leech_seed",
+          "consumedOnHit": true,
+          "onHit": [
+            {
+              "kind": "damage",
+              "damageType": "magical",
+              "amounts": "$leech_damage"
+            },
+            {
+              "kind": "modifier",
+              "modifiers": {
+                "key": "treant_leech_seed_root",
+                "duration": "$duration",
+                "flags": [
+                  "rooted",
+                  "disarmed"
+                ]
+              }
+            },
+            {
+              "kind": "area",
+              "radius": "$radius",
+              "center": "target",
+              "team": "ally",
+              "effects": [
+                {
+                  "kind": "heal",
+                  "amounts": "$flat_heal*$healing_pulse_count"
+                }
+              ]
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "treant_living_armor": {
+    "status": "simplified",
+    "note": "heal over time only: no damage block",
+    "targeting": "unit",
+    "targetTeam": "ally",
+    "targetsStructures": true,
+    "effects": [
+      {
+        "kind": "modifier",
+        "modifiers": {
+          "key": "treant_living_armor",
+          "duration": "$duration",
+          "healPerSecond": "$heal_per_second"
+        }
+      }
+    ]
+  },
+  "treant_overgrowth": {
+    "status": "simplified",
+    "note": "around Treant only (not around Eyes in the Forest); no blink or invisibility block",
+    "targeting": "noTarget",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "area",
+        "radius": "$radius",
+        "center": "caster",
+        "team": "enemy",
+        "effects": [
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "treant_overgrowth",
+              "duration": "$duration",
+              "flags": [
+                "rooted",
+                "disarmed"
+              ],
+              "damagePerSecond": "$damage",
+              "damageType": "magical"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "visage_grave_chill": {
+    "status": "simplified",
+    "note": "a slow only: nothing is stolen",
+    "targeting": "unit",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "modifier",
+        "modifiers": {
+          "key": "visage_grave_chill",
+          "duration": "$chill_duration",
+          "moveSpeedPercent": "-$movespeed_bonus",
+          "attackSpeed": "-$attackspeed_bonus"
+        }
+      }
+    ]
+  },
+  "visage_silent_as_the_grave": {
+    "status": "simplified",
+    "note": "movement speed only: no flying, no attack damage bonus after it breaks",
+    "targeting": "noTarget",
+    "targetTeam": "ally",
+    "effects": [
+      {
+        "kind": "modifier",
+        "modifiers": {
+          "key": "visage_silent_as_the_grave",
+          "duration": "$flight_duration",
+          "moveSpeedPercent": "$movespeed_bonus",
+          "breakOnAction": true
+        }
+      }
+    ]
+  },
+  "abaddon_death_coil": {
+    "status": "simplified",
+    "note": "enemies only: no heal for allies, no self damage",
+    "targeting": "unit",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "projectile",
+        "speed": "$missile_speed",
+        "effects": [
+          {
+            "kind": "damage",
+            "damageType": "magical",
+            "amounts": "$damage_heal"
+          }
+        ]
+      }
+    ]
+  },
+  "abaddon_aphotic_shield": {
+    "status": "simplified",
+    "note": "no burst when the barrier breaks",
+    "targeting": "unit",
+    "targetTeam": "ally",
+    "effects": [
+      {
+        "kind": "dispel",
+        "strong": true
+      },
+      {
+        "kind": "modifier",
+        "modifiers": {
+          "key": "abaddon_aphotic_shield",
+          "duration": "$duration",
+          "barrier": "$damage_absorb"
+        }
+      }
+    ]
+  },
+  "abaddon_frostmourne": {
+    "status": "simplified",
+    "note": "no attack speed bonus for units attacking the cursed target",
+    "targeting": "passive",
+    "targetTeam": "ally",
+    "passive": {
+      "key": "abaddon_frostmourne",
+      "onHit": [
+        {
+          "kind": "modifier",
+          "modifiers": {
+            "key": "abaddon_frostmourne_curse",
+            "duration": "$curse_duration",
+            "moveSpeedPercent": "-$curse_slow",
+            "damagePerSecond": "$curse_dps",
+            "damageType": "magical",
+            "period": "$curse_interval"
+          }
+        }
+      ]
+    }
+  },
+  "arc_warden_flux": {
+    "status": "simplified",
+    "note": "the damage applies even when other enemies are near the target",
+    "targeting": "unit",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "modifier",
+        "modifiers": {
+          "key": "arc_warden_flux",
+          "duration": "$duration",
+          "moveSpeedPercent": "-$move_speed_slow_pct",
+          "damagePerSecond": "$damage_per_second",
+          "damageType": "magical",
+          "period": "$think_interval"
+        }
+      }
+    ]
+  },
+  "arc_warden_magnetic_field": {
+    "status": "simplified",
+    "note": "allies in the area at the cast keep the bonus for the whole duration; evasion against all attacks, not only from outside the field; no rune pull",
+    "targeting": "point",
+    "targetTeam": "ally",
+    "effects": [
+      {
+        "kind": "area",
+        "radius": "$radius",
+        "center": "point",
+        "team": "ally",
+        "effects": [
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "arc_warden_magnetic_field",
+              "duration": "$duration",
+              "attackSpeed": "$attack_speed_bonus",
+              "evasion": "$evasion_chance"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "arc_warden_spark_wraith": {
+    "status": "simplified",
+    "note": "hits every enemy in the radius at the cast instead of a waiting wraith that fuses with one enemy; the slow as a stun of the ministun duration",
+    "targeting": "point",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "area",
+        "radius": "$radius",
+        "center": "point",
+        "team": "enemy",
+        "effects": [
+          {
+            "kind": "damage",
+            "damageType": "magical",
+            "amounts": "$spark_damage_base"
+          },
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "arc_warden_spark_wraith",
+              "duration": "$ministun_duration",
+              "flags": [
+                "stunned"
+              ]
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "muerta_dead_shot": {
+    "status": "simplified",
+    "note": "the target only: no ricochet, no fear",
+    "targeting": "unit",
+    "targetTeam": "enemy",
+    "castRange": "$AbilityCastRange",
+    "effects": [
+      {
+        "kind": "projectile",
+        "speed": "$speed",
+        "effects": [
+          {
+            "kind": "damage",
+            "damageType": "magical",
+            "amounts": "$damage"
+          },
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "muerta_dead_shot",
+              "duration": "$impact_slow_duration",
+              "moveSpeedPercent": "$impact_slow_percent"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "muerta_the_calling": {
+    "status": "simplified",
+    "note": "one hit at the cast on every enemy inside the revenants' circle (the dead-zone distance as the radius) instead of circling revenants; the aura slow lasts the whole duration",
+    "targeting": "point",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "area",
+        "radius": "$dead_zone_distance",
+        "center": "point",
+        "team": "enemy",
+        "effects": [
+          {
+            "kind": "damage",
+            "damageType": "magical",
+            "amounts": "$damage"
+          },
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "muerta_the_calling_silence",
+              "duration": "$silence_duration",
+              "flags": [
+                "silenced"
+              ]
+            }
+          },
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "muerta_the_calling_slow",
+              "duration": "$duration",
+              "moveSpeedPercent": "$aura_movespeed_slow"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "muerta_spectral_slug": {
+    "status": "simplified",
+    "note": "no spell damage reduction on the target",
+    "targeting": "unit",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "projectile",
+        "speed": "$projectile_speed",
+        "effects": [
+          {
+            "kind": "damage",
+            "damageType": "magical",
+            "amounts": "$damage"
+          },
+          {
+            "kind": "knockback",
+            "amounts": "$knockback_distance"
+          },
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "muerta_spectral_slug",
+              "duration": "$duration",
+              "moveSpeedPercent": "$slow_pct"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "chen_divine_favor": {
+    "status": "simplified",
+    "note": "no heal amplification; the cast gives armor only to the target (not to all of Chen's units)",
+    "targeting": "unit",
+    "targetTeam": "ally",
+    "effects": [
+      {
+        "kind": "modifier",
+        "modifiers": {
+          "key": "chen_divine_favor",
+          "duration": "$duration",
+          "armor": "$bonus_armor"
+        }
+      }
+    ],
+    "passive": {
+      "key": "chen_divine_favor_aura",
+      "aura": {
+        "radius": "$aura_radius",
+        "team": "ally",
+        "modifier": {
+          "key": "chen_divine_favor_regen",
+          "duration": 1,
+          "healthRegen": "$heal_rate"
+        }
+      }
+    }
   }
 }

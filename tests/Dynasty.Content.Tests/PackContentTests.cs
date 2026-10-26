@@ -175,6 +175,22 @@ public class PackContentTests
         Assert.Equal((Fixed.FromRatio(15, 10), true), (burn.DamagePerSecondMaxHealthPercent, burn.ConsumedOnHit));
     }
 
+    /// <summary>Mana restore, "after N attacks" on-hit effects, and effects on every Nth attack taken.</summary>
+    [Fact]
+    public void Effects_ReadManaRestoreAndAttackCounters()
+    {
+        RulesetContent rules = Apply(@"""abilities"": [{ ""id"": ""chakra"", ""name"": ""Chakra"", ""targeting"": ""unit"", ""targetTeam"": ""ally"", ""castRange"": 900, ""castPoint"": 0,
+            ""cooldown"": [18], ""requiredLevels"": [1], ""effects"": [ { ""kind"": ""restoreMana"", ""amounts"": [105] } ],
+            ""passive"": [ { ""key"": ""bash"", ""onHit"": [ { ""kind"": ""damage"", ""damageType"": ""physical"", ""amounts"": [35] } ], ""onHitAfterAttacks"": 3,
+                          ""whenAttacked"": [ { ""kind"": ""damage"", ""damageType"": ""pure"", ""amounts"": [100] } ], ""whenAttackedEvery"": 7 } ] }], ""items"": []",
+            Hero("lion", @"[""chakra""]"));
+
+        AbilityDefinition chakra = rules.FindAbility("chakra")!;
+        Assert.Equal((EffectKind.RestoreMana, 105), (chakra.Effects[0].Kind, chakra.Effects[0].Amounts[0]));
+        ModifierSpec bash = chakra.PassiveModifiers.Single();
+        Assert.Equal((3, 7, DamageType.Pure), (bash.OnHitAfterAttacks, bash.WhenAttackedEvery, bash.WhenAttacked.Single().DamageType));
+    }
+
     [Theory]
     [InlineData(@"""abilities"": [{ ""id"": ""x"", ""name"": ""X"", ""targeting"": ""sideways"", ""targetTeam"": ""enemy"", ""castRange"": 0, ""castPoint"": 0, ""cooldown"": [1], ""requiredLevels"": [1], ""effects"": [] }]", "abilities[0].targeting")]
     [InlineData(@"""abilities"": [{ ""id"": ""x"", ""name"": ""X"", ""targeting"": ""noTarget"", ""targetTeam"": ""enemy"", ""castRange"": 0, ""castPoint"": 0, ""cooldown"": [1], ""requiredLevels"": [1], ""effects"": [{ ""kind"": ""teleport"", ""bogus"": 1 }] }]", "abilities[0].effects[0].bogus")]

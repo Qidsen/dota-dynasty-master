@@ -231,6 +231,10 @@ namespace Dynasty.MatchSimulation.Systems
                     }
 
                     break;
+                case EffectKind.RestoreMana:
+                    if (target.Hero != null && target.IsAlive)
+                        target.Hero.Mana = Fixed.Min(Fixed.FromInt(target.Hero.MaxMana), target.Hero.Mana + Fixed.FromInt(effect.AmountAt(level)));
+                    break;
                 case EffectKind.Heal:
                     Damage.Heal(context, caster.Id, target, Fixed.FromInt(effect.AmountAt(level)));
                     break;

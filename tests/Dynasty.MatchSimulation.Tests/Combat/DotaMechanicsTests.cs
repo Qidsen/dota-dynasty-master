@@ -295,5 +295,49 @@ public class DotaMechanicsTests
         double taken = kernel.EventsOf<DamageDealt>().Where(d => d.Target == H(kernel.State, "beta").Id).Sum(d => d.Amount.ToDouble());
         Assert.InRange(taken, 12 * 4 - 0.1, 12 * 5 + 0.1);   // 2% of 600 a second for about five seconds
     }
-}
 
+    /// <summary>Restores the target's mana, not above its max (Chakra Magic).</summary>
+    [Fact]
+    public void RestoreMana_GivesManaUpToTheMax()
+    {
+        var kernel = Cast(ctx => H(ctx.State, "beta").Hero!.Mana = Fixed.FromInt(10), EffectDefinition.RestoreMana(40));
+        Assert.Equal(Fixed.FromInt(50), H(kernel.State, "beta").Hero!.Mana);
+
+        kernel = Cast(ctx => H(ctx.State, "beta").Hero!.Mana = Fixed.FromInt(H(ctx.State, "beta").Hero!.MaxMana - 5), EffectDefinition.RestoreMana(40));
+        Assert.Equal(Fixed.FromInt(H(kernel.State, "beta").Hero!.MaxMana), H(kernel.State, "beta").Hero!.Mana);
+    }
+
+    /// <summary>"After 2 attacks, the next attack bashes" (Bash of the Deep, Luminosity): on-hit effects run on every third attack only.</summary>
+    [Fact]
+    public void OnHitAfterAttacks_ProcsOnlyOnTheAttackAfterThatMany()
+    {
+        var bash = new ModifierSpec("bash", -1, onHit: new[] { EffectDefinition.Damage(DamageType.Magical, 40) }, onHitAfterAttacks: 2);
+        var kernel = Duel(onAlpha: bash);
+        kernel.RunTicks(30 * 12);
+
+        List<DamageDealt> hits = HitsOnBeta(kernel);
+        List<bool> magical = hits.Select(d => d.DamageType == DamageType.Magical).ToList();
+        int physical = magical.Count(m => !m);
+        Assert.True(physical >= 6);
+        Assert.Equal(physical / 3, magical.Count(m => m));
+        Assert.False(magical[1]);   // the first two attacks are plain, the third one procs
+        Assert.True(magical[3]);
+    }
+
+    /// <summary>Counter Helix: every Nth attack the bearer takes runs effects with the bearer as the caster and the attacker as the target.</summary>
+    [Fact]
+    public void WhenAttackedEvery_RunsEffectsOnEveryNthAttackTaken()
+    {
+        var helix = new ModifierSpec("helix", -1, whenAttacked: new[]
+        {
+            EffectDefinition.Area(275, AreaCenter.Caster, TargetTeam.Enemy, EffectDefinition.Damage(DamageType.Pure, 100)),
+        }, whenAttackedEvery: 3);
+        var kernel = Duel(onBeta: helix);
+        kernel.RunTicks(30 * 12);
+
+        int taken = HitsOnBeta(kernel).Count;
+        int helixes = kernel.EventsOf<DamageDealt>().Count(d => d.Attacker == H(kernel.State, "beta").Id && d.DamageType == DamageType.Pure);
+        Assert.True(taken >= 6);
+        Assert.Equal(taken / 3, helixes);
+    }
+}

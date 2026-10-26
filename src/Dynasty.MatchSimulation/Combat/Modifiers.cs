@@ -115,8 +115,14 @@ namespace Dynasty.MatchSimulation.Combat
             int cleaveRadius = 0,
             int barrier = 0,
             bool consumedOnHit = false,
-            Fixed damagePerSecondMaxHealthPercent = default)
+            Fixed damagePerSecondMaxHealthPercent = default,
+            int onHitAfterAttacks = 0,
+            IReadOnlyList<Rules.EffectDefinition>? whenAttacked = null,
+            int whenAttackedEvery = 1)
         {
+            OnHitAfterAttacks = onHitAfterAttacks;
+            WhenAttacked = whenAttacked?.ToArray() ?? System.Array.Empty<Rules.EffectDefinition>();
+            WhenAttackedEvery = whenAttackedEvery;
             DamagePerSecondMaxHealthPercent = damagePerSecondMaxHealthPercent;
             ConsumedOnHit = consumedOnHit;
             CleavePercent = cleavePercent;
@@ -191,6 +197,16 @@ namespace Dynasty.MatchSimulation.Combat
         /// <summary>Effects run on the target of each of the unit's landing attacks (bash, bonus magic damage, slows), with <see cref="OnHitChancePercent"/>.</summary>
         public IReadOnlyList<Rules.EffectDefinition> OnHit { get; }
         public int OnHitChancePercent { get; }
+
+        /// <summary>On-hit effects run only on the attack after this many attacks without them ("after 3 attacks, the next one bashes"); 0 = every attack.</summary>
+        public int OnHitAfterAttacks { get; }
+
+        /// <summary>
+        /// Effects run when an attack lands on the bearer (Counter Helix, Return), on every <see cref="WhenAttackedEvery"/>th
+        /// such attack, with the bearer as the caster and the attacker as the target.
+        /// </summary>
+        public IReadOnlyList<Rules.EffectDefinition> WhenAttacked { get; }
+        public int WhenAttackedEvery { get; }
 
         public AuraSpec? Aura { get; }
 
@@ -306,6 +322,11 @@ namespace Dynasty.MatchSimulation.Combat
             w.WriteInt64(Barrier);
             w.WriteBool(ConsumedOnHit);
             w.WriteFixed(DamagePerSecondMaxHealthPercent);
+            w.WriteInt64(OnHitAfterAttacks);
+            w.WriteInt64(WhenAttacked.Count);
+            foreach (Rules.EffectDefinition effect in WhenAttacked)
+                effect.WriteCanonical(w);
+            w.WriteInt64(WhenAttackedEvery);
         }
 
         public static ModifierSpec Status(string key, int durationMs, ModifierFlags flags) => new ModifierSpec(key, durationMs, flags);
@@ -334,6 +355,9 @@ namespace Dynasty.MatchSimulation.Combat
         public long ExpiresTick { get; internal set; }
 
         internal long NextPeriodTick { get; set; }
+
+        /// <summary>Attacks counted toward <see cref="ModifierSpec.OnHitAfterAttacks"/> or <see cref="ModifierSpec.WhenAttackedEvery"/>.</summary>
+        internal int AttackCount { get; set; }
     }
 
     public static class Modifiers

@@ -481,9 +481,21 @@ namespace Dynasty.MatchSimulation.Systems
             foreach (ActiveModifier modifier in attacker.Modifiers.Where(m => m.Spec.OnHit.Count > 0).ToList())
             {
                 int chance = modifier.Spec.OnHitChancePercent;
+                if (modifier.Spec.OnHitAfterAttacks > 0 && modifier.AttackCount++ < modifier.Spec.OnHitAfterAttacks)
+                    continue;
+                modifier.AttackCount = 0;
                 if (chance <= 0 || (chance < 100 && context.Random("combat").NextInt(0, 100) >= chance))
                     continue;
                 Effects.Run(context, attacker, modifier.Spec.OnHit, 1, target, target.Position);
+            }
+
+            // Effects of the target's modifiers on being hit (Counter Helix), every Nth landing attack.
+            foreach (ActiveModifier modifier in target.Modifiers.Where(m => m.Spec.WhenAttacked.Count > 0).ToList())
+            {
+                if (++modifier.AttackCount < modifier.Spec.WhenAttackedEvery || !target.IsAlive)
+                    continue;
+                modifier.AttackCount = 0;
+                Effects.Run(context, target, modifier.Spec.WhenAttacked, 1, attacker, attacker.Position);
             }
 
             foreach (ActiveModifier used in attacker.Modifiers.Where(m => m.Spec.ConsumedOnHit).ToList())

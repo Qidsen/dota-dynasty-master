@@ -41,10 +41,11 @@ static class Abilities
                 total++;
                 if (map[key] is not JsonObject entry)
                     continue;   // innates are listed in the report only when mapped or missing as such below
-                JsonObject ability = Build(key, data[key]!.AsObject(), entry, ultimate: false);
+                JsonObject ability = Build(key, data[key]!.AsObject(), entry, ultimate: false, innate: true);
                 ability["innate"] = true;
-                ability["requiredLevels"] = new JsonArray(1);
                 abilities.Add(ability);
+                foreach (JsonNode? unit in entry["unitTypes"] as JsonArray ?? new JsonArray())
+                    unitTypes.Add(ResolveUnit(unit!.AsObject(), data[key]!.AsObject(), gameUnits));
                 list.Add(key);
                 mapped++;
                 if (entry["status"]?.GetValue<string>() == "simplified")
@@ -180,14 +181,18 @@ static class Abilities
             yield return ("bounty", new JsonObject { ["goldMin"] = goldMin, ["goldMax"] = goldMax, ["xp"] = xp });
     }
 
-    private static JsonObject Build(string key, JsonObject source, JsonObject entry, bool ultimate)
+    /// <summary>
+    /// The pack ability. An innate has one level, learned at level 1: per-level values take their first value
+    /// (simplification: innates that grow with the hero or another ability stay at their base value).
+    /// </summary>
+    private static JsonObject Build(string key, JsonObject source, JsonObject entry, bool ultimate, bool innate = false)
     {
         Dictionary<string, JsonNode?> values = ValuesOf(source);
 
         int levels = new[] { Count(source["cd"]), Count(source["mc"]) }.Concat(values.Values.Select(Count)).Max();
         if (levels <= 1)
             levels = Count(source["cd"]) == 1 && Count(source["mc"]) <= 1 && values.Values.All(v => Count(v) <= 1) ? (ultimate ? 3 : 4) : levels;
-        int[] required = (ultimate ? UltimateLevels : BasicLevels).Take(levels).ToArray();
+        int[] required = innate ? new[] { 1 } : (ultimate ? UltimateLevels : BasicLevels).Take(levels).ToArray();
         levels = required.Length;
 
         var ability = new JsonObject
@@ -329,11 +334,14 @@ static class Abilities
 
     private static decimal[] Numbers(JsonNode? node) => node switch
     {
-        JsonArray list => list.Select(n => Parse(n!)).ToArray(),
+        JsonArray list => list.Where(n => !IsBlank(n)).Select(n => Parse(n!)).ToArray(),
         JsonValue v when v.TryGetValue(out string? s) && s.Contains('/') => s.Split('/').Select(p => Parse(JsonValue.Create(p.Trim())!)).ToArray(),
         JsonNode one => new[] { Parse(one) },
         _ => throw new InvalidDataException("missing value"),
     };
+
+    /// <summary>An empty entry in a per-level list (Divine Favor's cooldown ends with one).</summary>
+    private static bool IsBlank(JsonNode? node) => node is JsonValue v && v.TryGetValue(out string? s) && s.Trim().Length == 0;
 
     private static decimal Parse(JsonNode node) => node is JsonValue v && v.TryGetValue(out string? s)
         ? decimal.Parse(s.Trim().TrimEnd('%'), CultureInfo.InvariantCulture)
@@ -341,7 +349,7 @@ static class Abilities
 
     private static int Count(JsonNode? node) => node switch
     {
-        JsonArray list => list.Count,
+        JsonArray list => list.Count(n => !IsBlank(n)),
         JsonValue v when v.TryGetValue(out string? s) && s.Contains('/') => s.Split('/').Length,
         JsonValue v when v.TryGetValue(out bool _) => 0,
         null => 0,
