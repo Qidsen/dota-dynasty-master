@@ -250,7 +250,10 @@ namespace Dynasty.MatchSimulation.Rules
         /// <summary>What a point of each attribute gives heroes that have attributes.</summary>
         public AttributeRules Attributes { get; }
 
-        /// <summary>Hero kill XP also includes this percent of the victim's total XP (Dota: 100 + 13%).</summary>
+        /// <summary>
+        /// Hero kill XP also includes this percent of the victim's total XP (Dota: 100 + 13%, the bonus stops growing
+        /// after the victim's level 25 — not modelled yet, docs/DOTA_RULES_AUDIT.md).
+        /// </summary>
         public int HeroKillXpPercentOfVictim { get; }
         public int HeroKillGoldBase { get; }
         public int HeroKillGoldPerLevel { get; }

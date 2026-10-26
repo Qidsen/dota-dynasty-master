@@ -227,7 +227,8 @@ namespace Dynasty.MatchSimulation
             foreach (ActiveModifier modifier in _modifiers)
             {
                 ModifierSpec spec = modifier.Spec;
-                // Critical strikes do not stack: the highest chance (with its multiplier) wins.
+                // Simplification: only the highest crit chance (with its multiplier) counts. In Dota every source rolls,
+                // from the highest multiplier down, and the first that procs wins (docs/DOTA_RULES_AUDIT.md).
                 if (spec.CritChanceHundredths > critChance)
                 {
                     critChance = spec.CritChanceHundredths;

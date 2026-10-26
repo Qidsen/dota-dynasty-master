@@ -21,8 +21,8 @@ sealed class DotaData
     public JsonNode Constants(string name) =>
         Cached(Path.Combine(_cache, name + ".json"), $"https://raw.githubusercontent.com/odota/dotaconstants/{Commit}/build/{name}.json", throttle: false);
 
-    /// <summary>The game's own script files (SteamDatabase/GameTracking-Dota2): the unit file there last changed after 7.41f (2026-09-15).</summary>
-    public const string GameFilesCommit = "3f630cc18bfa63f63b3ce259be52209d922558c3";   // 2026-10-07
+    /// <summary>The game's own script files (SteamDatabase/GameTracking-Dota2) at the latest build after patch 7.41f (2026-09-15).</summary>
+    public const string GameFilesCommit = "282fad29f0f74504fad465c52d197fb61f4d612b";   // 2026-10-15, build 6962: the latest; builds after 7.41f (6951, 6960, 6962) changed only cosmetic slots in hero files
 
     /// <summary>Unit definitions from the game's npc_units.txt (summons: base stats an ability's values do not set).</summary>
     public Dictionary<string, Dictionary<string, string>> GameUnits()

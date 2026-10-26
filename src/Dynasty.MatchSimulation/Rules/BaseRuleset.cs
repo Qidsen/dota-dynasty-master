@@ -168,7 +168,8 @@ namespace Dynasty.MatchSimulation.Rules
             new StructurePlacement(id, Team.Dawn, type, FixedVector2.FromInts(x, y), isAncient, protectedBy, rule);
 
         /// <summary>
-        /// Dota's jungle per half: two small, four medium, four large and two ancient camps, mirrored through
+        /// The jungle per half: two small, four medium, four large and two ancient camps (Dota 7.41 has two small, five
+        /// medium, five large and two ancient: docs/DOTA_RULES_AUDIT.md, B-110), mirrored through
         /// the map center; each spawns on the clock every minute from 1:00 when cleared. Half of them sit
         /// between the safe lane and mid, the other half (x and y swapped) between mid and the off lane.
         /// </summary>
