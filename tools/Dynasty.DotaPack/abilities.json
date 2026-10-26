@@ -845,30 +845,34 @@
   },
   "doom_bringer_infernal_blade": {
     "status": "simplified",
-    "note": "cast as a spell instead of an attack modifier",
-    "targeting": "unit",
-    "targetTeam": "enemy",
-    "effects": [
-      {
-        "kind": "modifier",
-        "modifiers": {
-          "key": "doom_bringer_infernal_blade_stun",
-          "duration": "$ministun_duration",
-          "flags": [
-            "stunned"
-          ]
+    "note": "always on (no autocast toggle), without mana cost",
+    "targeting": "passive",
+    "targetTeam": "ally",
+    "passive": {
+      "key": "doom_bringer_infernal_blade",
+      "procCooldown": "$cd",
+      "onHit": [
+        {
+          "kind": "modifier",
+          "modifiers": {
+            "key": "doom_bringer_infernal_blade_stun",
+            "duration": "$ministun_duration",
+            "flags": [
+              "stunned"
+            ]
+          }
+        },
+        {
+          "kind": "modifier",
+          "modifiers": {
+            "key": "doom_bringer_infernal_blade_burn",
+            "duration": "$burn_duration",
+            "damagePerSecond": "$burn_damage",
+            "damagePerSecondMaxHealthPercent": "$burn_damage_pct"
+          }
         }
-      },
-      {
-        "kind": "modifier",
-        "modifiers": {
-          "key": "doom_bringer_infernal_blade_burn",
-          "duration": "$burn_duration",
-          "damagePerSecond": "$burn_damage",
-          "damagePerSecondMaxHealthPercent": "$burn_damage_pct"
-        }
-      }
-    ]
+      ]
+    }
   },
   "doom_bringer_doom": {
     "status": "simplified",
@@ -1109,7 +1113,7 @@
   },
   "dark_seer_vacuum": {
     "status": "simplified",
-    "note": "damage only: no pull, no disruption",
+    "note": "the pull to the center is instant; the disruption is a stun for the vacuum duration",
     "targeting": "point",
     "targetTeam": "enemy",
     "effects": [
@@ -1119,6 +1123,21 @@
         "center": "point",
         "team": "enemy",
         "effects": [
+          {
+            "kind": "pull",
+            "toward": "point",
+            "amounts": "$radius"
+          },
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "dark_seer_vacuum",
+              "duration": "$duration",
+              "flags": [
+                "stunned"
+              ]
+            }
+          },
           {
             "kind": "damage",
             "damageType": "magical",
@@ -1631,10 +1650,21 @@
   },
   "ember_spirit_sleight_of_fist": {
     "status": "simplified",
-    "note": "the bonus hero damage only, without the attacks",
+    "note": "all the attacks land at once from where Ember stands: he does not dash between the targets and is not untargetable meanwhile",
     "targeting": "point",
     "targetTeam": "enemy",
     "effects": [
+      {
+        "kind": "area",
+        "radius": "$radius",
+        "center": "point",
+        "team": "enemy",
+        "effects": [
+          {
+            "kind": "attack"
+          }
+        ]
+      },
       {
         "kind": "area",
         "radius": "$radius",
@@ -1889,25 +1919,20 @@
   },
   "bounty_hunter_jinada": {
     "status": "simplified",
-    "note": "cast to charge the next attack instead of an autocast attack modifier; no gold steal",
-    "targeting": "noTarget",
+    "note": "always on (no autocast toggle); no gold steal",
+    "targeting": "passive",
     "targetTeam": "ally",
-    "effects": [
-      {
-        "kind": "modifier",
-        "modifiers": {
-          "key": "bounty_hunter_jinada",
-          "consumedOnHit": true,
-          "onHit": [
-            {
-              "kind": "damage",
-              "damageType": "physical",
-              "amounts": "$bonus_damage"
-            }
-          ]
+    "passive": {
+      "key": "bounty_hunter_jinada",
+      "procCooldown": "$cd",
+      "onHit": [
+        {
+          "kind": "damage",
+          "damageType": "physical",
+          "amounts": "$bonus_damage"
         }
-      }
-    ]
+      ]
+    }
   },
   "bounty_hunter_wind_walk": {
     "status": "simplified",
@@ -1967,7 +1992,7 @@
   },
   "pudge_meat_hook": {
     "status": "simplified",
-    "note": "unit-targeted; damage only, no pull",
+    "note": "unit-targeted: the hook flies to the chosen enemy (units in the path do not catch it); the drag back to Pudge is instant on arrival; no ally pull, no instant kill of creeps",
     "targeting": "unit",
     "targetTeam": "enemy",
     "effects": [
@@ -1979,6 +2004,10 @@
             "kind": "damage",
             "damageType": "pure",
             "amounts": "$damage"
+          },
+          {
+            "kind": "pull",
+            "amounts": "$abilitycastrange"
           }
         ]
       }
@@ -2687,7 +2716,7 @@
   },
   "enigma_black_hole": {
     "status": "simplified",
-    "note": "Enigma does not channel; no pull",
+    "note": "Enigma does not channel; the pull to the center is instant at the cast (gradual in Dota); units entering later are not caught",
     "targeting": "point",
     "targetTeam": "enemy",
     "effects": [
@@ -2697,6 +2726,11 @@
         "center": "point",
         "team": "enemy",
         "effects": [
+          {
+            "kind": "pull",
+            "toward": "point",
+            "amounts": "$radius"
+          },
           {
             "kind": "modifier",
             "modifiers": {
@@ -3296,10 +3330,14 @@
   },
   "storm_spirit_electric_vortex": {
     "status": "simplified",
-    "note": "a disable without the pull; no self slow",
+    "note": "the pull is instant (over the duration in Dota), the target is stunned for the duration",
     "targeting": "unit",
     "targetTeam": "enemy",
     "effects": [
+      {
+        "kind": "pull",
+        "amounts": "$electric_vortex_pull_distance"
+      },
       {
         "kind": "modifier",
         "modifiers": {
@@ -3309,6 +3347,19 @@
             "stunned"
           ]
         }
+      },
+      {
+        "kind": "onCaster",
+        "effects": [
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "storm_spirit_electric_vortex_self",
+              "duration": "$electric_vortex_self_slow_duration",
+              "moveSpeedPercent": "$electric_vortex_self_slow"
+            }
+          }
+        ]
       }
     ]
   },
@@ -4106,10 +4157,14 @@
   },
   "largo_catchy_lick": {
     "status": "simplified",
-    "note": "enemies only; no pull; no health regeneration reward for a kill or dispel",
+    "note": "enemies only (no ally pull); the pull is instant; no health regeneration reward for a kill or dispel",
     "targeting": "unit",
     "targetTeam": "enemy",
     "effects": [
+      {
+        "kind": "pull",
+        "amounts": "$pull_distance"
+      },
       {
         "kind": "dispel"
       },
@@ -4122,16 +4177,23 @@
   },
   "largo_frogstomp": {
     "status": "simplified",
-    "note": "a debuff on the enemies in the area at the cast instead of a zone they can leave; one ministun instead of one per stomp",
+    "note": "the first stomp comes one stomp interval after the cast (0.5 s delay in Dota); the slow is applied by each stomp for one interval instead of a continuous area slow",
     "targeting": "point",
     "targetTeam": "enemy",
     "effects": [
       {
-        "kind": "area",
+        "kind": "zone",
         "radius": "$radius",
         "center": "point",
         "team": "enemy",
+        "duration": "$total_ticks*$stomp_interval",
+        "period": "$stomp_interval",
         "effects": [
+          {
+            "kind": "damage",
+            "damageType": "magical",
+            "amounts": "$damage_per_stomp"
+          },
           {
             "kind": "modifier",
             "modifiers": {
@@ -4146,11 +4208,8 @@
             "kind": "modifier",
             "modifiers": {
               "key": "largo_frogstomp",
-              "duration": "$total_ticks*$stomp_interval",
-              "moveSpeedPercent": "-$slow",
-              "damagePerSecond": "$damage_per_stomp/$stomp_interval",
-              "damageType": "magical",
-              "period": "$stomp_interval"
+              "duration": "$stomp_interval",
+              "moveSpeedPercent": "-$slow"
             }
           }
         ]
@@ -4253,12 +4312,13 @@
   },
   "spirit_breaker_greater_bash": {
     "status": "simplified",
-    "note": "stun, knockback and the movement speed bonus: no damage from movement speed, no 1.2 s proc cooldown (the cooldown is not a data value the map can refer to)",
+    "note": "stun, knockback and the movement speed bonus: no damage from movement speed",
     "targeting": "passive",
     "targetTeam": "ally",
     "passive": {
       "key": "spirit_breaker_greater_bash",
       "onHitChance": "$chance_pct",
+      "procCooldown": "$cd",
       "onHit": [
         {
           "kind": "knockback",
@@ -4367,25 +4427,29 @@
   },
   "disruptor_static_storm": {
     "status": "simplified",
-    "note": "damage per second is the average of the data's linear ramp from 0 to damage_max per second (damage_max/2), even over the storm; the debuff lasts its full duration even after leaving the area",
+    "note": "damage per pulse is the average of the data's linear ramp from 0 to damage_max per second (damage_max/2), even over the storm",
     "targeting": "point",
     "targetTeam": "enemy",
     "effects": [
       {
-        "kind": "area",
+        "kind": "zone",
         "radius": "$radius",
         "center": "point",
         "team": "enemy",
+        "duration": "$duration",
+        "period": "$duration/$pulses",
         "effects": [
           {
             "kind": "modifier",
             "modifiers": {
               "key": "disruptor_static_storm",
-              "duration": "$duration",
+              "duration": "$duration/$pulses",
               "flags": [
                 "silenced"
               ],
-              "damagePerSecond": "$damage_max/2"
+              "damagePerSecond": "$damage_max/2",
+              "damageType": "magical",
+              "period": "$duration/$pulses"
             }
           }
         ]
@@ -5568,10 +5632,14 @@
   },
   "tusk_drinking_buddies": {
     "status": "simplified",
-    "note": "no pull; only the ally gets the buff (Tusk himself does not)",
+    "note": "the ally is pulled all the way to Tusk (in Dota both move toward each other and stop at the minimum distance)",
     "targeting": "unit",
     "targetTeam": "ally",
     "effects": [
+      {
+        "kind": "pull",
+        "amounts": "$max_distance"
+      },
       {
         "kind": "modifier",
         "modifiers": {
@@ -5580,6 +5648,20 @@
           "moveSpeedPercent": "$movespeed_bonus",
           "armor": "$armor_bonus"
         }
+      },
+      {
+        "kind": "onCaster",
+        "effects": [
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "tusk_drinking_buddies_self",
+              "duration": "$buff_duration",
+              "moveSpeedPercent": "$movespeed_bonus",
+              "armor": "$armor_bonus"
+            }
+          }
+        ]
       }
     ]
   },
@@ -5650,16 +5732,17 @@
     ]
   },
   "lina_light_strike_array": {
-    "status": "simplified",
-    "note": "lands at once (no delay)",
+    "status": "full",
     "targeting": "point",
     "targetTeam": "enemy",
     "effects": [
       {
-        "kind": "area",
+        "kind": "zone",
         "radius": "$light_strike_array_aoe",
         "center": "point",
         "team": "enemy",
+        "duration": "$light_strike_array_delay_time",
+        "period": "$light_strike_array_delay_time",
         "effects": [
           {
             "kind": "damage",
@@ -5738,7 +5821,7 @@
   },
   "tidehunter_anchor_smash": {
     "status": "simplified",
-    "note": "the bonus damage only, without Tidehunter's attack; the radius is the bonus range only (his attack range is not added)",
+    "note": "the radius is the bonus range only (his attack range is not added)",
     "targeting": "noTarget",
     "targetTeam": "enemy",
     "effects": [
@@ -5748,6 +5831,9 @@
         "center": "caster",
         "team": "enemy",
         "effects": [
+          {
+            "kind": "attack"
+          },
           {
             "kind": "damage",
             "damageType": "physical",
@@ -5943,7 +6029,7 @@
   },
   "magnataur_shockwave": {
     "status": "simplified",
-    "note": "unit-targeted: the target only instead of a line; no pull",
+    "note": "unit-targeted: the target only instead of a line; the pull is instant",
     "targeting": "unit",
     "targetTeam": "enemy",
     "effects": [
@@ -5955,6 +6041,10 @@
             "kind": "damage",
             "damageType": "magical",
             "amounts": "$shock_damage"
+          },
+          {
+            "kind": "pull",
+            "amounts": "$pull_distance"
           },
           {
             "kind": "modifier",
@@ -6021,7 +6111,7 @@
   },
   "magnataur_reverse_polarity": {
     "status": "simplified",
-    "note": "no pull in front of Magnus",
+    "note": "enemies are pulled next to Magnus instead of to a point in front of him",
     "targeting": "noTarget",
     "targetTeam": "enemy",
     "effects": [
@@ -6031,6 +6121,10 @@
         "center": "caster",
         "team": "enemy",
         "effects": [
+          {
+            "kind": "pull",
+            "amounts": "$pull_radius"
+          },
           {
             "kind": "damage",
             "damageType": "magical",
@@ -6113,7 +6207,7 @@
   },
   "void_spirit_aether_remnant": {
     "status": "simplified",
-    "note": "triggers at once on enemies within the watch range of the point instead of a remnant watching a line; the pull is a stun of the pull duration without moving the target",
+    "note": "triggers at once on enemies within the watch range of the point instead of a remnant watching a line; the pull to the remnant is instant, then a stun of the pull duration",
     "targeting": "point",
     "targetTeam": "enemy",
     "effects": [
@@ -6123,6 +6217,11 @@
         "center": "point",
         "team": "enemy",
         "effects": [
+          {
+            "kind": "pull",
+            "amounts": "$remnant_watch_distance",
+            "toward": "point"
+          },
           {
             "kind": "damage",
             "damageType": "magical",
@@ -6194,7 +6293,7 @@
   },
   "void_spirit_astral_step": {
     "status": "simplified",
-    "note": "one charge (the charge restore time as the cooldown); hits enemies around the end point only, not along the path, without the attack; the void mark's damage lands at once with the slow",
+    "note": "one charge (the charge restore time as the cooldown); hits enemies around the end point only, not along the path; the void mark's damage lands at once with the slow",
     "targeting": "point",
     "targetTeam": "enemy",
     "castRange": "$max_travel_distance",
@@ -6209,6 +6308,9 @@
         "center": "point",
         "team": "enemy",
         "effects": [
+          {
+            "kind": "attack"
+          },
           {
             "kind": "damage",
             "damageType": "magical",
@@ -6289,7 +6391,7 @@
   },
   "snapfire_mortimer_kisses": {
     "status": "simplified",
-    "note": "one glob at the point instead of 8 over 5.5 s; the firespit pool is a burn and slow on the enemies hit, lasting the pool's duration",
+    "note": "one glob at the point instead of 8 over 5.5 s",
     "targeting": "point",
     "targetTeam": "enemy",
     "effects": [
@@ -6303,12 +6405,22 @@
             "kind": "damage",
             "damageType": "magical",
             "amounts": "$damage_per_impact"
-          },
+          }
+        ]
+      },
+      {
+        "kind": "zone",
+        "radius": "$impact_radius",
+        "center": "point",
+        "team": "enemy",
+        "duration": "$burn_ground_duration",
+        "period": "$burn_interval",
+        "effects": [
           {
             "kind": "modifier",
             "modifiers": {
               "key": "snapfire_mortimer_kisses",
-              "duration": "$burn_ground_duration",
+              "duration": "$burn_linger_duration",
               "damagePerSecond": "$burn_damage",
               "damageType": "magical",
               "period": "$burn_interval",
@@ -6588,24 +6700,33 @@
   },
   "sniper_shrapnel": {
     "status": "simplified",
-    "note": "one charge (the charge restore time as the cooldown); no zone: enemies in the area at the impact get the damage over time and slow for the zone's whole duration, without the delay",
+    "note": "one charge (the charge restore time as the cooldown); the zone pulses every damage delay: the damage over time lingers up to one pulse after leaving the zone",
     "targeting": "point",
     "targetTeam": "enemy",
     "cooldown": "$abilitychargerestoretime",
     "effects": [
       {
-        "kind": "area",
+        "kind": "zone",
         "radius": "$radius",
         "center": "point",
         "team": "enemy",
+        "duration": "$duration",
+        "period": "$damage_delay",
         "effects": [
           {
             "kind": "modifier",
             "modifiers": {
               "key": "sniper_shrapnel",
-              "duration": "$duration",
+              "duration": "$damage_delay",
               "damagePerSecond": "$shrapnel_damage",
-              "damageType": "magical",
+              "damageType": "magical"
+            }
+          },
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "sniper_shrapnel_slow",
+              "duration": "$slow_duration",
               "moveSpeedPercent": "$slow_movement_speed"
             }
           }
@@ -7130,7 +7251,40 @@
   },
   "abyssal_underlord_firestorm": {
     "status": "simplified",
-    "note": "no zone: enemies in the area at the cast take the waves as damage over time for all waves and the max-health burn throughout",
+    "note": "the first wave lands one wave interval after the cast (at once in Dota)",
+    "targeting": "point",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "zone",
+        "radius": "$radius",
+        "center": "point",
+        "team": "enemy",
+        "duration": "$wave_interval*$wave_count",
+        "period": "$wave_interval",
+        "effects": [
+          {
+            "kind": "damage",
+            "damageType": "magical",
+            "amounts": "$wave_damage"
+          },
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "abyssal_underlord_firestorm",
+              "duration": "$burn_duration",
+              "damagePerSecondMaxHealthPercent": "$burn_damage/$burn_interval",
+              "damageType": "magical",
+              "period": "$burn_interval"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "abyssal_underlord_pit_of_malice": {
+    "status": "simplified",
+    "note": "units that walk into the pit are caught at its next pulse (every pit_interval) instead of on entry",
     "targeting": "point",
     "targetTeam": "enemy",
     "effects": [
@@ -7141,31 +7295,29 @@
         "team": "enemy",
         "effects": [
           {
+            "kind": "damage",
+            "damageType": "magical",
+            "amounts": "$pit_damage"
+          },
+          {
             "kind": "modifier",
             "modifiers": {
-              "key": "abyssal_underlord_firestorm",
-              "duration": "$wave_interval*$wave_count",
-              "damagePerSecond": "$wave_damage/$wave_interval",
-              "damageType": "magical",
-              "period": "$wave_interval",
-              "damagePerSecondMaxHealthPercent": "$burn_damage/$burn_interval"
+              "key": "abyssal_underlord_pit_of_malice",
+              "duration": "$ensnare_duration",
+              "flags": [
+                "rooted"
+              ]
             }
           }
         ]
-      }
-    ]
-  },
-  "abyssal_underlord_pit_of_malice": {
-    "status": "simplified",
-    "note": "no pit: enemies in the area at the cast are damaged and rooted once",
-    "targeting": "point",
-    "targetTeam": "enemy",
-    "effects": [
+      },
       {
-        "kind": "area",
+        "kind": "zone",
         "radius": "$radius",
         "center": "point",
         "team": "enemy",
+        "duration": "$pit_duration",
+        "period": "$pit_interval",
         "effects": [
           {
             "kind": "damage",
@@ -7486,15 +7638,17 @@
   },
   "kunkka_torrent": {
     "status": "simplified",
-    "note": "erupts at once (no 1.6 s delay); damage at once, not over the stun",
+    "note": "damage at once on the eruption, not over the stun",
     "targeting": "point",
     "targetTeam": "enemy",
     "effects": [
       {
-        "kind": "area",
+        "kind": "zone",
         "radius": "$radius",
         "center": "point",
         "team": "enemy",
+        "duration": "$delay",
+        "period": "$delay",
         "effects": [
           {
             "kind": "damage",
@@ -7838,8 +7992,7 @@
     ]
   },
   "alchemist_acid_spray": {
-    "status": "simplified",
-    "note": "no lasting pool: units in the area at the cast get the debuff for the whole duration",
+    "status": "full",
     "targeting": "point",
     "targetTeam": "enemy",
     "effects": [
@@ -7853,11 +8006,31 @@
             "kind": "modifier",
             "modifiers": {
               "key": "alchemist_acid_spray",
-              "duration": "$duration",
-              "armor": "-$armor_reduction",
-              "damagePerSecond": "$damage/$tick_rate",
-              "damageType": "physical",
-              "period": "$tick_rate"
+              "duration": "$tick_rate",
+              "armor": "-$armor_reduction"
+            }
+          }
+        ]
+      },
+      {
+        "kind": "zone",
+        "radius": "$radius",
+        "center": "point",
+        "team": "enemy",
+        "duration": "$duration",
+        "period": "$tick_rate",
+        "effects": [
+          {
+            "kind": "damage",
+            "damageType": "physical",
+            "amounts": "$damage*$tick_rate"
+          },
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "alchemist_acid_spray",
+              "duration": "$tick_rate",
+              "armor": "-$armor_reduction"
             }
           }
         ]
@@ -7993,25 +8166,22 @@
   },
   "oracle_rain_of_destiny": {
     "status": "simplified",
-    "note": "damage to enemies only: no heal for allies, no heal amplification change; units in the area at the cast keep it for the whole duration",
+    "note": "damage to enemies only: no heal for allies, no heal amplification change",
     "targeting": "point",
     "targetTeam": "enemy",
     "effects": [
       {
-        "kind": "area",
+        "kind": "zone",
         "radius": "$radius",
         "center": "point",
         "team": "enemy",
+        "duration": "$duration",
+        "period": "$tick_rate",
         "effects": [
           {
-            "kind": "modifier",
-            "modifiers": {
-              "key": "oracle_rain_of_destiny",
-              "duration": "$duration",
-              "damagePerSecond": "$damage/$tick_rate",
-              "damageType": "magical",
-              "period": "$tick_rate"
-            }
+            "kind": "damage",
+            "damageType": "magical",
+            "amounts": "$damage"
           }
         ]
       }
@@ -8256,16 +8426,18 @@
   },
   "pugna_nether_blast": {
     "status": "simplified",
-    "note": "explodes at once (no 0.8 s delay); full damage to structures (65% in Dota)",
+    "note": "full damage to structures (65% in Dota)",
     "targeting": "point",
     "targetTeam": "enemy",
     "targetsStructures": true,
     "effects": [
       {
-        "kind": "area",
+        "kind": "zone",
         "radius": "$radius",
         "center": "point",
         "team": "enemy",
+        "duration": "$delay",
+        "period": "$delay",
         "effects": [
           {
             "kind": "damage",
@@ -8374,71 +8546,76 @@
   },
   "jakiro_liquid_fire": {
     "status": "simplified",
-    "note": "cast directly on a unit instead of an attack modifier (no autocast); no reduced damage to buildings",
-    "targeting": "unit",
-    "targetTeam": "enemy",
-    "effects": [
-      {
-        "kind": "area",
-        "radius": "$radius",
-        "center": "target",
-        "team": "enemy",
-        "effects": [
-          {
-            "kind": "modifier",
-            "modifiers": {
-              "key": "jakiro_liquid_fire",
-              "duration": "$abilityduration",
-              "damagePerSecond": "$damage",
-              "damageType": "magical",
-              "period": "$tick_rate",
-              "attackSpeed": "$slow_attack_speed_pct"
+    "note": "always-on attack modifier with the ability cooldown as its proc cooldown (no autocast toggle, no mana cost per proc); does not share the cooldown with Liquid Frost; no reduced damage to buildings",
+    "targeting": "passive",
+    "targetTeam": "ally",
+    "passive": {
+      "key": "jakiro_liquid_fire_passive",
+      "procCooldown": "$cd",
+      "onHit": [
+        {
+          "kind": "area",
+          "radius": "$radius",
+          "center": "target",
+          "team": "enemy",
+          "effects": [
+            {
+              "kind": "modifier",
+              "modifiers": {
+                "key": "jakiro_liquid_fire",
+                "duration": "$abilityduration",
+                "damagePerSecond": "$damage",
+                "damageType": "magical",
+                "period": "$tick_rate",
+                "attackSpeed": "$slow_attack_speed_pct"
+              }
             }
-          }
-        ]
-      }
-    ]
+          ]
+        }
+      ]
+    }
   },
   "jakiro_liquid_ice": {
     "status": "simplified",
-    "note": "cast directly on a unit instead of an attack modifier (no autocast); no bonus damage from Jakiro's other attacks and abilities",
-    "targeting": "unit",
-    "targetTeam": "enemy",
-    "effects": [
-      {
-        "kind": "modifier",
-        "modifiers": {
-          "key": "jakiro_liquid_ice",
-          "duration": "$duration",
-          "damagePerSecond": "$damage",
-          "damageType": "magical",
-          "period": "$tick_rate",
-          "moveSpeedPercent": "-$movement_slow"
+    "note": "always-on attack modifier with the ability cooldown as its proc cooldown (no autocast toggle, no mana cost per proc); does not share the cooldown with Liquid Fire; no bonus damage from Jakiro's other attacks and abilities",
+    "targeting": "passive",
+    "targetTeam": "ally",
+    "passive": {
+      "key": "jakiro_liquid_ice_passive",
+      "procCooldown": "$cd",
+      "onHit": [
+        {
+          "kind": "modifier",
+          "modifiers": {
+            "key": "jakiro_liquid_ice",
+            "duration": "$duration",
+            "damagePerSecond": "$damage",
+            "damageType": "magical",
+            "period": "$tick_rate",
+            "moveSpeedPercent": "-$movement_slow"
+          }
         }
-      }
-    ]
+      ]
+    }
   },
   "jakiro_macropyre": {
     "status": "simplified",
-    "note": "a circle at the point (half the path width as the radius) instead of a line; units there at the cast burn the whole duration",
+    "note": "a lasting circle at the point (half the path width as the radius) instead of a line; no 1 s linger of the burn after leaving the fire",
     "targeting": "point",
     "targetTeam": "enemy",
     "effects": [
       {
-        "kind": "area",
+        "kind": "zone",
         "radius": "$path_width/2",
         "center": "point",
         "team": "enemy",
+        "duration": "$duration",
+        "period": "$burn_interval",
         "effects": [
           {
-            "kind": "modifier",
-            "modifiers": {
-              "key": "jakiro_macropyre",
-              "duration": "$duration",
-              "damagePerSecond": "$damage",
-              "damageType": "magical",
-              "period": "$burn_interval"
-            }
+            "kind": "damage",
+            "damageType": "magical",
+            "amounts": "$damage*$burn_interval"
           }
         ]
       }
@@ -8500,34 +8677,29 @@
   },
   "ancient_apparition_chilling_touch": {
     "status": "simplified",
-    "note": "a cast that empowers the next attack (no autocast)",
-    "targeting": "noTarget",
+    "note": "always on (no autocast toggle), without mana cost; the attack range bonus is permanent (only for the empowered attack in Dota)",
+    "targeting": "passive",
     "targetTeam": "ally",
-    "effects": [
-      {
-        "kind": "modifier",
-        "modifiers": {
-          "key": "ancient_apparition_chilling_touch",
-          "attackRange": "$attack_range_bonus",
-          "consumedOnHit": true,
-          "onHit": [
-            {
-              "kind": "damage",
-              "damageType": "magical",
-              "amounts": "$damage"
-            },
-            {
-              "kind": "modifier",
-              "modifiers": {
-                "key": "ancient_apparition_chilling_touch_slow",
-                "duration": "$slow_duration",
-                "moveSpeedPercent": "-$slow"
-              }
-            }
-          ]
+    "passive": {
+      "key": "ancient_apparition_chilling_touch",
+      "attackRange": "$attack_range_bonus",
+      "procCooldown": "$cd",
+      "onHit": [
+        {
+          "kind": "damage",
+          "damageType": "magical",
+          "amounts": "$damage"
+        },
+        {
+          "kind": "modifier",
+          "modifiers": {
+            "key": "ancient_apparition_chilling_touch_slow",
+            "duration": "$slow_duration",
+            "moveSpeedPercent": "-$slow"
+          }
         }
-      }
-    ]
+      ]
+    }
   },
   "ancient_apparition_ice_blast": {
     "status": "simplified",
@@ -9080,12 +9252,15 @@
   },
   "riki_blink_strike": {
     "status": "simplified",
-    "note": "enemies only; a dash to the target instead of a teleport behind it; the bonus damage without Riki's attack",
+    "note": "enemies only; a dash to the target instead of a teleport behind it",
     "targeting": "unit",
     "targetTeam": "enemy",
     "effects": [
       {
         "kind": "dash"
+      },
+      {
+        "kind": "attack"
       },
       {
         "kind": "damage",
@@ -9104,20 +9279,22 @@
   },
   "riki_tricks_of_the_trade": {
     "status": "simplified",
-    "note": "every enemy in the area takes all strikes at once as plain damage (in Dota each strike hits 2 random units over the channel); Riki does not channel or phase out",
+    "note": "a zone at the point: every channel time / attack count every enemy in it takes a strike of the fixed attack damage as plain physical damage (in Dota each strike is an attack on 2 random units); Riki does not channel or phase out",
     "targeting": "point",
     "targetTeam": "enemy",
     "effects": [
       {
-        "kind": "area",
+        "kind": "zone",
         "radius": "$radius",
         "center": "point",
         "team": "enemy",
+        "duration": "$abilitychanneltime",
+        "period": "$abilitychanneltime/$attack_count",
         "effects": [
           {
             "kind": "damage",
             "damageType": "physical",
-            "amounts": "$attack_damage*$attack_count"
+            "amounts": "$attack_damage"
           }
         ]
       }
@@ -9208,18 +9385,13 @@
   },
   "faceless_void_time_lock": {
     "status": "simplified",
-    "note": "no second attack: the bonus damage and the stun only",
+    "note": "the second attack lands at once (after a 0.4 s delay in Dota) and can itself proc Time Lock",
     "targeting": "passive",
     "targetTeam": "ally",
     "passive": {
       "key": "faceless_void_time_lock",
       "onHitChance": "$chance_pct",
       "onHit": [
-        {
-          "kind": "damage",
-          "damageType": "magical",
-          "amounts": "$bonus_damage"
-        },
         {
           "kind": "modifier",
           "modifiers": {
@@ -9229,6 +9401,14 @@
               "stunned"
             ]
           }
+        },
+        {
+          "kind": "damage",
+          "damageType": "magical",
+          "amounts": "$bonus_damage"
+        },
+        {
+          "kind": "attack"
         }
       ]
     }
@@ -9260,16 +9440,17 @@
     ]
   },
   "leshrac_split_earth": {
-    "status": "simplified",
-    "note": "no delay: lands at once",
+    "status": "full",
     "targeting": "point",
     "targetTeam": "enemy",
     "effects": [
       {
-        "kind": "area",
+        "kind": "zone",
         "radius": "$radius",
         "center": "point",
         "team": "enemy",
+        "duration": "$delay",
+        "period": "$delay",
         "effects": [
           {
             "kind": "damage",
@@ -9413,39 +9594,34 @@
   },
   "omniknight_hammer_of_purity": {
     "status": "simplified",
-    "note": "cast to charge the next attack instead of an autocast attack modifier; the percent part is of the whole attack damage (base damage only in Dota); no heal, no range bonus",
-    "targeting": "noTarget",
+    "note": "always-on attack modifier with the ability cooldown as its proc cooldown (no autocast toggle); the percent part is of the whole attack damage (base damage only in Dota); no heal, no range bonus",
+    "targeting": "passive",
     "targetTeam": "ally",
-    "effects": [
-      {
-        "kind": "modifier",
-        "modifiers": {
-          "key": "omniknight_hammer_of_purity",
-          "consumedOnHit": true,
-          "onHit": [
-            {
-              "kind": "damage",
-              "damageType": "pure",
-              "scaling": "casterAttackDamagePercent",
-              "amounts": "$base_damage"
-            },
-            {
-              "kind": "damage",
-              "damageType": "pure",
-              "amounts": "$bonus_damage"
-            },
-            {
-              "kind": "modifier",
-              "modifiers": {
-                "key": "omniknight_hammer_of_purity_slow",
-                "duration": "$duration",
-                "moveSpeedPercent": "-$movement_slow"
-              }
-            }
-          ]
+    "passive": {
+      "key": "omniknight_hammer_of_purity",
+      "procCooldown": "$cd",
+      "onHit": [
+        {
+          "kind": "damage",
+          "damageType": "pure",
+          "scaling": "casterAttackDamagePercent",
+          "amounts": "$base_damage"
+        },
+        {
+          "kind": "damage",
+          "damageType": "pure",
+          "amounts": "$bonus_damage"
+        },
+        {
+          "kind": "modifier",
+          "modifiers": {
+            "key": "omniknight_hammer_of_purity_slow",
+            "duration": "$duration",
+            "moveSpeedPercent": "-$movement_slow"
+          }
         }
-      }
-    ]
+      ]
+    }
   },
   "omniknight_degen_aura": {
     "status": "full",
@@ -9550,10 +9726,14 @@
   },
   "chaos_knight_reality_rift": {
     "status": "simplified",
-    "note": "Chaos Knight dashes to the target instead of both teleporting to a point between them; the target is not pulled; illusions do not follow",
+    "note": "Chaos Knight dashes to the pulled target instead of teleporting; illusions do not follow",
     "targeting": "unit",
     "targetTeam": "enemy",
     "effects": [
+      {
+        "kind": "pull",
+        "amounts": "$pull_distance"
+      },
       {
         "kind": "dash"
       },
@@ -10256,12 +10436,13 @@
   },
   "legion_commander_moment_of_courage": {
     "status": "simplified",
-    "note": "counter-attacks the unit whose attack completed the count (not her current attack target); no 0.3 s internal cooldown (not among the data's attributes); the lifesteal buff is spent by the counter-attack",
+    "note": "counter-attacks the unit whose attack completed the count (not her current attack target); the lifesteal buff is spent by the counter-attack",
     "targeting": "passive",
     "targetTeam": "ally",
     "passive": {
       "key": "legion_commander_moment_of_courage",
       "whenAttackedEvery": "$trigger_attacks",
+      "procCooldown": "$cd",
       "whenAttacked": [
         {
           "kind": "onCaster",
@@ -10357,12 +10538,13 @@
   },
   "axe_counter_helix": {
     "status": "simplified",
-    "note": "no 0.3 s internal cooldown (not a data value); only attacks that land are counted",
+    "note": "only attacks that land are counted",
     "targeting": "passive",
     "targetTeam": "ally",
     "passive": {
       "key": "axe_counter_helix",
       "whenAttackedEvery": "$trigger_attacks",
+      "procCooldown": "$cd",
       "whenAttacked": [
         {
           "kind": "area",
@@ -10461,6 +10643,59 @@
               }
             }
           ]
+        }
+      ]
+    }
+  },
+  "enigma_midnight_pulse": {
+    "status": "full",
+    "targeting": "point",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "zone",
+        "radius": "$radius",
+        "center": "point",
+        "team": "enemy",
+        "duration": "$duration",
+        "period": "$tick_rate",
+        "effects": [
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "enigma_midnight_pulse",
+              "duration": "$tick_rate",
+              "damagePerSecond": "$base_damage",
+              "damageType": "magical",
+              "period": "$tick_rate"
+            }
+          },
+          {
+            "kind": "damage",
+            "damageType": "magical",
+            "scaling": "targetCurrentHealthPercent",
+            "amounts": "$damage_percent*$tick_rate"
+          }
+        ]
+      }
+    ]
+  },
+  "weaver_geminate_attack": {
+    "status": "simplified",
+    "note": "always on (no autocast); the extra attack lands at once with the first (0.25 s later in Dota)",
+    "targeting": "passive",
+    "targetTeam": "enemy",
+    "passive": {
+      "key": "weaver_geminate_attack",
+      "procCooldown": "$cd",
+      "onHit": [
+        {
+          "kind": "attack"
+        },
+        {
+          "kind": "damage",
+          "damageType": "physical",
+          "amounts": "$bonus_damage"
         }
       ]
     }

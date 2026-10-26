@@ -202,7 +202,9 @@ public class PackContentTests
                 { ""kind"": ""damage"", ""damageType"": ""magical"", ""scaling"": ""casterIntelligencePercent"", ""amounts"": [37.5] } ],
             ""passive"": [ { ""key"": ""fury"", ""duration"": 20, ""stacking"": true, ""procCooldown"": 1.5, ""whenAttackedChance"": 25,
                           ""whenAttacked"": [ { ""kind"": ""damage"", ""damageType"": ""pure"", ""amounts"": [100] } ] },
-                          { ""key"": ""shift"", ""stacking"": true, ""maxStacks"": 4 } ] }], ""items"": []",
+                          { ""key"": ""shift"", ""stacking"": true, ""maxStacks"": 4, ""onHitHeroesOnly"": true,
+                            ""onCast"": [ { ""kind"": ""heal"", ""amounts"": [1] } ], ""onKill"": [ { ""kind"": ""heal"", ""amounts"": [2] } ],
+                            ""onDeath"": [ { ""kind"": ""heal"", ""amounts"": [3] } ] } ] }], ""items"": []",
             Hero("lion", @"[""swipes""]"));
 
         AbilityDefinition swipes = rules.FindAbility("swipes")!;
@@ -213,7 +215,9 @@ public class PackContentTests
         Assert.Equal((DamageScaling.CasterIntelligencePercent, 3750), (swipes.Effects[4].Scaling, swipes.Effects[4].Amounts[0]));
         ModifierSpec fury = swipes.PassiveModifiers[0];
         Assert.Equal((int.MaxValue, 1500, 25), (fury.MaxStacks, fury.ProcCooldownMs, fury.WhenAttackedChancePercent));
-        Assert.Equal(4, swipes.PassiveModifiers[1].MaxStacks);
+        ModifierSpec shift = swipes.PassiveModifiers[1];
+        Assert.Equal((4, true), (shift.MaxStacks, shift.OnHitHeroesOnly));
+        Assert.Equal((1, 2, 3), (shift.OnCast.Single().Amounts[0], shift.OnKill.Single().Amounts[0], shift.OnDeath.Single().Amounts[0]));
     }
 
     [Fact]
@@ -221,13 +225,14 @@ public class PackContentTests
     {
         RulesetContent rules = Apply(@"""abilities"": [{ ""id"": ""pyre"", ""name"": ""Pyre"", ""targeting"": ""point"", ""targetTeam"": ""enemy"", ""castRange"": 900, ""castPoint"": 0,
             ""cooldown"": [18], ""requiredLevels"": [1], ""effects"": [
-                { ""kind"": ""zone"", ""radius"": 260, ""center"": ""point"", ""team"": ""enemy"", ""duration"": 10, ""period"": 0.5,
+                { ""kind"": ""zone"", ""radius"": 260, ""center"": ""point"", ""team"": ""enemy"", ""duration"": 10, ""period"": 0.5, ""heroesOnly"": true,
                   ""effects"": [ { ""kind"": ""damage"", ""damageType"": ""magical"", ""amounts"": [50] } ] },
                 { ""kind"": ""area"", ""radius"": 400, ""center"": ""point"", ""team"": ""enemy"", ""effects"": [ { ""kind"": ""pull"", ""toward"": ""point"", ""amounts"": [300] } ] } ] }], ""items"": []",
             Hero("lion", @"[""pyre""]"));
 
         EffectDefinition zone = rules.FindAbility("pyre")!.Effects[0];
         Assert.Equal((EffectKind.Zone, 260, AreaCenter.Point, 10000, 500), (zone.Kind, zone.Radius, zone.Center, zone.DurationMs, zone.PeriodMs));
+        Assert.True(zone.HeroesOnly);
         EffectDefinition pull = rules.FindAbility("pyre")!.Effects[1].Inner.Single();
         Assert.Equal((EffectKind.Pull, AreaCenter.Point, 300), (pull.Kind, pull.Center, pull.Amounts[0]));
     }

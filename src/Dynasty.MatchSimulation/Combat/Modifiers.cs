@@ -121,8 +121,16 @@ namespace Dynasty.MatchSimulation.Combat
             int whenAttackedEvery = 1,
             int maxStacks = 0,
             int procCooldownMs = 0,
-            int whenAttackedChancePercent = 100)
+            int whenAttackedChancePercent = 100,
+            IReadOnlyList<Rules.EffectDefinition>? onCast = null,
+            IReadOnlyList<Rules.EffectDefinition>? onKill = null,
+            IReadOnlyList<Rules.EffectDefinition>? onDeath = null,
+            bool onHitHeroesOnly = false)
         {
+            OnCast = onCast?.ToArray() ?? System.Array.Empty<Rules.EffectDefinition>();
+            OnKill = onKill?.ToArray() ?? System.Array.Empty<Rules.EffectDefinition>();
+            OnDeath = onDeath?.ToArray() ?? System.Array.Empty<Rules.EffectDefinition>();
+            OnHitHeroesOnly = onHitHeroesOnly;
             MaxStacks = maxStacks;
             ProcCooldownMs = procCooldownMs;
             WhenAttackedChancePercent = whenAttackedChancePercent;
@@ -225,6 +233,18 @@ namespace Dynasty.MatchSimulation.Combat
         /// duration; every stack adds the modifier's stats and damage over time (Fury Swipes, Essence Shift).
         /// </summary>
         public int MaxStacks { get; }
+
+        /// <summary>On-hit effects run only when the attacked unit is a hero (Essence Shift).</summary>
+        public bool OnHitHeroesOnly { get; }
+
+        /// <summary>Effects run when the bearer casts an ability, after its effects: the cast's target (the bearer for untargeted casts) and point (Aftershock).</summary>
+        public IReadOnlyList<Rules.EffectDefinition> OnCast { get; }
+
+        /// <summary>Effects run when the bearer kills a unit, with the victim as the target (Sadist).</summary>
+        public IReadOnlyList<Rules.EffectDefinition> OnKill { get; }
+
+        /// <summary>Effects run when the bearer dies, with the bearer as the caster and its killer as the target (Caustic Finale, Retribution).</summary>
+        public IReadOnlyList<Rules.EffectDefinition> OnDeath { get; }
 
         public AuraSpec? Aura { get; }
 
@@ -348,6 +368,13 @@ namespace Dynasty.MatchSimulation.Combat
             w.WriteInt64(WhenAttackedChancePercent);
             w.WriteInt64(ProcCooldownMs);
             w.WriteInt64(MaxStacks);
+            w.WriteBool(OnHitHeroesOnly);
+            foreach (IReadOnlyList<Rules.EffectDefinition> list in new[] { OnCast, OnKill, OnDeath })
+            {
+                w.WriteInt64(list.Count);
+                foreach (Rules.EffectDefinition effect in list)
+                    effect.WriteCanonical(w);
+            }
         }
 
         public static ModifierSpec Status(string key, int durationMs, ModifierFlags flags) => new ModifierSpec(key, durationMs, flags);
@@ -385,6 +412,9 @@ namespace Dynasty.MatchSimulation.Combat
 
         /// <summary>Tick from which its on-hit or on-attacked effects may run again (<see cref="ModifierSpec.ProcCooldownMs"/>).</summary>
         internal long NextProcTick { get; set; }
+
+        /// <summary>Its on-hit effects are running: an attack they make does not run them again (no chain of procs).</summary>
+        internal bool Procing { get; set; }
     }
 
     public static class Modifiers

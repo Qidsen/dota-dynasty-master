@@ -134,6 +134,8 @@ namespace Dynasty.MatchSimulation.Systems
             Modifiers.BreakOnAction(context, caster);
             FixedVector2 point = definition.Targeting == AbilityTargeting.Point ? order.Point : target.Position;
             Effects.Run(context, caster, definition.Effects, ability.Level, target, point);
+            foreach (ActiveModifier modifier in caster.Modifiers.Where(m => m.Spec.OnCast.Count > 0).ToList())
+                Effects.Run(context, caster, modifier.Spec.OnCast, 1, target, point);
         }
 
         /// <summary>Using a consumable item's active spends a charge; the item is gone at zero.</summary>

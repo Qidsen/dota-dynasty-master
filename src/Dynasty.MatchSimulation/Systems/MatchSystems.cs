@@ -519,6 +519,8 @@ namespace Dynasty.MatchSimulation.Systems
             // On-hit effects (bash, bonus magic damage, slows) of the attacker's modifiers, in their order on the unit.
             foreach (ActiveModifier modifier in attacker.Modifiers.Where(m => m.Spec.OnHit.Count > 0).ToList())
             {
+                if ((modifier.Spec.OnHitHeroesOnly && target.Hero == null) || modifier.Procing)
+                    continue;
                 if (context.Tick.Value < modifier.NextProcTick)
                     continue;
                 if (modifier.Spec.OnHitAfterAttacks > 0 && modifier.AttackCount++ < modifier.Spec.OnHitAfterAttacks)
@@ -527,7 +529,9 @@ namespace Dynasty.MatchSimulation.Systems
                 if (!Rolls(context, modifier.Spec.OnHitChancePercent))
                     continue;
                 StartProcCooldown(context, modifier);
+                modifier.Procing = true;
                 Effects.Run(context, attacker, modifier.Spec.OnHit, 1, target, target.Position);
+                modifier.Procing = false;
             }
 
             // Effects of the target's modifiers on being hit (Counter Helix), every Nth landing attack.
@@ -611,6 +615,21 @@ namespace Dynasty.MatchSimulation.Systems
     {
         public string Name => "cleanup";
 
+        /// <summary>
+        /// The dead unit's on-death effects (with its killer as the target) and its killer's on-kill effects
+        /// (with the victim as the target). Units these effects kill are handled on the next tick.
+        /// </summary>
+        private static void RunDeathTriggers(SimulationContext<MatchState> context, MatchUnit unit)
+        {
+            MatchUnit? killer = context.State.Find(unit.LastAttackerId);
+            foreach (ActiveModifier modifier in unit.Modifiers.Where(m => m.Spec.OnDeath.Count > 0).ToList())
+                Effects.Run(context, unit, modifier.Spec.OnDeath, 1, killer ?? unit, unit.Position);
+            if (killer == null || killer == unit)
+                return;
+            foreach (ActiveModifier modifier in killer.Modifiers.Where(m => m.Spec.OnKill.Count > 0).ToList())
+                Effects.Run(context, killer, modifier.Spec.OnKill, 1, unit, unit.Position);
+        }
+
         public void Tick(SimulationContext<MatchState> context)
         {
             MatchState state = context.State;
@@ -626,6 +645,7 @@ namespace Dynasty.MatchSimulation.Systems
 
             foreach (MatchUnit unit in dead)
             {
+                RunDeathTriggers(context, unit);
                 if (unit.Hero != null)
                 {
                     // Heroes stay in the match and respawn.

@@ -230,7 +230,7 @@ namespace Dynasty.Content
                     break;
                 case "zone":
                     effect = EffectDefinition.Zone(e.Int("radius"), ReadCenter(e, "center"), ReadTeam(e, "team"), e.Milliseconds("duration"), e.Milliseconds("period"),
-                        e.Array("effects").Select(ReadEffect).ToArray());
+                        e.OptionalBool("heroesOnly") ?? false, e.Array("effects").Select(ReadEffect).ToArray());
                     break;
                 case "pull":
                     AreaCenter toward = e.Has("toward") ? ReadCenter(e, "toward") : AreaCenter.Caster;
@@ -320,7 +320,9 @@ namespace Dynasty.Content
                 onHitAfterAttacks: m.OptionalInt("onHitAfterAttacks") ?? 0, whenAttacked: m.OptionalArray("whenAttacked").Select(ReadEffect).ToList(),
                 whenAttackedEvery: m.OptionalInt("whenAttackedEvery") ?? 1,
                 maxStacks: m.OptionalBool("stacking") == true ? m.OptionalInt("maxStacks") ?? int.MaxValue : 0,
-                procCooldownMs: m.OptionalMilliseconds("procCooldown") ?? 0, whenAttackedChancePercent: m.OptionalInt("whenAttackedChance") ?? 100);
+                procCooldownMs: m.OptionalMilliseconds("procCooldown") ?? 0, whenAttackedChancePercent: m.OptionalInt("whenAttackedChance") ?? 100,
+                onCast: m.OptionalArray("onCast").Select(ReadEffect).ToList(), onKill: m.OptionalArray("onKill").Select(ReadEffect).ToList(),
+                onDeath: m.OptionalArray("onDeath").Select(ReadEffect).ToList(), onHitHeroesOnly: m.OptionalBool("onHitHeroesOnly") ?? false);
             m.RejectUnknown();
             return spec;
         }

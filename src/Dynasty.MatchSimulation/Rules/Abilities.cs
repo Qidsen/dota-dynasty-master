@@ -210,7 +210,11 @@ namespace Dynasty.MatchSimulation.Rules
 
         /// <summary>A zone at the caster, the target or the point that runs <paramref name="inner"/> on the units of <paramref name="team"/> inside every period.</summary>
         public static EffectDefinition Zone(int radius, AreaCenter center, TargetTeam team, int durationMs, int periodMs, params EffectDefinition[] inner) =>
-            new EffectDefinition(EffectKind.Zone, radius: radius, center: center, team: team, durationMs: durationMs, periodMs: periodMs, inner: inner);
+            Zone(radius, center, team, durationMs, periodMs, false, inner);
+
+        /// <summary>A zone affecting heroes only when <paramref name="heroesOnly"/> (Mystic Flare).</summary>
+        public static EffectDefinition Zone(int radius, AreaCenter center, TargetTeam team, int durationMs, int periodMs, bool heroesOnly, params EffectDefinition[] inner) =>
+            new EffectDefinition(EffectKind.Zone, radius: radius, center: center, team: team, durationMs: durationMs, periodMs: periodMs, inner: inner, heroesOnly: heroesOnly);
 
         /// <summary>Pulls the target toward the caster or the point by up to the distance (per level).</summary>
         public static EffectDefinition Pull(AreaCenter toward, params int[] distancePerLevel) =>

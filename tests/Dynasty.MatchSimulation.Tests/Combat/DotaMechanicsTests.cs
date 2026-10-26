@@ -491,4 +491,30 @@ public class DotaMechanicsTests
 
         Assert.Equal(P(5300, 5000), H(kernel.State, "beta").Position);
     }
+
+    /// <summary>An attack made by an on-hit effect (Time Lock, Geminate Attack) does not trigger that same effect again: no chain of procs.</summary>
+    [Fact]
+    public void OnHitAttack_DoesNotTriggerItsOwnModifierAgain()
+    {
+        var timeLock = new ModifierSpec("lock", -1, onHit: new[] { EffectDefinition.Damage(DamageType.Pure, 10), EffectDefinition.Attack(100) });
+        var kernel = Duel(onAlpha: timeLock, attack: false);
+        kernel.AddSystem(new LambdaSystem(2, ctx => AttackSystem.Strike(ctx, H(ctx.State, "alpha"), H(ctx.State, "beta"), 100)));
+        kernel.RunTicks(3);
+
+        Assert.Equal(2, HitsOnBeta(kernel).Count(d => d.DamageType == DamageType.Physical));   // the attack and the one it made
+        Assert.Single(HitsOnBeta(kernel), d => d.DamageType == DamageType.Pure);
+    }
+
+    [Fact]
+    public void Zone_CanBeLimitedToHeroes()
+    {
+        var kernel = Duel(attack: false);
+        kernel.AddSystem(new LambdaSystem(2, ctx => Effects.Run(ctx, H(ctx.State, "alpha"),
+            new[] { EffectDefinition.Zone(150, AreaCenter.Point, TargetTeam.Enemy, 3000, 1000, heroesOnly: true, EffectDefinition.Damage(DamageType.Pure, 10)) },
+            1, H(ctx.State, "alpha"), H(ctx.State, "beta").Position)));
+        kernel.RunTicks(40);
+
+        Assert.True(kernel.State.Zones.Single().Definition.HeroesOnly);
+        Assert.Single(HitsOnBeta(kernel));
+    }
 }
