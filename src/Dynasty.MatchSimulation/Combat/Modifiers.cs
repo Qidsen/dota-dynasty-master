@@ -113,8 +113,10 @@ namespace Dynasty.MatchSimulation.Combat
             AuraSpec? aura = null,
             int cleavePercent = 0,
             int cleaveRadius = 0,
-            int barrier = 0)
+            int barrier = 0,
+            bool consumedOnHit = false)
         {
+            ConsumedOnHit = consumedOnHit;
             CleavePercent = cleavePercent;
             CleaveRadius = cleaveRadius;
             Barrier = barrier;
@@ -196,6 +198,9 @@ namespace Dynasty.MatchSimulation.Combat
 
         /// <summary>Damage of any type this modifier absorbs before it is used up and removed.</summary>
         public int Barrier { get; }
+
+        /// <summary>Removed once the unit's next attack lands ("next attack" buffs).</summary>
+        public bool ConsumedOnHit { get; }
 
         /// <summary>Percent change of move speed; negative slows.</summary>
         public int MoveSpeedPercent { get; }
@@ -294,6 +299,7 @@ namespace Dynasty.MatchSimulation.Combat
             w.WriteInt64(CleavePercent);
             w.WriteInt64(CleaveRadius);
             w.WriteInt64(Barrier);
+            w.WriteBool(ConsumedOnHit);
         }
 
         public static ModifierSpec Status(string key, int durationMs, ModifierFlags flags) => new ModifierSpec(key, durationMs, flags);

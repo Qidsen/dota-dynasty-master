@@ -213,5 +213,17 @@ public class DotaMechanicsTests
         Assert.True(beta.IsAlive);
         Assert.InRange(beta.Hp.ToDouble(), 1, 1.5);   // left at 1, then a tick or two of regeneration
     }
+
+    /// <summary>"Next attack" buffs (Enchant Totem, Tidebringer): the modifier boosts the next landing attack and is then removed.</summary>
+    [Fact]
+    public void ConsumedOnHit_BoostsOnlyTheNextAttack()
+    {
+        var kernel = Run(Duel(onAlpha: new ModifierSpec("totem", 14000, attackDamagePercent: 300, consumedOnHit: true)));
+
+        List<DamageDealt> hits = HitsOnBeta(kernel);
+        Assert.True(hits.Count >= 2);
+        Assert.InRange(hits[0].Amount.ToDouble(), hits[1].Amount.ToDouble() * 4 - 4, hits[1].Amount.ToDouble() * 4 + 4);
+        Assert.DoesNotContain(H(kernel.State, "alpha").Modifiers, m => m.Spec.Key == "totem");
+    }
 }
 

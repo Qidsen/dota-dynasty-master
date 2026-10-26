@@ -483,6 +483,9 @@ namespace Dynasty.MatchSimulation.Systems
                     continue;
                 Effects.Run(context, attacker, modifier.Spec.OnHit, 1, target, target.Position);
             }
+
+            foreach (ActiveModifier used in attacker.Modifiers.Where(m => m.Spec.ConsumedOnHit).ToList())
+                Modifiers.Remove(context, attacker, used, "consumed");
         }
     }
 

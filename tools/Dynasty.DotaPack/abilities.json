@@ -395,7 +395,7 @@
   },
   "dark_willow_shadow_realm": {
     "status": "simplified",
-    "note": "invisible instead of untargetable; the bonus damage applies to every attack, no range bonus",
+    "note": "invisible instead of untargetable; full bonus damage at once; no range bonus",
     "targeting": "noTarget",
     "targetTeam": "ally",
     "effects": [
@@ -407,8 +407,14 @@
           "flags": [
             "invisible"
           ],
-          "damage": "$damage",
-          "breakOnAction": true
+          "onHit": [
+            {
+              "kind": "damage",
+              "damageType": "magical",
+              "amounts": "$damage"
+            }
+          ],
+          "consumedOnHit": true
         }
       }
     ]
@@ -1395,6 +1401,363 @@
             "cannotDie"
           ]
         }
+      }
+    ]
+  },
+  "slark_dark_pact": {
+    "status": "simplified",
+    "note": "no delay and no self damage",
+    "targeting": "noTarget",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "dispel",
+        "strong": true
+      },
+      {
+        "kind": "area",
+        "radius": "$radius",
+        "center": "caster",
+        "team": "enemy",
+        "effects": [
+          {
+            "kind": "damage",
+            "damageType": "magical",
+            "amounts": "$total_damage"
+          }
+        ]
+      }
+    ]
+  },
+  "slark_pounce": {
+    "status": "simplified",
+    "note": "point-targeted leap; the leash is a root",
+    "targeting": "point",
+    "targetTeam": "enemy",
+    "castRange": "$pounce_distance",
+    "effects": [
+      {
+        "kind": "dash"
+      },
+      {
+        "kind": "area",
+        "radius": "$pounce_radius",
+        "center": "point",
+        "team": "enemy",
+        "heroesOnly": true,
+        "effects": [
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "slark_pounce",
+              "duration": "$leash_duration",
+              "flags": [
+                "rooted"
+              ]
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "slark_saltwater_shiv": {
+    "status": "simplified",
+    "note": "a slow only: nothing is stolen",
+    "targeting": "unit",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "modifier",
+        "modifiers": {
+          "key": "slark_saltwater_shiv",
+          "duration": "$duration",
+          "moveSpeedPercent": "-$ms_steal"
+        }
+      }
+    ]
+  },
+  "slark_shadow_dance": {
+    "status": "simplified",
+    "note": "invisible (true sight still reveals); no passive while unseen",
+    "targeting": "noTarget",
+    "targetTeam": "ally",
+    "effects": [
+      {
+        "kind": "modifier",
+        "modifiers": {
+          "key": "slark_shadow_dance",
+          "duration": "$duration",
+          "flags": [
+            "invisible"
+          ],
+          "healthRegen": "$bonus_regen",
+          "moveSpeedPercent": "$bonus_movement_speed"
+        }
+      }
+    ]
+  },
+  "shredder_whirling_death": {
+    "status": "simplified",
+    "note": "no attribute loss, no bonus damage from trees",
+    "targeting": "noTarget",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "area",
+        "radius": "$whirling_radius",
+        "center": "caster",
+        "team": "enemy",
+        "effects": [
+          {
+            "kind": "damage",
+            "damageType": "pure",
+            "amounts": "$whirling_damage"
+          }
+        ]
+      }
+    ]
+  },
+  "shredder_timber_chain": {
+    "status": "simplified",
+    "note": "always finds a tree at the target point; damage around the end",
+    "targeting": "point",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "dash"
+      },
+      {
+        "kind": "area",
+        "radius": "$radius",
+        "center": "point",
+        "team": "enemy",
+        "effects": [
+          {
+            "kind": "damage",
+            "damageType": "pure",
+            "amounts": "$damage"
+          }
+        ]
+      }
+    ]
+  },
+  "shredder_chakram": {
+    "status": "simplified",
+    "note": "the passing damage only: no spinning, no slow",
+    "targeting": "point",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "area",
+        "radius": "$radius",
+        "center": "point",
+        "team": "enemy",
+        "effects": [
+          {
+            "kind": "damage",
+            "damageType": "pure",
+            "amounts": "$pass_damage"
+          }
+        ]
+      }
+    ]
+  },
+  "ember_spirit_searing_chains": {
+    "status": "simplified",
+    "note": "every enemy in the radius instead of two",
+    "targeting": "noTarget",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "area",
+        "radius": "$radius",
+        "center": "caster",
+        "team": "enemy",
+        "effects": [
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "ember_spirit_searing_chains",
+              "duration": "$duration",
+              "flags": [
+                "rooted"
+              ],
+              "damagePerSecond": "$damage_per_second"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "ember_spirit_sleight_of_fist": {
+    "status": "simplified",
+    "note": "the bonus hero damage only, without the attacks",
+    "targeting": "point",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "area",
+        "radius": "$radius",
+        "center": "point",
+        "team": "enemy",
+        "heroesOnly": true,
+        "effects": [
+          {
+            "kind": "damage",
+            "damageType": "physical",
+            "amounts": "$bonus_hero_damage"
+          }
+        ]
+      }
+    ]
+  },
+  "ember_spirit_flame_guard": {
+    "status": "simplified",
+    "note": "the barrier takes any damage, not only magic",
+    "targeting": "noTarget",
+    "targetTeam": "ally",
+    "effects": [
+      {
+        "kind": "modifier",
+        "modifiers": {
+          "key": "ember_spirit_flame_guard",
+          "duration": "$duration",
+          "barrier": "$absorb_amount",
+          "aura": {
+            "radius": "$radius",
+            "team": "enemy",
+            "modifier": {
+              "key": "ember_spirit_flame_guard_burn",
+              "duration": 1,
+              "damagePerSecond": "$damage_per_second"
+            }
+          }
+        }
+      }
+    ]
+  },
+  "ember_spirit_immolation": {
+    "status": "full",
+    "targeting": "passive",
+    "targetTeam": "ally",
+    "passive": {
+      "key": "ember_spirit_immolation",
+      "aura": {
+        "radius": "$radius",
+        "team": "enemy",
+        "modifier": {
+          "key": "ember_spirit_immolation_burn",
+          "duration": 1,
+          "damagePerSecond": "$damage"
+        }
+      }
+    }
+  },
+  "life_stealer_rage": {
+    "status": "full",
+    "targeting": "noTarget",
+    "targetTeam": "ally",
+    "effects": [
+      {
+        "kind": "dispel",
+        "strong": false
+      },
+      {
+        "kind": "modifier",
+        "modifiers": {
+          "key": "life_stealer_rage",
+          "duration": "$duration",
+          "flags": [
+            "debuffImmune"
+          ],
+          "magicResist": "$magic_resist",
+          "moveSpeedPercent": "$movespeed_bonus"
+        }
+      }
+    ]
+  },
+  "life_stealer_open_wounds": {
+    "status": "simplified",
+    "note": "a constant slow (no recovery); no healing for allies",
+    "targeting": "unit",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "modifier",
+        "modifiers": {
+          "key": "life_stealer_open_wounds",
+          "duration": "$duration",
+          "moveSpeedPercent": "-$slow_tooltip"
+        }
+      }
+    ]
+  },
+  "earthshaker_fissure": {
+    "status": "simplified",
+    "note": "a circle at the point instead of a line; no ridge blocking the way",
+    "targeting": "point",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "area",
+        "radius": "$fissure_radius",
+        "center": "point",
+        "team": "enemy",
+        "effects": [
+          {
+            "kind": "damage",
+            "damageType": "magical",
+            "amounts": "$fissure_damage"
+          },
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "earthshaker_fissure",
+              "duration": "$stun_duration",
+              "flags": [
+                "stunned"
+              ]
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "earthshaker_enchant_totem": {
+    "status": "full",
+    "targeting": "noTarget",
+    "targetTeam": "ally",
+    "effects": [
+      {
+        "kind": "modifier",
+        "modifiers": {
+          "key": "earthshaker_enchant_totem",
+          "duration": "$abilityduration",
+          "attackDamagePercent": "$totem_damage_percentage",
+          "attackRange": "$bonus_attack_range",
+          "consumedOnHit": true
+        }
+      }
+    ]
+  },
+  "earthshaker_echo_slam": {
+    "status": "simplified",
+    "note": "the initial damage only, without echoes",
+    "targeting": "noTarget",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "area",
+        "radius": "$echo_slam_damage_range",
+        "center": "caster",
+        "team": "enemy",
+        "effects": [
+          {
+            "kind": "damage",
+            "damageType": "magical",
+            "amounts": "$echo_slam_initial_damage"
+          }
+        ]
       }
     ]
   }
