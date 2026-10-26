@@ -2573,5 +2573,432 @@
         }
       }
     ]
+  },
+  "terrorblade_metamorphosis": {
+    "status": "simplified",
+    "note": "bonus damage and attack range only: stays melee, no base attack time change, illusions not transformed",
+    "targeting": "noTarget",
+    "targetTeam": "ally",
+    "effects": [
+      {
+        "kind": "modifier",
+        "modifiers": {
+          "key": "terrorblade_metamorphosis",
+          "duration": "$duration",
+          "damage": "$bonus_damage",
+          "attackRange": "$bonus_range"
+        }
+      }
+    ]
+  },
+  "keeper_of_the_light_blinding_light": {
+    "status": "simplified",
+    "note": "damage and knockback only, pushed away from Keeper rather than from the center: no blind (miss chance)",
+    "targeting": "point",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "area",
+        "radius": "$radius",
+        "center": "point",
+        "team": "enemy",
+        "effects": [
+          {
+            "kind": "damage",
+            "damageType": "magical",
+            "amounts": "$damage"
+          },
+          {
+            "kind": "knockback",
+            "amounts": "$knockback_distance"
+          }
+        ]
+      }
+    ]
+  },
+  "enigma_malefice": {
+    "status": "simplified",
+    "note": "one stun at the start; the instances are damage only",
+    "targeting": "unit",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "modifier",
+        "modifiers": {
+          "key": "enigma_malefice_stun",
+          "duration": "$stun_duration",
+          "flags": [
+            "stunned"
+          ]
+        }
+      },
+      {
+        "kind": "modifier",
+        "modifiers": {
+          "key": "enigma_malefice",
+          "duration": "$tick_rate*$stun_instances",
+          "damagePerSecond": "$damage/$tick_rate",
+          "period": "$tick_rate"
+        }
+      }
+    ]
+  },
+  "enigma_black_hole": {
+    "status": "simplified",
+    "note": "Enigma does not channel; no pull",
+    "targeting": "point",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "area",
+        "radius": "$radius",
+        "center": "point",
+        "team": "enemy",
+        "effects": [
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "enigma_black_hole",
+              "duration": "$duration",
+              "flags": [
+                "stunned"
+              ],
+              "damagePerSecond": "$damage",
+              "damageType": "pure"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "rubick_telekinesis": {
+    "status": "simplified",
+    "note": "the target lands where it was lifted",
+    "targeting": "unit",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "modifier",
+        "modifiers": {
+          "key": "rubick_telekinesis",
+          "duration": "$lift_duration",
+          "flags": [
+            "stunned"
+          ]
+        }
+      },
+      {
+        "kind": "area",
+        "radius": "$radius",
+        "center": "target",
+        "team": "enemy",
+        "effects": [
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "rubick_telekinesis_land",
+              "duration": "$stun_duration",
+              "flags": [
+                "stunned"
+              ]
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "rubick_fade_bolt": {
+    "status": "simplified",
+    "note": "the first target only: no jumps; reduces attack damage, not spell damage",
+    "targeting": "unit",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "damage",
+        "damageType": "magical",
+        "amounts": "$damage"
+      },
+      {
+        "kind": "modifier",
+        "modifiers": {
+          "key": "rubick_fade_bolt",
+          "duration": "$duration",
+          "attackDamagePercent": "-$damage_reduction"
+        }
+      }
+    ]
+  },
+  "brewmaster_thunder_clap": {
+    "status": "full",
+    "targeting": "noTarget",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "area",
+        "radius": "$radius",
+        "center": "caster",
+        "team": "enemy",
+        "effects": [
+          {
+            "kind": "damage",
+            "damageType": "magical",
+            "amounts": "$damage"
+          },
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "brewmaster_thunder_clap",
+              "duration": "$duration",
+              "moveSpeedPercent": "-$movement_slow",
+              "attackSpeed": "-$attack_speed_slow"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "brewmaster_cinder_brew": {
+    "status": "simplified",
+    "note": "the slow in the spill area only: no barrel path, no ignite",
+    "targeting": "point",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "area",
+        "radius": "$radius",
+        "center": "point",
+        "team": "enemy",
+        "effects": [
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "brewmaster_cinder_brew",
+              "duration": "$duration",
+              "moveSpeedPercent": "-$movement_slow"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "juggernaut_blade_fury": {
+    "status": "simplified",
+    "note": "no strong dispel at the end of the spin",
+    "targeting": "noTarget",
+    "targetTeam": "ally",
+    "effects": [
+      {
+        "kind": "modifier",
+        "modifiers": {
+          "key": "juggernaut_blade_fury",
+          "duration": "$duration",
+          "flags": [
+            "debuffImmune"
+          ],
+          "magicResist": "$immunity_resist",
+          "aura": {
+            "radius": "$blade_fury_radius",
+            "team": "enemy",
+            "modifier": {
+              "key": "juggernaut_blade_fury_damage",
+              "duration": 1,
+              "damagePerSecond": "$blade_fury_damage"
+            }
+          }
+        }
+      }
+    ]
+  },
+  "juggernaut_blade_dance": {
+    "status": "simplified",
+    "note": "attacks only: Blade Fury does not crit",
+    "targeting": "passive",
+    "targetTeam": "ally",
+    "passive": {
+      "key": "juggernaut_blade_dance",
+      "critChance": "$blade_dance_crit_chance",
+      "critMultiplier": "$blade_dance_crit_mult"
+    }
+  },
+  "lion_impale": {
+    "status": "simplified",
+    "note": "unit-targeted: hits the target only, not a line",
+    "targeting": "unit",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "projectile",
+        "speed": "$speed",
+        "effects": [
+          {
+            "kind": "damage",
+            "damageType": "magical",
+            "amounts": "$damage"
+          },
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "lion_impale",
+              "duration": "$duration",
+              "flags": [
+                "stunned"
+              ]
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "lion_voodoo": {
+    "status": "simplified",
+    "note": "disarm and silence: no fixed 120 movement speed, items still usable",
+    "targeting": "unit",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "modifier",
+        "modifiers": {
+          "key": "lion_voodoo",
+          "duration": "$duration",
+          "flags": [
+            "disarmed",
+            "silenced"
+          ]
+        }
+      }
+    ]
+  },
+  "lion_finger_of_death": {
+    "status": "simplified",
+    "note": "no delay, no damage growth from kills, no empowered melee attack",
+    "targeting": "unit",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "damage",
+        "damageType": "magical",
+        "amounts": "$damage"
+      }
+    ]
+  },
+  "nevermore_shadowraze1": {
+    "status": "simplified",
+    "note": "aimed at a point up to the raze distance instead of exactly in front; levels separately from the other razes; no soul or stack bonus",
+    "targeting": "point",
+    "targetTeam": "enemy",
+    "castRange": "$shadowraze_range",
+    "effects": [
+      {
+        "kind": "area",
+        "radius": "$shadowraze_radius",
+        "center": "point",
+        "team": "enemy",
+        "effects": [
+          {
+            "kind": "damage",
+            "damageType": "magical",
+            "amounts": "$shadowraze_damage"
+          }
+        ]
+      }
+    ]
+  },
+  "nevermore_shadowraze2": {
+    "status": "simplified",
+    "note": "aimed at a point up to the raze distance instead of exactly in front; levels separately from the other razes; no soul or stack bonus",
+    "targeting": "point",
+    "targetTeam": "enemy",
+    "castRange": "$shadowraze_range",
+    "effects": [
+      {
+        "kind": "area",
+        "radius": "$shadowraze_radius",
+        "center": "point",
+        "team": "enemy",
+        "effects": [
+          {
+            "kind": "damage",
+            "damageType": "magical",
+            "amounts": "$shadowraze_damage"
+          }
+        ]
+      }
+    ]
+  },
+  "nevermore_shadowraze3": {
+    "status": "simplified",
+    "note": "aimed at a point up to the raze distance instead of exactly in front; levels separately from the other razes; no soul or stack bonus",
+    "targeting": "point",
+    "targetTeam": "enemy",
+    "castRange": "$shadowraze_range",
+    "effects": [
+      {
+        "kind": "area",
+        "radius": "$shadowraze_radius",
+        "center": "point",
+        "team": "enemy",
+        "effects": [
+          {
+            "kind": "damage",
+            "damageType": "magical",
+            "amounts": "$shadowraze_damage"
+          }
+        ]
+      }
+    ]
+  },
+  "nevermore_frenzy": {
+    "status": "simplified",
+    "note": "no soul collection, no cast speed",
+    "targeting": "noTarget",
+    "targetTeam": "ally",
+    "effects": [
+      {
+        "kind": "modifier",
+        "modifiers": {
+          "key": "nevermore_frenzy",
+          "duration": "$duration",
+          "attackSpeed": "$bonus_attack_speed",
+          "moveSpeedPercent": "$bonus_move_speed"
+        }
+      }
+    ]
+  },
+  "nevermore_dark_lord": {
+    "status": "full",
+    "targeting": "passive",
+    "targetTeam": "ally",
+    "passive": {
+      "key": "nevermore_dark_lord",
+      "aura": {
+        "radius": "$presence_radius",
+        "team": "enemy",
+        "modifier": {
+          "key": "nevermore_dark_lord_debuff",
+          "duration": 1,
+          "armor": "$presence_armor_reduction"
+        }
+      }
+    }
+  },
+  "mars_spear": {
+    "status": "simplified",
+    "note": "unit-targeted: hits the target only; no skewer, no stun against walls",
+    "targeting": "unit",
+    "targetTeam": "enemy",
+    "castRange": "$spear_range",
+    "effects": [
+      {
+        "kind": "projectile",
+        "speed": "$spear_speed",
+        "effects": [
+          {
+            "kind": "damage",
+            "damageType": "magical",
+            "amounts": "$damage"
+          }
+        ]
+      }
+    ]
   }
 }
