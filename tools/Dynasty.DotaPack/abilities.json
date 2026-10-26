@@ -70,10 +70,10 @@
   },
   "hoodwink_sharpshooter": {
     "status": "simplified",
-    "note": "unit-targeted bolt instead of a line; fixed 1.5 s charge at full damage; no break, no knockback",
+    "note": "unit-targeted bolt instead of a line; always charged fully (the whole charge time as the cast point); no break, no knockback",
     "targeting": "unit",
     "targetTeam": "enemy",
-    "castPoint": 1.5,
+    "castPoint": "$max_charge_time",
     "effects": [
       {
         "kind": "projectile",
@@ -104,7 +104,7 @@
     "effects": [
       {
         "kind": "projectile",
-        "speed": 1650,
+        "speed": "$arrow_speed",
         "effects": [
           {
             "kind": "modifier",
@@ -129,7 +129,7 @@
     "effects": [
       {
         "kind": "projectile",
-        "speed": 3000,
+        "speed": "$arrow_speed",
         "effects": [
           {
             "kind": "damage",
@@ -283,7 +283,7 @@
     "effects": [
       {
         "kind": "projectile",
-        "speed": 1000,
+        "speed": "$speed",
         "effects": [
           {
             "kind": "damage",
@@ -306,52 +306,34 @@
   },
   "witch_doctor_voodoo_restoration": {
     "status": "simplified",
-    "note": "a 5 s heal of allies around instead of a toggle draining mana every second",
-    "targeting": "noTarget",
+    "note": "always on, without the mana drain of the toggle",
+    "targeting": "passive",
     "targetTeam": "ally",
-    "cooldown": [
-      5,
-      5,
-      5,
-      5
-    ],
-    "effects": [
-      {
-        "kind": "area",
+    "passive": {
+      "key": "witch_doctor_voodoo_restoration",
+      "aura": {
         "radius": "$radius",
-        "center": "caster",
         "team": "ally",
-        "effects": [
-          {
-            "kind": "modifier",
-            "modifiers": {
-              "key": "witch_doctor_voodoo_restoration",
-              "duration": 5,
-              "healPerSecond": "$heal"
-            }
-          }
-        ]
+        "modifier": {
+          "key": "witch_doctor_voodoo_restoration_heal",
+          "duration": 1,
+          "healPerSecond": "$heal"
+        }
       }
-    ]
+    }
   },
   "witch_doctor_death_ward": {
     "status": "simplified",
-    "note": "a ward that cannot be stopped by interrupting; physical attacks at the top level's damage",
+    "note": "a ward that cannot be stopped by interrupting; physical attacks at the top level's damage (pure in Dota)",
     "targeting": "point",
     "targetTeam": "enemy",
     "unitTypes": [
       {
         "id": "witch_doctor_death_ward_unit",
-        "health": 5000,
-        "armor": 0,
-        "moveSpeed": 0,
+        "gameUnit": "npc_dota_witch_doctor_death_ward",
         "attackDamageMin": "$damage",
         "attackDamageMax": "$damage",
-        "attackRange": "$attack_range_tooltip",
-        "baseAttackTime": 0.22,
-        "acquisitionRange": 700,
-        "visionRange": 700,
-        "projectileSpeed": 1000
+        "attackRange": "$attack_range_tooltip"
       }
     ],
     "effects": [
@@ -374,7 +356,7 @@
     "effects": [
       {
         "kind": "area",
-        "radius": 500,
+        "radius": "$placement_range",
         "center": "point",
         "team": "enemy",
         "effects": [
@@ -531,7 +513,7 @@
       },
       {
         "kind": "area",
-        "radius": 200,
+        "radius": "$radius",
         "center": "point",
         "team": "enemy",
         "effects": [
@@ -612,7 +594,7 @@
     "effects": [
       {
         "kind": "projectile",
-        "speed": 650,
+        "speed": "$projectile_speed",
         "effects": [
           {
             "kind": "area",
@@ -951,7 +933,7 @@
         "kind": "modifier",
         "modifiers": {
           "key": "mirana_leap",
-          "duration": 5,
+          "duration": "$leap_bonus_duration",
           "moveSpeedPercent": "$leap_speedbonus",
           "attackSpeed": "$leap_speedbonus_as"
         }
@@ -1008,7 +990,7 @@
             "kind": "modifier",
             "modifiers": {
               "key": "techies_sticky_bomb",
-              "duration": 3,
+              "duration": "$secondary_slow_duration",
               "moveSpeedPercent": "-$secondary_slow"
             }
           }
@@ -1135,7 +1117,7 @@
   },
   "dark_seer_surge": {
     "status": "simplified",
-    "note": "double movement speed up to the cap instead of the maximum; can still be slowed",
+    "note": "the speed boost as a flat bonus, which reaches the movement speed cap; can still be slowed",
     "targeting": "unit",
     "targetTeam": "ally",
     "effects": [
@@ -1144,7 +1126,7 @@
         "modifiers": {
           "key": "dark_seer_surge",
           "duration": "$duration",
-          "moveSpeedPercent": 100
+          "moveSpeed": "$speed_boost"
         }
       }
     ]
@@ -1276,17 +1258,18 @@
     "unitTypes": [
       {
         "id": "furion_treant",
+        "gameUnit": "npc_dota_furion_treant",
         "health": "$treant_health",
-        "armor": 0,
         "moveSpeed": "$treant_movespeed",
         "attackDamageMin": "$treant_damage",
         "attackDamageMax": "$treant_damage",
-        "attackRange": 100,
-        "baseAttackTime": 1.9,
-        "attackPoint": 0.4,
-        "acquisitionRange": 600,
         "visionRange": "$treant_vision_day",
-        "attackClass": "basic"
+        "nightVision": "$treant_vision_night",
+        "bounty": {
+          "goldMin": "$treant_gold_bounty_min",
+          "goldMax": "$treant_gold_bounty_max",
+          "xp": "$treant_xp_bounty"
+        }
       }
     ],
     "effects": [
@@ -3258,6 +3241,337 @@
           "key": "ursa_enrage",
           "duration": "$duration",
           "incomingDamagePercent": "-$damage_reduction"
+        }
+      }
+    ]
+  },
+  "gyrocopter_rocket_barrage": {
+    "status": "simplified",
+    "note": "every enemy hero in the radius takes all rockets (in Dota each rocket hits one random nearby enemy)",
+    "targeting": "noTarget",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "modifier",
+        "modifiers": {
+          "key": "gyrocopter_rocket_barrage",
+          "duration": "$barrage_duration",
+          "aura": {
+            "radius": "$radius",
+            "team": "enemy",
+            "heroesOnly": true,
+            "modifier": {
+              "key": "gyrocopter_rocket_barrage_damage",
+              "duration": 1,
+              "damagePerSecond": "$rocket_damage*$rockets_per_second"
+            }
+          }
+        }
+      }
+    ]
+  },
+  "gyrocopter_homing_missile": {
+    "status": "simplified",
+    "note": "no pre-flight delay or acceleration; the missile cannot be destroyed",
+    "targeting": "unit",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "projectile",
+        "speed": "$speed",
+        "effects": [
+          {
+            "kind": "damage",
+            "damageType": "magical",
+            "amounts": "$hit_damage"
+          },
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "gyrocopter_homing_missile",
+              "duration": "$stun_duration",
+              "flags": [
+                "stunned"
+              ]
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "gyrocopter_call_down": {
+    "status": "simplified",
+    "note": "one strike at the point at once instead of three delayed strikes along a line",
+    "targeting": "point",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "area",
+        "radius": "$radius",
+        "center": "point",
+        "team": "enemy",
+        "effects": [
+          {
+            "kind": "damage",
+            "damageType": "magical",
+            "amounts": "$damage"
+          },
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "gyrocopter_call_down",
+              "duration": "$slow_duration",
+              "moveSpeedPercent": "-$slow"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "lycan_howl": {
+    "status": "simplified",
+    "note": "around Lycan only, also at night",
+    "targeting": "noTarget",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "area",
+        "radius": "$radius",
+        "center": "caster",
+        "team": "enemy",
+        "effects": [
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "lycan_howl",
+              "duration": "$howl_duration",
+              "armor": "-$armor",
+              "attackDamagePercent": "-$attack_damage_reduction"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "lycan_feral_impulse": {
+    "status": "simplified",
+    "note": "Lycan only (his wolves are not mapped yet); the damage bonus applies to the whole attack, not only base damage",
+    "targeting": "passive",
+    "targetTeam": "ally",
+    "passive": {
+      "key": "lycan_feral_impulse",
+      "attackDamagePercent": "$bonus_damage",
+      "healthRegen": "$bonus_hp_regen"
+    }
+  },
+  "lycan_shapeshift": {
+    "status": "simplified",
+    "note": "crits and health only: no fixed 550 movement speed, no night vision",
+    "targeting": "noTarget",
+    "targetTeam": "ally",
+    "effects": [
+      {
+        "kind": "modifier",
+        "modifiers": {
+          "key": "lycan_shapeshift",
+          "duration": "$duration",
+          "critChance": "$crit_chance",
+          "critMultiplier": "$crit_multiplier",
+          "maxHealth": "$health_bonus"
+        }
+      }
+    ]
+  },
+  "centaur_hoof_stomp": {
+    "status": "simplified",
+    "note": "no windup: the stomp lands at once",
+    "targeting": "noTarget",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "area",
+        "radius": "$radius",
+        "center": "caster",
+        "team": "enemy",
+        "effects": [
+          {
+            "kind": "damage",
+            "damageType": "magical",
+            "amounts": "$stomp_damage"
+          },
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "centaur_hoof_stomp",
+              "duration": "$stun_duration",
+              "flags": [
+                "stunned"
+              ]
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "centaur_double_edge": {
+    "status": "simplified",
+    "note": "the flat damage only: no strength damage, no damage to Centaur",
+    "targeting": "unit",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "area",
+        "radius": "$radius",
+        "center": "target",
+        "team": "enemy",
+        "effects": [
+          {
+            "kind": "damage",
+            "damageType": "magical",
+            "amounts": "$edge_damage"
+          }
+        ]
+      }
+    ]
+  },
+  "axe_berserkers_call": {
+    "status": "simplified",
+    "note": "the taunt is a stun (taunted enemies attack Axe in Dota)",
+    "targeting": "noTarget",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "area",
+        "radius": "$radius",
+        "center": "caster",
+        "team": "enemy",
+        "effects": [
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "axe_berserkers_call",
+              "duration": "$duration",
+              "flags": [
+                "stunned"
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "kind": "modifier",
+        "modifiers": {
+          "key": "axe_berserkers_call_armor",
+          "duration": "$duration",
+          "armor": "$bonus_armor"
+        }
+      }
+    ]
+  },
+  "axe_battle_hunger": {
+    "status": "simplified",
+    "note": "the slow always applies, not only when facing away from Axe; does not end on a kill",
+    "targeting": "unit",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "modifier",
+        "modifiers": {
+          "key": "axe_battle_hunger",
+          "duration": "$duration",
+          "damagePerSecond": "$damage_per_second",
+          "damageType": "pure",
+          "moveSpeedPercent": "-$slow"
+        }
+      }
+    ]
+  },
+  "axe_culling_blade": {
+    "status": "simplified",
+    "note": "the damage only: no instant kill below the threshold, no bonuses on a kill",
+    "targeting": "unit",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "damage",
+        "damageType": "pure",
+        "amounts": "$damage"
+      }
+    ]
+  },
+  "viper_poison_attack": {
+    "status": "simplified",
+    "note": "always on, without mana cost; no stacks",
+    "targeting": "passive",
+    "targetTeam": "ally",
+    "passive": {
+      "key": "viper_poison_attack",
+      "onHit": [
+        {
+          "kind": "modifier",
+          "modifiers": {
+            "key": "viper_poison_attack_debuff",
+            "duration": "$duration",
+            "damagePerSecond": "$damage",
+            "moveSpeedPercent": "-$movement_speed",
+            "magicResist": "-$magic_resistance"
+          }
+        }
+      ]
+    }
+  },
+  "viper_corrosive_skin": {
+    "status": "simplified",
+    "note": "the magic resistance only: no damage and slow to attackers",
+    "targeting": "passive",
+    "targetTeam": "ally",
+    "passive": {
+      "key": "viper_corrosive_skin",
+      "magicResist": "$bonus_magic_resistance"
+    }
+  },
+  "viper_viper_strike": {
+    "status": "simplified",
+    "note": "the slow does not fade over the duration; no break",
+    "targeting": "unit",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "projectile",
+        "speed": "$projectile_speed",
+        "effects": [
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "viper_viper_strike",
+              "duration": "$duration",
+              "damagePerSecond": "$damage",
+              "moveSpeedPercent": "-$bonus_movement_speed",
+              "attackSpeed": "-$bonus_attack_speed"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "luna_lucent_beam": {
+    "status": "full",
+    "targeting": "unit",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "damage",
+        "damageType": "magical",
+        "amounts": "$beam_damage"
+      },
+      {
+        "kind": "modifier",
+        "modifiers": {
+          "key": "luna_lucent_beam",
+          "duration": "$stun_duration",
+          "flags": [
+            "stunned"
+          ]
         }
       }
     ]

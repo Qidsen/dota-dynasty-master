@@ -21,6 +21,23 @@ sealed class DotaData
     public JsonNode Constants(string name) =>
         Cached(Path.Combine(_cache, name + ".json"), $"https://raw.githubusercontent.com/odota/dotaconstants/{Commit}/build/{name}.json", throttle: false);
 
+    /// <summary>The game's own script files (SteamDatabase/GameTracking-Dota2): the unit file there last changed after 7.41f (2026-09-15).</summary>
+    public const string GameFilesCommit = "3f630cc18bfa63f63b3ce259be52209d922558c3";   // 2026-10-07
+
+    /// <summary>Unit definitions from the game's npc_units.txt (summons: base stats an ability's values do not set).</summary>
+    public Dictionary<string, Dictionary<string, string>> GameUnits()
+    {
+        string file = Path.Combine(_cache, "npc_units.txt");
+        if (!File.Exists(file))
+        {
+            string url = $"https://raw.githubusercontent.com/SteamDatabase/GameTracking-Dota2/{GameFilesCommit}/game/dota/pak01_dir/scripts/npc/npc_units.txt";
+            Console.WriteLine("download " + url);
+            File.WriteAllText(file, _http.GetStringAsync(url).GetAwaiter().GetResult());
+        }
+
+        return KeyValues.Entries(File.ReadAllText(file));
+    }
+
     /// <summary>An OpenDota API response (free tier: at most one call per second).</summary>
     public JsonNode OpenDota(string path) =>
         Cached(Path.Combine(_cache, "opendota", path.Replace('/', '_') + ".json"), "https://api.opendota.com/api/" + path, throttle: true);

@@ -19,7 +19,7 @@ JsonObject itemIds = data.Constants("item_ids").AsObject();
 Items.Result items = Items.Convert(shopData, data.ShopItemNames());
 string mapFile = Path.Combine(AppContext.BaseDirectory, "abilities.json");
 JsonObject abilityMap = JsonNode.Parse(File.ReadAllText(mapFile), documentOptions: new JsonDocumentOptions { CommentHandling = JsonCommentHandling.Skip })!.AsObject();
-Abilities.Result heroAbilities = Abilities.Convert(data.Constants("abilities").AsObject(), data.Constants("hero_abilities").AsObject(), abilityMap);
+Abilities.Result heroAbilities = Abilities.Convert(data.Constants("abilities").AsObject(), data.Constants("hero_abilities").AsObject(), abilityMap, data.GameUnits());
 
 var packHeroes = new JsonArray();
 foreach (var (_, node) in heroes.OrderBy(h => h.Value!["id"]!.GetValue<int>()))

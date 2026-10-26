@@ -16,8 +16,11 @@ static class Abilities
 
     public sealed record Result(JsonArray Abilities, JsonArray UnitTypes, Dictionary<string, JsonArray> HeroAbilities, List<string> Coverage, int Mapped, int Total);
 
-    public static Result Convert(JsonObject data, JsonObject heroAbilities, JsonObject map)
+    public static Result Convert(JsonObject data, JsonObject heroAbilities, JsonObject map, Dictionary<string, Dictionary<string, string>> gameUnits)
     {
+        foreach (var (key, entry) in map)
+            if (entry is JsonObject template)
+                RejectHandTypedNumbers(key, template, "");
         var abilities = new JsonArray();
         var unitTypes = new JsonArray();
         var byHero = new Dictionary<string, JsonArray>();
@@ -63,7 +66,7 @@ static class Abilities
                 bool ultimate = slot == visible.Count - 1 && visible.Count >= 4;
                 abilities.Add(Build(key, data[key]!.AsObject(), entry, ultimate));
                 foreach (JsonNode? unit in entry["unitTypes"] as JsonArray ?? new JsonArray())
-                    unitTypes.Add(ResolveUnit(unit!.AsObject(), data[key]!.AsObject()));
+                    unitTypes.Add(ResolveUnit(unit!.AsObject(), data[key]!.AsObject(), gameUnits));
                 list.Add(key);
                 mapped++;
                 if (entry["status"]?.GetValue<string>() == "simplified")
@@ -78,6 +81,31 @@ static class Abilities
         }
 
         return new Result(abilities, unitTypes, byHero, coverage, mapped, total);
+    }
+
+    /// <summary>
+    /// The map refers to the data for every number (docs/DOTA_PACK.md). Allowed literals are the engine's own
+    /// conventions: an aura's modifier lasts 1 s and is refreshed by the aura, 20000 and more means "global",
+    /// and summon counts.
+    /// </summary>
+    private static void RejectHandTypedNumbers(string key, JsonNode? node, string path)
+    {
+        switch (node)
+        {
+            case JsonObject obj:
+                foreach (var (field, child) in obj)
+                    RejectHandTypedNumbers(key, child, path + "." + field);
+                break;
+            case JsonArray list:
+                for (int i = 0; i < list.Count; i++)
+                    RejectHandTypedNumbers(key, list[i], path + "[" + i + "]");
+                break;
+            case JsonValue v when v.TryGetValue(out decimal number):
+                bool allowed = (path.EndsWith(".aura.modifier.duration") && number == 1) || number >= 20000 || path.Contains(".counts[");
+                if (!allowed)
+                    throw new InvalidDataException($"abilities.json: {key}{path} = {number} is typed by hand; refer to the data (\"$key\")");
+                break;
+        }
     }
 
     private static IReadOnlyList<string> Behaviors(JsonObject ability) => ability["behavior"] switch
@@ -97,14 +125,59 @@ static class Abilities
         return values;
     }
 
-    /// <summary>A unit type a summon of this ability creates; per-level values take the top level (simplification).</summary>
-    private static JsonObject ResolveUnit(JsonObject template, JsonObject source)
+    /// <summary>
+    /// A unit type a summon of this ability creates. <c>"gameUnit"</c> names the unit in the game's npc_units.txt,
+    /// which gives the base stats; the map's fields (usually the ability's values) override them. Per-level values
+    /// take the top level (simplification).
+    /// </summary>
+    private static JsonObject ResolveUnit(JsonObject template, JsonObject source, Dictionary<string, Dictionary<string, string>> gameUnits)
     {
         Dictionary<string, JsonNode?> values = ValuesOf(source);
         var unit = new JsonObject();
+        if (template["gameUnit"]?.GetValue<string>() is string name)
+        {
+            if (!gameUnits.TryGetValue(name, out Dictionary<string, string>? game))
+                throw new InvalidDataException("no game unit \"" + name + "\"");
+            unit["id"] = template["id"]!.DeepClone();
+            foreach (var (field, value) in GameUnitStats(game))
+                unit[field] = value;
+        }
+
         foreach (var (field, node) in template)
-            unit[field] = node is JsonValue v && v.TryGetValue(out string? s) && IsReference(s) ? Scalar(node, values, 1, fallback: null) : node?.DeepClone();
+        {
+            if (field == "gameUnit")
+                continue;
+            unit[field] = node is JsonValue v && v.TryGetValue(out string? s) && IsReference(s) ? Scalar(node, values, 1, fallback: null)
+                : node is JsonObject nested ? ResolveAt(nested, values, int.MaxValue)   // the bounty: references at the top level
+                : node?.DeepClone();
+        }
+
         return unit;
+    }
+
+    /// <summary>A game unit's stats in the pack's unit fields; the attack only for units that attack, the bounty when it has one.</summary>
+    private static IEnumerable<(string Field, JsonNode Value)> GameUnitStats(Dictionary<string, string> game)
+    {
+        decimal? Number(string key) => game.TryGetValue(key, out string? text) && decimal.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out decimal value) ? value : null;
+        IEnumerable<(string, string)> fields = new[]
+        {
+            ("health", "StatusHealth"), ("armor", "ArmorPhysical"), ("magicResist", "MagicalResistance"), ("moveSpeed", "MovementSpeed"),
+            ("visionRange", "VisionDaytimeRange"), ("nightVision", "VisionNighttimeRange"),
+        };
+        if (game.GetValueOrDefault("AttackCapabilities") != "DOTA_UNIT_CAP_NO_ATTACK")
+            fields = fields.Concat(new[]
+            {
+                ("attackDamageMin", "AttackDamageMin"), ("attackDamageMax", "AttackDamageMax"), ("baseAttackTime", "AttackRate"),
+                ("attackPoint", "AttackAnimationPoint"), ("attackRange", "AttackRange"), ("acquisitionRange", "AttackAcquisitionRange"),
+                ("projectileSpeed", "ProjectileSpeed"),
+            });
+        foreach (var (field, key) in fields)
+            if (Number(key) is decimal value && (value != 0 || field is "health" or "armor" or "moveSpeed" or "visionRange"))
+                yield return (field, JsonValue.Create(value)!);
+        if (game.GetValueOrDefault("CombatClassAttack") is "DOTA_COMBAT_CLASS_ATTACK_BASIC" or "DOTA_COMBAT_CLASS_ATTACK_PIERCE")
+            yield return ("attackClass", game["CombatClassAttack"] == "DOTA_COMBAT_CLASS_ATTACK_BASIC" ? "basic" : "piercing");
+        if (Number("BountyGoldMin") is decimal goldMin && Number("BountyGoldMax") is decimal goldMax && Number("BountyXP") is decimal xp && goldMax + xp > 0)
+            yield return ("bounty", new JsonObject { ["goldMin"] = goldMin, ["goldMax"] = goldMax, ["xp"] = xp });
     }
 
     private static JsonObject Build(string key, JsonObject source, JsonObject entry, bool ultimate)
