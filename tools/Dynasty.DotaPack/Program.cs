@@ -292,7 +292,7 @@ var pack = new JsonObject
                 ("siege_super", "npc_dota_goodguys_siege_upgraded"), ("melee_mega", "npc_dota_creep_goodguys_melee_upgraded_mega"),
                 ("ranged_mega", "npc_dota_creep_goodguys_ranged_upgraded_mega"), ("siege_mega", "npc_dota_goodguys_siege_upgraded_mega"),
                 ("flagbearer", "npc_dota_creep_goodguys_flagbearer"), ("roshan", "npc_dota_roshan"),
-            }.Select(c => (JsonNode)Roshan(Flagbearer(Abilities.GameUnit(c.Id, c.Game, gameUnits)))))
+            }.Concat(Jungle.Units.Select(u => (Id: u, Game: "npc_dota_" + u))).Select(c => (JsonNode)Roshan(Flagbearer(Abilities.GameUnit(c.Id, c.Game, gameUnits)))))
         .ToArray()),
     ["structureTypes"] = new JsonArray(new (string Id, string Game)[]
         {

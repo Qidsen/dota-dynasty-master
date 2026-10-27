@@ -176,10 +176,17 @@ sealed class DotaMap
                 };
             }).ToArray());
 
-        // Camps: the map's 28 neutral spawners, 14 a side (3 small, 7 medium, 3 large, 1 ancient); «good» and «evil» name the half of the
-        // map. Until the jungle is carried over (B-158) they spawn the base rules' jungle creeps of their size, on the minute from 1:00.
+        // Camps: the map's 28 neutral spawners, 14 a side (3 small, 7 medium, 3 large, 1 ancient by the map's neutral type, D-053);
+        // «good» and «evil» name the half of the map. On the minute from 1:00 (Fandom «Neutral creeps»). Flooded camps — 1 small and
+        // 2 medium a side, as Liquipedia counts them: the two in the river (height level 0) and the medium camp nearest each bounty
+        // rune (in a stream, 500–700 from it; Valve 7.41: «the medium flooded camp near the bounty runes»).
         string[] sizes = { "small", "medium", "large", "ancient" };
-        int[] counts = { 3, 3, 2, 2 };
+        var spawners = data["npc_dota_neutral_spawner"]!.AsArray().Select(s => s!).ToList();
+        var byBountyRunes = data["dota_item_rune_spawner_bounty"]!.AsArray()
+            .Select(rune => spawners.Where(s => s["neutralType"]!.GetValue<string>() == "1")
+                .OrderBy(s => Math.Pow(s["x"]!.GetValue<double>() - rune!["x"]!.GetValue<double>(), 2) + Math.Pow(s["y"]!.GetValue<double>() - rune["y"]!.GetValue<double>(), 2))
+                .First()["triggerName"]!.GetValue<string>())
+            .ToHashSet();
         var camps = new JsonArray(data["npc_dota_neutral_spawner"]!.AsArray()
             .Select(s => (Spawner: s!, Trigger: s!["triggerName"]!.GetValue<string>()))
             .OrderBy(s => s.Trigger, StringComparer.Ordinal)
@@ -189,12 +196,22 @@ sealed class DotaMap
                 string half = s.Trigger.Contains("_good_") ? "dawn" : "dusk";
                 (int X, int Y) p = Point(s.Spawner);
                 MustWalk("camp " + s.Trigger, p);
-                return (JsonNode)new JsonObject
+                bool river = elevation[p.Y / cell * columns + p.X / cell] == 0;
+                bool byBountyRune = byBountyRunes.Contains(s.Trigger);
+                var camp = new JsonObject { ["id"] = $"camp.{half}.{sizes[size]}.{s.Trigger[(s.Trigger.LastIndexOf('_') + 1)..]}", ["x"] = p.X, ["y"] = p.Y };
+                if (river || byBountyRune)
                 {
-                    ["id"] = $"camp.{half}.{sizes[size]}.{s.Trigger[(s.Trigger.LastIndexOf('_') + 1)..]}", ["x"] = p.X, ["y"] = p.Y,
-                    ["creeps"] = new JsonArray(new JsonObject { ["creep"] = "jungle_" + sizes[size], ["count"] = counts[size] }),
-                    ["firstSpawn"] = 60, ["respawn"] = 60, ["leashRadius"] = 600, ["alignedToClock"] = true,
-                };
+                    if (size > 1)
+                        throw new InvalidDataException($"{s.Trigger}: a flooded camp of neutral type {size}");
+                    camp["evolution"] = Jungle.Evolution(startTier: size, evolutions: size == 0 || byBountyRune ? 6 : 3);
+                }
+                else
+                    camp["variants"] = Jungle.Variants(size);
+                camp["firstSpawn"] = 60;
+                camp["respawn"] = 60;
+                camp["leashRadius"] = 600;
+                camp["alignedToClock"] = true;
+                return (JsonNode)camp;
             }).ToArray());
 
         (int X, int Y)[] Spots(string kind)
