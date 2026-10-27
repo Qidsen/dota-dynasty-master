@@ -28,11 +28,14 @@ namespace Dynasty.MatchSimulation.Systems
             {
                 foreach (Team team in new[] { Team.Dawn, Team.Dusk })
                 {
-                    bool super = EnemyBarracksDestroyed(state, team, lane.Id);
+                    bool mega = waves.MegaUpgrades.Count > 0 && AllEnemyBarracksDestroyed(state, team);
                     foreach ((string creepTypeId, int count) in Composition(waves.CompositionFor(team), wave, timeMs))
                     {
                         string typeId = creepTypeId;
-                        if (super)
+                        string? megaId = mega ? waves.MegaUpgrades.FirstOrDefault(u => u.FromCreepTypeId == typeId)?.ToCreepTypeId : null;
+                        if (megaId != null)
+                            typeId = megaId;
+                        else if (EnemyBarracksDestroyed(state, team, lane.Id, typeId))
                             typeId = waves.SuperUpgrades.FirstOrDefault(u => u.FromCreepTypeId == typeId)?.ToCreepTypeId ?? typeId;
                         CreepType type = state.Ruleset.FindCreepType(typeId)!;
                         for (int i = 0; i < count; i++)
@@ -123,9 +126,18 @@ namespace Dynasty.MatchSimulation.Systems
             return counts.Where(c => c.Count > 0).ToList();
         }
 
-        /// <summary>Whether the opponent's barracks for this lane have fallen (the team's waves there become super creeps).</summary>
-        private static bool EnemyBarracksDestroyed(MatchState state, Team team, string laneId) =>
-            state.Ruleset.Map.Structures.Any(s => s.Team != team && s.BarracksLane == laneId && state.DestroyedStructures.Contains(s.Id));
+        /// <summary>
+        /// Whether an opponent's barracks for this lane that upgrades this creep type has fallen (the team's creeps of the type
+        /// there become super creeps).
+        /// </summary>
+        private static bool EnemyBarracksDestroyed(MatchState state, Team team, string laneId, string creepTypeId) =>
+            state.Ruleset.Map.Structures.Any(s => s.Team != team && s.BarracksLane == laneId && state.DestroyedStructures.Contains(s.Id) &&
+                state.Ruleset.FindStructureType(s.StructureTypeId)?.UpgradesCreepTypeIds is var upgrades && (upgrades == null || upgrades.Contains(creepTypeId)));
+
+        /// <summary>Whether every barracks of the opponent has fallen (Dota's mega creeps).</summary>
+        private static bool AllEnemyBarracksDestroyed(MatchState state, Team team) =>
+            state.Ruleset.Map.Structures.Where(s => s.Team != team && s.BarracksLane != null).All(s => state.DestroyedStructures.Contains(s.Id)) &&
+            state.Ruleset.Map.Structures.Any(s => s.Team != team && s.BarracksLane != null);
     }
 
     /// <summary>

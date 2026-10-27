@@ -1,3 +1,4 @@
+using Dynasty.Core.Mathematics;
 using Dynasty.Core.Kernel;
 using Dynasty.MatchSimulation.Tests.Abilities;
 using Dynasty.MatchSimulation.Combat;
@@ -226,5 +227,93 @@ public class DotaWaveTests
         kernel.RunTicks(6 * 30 + 15);
 
         Assert.Equal(near!.Stats.MagicResistPercent + 12, near.MagicResistPercent);
+    }
+
+    /// <summary>
+    /// Dota's two barracks per lane (Liquipedia «Lane Creeps» and «Buildings», 7.41f): losing the melee one makes the enemy's
+    /// melee creeps on that lane super, losing the ranged one their ranged and siege creeps (siege: +16 damage); with every
+    /// barracks of a team down all lanes get mega creeps; flagbearers never change. Waves every second, one of each.
+    /// </summary>
+    private static SimulationKernel<MatchState> TwoBarracks()
+    {
+        var draft = new RulesetDraft { IntervalMs = 1000 };
+        foreach (string type in new[] { "ranged", "siege", "flagbearer", "melee_super", "ranged_super", "siege_super", "melee_mega", "ranged_mega", "siege_mega" })
+            draft.Creeps.Add(new CreepType(type, MeleeStats(), new Bounty(40, 40, 60)));
+        draft.DawnWave.Clear();
+        draft.DuskWave.Clear();
+        foreach (string type in new[] { "melee", "ranged", "siege", "flagbearer" })
+        {
+            draft.DawnWave.Add(new WaveEntry(type, 1));
+            draft.DuskWave.Add(new WaveEntry(type, 1));
+        }
+
+        draft.SuperUpgrades.AddRange(new[] { new CreepUpgrade("melee", "melee_super"), new CreepUpgrade("ranged", "ranged_super"), new CreepUpgrade("siege", "siege_super") });
+        draft.MegaUpgrades.AddRange(new[] { new CreepUpgrade("melee", "melee_mega"), new CreepUpgrade("ranged", "ranged_mega"), new CreepUpgrade("siege", "siege_mega") });
+        draft.StructureTypes.Add(new StructureType("barracks.melee", AncientStats(), upgradesCreepTypeIds: new[] { "melee" }));
+        draft.StructureTypes.Add(new StructureType("barracks.ranged", AncientStats(), upgradesCreepTypeIds: new[] { "ranged", "siege" }));
+        draft.Lanes.Add(new LaneDefinition("top", new[] { P(1000, 9000), P(9000, 9000) }));
+        foreach ((string lane, int y) in new[] { ("mid", 6000), ("top", 9500) })
+        {
+            draft.Placements.Add(new StructurePlacement("dusk." + lane + ".melee_rax", Team.Dusk, "barracks.melee", P(9500, y), false, Array.Empty<string>(), VulnerabilityRule.AnyProtectorDestroyed, barracksLane: lane));
+            draft.Placements.Add(new StructurePlacement("dusk." + lane + ".ranged_rax", Team.Dusk, "barracks.ranged", P(9000, y), false, Array.Empty<string>(), VulnerabilityRule.AnyProtectorDestroyed, barracksLane: lane));
+        }
+
+        return draft.Start();
+    }
+
+    private static void Raze(SimulationKernel<MatchState> kernel, long tick, string placement) =>
+        At(kernel, tick, ctx =>
+        {
+            MatchUnit building = ctx.State.Units.Single(u => u.Placement?.Id == placement);
+            MatchUnit ancient = ctx.State.Units.Single(u => u.Placement?.Id == "dawn.ancient");
+            Damage.Deal(ctx, ancient.Id, building, Fixed.FromInt(99999), DamageType.Pure);
+        });
+
+    private static Dictionary<string, int> DawnWaveAt(SimulationKernel<MatchState> kernel, int second, string lane) =>
+        kernel.TimedEventsOf<CreepSpawned>()
+            .Where(e => e.Tick == second * 30L && e.Event.Team == Team.Dawn && e.Event.LaneId == lane)
+            .GroupBy(e => e.Event.CreepTypeId).ToDictionary(g => g.Key, g => g.Count());
+
+    [Fact]
+    public void TheMeleeBarracks_UpgradesMeleeCreeps_TheRangedOne_RangedAndSiegeCreeps_OnItsLane()
+    {
+        var kernel = TwoBarracks();
+        Raze(kernel, 15, "dusk.mid.melee_rax");
+        Raze(kernel, 45, "dusk.mid.ranged_rax");
+        kernel.RunTicks(61);
+
+        Assert.Equal(new Dictionary<string, int> { ["melee"] = 1, ["ranged"] = 1, ["siege"] = 1, ["flagbearer"] = 1 }, DawnWaveAt(kernel, 0, "mid"));
+        Assert.Equal(new Dictionary<string, int> { ["melee_super"] = 1, ["ranged"] = 1, ["siege"] = 1, ["flagbearer"] = 1 }, DawnWaveAt(kernel, 1, "mid"));
+        Assert.Equal(new Dictionary<string, int> { ["melee_super"] = 1, ["ranged_super"] = 1, ["siege_super"] = 1, ["flagbearer"] = 1 }, DawnWaveAt(kernel, 2, "mid"));
+        Assert.Equal(new Dictionary<string, int> { ["melee"] = 1, ["ranged"] = 1, ["siege"] = 1, ["flagbearer"] = 1 }, DawnWaveAt(kernel, 2, "top"));
+    }
+
+    [Fact]
+    public void Validation_RejectsABarracksUpgradingAnUnknownCreepType_AndUnknownMegaCreeps()
+    {
+        var draft = new RulesetDraft();
+        draft.StructureTypes.Add(new StructureType("barracks.odd", AncientStats(), upgradesCreepTypeIds: new[] { "golem" }));
+        draft.MegaUpgrades.Add(new CreepUpgrade("melee", "melee_titan"));
+
+        IReadOnlyList<string> errors = draft.Build().Validate();
+        Assert.Contains(errors, e => e.Contains("golem"));
+        Assert.Contains(errors, e => e.Contains("melee_titan"));
+    }
+
+    [Fact]
+    public void WithEveryEnemyBarracksDown_AllLanesGetMegaCreeps_ButNotFlagbearers()
+    {
+        var kernel = TwoBarracks();
+        foreach (string placement in new[] { "dusk.mid.melee_rax", "dusk.mid.ranged_rax", "dusk.top.melee_rax" })
+            Raze(kernel, 15, placement);
+        Raze(kernel, 45, "dusk.top.ranged_rax");
+        kernel.RunTicks(61);
+
+        Assert.Equal(new Dictionary<string, int> { ["melee_super"] = 1, ["ranged"] = 1, ["siege"] = 1, ["flagbearer"] = 1 }, DawnWaveAt(kernel, 1, "top"));
+        foreach (string lane in new[] { "mid", "top" })
+            Assert.Equal(new Dictionary<string, int> { ["melee_mega"] = 1, ["ranged_mega"] = 1, ["siege_mega"] = 1, ["flagbearer"] = 1 }, DawnWaveAt(kernel, 2, lane));
+        Assert.Equal(new Dictionary<string, int> { ["melee"] = 1, ["ranged"] = 1, ["siege"] = 1, ["flagbearer"] = 1 },
+            kernel.TimedEventsOf<CreepSpawned>().Where(e => e.Tick == 60 && e.Event.Team == Team.Dusk && e.Event.LaneId == "mid")
+                .GroupBy(e => e.Event.CreepTypeId).ToDictionary(g => g.Key, g => g.Count()));
     }
 }

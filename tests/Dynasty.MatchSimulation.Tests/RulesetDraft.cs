@@ -145,6 +145,8 @@ public sealed class RulesetDraft
     public List<WaveEntry> DuskWave { get; } = new() { new WaveEntry("melee", 1) };
     public List<CreepUpgrade> SuperUpgrades { get; } = new();
 
+    public List<CreepUpgrade> MegaUpgrades { get; } = new();
+
     public CreepUpgradeRules? CreepUpgrades { get; set; }
 
     public RulesetDraft WithoutStructures()
@@ -168,7 +170,7 @@ public sealed class RulesetDraft
         Creeps,
         StructureTypes,
         new MapDefinition(Width, Height, Lanes, Placements, Obstacles, fountains: Fountains, camps: Camps, elevation: Elevation, terrain: Terrain),
-        new WaveRules(FirstSpawnMs, IntervalMs, DawnWave, DuskWave, SuperUpgrades, CreepUpgrades),
+        new WaveRules(FirstSpawnMs, IntervalMs, DawnWave, DuskWave, SuperUpgrades, CreepUpgrades, MegaUpgrades),
         Heroes,
         BuildHeroRules(),
         Abilities,

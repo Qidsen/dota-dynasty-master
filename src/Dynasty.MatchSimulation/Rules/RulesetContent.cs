@@ -175,8 +175,9 @@ namespace Dynasty.MatchSimulation.Rules
     {
         public StructureType(string id, UnitStats stats, StructureBounty? bounty = null, int denyHealthPercent = 0,
             IReadOnlyList<ModifierSpec>? modifiers = null, int armorPerStandingBarracks = 0, BackdoorProtection? backdoor = null,
-            int glyphExtraTargets = 0, bool resetsGlyphOnFirstLoss = false)
+            int glyphExtraTargets = 0, bool resetsGlyphOnFirstLoss = false, IReadOnlyList<string>? upgradesCreepTypeIds = null)
         {
+            UpgradesCreepTypeIds = upgradesCreepTypeIds?.ToArray();
             Backdoor = backdoor;
             GlyphExtraTargets = glyphExtraTargets;
             ResetsGlyphOnFirstLoss = resetsGlyphOnFirstLoss;
@@ -189,6 +190,12 @@ namespace Dynasty.MatchSimulation.Rules
             if (armorPerStandingBarracks > 0)
                 BarracksReinforcement = new ModifierSpec("barracks_reinforcement", -1, armorBonus: Fixed.FromInt(armorPerStandingBarracks), maxStacks: 100);
         }
+
+        /// <summary>
+        /// For a barracks: the enemy's creep types whose waves on its lane its loss upgrades (Dota: melee barracks the melee creeps,
+        /// ranged barracks the ranged and siege creeps); null = every type.
+        /// </summary>
+        public IReadOnlyList<string>? UpgradesCreepTypeIds { get; }
 
         /// <summary>Its own modifiers from the start (Dota: Tower Protection, an aura).</summary>
         public IReadOnlyList<ModifierSpec> Modifiers { get; }
@@ -246,6 +253,9 @@ namespace Dynasty.MatchSimulation.Rules
 
             writer.WriteInt64(GlyphExtraTargets);
             writer.WriteBool(ResetsGlyphOnFirstLoss);
+            writer.WriteInt64(UpgradesCreepTypeIds?.Count ?? -1);
+            foreach (string creepTypeId in UpgradesCreepTypeIds ?? Array.Empty<string>())
+                writer.WriteString(creepTypeId);
         }
     }
 
@@ -662,8 +672,9 @@ namespace Dynasty.MatchSimulation.Rules
     public sealed class WaveRules
     {
         public WaveRules(int firstSpawnMs, int intervalMs, IReadOnlyList<WaveEntry> dawnComposition, IReadOnlyList<WaveEntry> duskComposition,
-            IReadOnlyList<CreepUpgrade>? superUpgrades = null, CreepUpgradeRules? upgrades = null)
+            IReadOnlyList<CreepUpgrade>? superUpgrades = null, CreepUpgradeRules? upgrades = null, IReadOnlyList<CreepUpgrade>? megaUpgrades = null)
         {
+            MegaUpgrades = (megaUpgrades ?? Array.Empty<CreepUpgrade>()).ToArray();
             Upgrades = upgrades;
             SuperUpgrades = (superUpgrades ?? Array.Empty<CreepUpgrade>()).ToArray();
             FirstSpawnMs = firstSpawnMs;
@@ -681,6 +692,9 @@ namespace Dynasty.MatchSimulation.Rules
 
         /// <summary>Creep replacements for waves on lanes where the enemy barracks are destroyed.</summary>
         public IReadOnlyList<CreepUpgrade> SuperUpgrades { get; }
+
+        /// <summary>Creep replacements on every lane once all the enemy barracks are destroyed (Dota's mega creeps); over the super ones.</summary>
+        public IReadOnlyList<CreepUpgrade> MegaUpgrades { get; }
 
         /// <summary>Dota's periodic creep upgrades; null = none.</summary>
         public CreepUpgradeRules? Upgrades { get; }
@@ -841,7 +855,14 @@ namespace Dynasty.MatchSimulation.Rules
             }
 
             foreach (StructureType structure in StructureTypes)
+            {
                 ValidateStats(errors, "Structure type '" + structure.Id + "'", structure.Stats);
+                foreach (string creepTypeId in structure.UpgradesCreepTypeIds ?? Array.Empty<string>())
+                {
+                    if (FindCreepType(creepTypeId) == null)
+                        errors.Add("Structure type '" + structure.Id + "' upgrades unknown creep type '" + creepTypeId + "'.");
+                }
+            }
 
             ValidateMap(errors);
             ValidateWaves(errors);
@@ -1177,6 +1198,13 @@ namespace Dynasty.MatchSimulation.Rules
                 writer.WriteString(upgrade.FromCreepTypeId);
                 writer.WriteString(upgrade.ToCreepTypeId);
             }
+
+            writer.WriteInt64(Waves.MegaUpgrades.Count);
+            foreach (CreepUpgrade upgrade in Waves.MegaUpgrades)
+            {
+                writer.WriteString(upgrade.FromCreepTypeId);
+                writer.WriteString(upgrade.ToCreepTypeId);
+            }
         }
 
         /// <summary>Identity of this exact snapshot. Throws if the content is invalid.</summary>
@@ -1304,7 +1332,7 @@ namespace Dynasty.MatchSimulation.Rules
                     errors.Add("Wave entry '" + entry.CreepTypeId + "' replaces unknown creep type '" + entry.ReplacesCreepTypeId + "'.");
             }
 
-            foreach (CreepUpgrade upgrade in Waves.SuperUpgrades)
+            foreach (CreepUpgrade upgrade in Waves.SuperUpgrades.Concat(Waves.MegaUpgrades))
             {
                 foreach (string id in new[] { upgrade.FromCreepTypeId, upgrade.ToCreepTypeId })
                 {
