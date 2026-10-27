@@ -189,6 +189,10 @@ var pack = new JsonObject
             ["heroXpCapLevel"] = 25, ["deniedCreepXpPercent"] = 50,
         },
     },
+    // Dota's combat rules in 7.41f (docs/DOTA_RULES_AUDIT.md): magic resistance multiplies, evasion stacks diminishingly, critical strikes
+    // roll from the strongest multiplier (dota2.fandom «Magic resistance», «Critical strike»; Liquipedia «Evasion»); attack speed 20…700
+    // (fandom «Attack speed»); illusions 60% and summons 90% against buildings (Liquipedia «Attack Damage», D-051).
+    ["combat"] = new JsonObject { ["dotaStacking"] = true, ["maxAttackSpeed"] = 700, ["illusionBuildingPercent"] = 60, ["summonBuildingPercent"] = 90 },
     ["heroes"] = packHeroes,
     // Lane creeps and structures from the game's npc_units.txt, replacing the base rules' ones of the same id (the map is still the base one:
     // one barracks per lane, so it gets the melee barracks; B-131).

@@ -390,8 +390,13 @@ namespace Dynasty.MatchSimulation.Rules
 
     public sealed class CombatRules
     {
-        public CombatRules(Fixed armorFactor, bool heroAggro = false, AttackClassTable? attackClasses = null)
+        public CombatRules(Fixed armorFactor, bool heroAggro = false, AttackClassTable? attackClasses = null, bool dotaStacking = false,
+            int maxAttackSpeed = 0, int illusionBuildingPercent = 0, int summonBuildingPercent = 0)
         {
+            DotaStacking = dotaStacking;
+            MaxAttackSpeed = maxAttackSpeed;
+            IllusionBuildingPercent = illusionBuildingPercent;
+            SummonBuildingPercent = summonBuildingPercent;
             ArmorFactor = armorFactor;
             HeroAggro = heroAggro;
             AttackClasses = attackClasses ?? AttackClassTable.Uniform;
@@ -408,6 +413,20 @@ namespace Dynasty.MatchSimulation.Rules
 
         /// <summary>Attack damage percent by attack class and defense class (decision log D-043).</summary>
         public AttackClassTable AttackClasses { get; }
+
+        /// <summary>
+        /// Dota's stacking (docs/DOTA_RULES_AUDIT.md): magic resistance sources multiply (1 − (1 − base) × Π(1 − source)),
+        /// evasion sources stack diminishingly (1 − Π(1 − source)), and critical strike sources roll from the strongest
+        /// multiplier to the weakest until one procs. Otherwise they add up and only the highest crit chance counts.
+        /// </summary>
+        public bool DotaStacking { get; }
+
+        /// <summary>The total attack speed cap (Dota: 700, i.e. 100 base + 600); 0 = none.</summary>
+        public int MaxAttackSpeed { get; }
+
+        /// <summary>Attack damage percent of illusions and of summons against buildings (Dota: 60 and 90); 0 = by attack class.</summary>
+        public int IllusionBuildingPercent { get; }
+        public int SummonBuildingPercent { get; }
     }
 
     /// <summary>
@@ -694,6 +713,10 @@ namespace Dynasty.MatchSimulation.Rules
             writer.WriteFixed(Combat.ArmorFactor);
             writer.WriteBool(Combat.HeroAggro);
             Combat.AttackClasses.WriteCanonical(writer);
+            writer.WriteBool(Combat.DotaStacking);
+            writer.WriteInt64(Combat.MaxAttackSpeed);
+            writer.WriteInt64(Combat.IllusionBuildingPercent);
+            writer.WriteInt64(Combat.SummonBuildingPercent);
 
             writer.WriteInt64(CreepTypes.Count);
             foreach (CreepType creep in CreepTypes)

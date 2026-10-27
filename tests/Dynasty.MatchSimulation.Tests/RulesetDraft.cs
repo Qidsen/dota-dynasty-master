@@ -107,6 +107,16 @@ public sealed class RulesetDraft
 
     public int AttributeBonusLevels { get; set; }
 
+    /// <summary>Dota's stacking: magic resistance and evasion multiply, critical strikes roll from the strongest multiplier.</summary>
+    public bool DotaStacking { get; set; }
+
+    /// <summary>Total attack speed cap (Dota: 700); 0 = none.</summary>
+    public int MaxAttackSpeed { get; set; }
+
+    /// <summary>Attack damage percent of illusions and of summons against buildings (Dota: 60, 90); 0 = by attack class.</summary>
+    public int IllusionBuildingPercent { get; set; }
+    public int SummonBuildingPercent { get; set; }
+
     /// <summary>Dota's economy (null: the simple one).</summary>
     public EconomyRules? Economy { get; set; }
     public int AttributeBonusPerLevel { get; set; }
@@ -146,7 +156,7 @@ public sealed class RulesetDraft
         Id,
         Version,
         TicksPerSecond,
-        new CombatRules(ArmorFactor, HeroAggro, AttackClasses),
+        new CombatRules(ArmorFactor, HeroAggro, AttackClasses, DotaStacking, MaxAttackSpeed, IllusionBuildingPercent, SummonBuildingPercent),
         Creeps,
         StructureTypes,
         new MapDefinition(Width, Height, Lanes, Placements, Obstacles, fountains: Fountains, camps: Camps, elevation: Elevation),

@@ -760,4 +760,97 @@ public class DotaMechanicsTests
         int splashHits = kernel.EventsOf<DamageDealt>().Count(d => d.Attacker == H(kernel.State, "alpha").Id && d.Target != H(kernel.State, "beta").Id);
         Assert.Equal(3 * 4, splashHits);   // three attacks, four extra targets each
     }
+
+    private static RulesetDraft DotaCombat() => new RulesetDraft { DotaStacking = true, MaxAttackSpeed = 700, IllusionBuildingPercent = 60, SummonBuildingPercent = 90 }.WithoutWaves();
+
+    /// <summary>Attack speed is capped at 700 (Liquipedia/fandom «Attack speed»: 20 ≤ attack speed ≤ 700).</summary>
+    [Fact]
+    public void AttackSpeed_IsCappedAt700()
+    {
+        var kernel = Duel(onAlpha: new ModifierSpec("frenzy", -1, attackSpeedBonus: 1000), attack: false, draft: DotaCombat());
+        kernel.RunTicks(2);
+
+        Assert.Equal(600, H(kernel.State, "alpha").AttackSpeedBonus);   // 100 base + 600 = 700
+    }
+
+    /// <summary>Evasion sources stack diminishingly: two 50% sources make 75%.</summary>
+    [Fact]
+    public void Evasion_StacksDiminishingly()
+    {
+        var kernel = Duel(attack: false, draft: DotaCombat());
+        kernel.AddSystem(new LambdaSystem(1, ctx =>
+        {
+            Modifiers.Apply(ctx, H(ctx.State, "beta"), new ModifierSpec("butterfly", -1, evasionPercent: 50), EntityId.None);
+            Modifiers.Apply(ctx, H(ctx.State, "beta"), new ModifierSpec("talisman", -1, evasionPercent: 50), EntityId.None);
+        }));
+        kernel.RunTicks(2);
+
+        Assert.Equal(7500, H(kernel.State, "beta").EvasionHundredths);
+    }
+
+    /// <summary>Magic resistance sources multiply: 25% base and +50% make 62.5%.</summary>
+    [Fact]
+    public void MagicResistance_StacksMultiplicatively()
+    {
+        var kernel = Duel(onBeta: new ModifierSpec("cloak", -1, magicResistBonus: 50), attack: false, draft: DotaCombat());
+        kernel.AddSystem(new LambdaSystem(1, ctx => Damage.Deal(ctx, H(ctx.State, "alpha").Id, H(ctx.State, "beta"), Fixed.FromInt(100), DamageType.Magical)));
+        kernel.RunTicks(2);
+
+        Assert.Equal(6250, H(kernel.State, "beta").MagicResistHundredths);
+        Assert.InRange(HitsOnBeta(kernel).Single().Amount.ToDouble(), 37.49, 37.51);
+    }
+
+    /// <summary>Critical strikes roll from the strongest multiplier to the weakest; the first that procs wins.</summary>
+    [Fact]
+    public void CriticalStrikes_RollFromTheStrongestMultiplier()
+    {
+        var kernel = Duel(attack: false, draft: DotaCombat());
+        kernel.AddSystem(new LambdaSystem(1, ctx =>
+        {
+            Modifiers.Apply(ctx, H(ctx.State, "alpha"), new ModifierSpec("crystalys", -1, critChancePercent: 100, critMultiplierPercent: 150), EntityId.None);
+            Modifiers.Apply(ctx, H(ctx.State, "alpha"), new ModifierSpec("daedalus", -1, critChancePercent: 50, critMultiplierPercent: 300), EntityId.None);
+        }));
+        kernel.AddSystem(new LambdaSystem(2, ctx =>
+        {
+            for (int i = 0; i < 200; i++)
+            {
+                H(ctx.State, "beta").Hp = Fixed.FromInt(H(ctx.State, "beta").MaxHp);
+                AttackSystem.Strike(ctx, H(ctx.State, "alpha"), H(ctx.State, "beta"), 100);
+            }
+        }));
+        kernel.RunTicks(3);
+
+        // Attack 50–54 (+ level damage) times the armor multiplier: ×3 crits are above twice the largest ×1.5 one.
+        MatchUnit alpha = H(kernel.State, "alpha");
+        double armor = DamageMath.ArmorMultiplier(H(kernel.State, "beta").Armor, kernel.State.Ruleset.Combat.ArmorFactor).ToDouble();
+        List<double> hits = HitsOnBeta(kernel).Select(d => d.Amount.ToDouble()).ToList();
+        Assert.All(HitsOnBeta(kernel), d => Assert.True(d.IsCritical));   // the ×1.5 source always procs when the ×3 one does not
+        int triple = hits.Count(h => h > alpha.AttackDamageMax * 2 * armor);
+        Assert.InRange(triple, 60, 140);   // about half: the ×3 source rolls first at 50%
+    }
+
+    /// <summary>Against buildings illusions deal 60% and summons 90% of their attack (Liquipedia «Attack Damage», D-051).</summary>
+    [Fact]
+    public void IllusionsAndSummons_HaveTheirOwnFactorAgainstBuildings()
+    {
+        RulesetDraft draft = DotaCombat();
+        draft.Creeps.Add(new CreepType("wolf", MeleeStats(hp: 300, armor: 0, dmgMin: 100, dmgMax: 100, speed: 300)));
+        var kernel = draft.StartWithHeroes(new[] { ("alpha", "mid") }, new[] { ("beta", "mid") });
+        MatchUnit? wolf = null, image = null;
+        MatchUnit? tower = null;
+        kernel.AddSystem(new LambdaSystem(1, ctx =>
+        {
+            tower = ctx.State.Units.First(u => u.Kind == UnitKind.Structure && u.Team == Team.Dusk && u.CanAttackAtAll);
+            wolf = ctx.State.SpawnSummon(ctx.Ids.Allocate(), H(ctx.State, "alpha"), ctx.State.Ruleset.FindCreepType("wolf")!, ctx.Tick.Value, ctx.Tick.Value + 100000);
+            image = ctx.State.SpawnIllusion(ctx.Ids.Allocate(), H(ctx.State, "alpha"), H(ctx.State, "alpha"), ctx.Tick.Value, ctx.Tick.Value + 100000);
+            AttackSystem.Strike(ctx, wolf, tower, 100);
+            AttackSystem.Strike(ctx, image, tower, 100);
+        }));
+        kernel.RunTicks(2);
+
+        double armor = DamageMath.ArmorMultiplier(tower!.Armor, kernel.State.Ruleset.Combat.ArmorFactor).ToDouble();
+        Assert.InRange(kernel.EventsOf<DamageDealt>().Single(d => d.Attacker == wolf!.Id).Amount.ToDouble(), 100 * 0.9 * armor - 0.01, 100 * 0.9 * armor + 0.01);
+        DamageDealt byImage = kernel.EventsOf<DamageDealt>().Single(d => d.Attacker == image!.Id);
+        Assert.InRange(byImage.Amount.ToDouble(), image!.AttackDamageMin * 0.6 * armor - 0.01, image.AttackDamageMax * 0.6 * armor + 0.01);
+    }
 }

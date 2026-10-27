@@ -500,12 +500,31 @@ namespace Dynasty.MatchSimulation.Systems
             int roll = context.Random("combat").NextInt(unit.AttackDamageMin, unit.AttackDamageMax + 1);
             Fixed damage = Fixed.FromInt(roll);
 
-            critical = unit.CritChanceHundredths > 0 && Draw(context, unit.CritChanceHundredths);
-            if (critical)
-                damage = damage * Fixed.FromInt(unit.CritMultiplierPercent) / Fixed.FromInt(100);
+            critical = false;
+            if (unit.Combat?.DotaStacking == true)
+            {
+                // Dota: from the strongest multiplier down; the first source that procs counts.
+                foreach ((int chance, int multiplier) in unit.CritSources)
+                {
+                    if (!Draw(context, chance))
+                        continue;
+                    critical = true;
+                    damage = damage * Fixed.FromInt(multiplier) / Fixed.FromInt(100);
+                    break;
+                }
+            }
+            else
+            {
+                critical = unit.CritChanceHundredths > 0 && Draw(context, unit.CritChanceHundredths);
+                if (critical)
+                    damage = damage * Fixed.FromInt(unit.CritMultiplierPercent) / Fixed.FromInt(100);
+            }
             if (unit.AttackDamagePercent != 0)
                 damage = damage * Fixed.FromInt(100 + unit.AttackDamagePercent) / Fixed.FromInt(100);
-            int classPercent = context.State.Ruleset.Combat.AttackClasses.Percent(AttackClassOf(unit), DefenseClassOf(target));
+            CombatRules combat = context.State.Ruleset.Combat;
+            int classPercent = target.Kind == UnitKind.Structure && unit.IllusionOf.IsValid && combat.IllusionBuildingPercent > 0 ? combat.IllusionBuildingPercent
+                : target.Kind == UnitKind.Structure && unit.Kind == UnitKind.Summon && !unit.IllusionOf.IsValid && combat.SummonBuildingPercent > 0 ? combat.SummonBuildingPercent
+                : combat.AttackClasses.Percent(AttackClassOf(unit), DefenseClassOf(target));
             if (classPercent != 100)
                 damage = damage * Fixed.FromInt(classPercent) / Fixed.FromInt(100);
             if (target.Kind == UnitKind.Structure && unit.StructureDamagePercent != 0)

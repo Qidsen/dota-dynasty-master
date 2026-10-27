@@ -62,7 +62,16 @@ namespace Dynasty.MatchSimulation
         // Effective values: base stats plus active modifiers. Refreshed by Recalculate().
         public int MaxHp { get; private set; }
         public Fixed Armor { get; private set; }
-        public int MagicResistPercent { get; private set; }
+        /// <summary>Magic resistance in hundredths of a percent (Dota's multiplied sources give fractions).</summary>
+        public int MagicResistHundredths { get; private set; }
+
+        public int MagicResistPercent => MagicResistHundredths / 100;
+
+        /// <summary>The match's combat rules (stacking, attack speed cap); set when the unit enters the match.</summary>
+        internal CombatRules? Combat { get; set; }
+
+        /// <summary>Critical strike sources from the strongest multiplier down (Dota's stacking).</summary>
+        public IReadOnlyList<(int ChanceHundredths, int MultiplierPercent)> CritSources { get; private set; } = Array.Empty<(int, int)>();
         public int AttackDamageMin { get; private set; }
         public int AttackDamageMax { get; private set; }
         public int AttackSpeedBonus { get; private set; }
@@ -227,6 +236,10 @@ namespace Dynasty.MatchSimulation
             Fixed hpRegenBonus = Fixed.Zero;
             int strengthBonus = 0, agilityBonus = 0, intelligenceBonus = 0;
             ModifierFlags flags = Stats.InnateFlags;
+            bool dota = Combat?.DotaStacking == true;
+            long evasionLeft = 10000;          // Dota: the chance not to evade, multiplied by every source
+            Fixed magicTakenFactor = Fixed.One; // Dota: the part of magic damage taken after the bonus sources
+            List<(int, int)>? crits = null;
             foreach (ActiveModifier modifier in _modifiers)
             {
                 ModifierSpec spec = modifier.Spec;
@@ -248,7 +261,8 @@ namespace Dynasty.MatchSimulation
                 agilityBonus += spec.AgilityBonus * n;
                 intelligenceBonus += spec.IntelligenceBonus * n;
                 armor += spec.ArmorBonus * Fixed.FromInt(n);
-                magicResist += spec.MagicResistBonus * n;
+                if (!dota)
+                    magicResist += spec.MagicResistBonus * n;
                 damageBonus += spec.DamageBonus * n;
                 attackSpeed += spec.AttackSpeedBonus * n;
                 movePercent += spec.MoveSpeedHundredths * n;
@@ -256,6 +270,15 @@ namespace Dynasty.MatchSimulation
                 incomingDamage += spec.IncomingDamageHundredths * n;
                 attackDamagePercent += spec.AttackDamagePercent * n;
                 evasion += spec.EvasionHundredths * n;
+                if (dota)
+                {
+                    for (int i = 0; i < n && spec.EvasionHundredths != 0; i++)
+                        evasionLeft = evasionLeft * (10000 - spec.EvasionHundredths) / 10000;
+                    for (int i = 0; i < n && spec.MagicResistBonus != 0; i++)
+                        magicTakenFactor = magicTakenFactor * Fixed.FromInt(100 - spec.MagicResistBonus) / Fixed.FromInt(100);
+                    if (spec.CritChanceHundredths > 0)
+                        (crits ??= new List<(int, int)>()).Add((spec.CritChanceHundredths, spec.CritMultiplierPercent));
+                }
                 attackRangeBonus += spec.AttackRangeBonus * n;
                 manaRegenBonus += spec.ManaRegenBonus * Fixed.FromInt(n);
                 flags |= spec.Flags;
@@ -312,10 +335,24 @@ namespace Dynasty.MatchSimulation
             }
 
             Armor = armor;
-            MagicResistPercent = Math.Min(magicResist, 100);
+            if (dota)
+            {
+                // The base (with intelligence) times the bonus sources: 1 − (1 − base) × Π(1 − source).
+                Fixed taken = Fixed.FromInt(100 - Math.Min(magicResist, 100)) / Fixed.FromInt(100) * magicTakenFactor;
+                MagicResistHundredths = Math.Min(10000, 10000 - (taken * Fixed.FromInt(10000) + Fixed.FromRatio(1, 2)).ToIntFloor());
+            }
+            else
+            {
+                MagicResistHundredths = Math.Min(magicResist, 100) * 100;
+            }
+
+            CritSources = crits == null ? (IReadOnlyList<(int, int)>)Array.Empty<(int, int)>()
+                : crits.OrderByDescending(c => c.Item2).ThenByDescending(c => c.Item1).ToArray();
             AttackDamageMin = Stats.AttackDamageMin + damageBonus;
             AttackDamageMax = Stats.AttackDamageMax + damageBonus;
             AttackSpeedBonus = Math.Max(attackSpeed, -80);
+            if (Combat != null && Combat.MaxAttackSpeed > 0)
+                AttackSpeedBonus = Math.Min(AttackSpeedBonus, Combat.MaxAttackSpeed - 100);
             Flags = flags;
             CritChanceHundredths = Math.Min(critChance, 10000);
             CritMultiplierPercent = critMultiplier;
@@ -328,7 +365,7 @@ namespace Dynasty.MatchSimulation
             AttackRange = Stats.AttackRange + attackRangeBonus;
             IncomingDamageHundredths = Math.Max(incomingDamage, -10000);
             AttackDamagePercent = Math.Max(attackDamagePercent, -100);
-            EvasionHundredths = Math.Min(evasion, 10000);
+            EvasionHundredths = dota ? (int)(10000 - evasionLeft) : Math.Min(evasion, 10000);
             StepPerTick = Fixed.FromRatio(MoveSpeed, _rate.TicksPerSecond);
             AttackIntervalTicks = Math.Max(1, _rate.TicksFor(Stats.AttackIntervalMs * 100 / (100 + AttackSpeedBonus)));
             AttackPointTicks = _rate.TicksFor(Stats.AttackPointMs * 100 / (100 + AttackSpeedBonus));
@@ -677,6 +714,9 @@ namespace Dynasty.MatchSimulation
 
         private void Add(MatchUnit unit)
         {
+            unit.Combat = Ruleset.Combat;
+            if (Ruleset.Combat.DotaStacking || Ruleset.Combat.MaxAttackSpeed > 0)
+                unit.Recalculate();
             _units.Add(unit);
             if (unit.Hero != null)
                 _heroes.Add(unit);

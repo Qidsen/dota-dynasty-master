@@ -52,6 +52,14 @@ namespace Dynasty.Content
             reader.Ignore("provenance");
             IReadOnlyList<HeroDefinition> heroes = reader.Array("heroes").Select(ReadHero).ToList();
             HeroRules? heroRules = reader.OptionalObject("heroRules") is Reader rules ? ReadHeroRules(rules, baseRules.HeroRules) : baseRules.HeroRules;
+            CombatRules combat = baseRules.Combat;
+            if (reader.OptionalObject("combat") is Reader c)
+            {
+                combat = new CombatRules(combat.ArmorFactor, combat.HeroAggro, combat.AttackClasses, c.OptionalBool("dotaStacking") ?? combat.DotaStacking,
+                    c.OptionalInt("maxAttackSpeed") ?? combat.MaxAttackSpeed, c.OptionalInt("illusionBuildingPercent") ?? combat.IllusionBuildingPercent,
+                    c.OptionalInt("summonBuildingPercent") ?? combat.SummonBuildingPercent);
+                c.RejectUnknown();
+            }
             List<CreepType> unitTypes = reader.OptionalArray("unitTypes").Select(u => ReadUnitType(u, baseRules)).ToList();
             // Structure types replace the base ones of the same id; a structure keeps its base size (the map stays the base one).
             var structureOverrides = reader.OptionalArray("structureTypes").Select(s => ReadStructureType(s, baseRules)).ToDictionary(s => s.Id);
@@ -64,7 +72,7 @@ namespace Dynasty.Content
             IReadOnlyList<StructureType> structureTypes = baseRules.StructureTypes.Select(s => structureOverrides.TryGetValue(s.Id, out StructureType? o) ? o : s).ToList();
             foreach (string unknown in structureOverrides.Keys.Where(k => baseRules.StructureTypes.All(s => s.Id != k)))
                 throw new RulesetPackException("structureTypes: \"" + unknown + "\" is not a structure type of the base rules.");
-            var content = new RulesetContent(id, version, baseRules.TicksPerSecond, baseRules.Combat, creepTypes, structureTypes,
+            var content = new RulesetContent(id, version, baseRules.TicksPerSecond, combat, creepTypes, structureTypes,
                 baseRules.Map, baseRules.Waves, heroes, heroRules, abilities, items, baseRules.Boss, baseRules.Runes,
                 baseRules.DayNight, baseRules.Draft);
             IReadOnlyList<string> errors = content.Validate();

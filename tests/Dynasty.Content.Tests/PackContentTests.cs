@@ -274,6 +274,15 @@ public class PackContentTests
     }
 
     [Fact]
+    public void Combat_ReadsDotaStackingAndCaps()
+    {
+        RulesetContent rules = Apply(@"""combat"": { ""dotaStacking"": true, ""maxAttackSpeed"": 700, ""illusionBuildingPercent"": 60, ""summonBuildingPercent"": 90 }", Hero("lion", "[]"));
+
+        Assert.Equal((true, 700, 60, 90), (rules.Combat.DotaStacking, rules.Combat.MaxAttackSpeed, rules.Combat.IllusionBuildingPercent, rules.Combat.SummonBuildingPercent));
+        Assert.Equal(BaseRuleset.Create().Combat.ArmorFactor, rules.Combat.ArmorFactor);
+    }
+
+    [Fact]
     public void StructureTypes_ReplaceTheBaseOnes_KeepingTheirSize()
     {
         RulesetContent rules = Apply(@"""structureTypes"": [ { ""id"": ""tower.t1"", ""health"": 1800, ""armor"": 12, ""moveSpeed"": 0, ""attackDamageMin"": 88, ""attackDamageMax"": 92,

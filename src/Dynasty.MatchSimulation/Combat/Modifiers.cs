@@ -603,7 +603,9 @@ namespace Dynasty.MatchSimulation.Combat
                 return Fixed.Zero;
 
             Fixed amount = type == DamageType.Physical && (target.Flags & ModifierFlags.PhysicalImmune) != 0 ? Fixed.Zero
-                : DamageMath.Mitigate(rawAmount, type, target.Armor, target.MagicResistPercent, context.State.Ruleset.Combat.ArmorFactor);
+                : type == DamageType.Magical && context.State.Ruleset.Combat.DotaStacking
+                    ? rawAmount * Fixed.FromInt(10000 - target.MagicResistHundredths) / Fixed.FromInt(10000)
+                    : DamageMath.Mitigate(rawAmount, type, target.Armor, target.MagicResistPercent, context.State.Ruleset.Combat.ArmorFactor);
             // A whole percent keeps its old formula (same fixed-point result); a fractional one works in hundredths.
             if (target.IncomingDamageHundredths % 100 != 0)
                 amount = amount * Fixed.FromInt(10000 + target.IncomingDamageHundredths) / Fixed.FromInt(10000);
