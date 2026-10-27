@@ -534,12 +534,16 @@ namespace Dynasty.HeroAI
             if (Math.HpPercent(_hero) < 40)
                 return false;
             HeroDecision self = this;
-            MatchUnit? rune = _state.Units
+            List<MatchUnit> runes = _state.Units
                 .Where(u => u.Kind == UnitKind.Rune && self.Sees(u) && Math.Within(u.Position, self._hero.Position, 2500) && !self.UnderEnemyTower(u.Position))
-                .OrderBy(u => FixedVector2.DistanceSquared(u.Position, self._hero.Position))
-                .FirstOrDefault();
-            if (rune == null)
+                .ToList();
+            if (runes.Count == 0)
                 return false;
+            // The nearest; exact ties (a mid hero on the diagonal between the two river runes) are drawn, not left to the order
+            // the runes were made in (D-014: in a mirror match both mids would otherwise walk to the same one).
+            Fixed nearest = runes.Min(u => FixedVector2.DistanceSquared(u.Position, self._hero.Position));
+            List<MatchUnit> closest = runes.Where(u => FixedVector2.DistanceSquared(u.Position, self._hero.Position) == nearest).ToList();
+            MatchUnit rune = closest.Count == 1 ? closest[0] : closest[_random.NextInt(0, closest.Count)];
 
             Issue(HeroOrder.Move(rune.Position));
             return true;

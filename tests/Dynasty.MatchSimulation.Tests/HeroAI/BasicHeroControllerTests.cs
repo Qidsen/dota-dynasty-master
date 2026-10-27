@@ -2,6 +2,7 @@ using Dynasty.Core.Kernel;
 using Dynasty.Core.Mathematics;
 using Dynasty.HeroAI;
 using Dynasty.MatchSimulation.Events;
+using Dynasty.MatchSimulation.Heroes;
 using Dynasty.MatchSimulation.Rules;
 using Dynasty.MatchSimulation.Tests.Abilities;
 using static Dynasty.MatchSimulation.Tests.RulesetDraft;
@@ -78,6 +79,44 @@ public class BasicHeroControllerTests
 
         kernel.RunTicks(150);
         Assert.Contains(kernel.EventsOf<AttackStarted>(), a => a.Target == barracks.Id);
+    }
+
+    /// <summary>
+    /// Two runes exactly as far away: the choice must not follow the order units were made in (D-014: in a mirror match both
+    /// mid heroes on the diagonal would walk to the same rune), so it is drawn from the AI's stream.
+    /// </summary>
+    [Fact]
+    public void Controller_TwoRunesEquallyFar_IsNotDecidedByTheirOrder()
+    {
+        var picks = new HashSet<long>();
+        for (ulong seed = 1; seed <= 20; seed++)
+        {
+            var draft = new RulesetDraft().WithoutWaves();
+            var kernel = draft.StartWithHeroes(new[] { ("alpha", "mid") }, NoHeroes, seed);
+            MatchUnit? first = null, second = null;
+            At(kernel, 0, ctx =>
+            {
+                H(ctx.State, "alpha").Position = P(5000, 5000);
+                Dynasty.MatchSimulation.Combat.Modifiers.Apply(ctx, H(ctx.State, "alpha"), new Dynasty.MatchSimulation.Combat.ModifierSpec("held", 2000,
+                    Dynasty.MatchSimulation.Combat.ModifierFlags.Rooted), H(ctx.State, "alpha").Id);   // stays on the diagonal while it decides
+                var type = new RuneType("bounty", gold: 1);
+                first = ctx.State.SpawnRune(ctx.Ids.Allocate(), type, 0, P(4600, 5400));
+                second = ctx.State.SpawnRune(ctx.Ids.Allocate(), type, 1, P(5400, 4600));
+            });
+            long pick = -1;
+            for (long t = 1; t <= 30; t++)
+                At(kernel, t, ctx =>
+                {
+                    HeroOrder order = H(ctx.State, "alpha").Hero!.Order;
+                    if (pick < 0 && order.Kind == HeroOrderKind.Move && (order.Point == first!.Position || order.Point == second!.Position))
+                        pick = order.Point == first.Position ? 0 : 1;
+                });
+            HeroAi.Attach(kernel, new HeroAiSettings { ReactionJitterTicks = 0 });
+            kernel.RunTicks(30);
+            picks.Add(pick);
+        }
+
+        Assert.Equal(new long[] { 0, 1 }, picks.OrderBy(p => p).ToArray());
     }
 
     [Fact]
