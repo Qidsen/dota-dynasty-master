@@ -150,8 +150,12 @@ namespace Dynasty.MatchSimulation.Combat
             int whenAttackedChanceHundredths = 0,
             int incomingDamageHundredths = 0,
             bool pseudoRandom = false,
-            bool unique = false)
+            bool unique = false,
+            int splashPercent = 0,
+            int splashRadius = 0)
         {
+            SplashPercent = splashPercent;
+            SplashRadius = splashRadius;
             PseudoRandom = pseudoRandom;
             Unique = unique;
             IncomingDamageHundredths = incomingDamagePercent * 100 + incomingDamageHundredths;
@@ -333,6 +337,10 @@ namespace Dynasty.MatchSimulation.Combat
         public int CleavePercent { get; }
         public int CleaveRadius { get; }
 
+        /// <summary>Any attack (ranged too) also deals this percent of its damage to other enemies within <see cref="SplashRadius"/> of the target (Dota: the fountain).</summary>
+        public int SplashPercent { get; }
+        public int SplashRadius { get; }
+
         /// <summary>Damage of any type this modifier absorbs before it is used up and removed.</summary>
         public int Barrier { get; }
 
@@ -462,6 +470,8 @@ namespace Dynasty.MatchSimulation.Combat
             w.WriteBool(Revives);
             w.WriteBool(PseudoRandom);
             w.WriteBool(Unique);
+            w.WriteInt64(SplashPercent);
+            w.WriteInt64(SplashRadius);
             w.WriteInt64(AttackCharges);
             w.WriteBool(ExtraTargetRadiusFromAttackRange);
             w.WriteInt64(ExtraTargetChancePercent);

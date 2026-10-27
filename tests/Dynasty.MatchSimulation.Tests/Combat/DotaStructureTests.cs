@@ -409,4 +409,64 @@ public class DotaStructureTests
         Assert.Equal(1, before);
         Assert.Equal(2, TargetsHit(kernel.EventsOf<DamageDealt>().Skip(seen)));
     }
+
+    /// <summary>
+    /// The fountain (Liquipedia «Buildings» 7.41f, Valve 7.27 and 7.35): an invulnerable building at each team's fountain
+    /// that attacks enemies within 1200 (290–310 every 0.15 s), splashing 25% of the damage within 250 of the target and
+    /// dealing 3 more damage per hit on the same target (the stack is added before the hit). Shown with its own type.
+    /// </summary>
+    private static SimulationKernel<MatchState> FountainArena(int damage = 300)
+    {
+        RulesetDraft draft = TestAbilities.Draft().WithoutWaves();
+        var fury = new ModifierSpec("fountain_damage_stack", 12000, maxStacks: 1000);
+        var fountain = new ModifierSpec("fountain_damage", -1, splashPercent: 25, splashRadius: 250, onHit: new[]
+        {
+            EffectDefinition.Modifier(fury),
+            EffectDefinition.DamagePerStack(DamageType.Physical, "fountain_damage_stack", 3),
+        });
+        draft.StructureTypes.Add(new StructureType("fountain",
+            new UnitStats(1000, Fixed.Zero, 0, damage, damage, 1200, 150, 0, 1200, 144, visionRange: 1800, trueSightRange: 1200, projectileSpeed: 1400),
+            modifiers: new[] { fountain }));
+        var kernel = draft.StartWithHeroes(new[] { ("alpha", "mid"), ("gamma", "mid") }, new[] { ("beta", "mid") });
+        At(kernel, 0, ctx =>
+        {
+            H(ctx.State, "alpha").Position = P(9000, 5000);   // 800 from the Dusk fountain
+            H(ctx.State, "gamma").Position = P(9000, 5200);   // 200 from alpha
+            H(ctx.State, "beta").Position = P(5000, 8000);
+        });
+        return kernel;
+    }
+
+    [Fact]
+    public void EachTeamHasAnInvulnerableFountainThatAttacksAndSplashes()
+    {
+        var kernel = FountainArena();
+        kernel.RunTicks(4);
+        MatchUnit fountain = S(kernel.State, "dusk.fountain");
+        Assert.Equal(P(9800, 5000), fountain.Position);
+        Assert.Equal(P(200, 5000), S(kernel.State, "dawn.fountain").Position);
+        Assert.False(kernel.State.IsVulnerable(fountain));
+        Assert.False(kernel.State.CanAttack(H(kernel.State, "alpha"), fountain));
+
+        kernel.RunTicks(30);
+
+        var hits = kernel.EventsOf<DamageDealt>().Where(d => d.Attacker == fountain.Id).ToList();
+        Assert.Contains(hits, d => d.Target == H(kernel.State, "alpha").Id || d.Target == H(kernel.State, "gamma").Id);
+        Assert.Equal(2, hits.Select(d => d.Target).Distinct().Count());   // the target and the splash
+        Assert.DoesNotContain(hits, d => d.Target == H(kernel.State, "beta").Id);
+    }
+
+    [Fact]
+    public void FountainDamage_GrowsWithEachHitOnTheSameTarget()
+    {
+        var kernel = FountainArena(damage: 1);   // weak enough for the target to live through the hits
+        kernel.RunTicks(60);   // several hits after the first target is picked
+
+        MatchUnit fountain = S(kernel.State, "dusk.fountain");
+        EntityId target = kernel.EventsOf<AttackStarted>().First(a => a.Attacker == fountain.Id).Target;
+        int stacks = kernel.State.Find(target)?.Modifiers.SingleOrDefault(m => m.Spec.Key == "fountain_damage_stack")?.Stacks ?? 0;
+        var bonus = kernel.EventsOf<DamageDealt>().Where(d => d.Attacker == fountain.Id && d.Target == target && d.Amount > Fixed.FromRatio(3, 2)).Select(d => d.Amount).ToList();
+        Assert.True(stacks >= 5, "stacks " + stacks);
+        Assert.True(bonus.Count >= 2 && bonus.Zip(bonus.Skip(1), (a, b) => b > a).All(x => x), "bonus damage grows: " + string.Join(", ", bonus));
+    }
 }

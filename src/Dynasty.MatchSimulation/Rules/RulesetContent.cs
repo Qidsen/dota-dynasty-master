@@ -181,6 +181,9 @@ namespace Dynasty.MatchSimulation.Rules
         /// <summary>Losing the team's first building of this type resets the glyph's cooldown (Dota: tier 1, tier 2, melee barracks).</summary>
         public bool ResetsGlyphOnFirstLoss { get; }
 
+        /// <summary>The structure type of the fountains: when a ruleset has it, each fountain is also an invulnerable building (Dota).</summary>
+        public const string FountainId = "fountain";
+
         public string Id { get; }
         public UnitStats Stats { get; }
 
@@ -303,6 +306,9 @@ namespace Dynasty.MatchSimulation.Rules
 
         /// <summary>Only once every protector is destroyed (e.g. the ancient behind its base towers).</summary>
         AllProtectorsDestroyed = 1,
+
+        /// <summary>Never (Dota's fountain).</summary>
+        Never = 2,
     }
 
     public sealed class StructurePlacement

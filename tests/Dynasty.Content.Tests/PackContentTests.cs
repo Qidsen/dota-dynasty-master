@@ -319,6 +319,23 @@ public class PackContentTests
     }
 
     [Fact]
+    public void TheFountainsStructureType_CanBeAdded_WithSplashAndStackingDamage()
+    {
+        RulesetContent rules = Apply(@"""structureTypes"": [ { ""id"": ""fountain"", ""health"": 1, ""armor"": 0, ""attackDamageMin"": 290, ""attackDamageMax"": 310,
+                ""baseAttackTime"": 0.15, ""attackRange"": 1200, ""acquisitionRange"": 1200, ""projectileSpeed"": 1400, ""visionRange"": 1800, ""trueSight"": 1200,
+                ""radius"": 144, ""attackClass"": ""reinforced"",
+                ""modifiers"": [ { ""key"": ""fountain_damage"", ""splash"": 25, ""splashRadius"": 250, ""onHit"": [
+                    { ""kind"": ""modifier"", ""modifiers"": [ { ""key"": ""fountain_damage_stack"", ""duration"": 12, ""stacking"": true, ""maxStacks"": 1000 } ] },
+                    { ""kind"": ""damage"", ""damageType"": ""physical"", ""scaling"": ""perTargetStack"", ""stackKey"": ""fountain_damage_stack"", ""amounts"": [3] } ] } ] } ]",
+            Hero("lion", "[]"));
+
+        StructureType fountain = rules.FindStructureType("fountain")!;
+        Assert.Equal((290, 310, 150, 1200, 144), (fountain.Stats.AttackDamageMin, fountain.Stats.AttackDamageMax, fountain.Stats.AttackIntervalMs, fountain.Stats.TrueSightRange, fountain.Stats.BoundingRadius));
+        ModifierSpec damage = fountain.Modifiers.Single();
+        Assert.Equal((25, 250, 2), (damage.SplashPercent, damage.SplashRadius, damage.OnHit.Count));
+    }
+
+    [Fact]
     public void Effects_ReadZonesAndPulls()
     {
         RulesetContent rules = Apply(@"""abilities"": [{ ""id"": ""pyre"", ""name"": ""Pyre"", ""targeting"": ""point"", ""targetTeam"": ""enemy"", ""castRange"": 900, ""castPoint"": 0,

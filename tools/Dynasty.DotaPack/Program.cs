@@ -213,7 +213,7 @@ var pack = new JsonObject
         {
             ("tower.t1", "npc_dota_goodguys_tower1_mid"), ("tower.t2", "npc_dota_goodguys_tower2_mid"), ("tower.t3", "npc_dota_goodguys_tower3_mid"),
             ("tower.t4", "npc_dota_goodguys_tower4"), ("ancient", "npc_dota_goodguys_fort"), ("barracks", "npc_dota_goodguys_melee_rax_mid"),
-        }.Select(s => (JsonNode)StructureRules(Abilities.GameUnit(s.Id, s.Game, gameUnits))).ToArray()),
+        }.Select(s => (JsonNode)StructureRules(Abilities.GameUnit(s.Id, s.Game, gameUnits))).Append(Fountain()).ToArray()),
     ["abilities"] = new JsonArray(items.Abilities.Concat(heroAbilities.Abilities).Select(a => a!.DeepClone()).ToArray()),
     ["items"] = items.Items,
 };
@@ -295,3 +295,22 @@ static JsonObject StructureRules(JsonObject structure)
     };
     return structure;
 }
+
+// The fountain is not in the game's unit file (set by the map and the game's code): Liquipedia «Buildings» (7.41f) and Fandom
+// «Fountain» (2024): 290–310 damage every 0.15 s, range and acquisition 1200, projectile 1400, Reinforced, bound radius 144,
+// vision 1800 day and night, True Sight 1200, invulnerable; Valve 7.27: +3 damage per hit on the same target (the stack is
+// added before the hit, 12 s); Valve 7.35: 25% splash within 250. Not carried over: the 25% accuracy against evasion, and the
+// tower-like protection of heroes it does not have (B-145).
+static JsonObject Fountain() => new()
+{
+    ["id"] = "fountain", ["health"] = 1, ["armor"] = 0, ["attackDamageMin"] = 290, ["attackDamageMax"] = 310, ["baseAttackTime"] = 0.15,
+    ["attackPoint"] = 0, ["attackRange"] = 1200, ["acquisitionRange"] = 1200, ["projectileSpeed"] = 1400, ["visionRange"] = 1800,
+    ["nightVision"] = 1800, ["trueSight"] = 1200, ["radius"] = 144, ["attackClass"] = "reinforced",
+    ["modifiers"] = new JsonArray(new JsonObject
+    {
+        ["key"] = "fountain_damage", ["splash"] = 25, ["splashRadius"] = 250,
+        ["onHit"] = new JsonArray(
+            new JsonObject { ["kind"] = "modifier", ["modifiers"] = new JsonArray(new JsonObject { ["key"] = "fountain_damage_stack", ["duration"] = 12, ["stacking"] = true, ["maxStacks"] = 1000 }) },
+            new JsonObject { ["kind"] = "damage", ["damageType"] = "physical", ["scaling"] = "perTargetStack", ["stackKey"] = "fountain_damage_stack", ["amounts"] = new JsonArray(3) }),
+    }),
+};

@@ -70,7 +70,10 @@ namespace Dynasty.Content
             var unitIds = new HashSet<string>(unitTypes.Select(u => u.Id));
             IReadOnlyList<CreepType> creepTypes = baseRules.CreepTypes.Where(c => !unitIds.Contains(c.Id)).Concat(unitTypes).ToList();
             IReadOnlyList<StructureType> structureTypes = baseRules.StructureTypes.Select(s => structureOverrides.TryGetValue(s.Id, out StructureType? o) ? o : s).ToList();
-            foreach (string unknown in structureOverrides.Keys.Where(k => baseRules.StructureTypes.All(s => s.Id != k)))
+            // The fountains' type may be added (each fountain then becomes a building); other new ids are typos.
+            if (structureOverrides.TryGetValue(StructureType.FountainId, out StructureType? fountain) && baseRules.FindStructureType(StructureType.FountainId) == null)
+                structureTypes = structureTypes.Append(fountain).ToList();
+            foreach (string unknown in structureOverrides.Keys.Where(k => k != StructureType.FountainId && baseRules.StructureTypes.All(s => s.Id != k)))
                 throw new RulesetPackException("structureTypes: \"" + unknown + "\" is not a structure type of the base rules.");
             var content = new RulesetContent(id, version, baseRules.TicksPerSecond, combat, creepTypes, structureTypes,
                 baseRules.Map, baseRules.Waves, heroes, heroRules, abilities, items, baseRules.Boss, baseRules.Runes,
@@ -172,7 +175,7 @@ namespace Dynasty.Content
             int vision = s.Int("visionRange");
             var stats = new UnitStats(s.Int("health"), s.Fixed("armor"), 0, s.OptionalInt("attackDamageMin") ?? 0, s.OptionalInt("attackDamageMax") ?? 0,
                 s.OptionalInt("attackRange") ?? 0, s.OptionalMilliseconds("baseAttackTime") ?? 1000, s.OptionalMilliseconds("attackPoint") ?? 0,
-                s.OptionalInt("acquisitionRange") ?? 0, baseStats?.BoundingRadius ?? 100, s.OptionalInt("magicResist") ?? 0, vision,
+                s.OptionalInt("acquisitionRange") ?? 0, s.OptionalInt("radius") ?? baseStats?.BoundingRadius ?? 100, s.OptionalInt("magicResist") ?? 0, vision,
                 // True sight is not in the game's unit file (towers' 700 is set by the game's code): kept from the base type unless given.
                 s.OptionalInt("trueSight") ?? baseStats?.TrueSightRange ?? 0, ModifierFlags.None, s.OptionalInt("projectileSpeed") ?? 0, s.OptionalInt("nightVision") ?? vision,
                 s.OptionalString("attackClass") switch
@@ -433,7 +436,8 @@ namespace Dynasty.Content
                 incomingDamageHundredths: m.OptionalHundredth("incomingDamagePercent") ?? 0, attackDamagePercent: m.OptionalInt("attackDamagePercent") ?? 0,
                 evasionHundredths: m.OptionalHundredth("evasion") ?? 0, onHit: m.OptionalArray("onHit").Select(ReadEffect).ToList(),
                 onHitChancePercent: 0, onHitChanceHundredths: m.OptionalHundredth("onHitChance") ?? 10000, aura: m.OptionalObject("aura") is Reader a ? ReadAura(a) : null,
-                cleavePercent: m.OptionalInt("cleavePercent") ?? 0, cleaveRadius: m.OptionalInt("cleaveRadius") ?? 0, barrier: m.OptionalInt("barrier") ?? 0, consumedOnHit: m.OptionalBool("consumedOnHit") ?? false,
+                cleavePercent: m.OptionalInt("cleavePercent") ?? 0, cleaveRadius: m.OptionalInt("cleaveRadius") ?? 0,
+                splashPercent: m.OptionalInt("splash") ?? 0, splashRadius: m.OptionalInt("splashRadius") ?? 0, barrier: m.OptionalInt("barrier") ?? 0, consumedOnHit: m.OptionalBool("consumedOnHit") ?? false,
                 damagePerSecondMaxHealthPercent: m.OptionalFixed("damagePerSecondMaxHealthPercent") ?? Fixed.Zero,
                 onHitAfterAttacks: m.OptionalInt("onHitAfterAttacks") ?? 0, whenAttacked: m.OptionalArray("whenAttacked").Select(ReadEffect).ToList(),
                 whenAttackedEvery: m.OptionalInt("whenAttackedEvery") ?? 1,

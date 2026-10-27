@@ -685,6 +685,15 @@ namespace Dynasty.MatchSimulation.Systems
                 }
             }
 
+            // Splash: any attack, ranged too (Dota's fountain), hits the other enemies near the target for a percent of its damage.
+            foreach (ActiveModifier splash in attacker.Modifiers.Where(m => m.Spec.SplashPercent > 0).ToList())
+            {
+                Fixed share = damage * Fixed.FromInt(splash.Spec.SplashPercent) / Fixed.FromInt(100);
+                foreach (MatchUnit other in context.State.Units.Where(u => u != target && Effects.Matches(context.State, attacker, u, TargetTeam.Enemy) &&
+                                                                            Geometry.WithinRange(u.Position, target.Position, splash.Spec.SplashRadius)).ToList())
+                    Damage.Deal(context, attacker.Id, other, share, DamageType.Physical);
+            }
+
             // On-hit effects (bash, bonus magic damage, slows) of the attacker's modifiers, in their order on the unit.
             foreach (ActiveModifier modifier in attacker.Modifiers.Where(m => m.Spec.OnHit.Count > 0).ToList())
             {

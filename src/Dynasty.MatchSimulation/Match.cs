@@ -33,6 +33,18 @@ namespace Dynasty.MatchSimulation
                 state.SpawnStructure(kernel.Ids.Allocate(), placement, ruleset.FindStructureType(placement.StructureTypeId)!);
             state.UpdateBarracksReinforcement();
 
+            // Dota's fountain: with a "fountain" structure type, each team's fountain is also an invulnerable building that attacks.
+            StructureType? fountainType = ruleset.FindStructureType(StructureType.FountainId);
+            if (fountainType != null)
+            {
+                foreach (FountainPlacement fountain in ruleset.Map.Fountains)
+                {
+                    var placement = new StructurePlacement(fountain.Team.ToString().ToLowerInvariant() + ".fountain", fountain.Team, StructureType.FountainId,
+                        fountain.Position, false, Array.Empty<string>(), VulnerabilityRule.Never);
+                    state.SpawnStructure(kernel.Ids.Allocate(), placement, fountainType);
+                }
+            }
+
             SpawnHeroes(kernel, state, Team.Dawn, lineup.Dawn);
             SpawnHeroes(kernel, state, Team.Dusk, lineup.Dusk);
 

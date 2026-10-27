@@ -612,6 +612,8 @@ namespace Dynasty.MatchSimulation
         public bool IsVulnerable(MatchUnit unit)
         {
             StructurePlacement? placement = unit.Placement;
+            if (placement?.Vulnerability == VulnerabilityRule.Never)
+                return false;
             if (placement == null || placement.ProtectedBy.Count == 0)
                 return true;
 
