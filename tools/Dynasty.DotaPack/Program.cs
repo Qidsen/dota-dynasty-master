@@ -20,7 +20,58 @@ JsonObject Map(string file) => JsonNode.Parse(File.ReadAllText(Path.Combine(AppC
     documentOptions: new JsonDocumentOptions { CommentHandling = JsonCommentHandling.Skip })!.AsObject();
 Items.Result items = Items.Convert(shopData, data.ShopItemNames(), Map("items.json"), data.GameItems());
 JsonObject abilityMap = Map("abilities.json");
-Abilities.Result heroAbilities = Abilities.Convert(data.Constants("abilities").AsObject(), data.Constants("hero_abilities").AsObject(), abilityMap, data.GameUnits());
+JsonObject abilitiesData = data.Constants("abilities").AsObject();
+JsonObject heroAbilitiesData = data.Constants("hero_abilities").AsObject();
+var linksByHero = new Dictionary<string, Dictionary<string, Dictionary<string, Talents.Link>>?>();
+Dictionary<string, Dictionary<string, Talents.Link>>? LinksOf(string hero)
+{
+    if (!linksByHero.TryGetValue(hero, out var links))
+        linksByHero[hero] = links = data.GameHero("npc_dota_hero_" + hero) is JsonObject file ? Talents.Links(file) : null;
+    return links;
+}
+
+Abilities.Result heroAbilities = Abilities.Convert(abilitiesData, heroAbilitiesData, abilityMap, data.GameUnits(), LinksOf);
+
+// Which talent of a tier the AI takes first: the one picked more in pro matches of the latest patch (OpenDota explorer)
+// when the hero has at least MinProGames there, otherwise in Divine–Immortal public matches (STRATZ, recent weeks:
+// all 7.41f), otherwise Valve's bot build. 7.41f came out on 2026-09-15 (STRATZ gameVersions: asOfDateTime 1789430400).
+const int MinProGames = 20;
+const string Since = "extract(epoch from timestamp '2026-09-15')";
+JsonObject abilityIds = data.Constants("ability_ids").AsObject();
+var proPicks = new Dictionary<int, Dictionary<string, int>>();
+foreach (JsonNode? row in data.Explorer("talents_7.41f",
+             "SELECT pm.hero_id, u.ab, count(*) n FROM player_matches pm JOIN matches m USING(match_id), unnest(pm.ability_upgrades_arr) u(ab) " +
+             $"WHERE m.start_time >= {Since} AND m.leagueid > 0 GROUP BY 1, 2"))
+{
+    int hero = row!["hero_id"]!.GetValue<int>();
+    string? name = abilityIds[row["ab"]!.ToString()]?.GetValue<string>();
+    if (name != null)
+        (proPicks.TryGetValue(hero, out var picks) ? picks : proPicks[hero] = new Dictionary<string, int>())[name] = int.Parse(row["n"]!.ToString());
+}
+
+var proGames = data.Explorer("games_7.41f",
+        "SELECT pm.hero_id, count(*) n FROM player_matches pm JOIN matches m USING(match_id) " +
+        $"WHERE m.start_time >= {Since} AND m.leagueid > 0 AND pm.ability_upgrades_arr IS NOT NULL GROUP BY 1")
+    .ToDictionary(r => r!["hero_id"]!.GetValue<int>(), r => int.Parse(r!["n"]!.ToString()));
+string tokenFile = Path.Combine("packs", "stratz.token");
+var highPicks = new Dictionary<int, Dictionary<string, int>>();
+foreach (var chunk in heroes.Select(h => h.Value!["id"]!.GetValue<int>()).Chunk(25))
+{
+    string query = "{ heroStats { " + string.Join(" ", chunk.Select(id => $"h{id}: talent(heroId: {id}, bracketBasicIds: [DIVINE_IMMORTAL]) {{ abilityId matchCount }}")) + " } }";
+    if (data.Stratz("talents_divine_immortal_" + chunk[0], query, tokenFile)?["heroStats"] is not JsonObject stats)
+        break;
+    foreach (int id in chunk)
+    {
+        var picks = highPicks[id] = new Dictionary<string, int>();
+        foreach (JsonNode? row in stats["h" + id] as JsonArray ?? new JsonArray())
+            if (abilityIds[row!["abilityId"]!.ToString()]?.GetValue<string>() is string name)
+                picks[name] = row["matchCount"]!.GetValue<int>();
+    }
+}
+
+JsonObject gameAbilities = data.GameAbilities();
+var talentCoverage = new List<string>();
+var talentSources = new List<string>();
 
 var packHeroes = new JsonArray();
 foreach (var (_, node) in heroes.OrderBy(h => h.Value!["id"]!.GetValue<int>()))
@@ -65,8 +116,28 @@ foreach (var (_, node) in heroes.OrderBy(h => h.Value!["id"]!.GetValue<int>()))
         ["dayVision"] = DotaData.Number(h["day_vision"]),
         ["nightVision"] = DotaData.Number(h["night_vision"]),
         ["abilities"] = heroAbilities.HeroAbilities.TryGetValue(id, out JsonArray? own) ? own.DeepClone() : new JsonArray(),
+        ["talents"] = Talents.For(id, heroAbilitiesData[h["name"]!.GetValue<string>()]?["talents"] as JsonArray, abilitiesData, gameAbilities,
+            data.GameHero(h["name"]!.GetValue<string>()), TalentPicks(h["id"]!.GetValue<int>(), id), talentCoverage),
         ["itemBuild"] = Builds.For(data, h["id"]!.GetValue<int>(), itemIds, shopData, items.Ids),
     });
+}
+
+IReadOnlyDictionary<string, int> TalentPicks(int heroId, string hero)
+{
+    if (proGames.GetValueOrDefault(heroId) >= MinProGames && proPicks.TryGetValue(heroId, out var pro))
+    {
+        talentSources.Add(hero + ": pro " + proGames[heroId]);
+        return pro;
+    }
+
+    if (highPicks.TryGetValue(heroId, out var high) && high.Count > 0)
+    {
+        talentSources.Add(hero + ": divine-immortal");
+        return high;
+    }
+
+    talentSources.Add(hero + ": bot build");
+    return new Dictionary<string, int>();
 }
 
 var pack = new JsonObject
@@ -80,6 +151,8 @@ var pack = new JsonObject
     {
         ["source"] = "https://github.com/odota/dotaconstants", ["commit"] = DotaData.Commit, ["patch"] = Patch,
         ["builds"] = "OpenDota /heroes/{id}/itemPopularity, " + DateTime.UtcNow.ToString("yyyy-MM-dd"),
+        ["gameFiles"] = "https://github.com/SteamDatabase/GameTracking-Dota2 " + DotaData.GameFilesCommit,
+        ["talentPicks"] = $"pro matches since 7.41f (OpenDota explorer, at least {MinProGames} games), else Divine-Immortal (STRATZ), else Valve's bot build: " + string.Join("; ", talentSources),
     },
     ["heroRules"] = new JsonObject
     {
@@ -88,6 +161,11 @@ var pack = new JsonObject
         ["heroKillXpBase"] = 100,
         ["heroKillXpPerLevel"] = 0,
         ["heroKillXpPercentOfVictim"] = 13,
+        // Since 7.40 (patch notes; Liquipedia «Talents», «Attributes»; confirmed by the project owner): talents use their own
+        // points at these levels; a skill point nothing can use goes to the +2 all attributes bonus, 7 levels.
+        ["talentPointLevels"] = new JsonArray(10, 15, 20, 25, 27, 28, 29, 30),
+        ["attributeBonusLevels"] = 7,
+        ["attributeBonusPerLevel"] = 2,
     },
     ["heroes"] = packHeroes,
     ["unitTypes"] = new JsonArray(items.UnitTypes.Concat(heroAbilities.UnitTypes).Select(u => u!.DeepClone()).ToArray()),
@@ -96,14 +174,16 @@ var pack = new JsonObject
 };
 
 string json = pack.ToJsonString(new JsonSerializerOptions { WriteIndented = true });
-RulesetContent applied = RulesetPack.Apply(BaseRuleset.Create(), json);   // the pack must load
 Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(output))!);
+File.WriteAllText(output + ".unchecked", json);   // kept for inspection if the check below fails
+RulesetContent applied = RulesetPack.Apply(BaseRuleset.Create(), json);   // the pack must load
 File.WriteAllText(output, json);
+File.Delete(output + ".unchecked");
 string report = Path.ChangeExtension(output, ".coverage.txt");
 File.WriteAllLines(report, new[]
 {
     "Dota pack " + Patch + ": what is not carried over yet (docs/DOTA_PACK.md)", "",
     $"hero abilities: {heroAbilities.Mapped} of {heroAbilities.Total} mapped", "",
-}.Concat(heroAbilities.Coverage).Append("").Concat(items.Coverage));
+}.Concat(heroAbilities.Coverage).Concat(talentCoverage).Append("").Concat(items.Coverage));
 Console.WriteLine($"{output}: {applied.Heroes.Count} heroes, abilities {heroAbilities.Mapped}/{heroAbilities.Total}, {applied.Items.Count} items ({items.Coverage.Count} with gaps, {report}), " +
                   $"levels 1-{applied.HeroRules!.MaxLevel}, fingerprint {applied.ToDescriptor().Fingerprint}");

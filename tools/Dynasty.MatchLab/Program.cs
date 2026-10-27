@@ -728,12 +728,12 @@ for (ulong seed = firstSeed; seed < firstSeed + (ulong)count; seed++)
     var heals = records.Select(r => r.Event).OfType<HealApplied>().GroupBy(h => h.Source).ToDictionary(g => g.Key, g => g.Sum(h => h.Amount.ToDouble()));
     var damage = records.Select(r => r.Event).OfType<DamageDealt>()
         .GroupBy(d => d.Attacker).ToDictionary(g => g.Key, g => g.Sum(d => d.Amount.ToDouble()));
-    Console.WriteLine("   hero          team  lvl  K/D/A     LH/DN    gold   dmg     heal   casts  items");
+    Console.WriteLine("   hero          team  lvl  K/D/A     LH/DN    gold   dmg     heal   casts  tal +2  items");
     foreach (MatchUnit hero in kernel.State.Heroes)
     {
         var h = hero.Hero!;
         string items = string.Join(",", h.Inventory.Select(i => i.Definition.Id));
-        Console.WriteLine($"   {h.Definition.Name,-13} {hero.Team,-5} {h.Level,3}  {h.Kills,2}/{h.Deaths,2}/{h.Assists,2}  {h.LastHits,3}/{h.Denies,-3} {h.Gold.ToIntFloor(),6} {damage.GetValueOrDefault(hero.Id),7:0} {heals.GetValueOrDefault(hero.Id),6:0} {casts.GetValueOrDefault(hero.Id),6}  {items}");
+        Console.WriteLine($"   {h.Definition.Name,-13} {hero.Team,-5} {h.Level,3}  {h.Kills,2}/{h.Deaths,2}/{h.Assists,2}  {h.LastHits,3}/{h.Denies,-3} {h.Gold.ToIntFloor(),6} {damage.GetValueOrDefault(hero.Id),7:0} {heals.GetValueOrDefault(hero.Id),6:0} {casts.GetValueOrDefault(hero.Id),6}  {h.Talents.Count,3} {h.AttributeBonusLevel,2}  {items}");
     }
 }
 

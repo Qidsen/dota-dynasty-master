@@ -147,8 +147,10 @@ namespace Dynasty.MatchSimulation.Combat
             int critChanceHundredths = 0,
             int evasionHundredths = 0,
             int onHitChanceHundredths = 0,
-            int whenAttackedChanceHundredths = 0)
+            int whenAttackedChanceHundredths = 0,
+            int incomingDamageHundredths = 0)
         {
+            IncomingDamageHundredths = incomingDamagePercent * 100 + incomingDamageHundredths;
             // Percents Dota gives with decimals (2.5% per stack, 33.33%) are kept in hundredths: the whole percent plus the fraction.
             MoveSpeedHundredths = moveSpeedPercent * 100 + moveSpeedHundredths;
             CritChanceHundredths = critChancePercent * 100 + critChanceHundredths;
@@ -178,7 +180,6 @@ namespace Dynasty.MatchSimulation.Combat
             CleavePercent = cleavePercent;
             CleaveRadius = cleaveRadius;
             Barrier = barrier;
-            IncomingDamagePercent = incomingDamagePercent;
             AttackDamagePercent = attackDamagePercent;
             OnHit = onHit?.ToArray() ?? System.Array.Empty<Rules.EffectDefinition>();
             Aura = aura;
@@ -232,7 +233,10 @@ namespace Dynasty.MatchSimulation.Combat
         public int AttackRangeBonus { get; }
 
         /// <summary>Percent added to the damage the unit takes (negative: damage reduction).</summary>
-        public int IncomingDamagePercent { get; }
+        public int IncomingDamagePercent => IncomingDamageHundredths / 100;
+
+        /// <summary>Damage taken change in hundredths of a percent (Wild Axes' talent: +6.5% = 650).</summary>
+        public int IncomingDamageHundredths { get; }
 
         /// <summary>Percent added to the unit's attack damage (negative: e.g. Breathe Fire's reduction).</summary>
         public int AttackDamagePercent { get; }
@@ -415,7 +419,7 @@ namespace Dynasty.MatchSimulation.Combat
             w.WriteFixed(ManaRegenBonus);
             w.WriteInt64(MoveSpeedBonus);
             w.WriteInt64(AttackRangeBonus);
-            w.WriteInt64(IncomingDamagePercent);
+            w.WriteInt64(IncomingDamageHundredths);
             w.WriteInt64(AttackDamagePercent);
             w.WriteInt64(EvasionHundredths);
             w.WriteInt64(OnHit.Count);
@@ -597,8 +601,11 @@ namespace Dynasty.MatchSimulation.Combat
 
             Fixed amount = type == DamageType.Physical && (target.Flags & ModifierFlags.PhysicalImmune) != 0 ? Fixed.Zero
                 : DamageMath.Mitigate(rawAmount, type, target.Armor, target.MagicResistPercent, context.State.Ruleset.Combat.ArmorFactor);
-            if (target.IncomingDamagePercent != 0)
-                amount = amount * Fixed.FromInt(100 + target.IncomingDamagePercent) / Fixed.FromInt(100);
+            // A whole percent keeps its old formula (same fixed-point result); a fractional one works in hundredths.
+            if (target.IncomingDamageHundredths % 100 != 0)
+                amount = amount * Fixed.FromInt(10000 + target.IncomingDamageHundredths) / Fixed.FromInt(10000);
+            else if (target.IncomingDamageHundredths != 0)
+                amount = amount * Fixed.FromInt(100 + target.IncomingDamageHundredths / 100) / Fixed.FromInt(100);
             amount = Absorb(context, target, amount);
             if ((target.Flags & ModifierFlags.CannotDie) != 0)
                 amount = Fixed.Max(Fixed.Zero, Fixed.Min(amount, target.Hp - Fixed.One));

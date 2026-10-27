@@ -1838,5 +1838,20 @@
         }
       ]
     }
+  },
+  "ultimate_scepter": {
+    "status": "simplified",
+    "note": "upgrades the hero's abilities through their scepter variants (values linked in the game's hero files); scepter-only new effects are not carried over yet",
+    "upgrade": "scepter"
+  },
+  "ultimate_scepter_2": {
+    "status": "simplified",
+    "note": "Aghanim's Blessing is consumed into a permanent scepter in Dota; here it is a held item with the scepter upgrade",
+    "upgrade": "scepter"
+  },
+  "aghanims_shard": {
+    "status": "simplified",
+    "note": "consumed on purchase in Dota; here it is a held item with the shard upgrade; shard-only new effects are not carried over yet",
+    "upgrade": "shard"
   }
 }

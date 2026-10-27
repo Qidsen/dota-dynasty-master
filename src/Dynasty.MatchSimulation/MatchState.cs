@@ -71,7 +71,10 @@ namespace Dynasty.MatchSimulation
         public int AttackRange { get; private set; }
 
         /// <summary>Percent added to damage taken, to the unit's attack damage, and the chance attacks on it miss (from modifiers).</summary>
-        public int IncomingDamagePercent { get; private set; }
+        /// <summary>Change of damage taken in hundredths of a percent.</summary>
+        public int IncomingDamageHundredths { get; private set; }
+
+        public int IncomingDamagePercent => IncomingDamageHundredths / 100;
         public int AttackDamagePercent { get; private set; }
         /// <summary>Chance that an attack on the unit misses, in hundredths of a percent.</summary>
         public int EvasionHundredths { get; private set; }
@@ -250,7 +253,7 @@ namespace Dynasty.MatchSimulation
                 attackSpeed += spec.AttackSpeedBonus * n;
                 movePercent += spec.MoveSpeedHundredths * n;
                 moveFlat += spec.MoveSpeedBonus * n;
-                incomingDamage += spec.IncomingDamagePercent * n;
+                incomingDamage += spec.IncomingDamageHundredths * n;
                 attackDamagePercent += spec.AttackDamagePercent * n;
                 evasion += spec.EvasionHundredths * n;
                 attackRangeBonus += spec.AttackRangeBonus * n;
@@ -323,7 +326,7 @@ namespace Dynasty.MatchSimulation
             int speed = Math.Min((Stats.MoveSpeed + moveFlat) * (10000 + movePercent) / 10000, MaxMoveSpeed);   // movePercent in hundredths
             MoveSpeed = Stats.MoveSpeed == 0 ? 0 : Math.Max(speed, Math.Min(100, Stats.MoveSpeed));
             AttackRange = Stats.AttackRange + attackRangeBonus;
-            IncomingDamagePercent = Math.Max(incomingDamage, -100);
+            IncomingDamageHundredths = Math.Max(incomingDamage, -10000);
             AttackDamagePercent = Math.Max(attackDamagePercent, -100);
             EvasionHundredths = Math.Min(evasion, 10000);
             StepPerTick = Fixed.FromRatio(MoveSpeed, _rate.TicksPerSecond);

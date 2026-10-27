@@ -145,6 +145,9 @@ static class Items
                     packItem["bonuses"] = bonuses;
             }
 
+            if (entry?["upgrade"] is JsonValue upgrade)
+                packItem["upgrade"] = upgrade.GetValue<string>();
+
             if (entry?["active"] is JsonObject activeEntry)
             {
                 if (consumables.Actives.ContainsKey(id))

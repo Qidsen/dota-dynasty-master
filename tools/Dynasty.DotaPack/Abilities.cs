@@ -16,7 +16,9 @@ static class Abilities
 
     public sealed record Result(JsonArray Abilities, JsonArray UnitTypes, Dictionary<string, JsonArray> HeroAbilities, List<string> Coverage, int Mapped, int Total);
 
-    public static Result Convert(JsonObject data, JsonObject heroAbilities, JsonObject map, Dictionary<string, Dictionary<string, string>> gameUnits)
+    /// <param name="links">The hero file's talent, scepter and shard links per hero (Talents.Links), for the abilities' variants.</param>
+    public static Result Convert(JsonObject data, JsonObject heroAbilities, JsonObject map, Dictionary<string, Dictionary<string, string>> gameUnits,
+        Func<string, Dictionary<string, Dictionary<string, Talents.Link>>?> links)
     {
         foreach (var (key, entry) in map)
             if (entry is JsonObject template)
@@ -25,6 +27,11 @@ static class Abilities
         var unitTypes = new JsonArray();
         var byHero = new Dictionary<string, JsonArray>();
         var coverage = new List<string>();
+        var upgraded = new HashSet<string>(StringComparer.Ordinal);   // upgrades that changed at least one carried-over ability
+        var rounded = new List<string>();                              // upgraded values rounded to whole numbers
+        static HashSet<string> heroTalents(JsonNode? hero) =>
+            new HashSet<string>((hero?["talents"] as JsonArray)?.Select(t => t!["name"]!.GetValue<string>()).Where(t => t.StartsWith("special_bonus_", StringComparison.Ordinal))
+                                ?? Enumerable.Empty<string>(), StringComparer.Ordinal);
         int mapped = 0, total = 0;
         foreach (var (heroKey, node) in heroAbilities.OrderBy(h => h.Key, StringComparer.Ordinal))
         {
@@ -42,6 +49,7 @@ static class Abilities
                 if (map[key] is not JsonObject entry)
                     continue;   // innates are listed in the report only when mapped or missing as such below
                 JsonObject ability = Build(key, data[key]!.AsObject(), entry, ultimate: false, innate: true);
+                AddVariants(hero, ability, key, data[key]!.AsObject(), entry, false, true, links(hero), heroTalents(node), upgraded, rounded);
                 ability["innate"] = true;
                 abilities.Add(ability);
                 foreach (JsonNode? unit in entry["unitTypes"] as JsonArray ?? new JsonArray())
@@ -65,7 +73,9 @@ static class Abilities
                 }
 
                 bool ultimate = slot == visible.Count - 1 && visible.Count >= 4;
-                abilities.Add(Build(key, data[key]!.AsObject(), entry, ultimate));
+                JsonObject built = Build(key, data[key]!.AsObject(), entry, ultimate);
+                AddVariants(hero, built, key, data[key]!.AsObject(), entry, ultimate, false, links(hero), heroTalents(node), upgraded, rounded);
+                abilities.Add(built);
                 foreach (JsonNode? unit in entry["unitTypes"] as JsonArray ?? new JsonArray())
                     unitTypes.Add(ResolveUnit(unit!.AsObject(), data[key]!.AsObject(), gameUnits));
                 list.Add(key);
@@ -75,12 +85,23 @@ static class Abilities
             }
 
             byHero[hero] = list;
+            var talentsNotCarried = heroTalents(node).Where(t => t.Contains("_unique_") && !upgraded.Contains(t)).ToList();
+            if (talentsNotCarried.Count > 0)
+                coverage.Add($"hero {hero}: talents not carried over: {string.Join(", ", talentsNotCarried.Select(t => t + " (" + data[t]?["dname"]?.GetValue<string>() + ")"))}");
+            foreach (string upgrade in new[] { "scepter", "shard" })
+            {
+                if (!upgraded.Contains(hero + ":" + upgrade))
+                    coverage.Add($"hero {hero}: {upgrade} not carried over");
+            }
+
             if (missing.Count > 0)
                 coverage.Add($"hero {hero}: abilities missing: {string.Join(", ", missing)}");
             if (simplified.Count > 0)
                 coverage.Add($"hero {hero}: simplified: {string.Join("; ", simplified)}");
         }
 
+        if (rounded.Count > 0)
+            coverage.Add("upgraded values rounded to whole numbers (B-135): " + string.Join("; ", rounded));
         return new Result(abilities, unitTypes, byHero, coverage, mapped, total);
     }
 
@@ -186,6 +207,86 @@ static class Abilities
             yield return ("attackClass", game["CombatClassAttack"] == "DOTA_COMBAT_CLASS_ATTACK_BASIC" ? "basic" : "piercing");
         if (Number("BountyGoldMin") is decimal goldMin && Number("BountyGoldMax") is decimal goldMax && Number("BountyXP") is decimal xp && goldMax + xp > 0)
             yield return ("bounty", new JsonObject { ["goldMin"] = goldMin, ["goldMax"] = goldMax, ["xp"] = xp });
+    }
+
+    /// <summary>
+    /// The ability's variants for its upgrades (talents of the hero, "scepter", "shard"): for every combination of
+    /// the upgrades linked to its values (all of them up to five upgrades, else each alone), the ability rebuilt
+    /// from the upgraded data. A variant identical to the ability (the upgrade changes nothing carried over) is
+    /// left out. <paramref name="upgraded"/> collects the upgrades that changed something (talents by id,
+    /// scepter and shard as "hero:scepter").
+    /// </summary>
+    private static void AddVariants(string hero, JsonObject ability, string key, JsonObject source, JsonObject entry, bool ultimate, bool innate,
+        Dictionary<string, Dictionary<string, Talents.Link>>? heroLinks, HashSet<string> heroTalents, HashSet<string> upgraded, List<string> rounded)
+    {
+        if (heroLinks == null || !heroLinks.TryGetValue(key, out Dictionary<string, Talents.Link>? links))
+            return;
+        List<string> upgrades = links.Values.SelectMany(l => l.Operations.Select(o => o.Upgrade))
+            .Where(u => u is "scepter" or "shard" || heroTalents.Contains(u)).Distinct().OrderBy(u => u, StringComparer.Ordinal).ToList();
+        if (upgrades.Count == 0)
+            return;
+        IEnumerable<List<string>> combinations = upgrades.Count <= 5
+            ? Enumerable.Range(1, (1 << upgrades.Count) - 1).Select(mask => upgrades.Where((_, i) => (mask & (1 << i)) != 0).ToList())
+            : upgrades.Select(u => new List<string> { u });
+        string plain = ability.ToJsonString();
+        var variants = new JsonArray();
+        foreach (List<string> combination in combinations)
+        {
+            JsonObject variant = Build(key, Talents.Apply(source, links, combination), entry, ultimate, innate);
+            if (variant.ToJsonString() == plain)
+                continue;
+            RoundWholeFields(variant, "", key + " with " + string.Join(" + ", combination), rounded);
+            if (combination.Count == 1)
+                upgraded.Add(combination[0] is "scepter" or "shard" ? hero + ":" + combination[0] : combination[0]);
+            var withUpgrades = new JsonObject { ["upgrades"] = new JsonArray(combination.Select(u => (JsonNode)JsonValue.Create(u)!).ToArray()) };
+            foreach (var (field, value) in variant)
+                withUpgrades[field] = value?.DeepClone();
+            variants.Add(withUpgrades);
+        }
+
+        if (variants.Count > 0)
+            ability["variants"] = variants;
+    }
+
+    /// <summary>Fields the pack format reads as whole numbers (the engine keeps them as integers).</summary>
+    private static readonly HashSet<string> WholeFields = new(StringComparer.Ordinal)
+    {
+        "amounts", "counts", "castRange", "radius", "speed", "damage", "attackSpeed", "magicResist", "maxHealth", "maxMana", "strength", "agility",
+        "intelligence", "moveSpeed", "attackRange", "critMultiplier", "structureDamage", "lifesteal", "cleavePercent", "cleaveRadius", "barrier",
+        "attackDamagePercent", "damagePercent", "onHitAfterAttacks", "whenAttackedEvery", "maxStacks", "breakRadius", "extraTargets",
+        "extraTargetRadius", "extraTargetDamagePercent", "extraTargetDamageReduction", "extraTargetChance", "attackCharges", "charges", "requiredLevels", "manaCost",
+    };
+
+    /// <summary>
+    /// An upgraded value can come out fractional in a field the engine keeps whole (Homing Missile with +50%: 112.5
+    /// damage): it is rounded to the nearest whole number, and every such case is listed in the coverage report.
+    /// </summary>
+    private static void RoundWholeFields(JsonNode? node, string field, string where, List<string> rounded)
+    {
+        switch (node)
+        {
+            case JsonObject obj:
+                foreach (var (key, child) in obj.ToList())
+                    RoundWholeFields(child, key, where, rounded);
+                break;
+            case JsonArray list:
+                for (int i = 0; i < list.Count; i++)
+                {
+                    if (WholeFields.Contains(field) && list[i] is JsonValue item && item.TryGetValue(out decimal value) && value != Math.Round(value))
+                    {
+                        rounded.Add($"{where}: {field} {value} → {Math.Round(value, MidpointRounding.AwayFromZero)}");
+                        list[i] = JsonValue.Create(Math.Round(value, MidpointRounding.AwayFromZero));
+                    }
+                    else
+                        RoundWholeFields(list[i], field, where, rounded);
+                }
+
+                break;
+            case JsonValue v when WholeFields.Contains(field) && v.TryGetValue(out decimal number) && number != Math.Round(number):
+                rounded.Add($"{where}: {field} {number} → {Math.Round(number, MidpointRounding.AwayFromZero)}");
+                node.Parent!.AsObject()[field] = JsonValue.Create(Math.Round(number, MidpointRounding.AwayFromZero));
+                break;
+        }
     }
 
     /// <summary>
@@ -363,6 +464,10 @@ static class Abilities
 
         return result;
     }
+
+    internal static decimal[] NumbersOf(JsonNode node) => Numbers(node);
+
+    internal static bool HasNumbers(JsonNode node) => Count(node) > 0;
 
     private static decimal[] Numbers(JsonNode? node) => node switch
     {

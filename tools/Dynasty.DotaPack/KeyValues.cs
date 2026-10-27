@@ -36,6 +36,29 @@ static class KeyValues
         return entries;
     }
 
+    /// <summary>The whole file as nested objects: a key's value is a string or an object (later duplicates win).</summary>
+    public static System.Text.Json.Nodes.JsonObject Tree(string text)
+    {
+        var tokens = Tokens(text).GetEnumerator();
+        Expect(tokens, out string _);                         // root name
+        if (!tokens.MoveNext() || tokens.Current != "{")
+            throw new InvalidDataException("KeyValues: the root block does not open");
+        return Block(tokens);
+    }
+
+    private static System.Text.Json.Nodes.JsonObject Block(IEnumerator<string> tokens)
+    {
+        var block = new System.Text.Json.Nodes.JsonObject();
+        while (tokens.MoveNext() && tokens.Current != "}")
+        {
+            string key = tokens.Current;
+            Expect(tokens, out string value);
+            block[key] = value == "{" ? Block(tokens) : System.Text.Json.Nodes.JsonValue.Create(value);
+        }
+
+        return block;
+    }
+
     private static void Expect(IEnumerator<string> tokens, out string value)
     {
         if (!tokens.MoveNext())

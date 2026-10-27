@@ -57,6 +57,18 @@ public class DotaMechanicsTests
         Assert.Equal(Fixed.FromInt(taken), HitsOnBeta(kernel).Single().Amount);
     }
 
+    /// <summary>A fractional percent of damage taken (Wild Axes with its talent: +6.5%) is kept in hundredths.</summary>
+    [Fact]
+    public void IncomingDamagePercent_KeepsFractions()
+    {
+        var kernel = Duel(onBeta: new ModifierSpec("axes", -1, incomingDamageHundredths: 650), attack: false);
+        kernel.AddSystem(new LambdaSystem(1, ctx => Damage.Deal(ctx, H(ctx.State, "alpha").Id, H(ctx.State, "beta"), Fixed.FromInt(200), DamageType.Pure)));
+
+        kernel.RunTicks(2);
+
+        Assert.InRange(HitsOnBeta(kernel).Single().Amount.ToDouble(), 212.99, 213.01);   // 200 × 1.065
+    }
+
     [Fact]
     public void AttackDamagePercent_ScalesTheAttacksDamage()
     {

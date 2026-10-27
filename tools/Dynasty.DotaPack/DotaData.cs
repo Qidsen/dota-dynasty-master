@@ -55,6 +55,74 @@ sealed class DotaData
         return KeyValues.Entries(File.ReadAllText(file));
     }
 
+    /// <summary>A hero's file of the game (its abilities' values with talent, scepter and shard links, Valve's bot build); null if the game has none.</summary>
+    public System.Text.Json.Nodes.JsonObject? GameHero(string heroName) => GameFile("heroes/" + heroName + ".txt", "npc_heroes/" + heroName + ".txt");
+
+    /// <summary>The game's npc_abilities.txt (the generic talents' values).</summary>
+    public System.Text.Json.Nodes.JsonObject GameAbilities() => GameFile("npc_abilities.txt", "npc_abilities.txt")!;
+
+    private System.Text.Json.Nodes.JsonObject? GameFile(string path, string cacheName)
+    {
+        string file = Path.Combine(_cache, cacheName);
+        if (!File.Exists(file))
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(file)!);
+            string url = $"https://raw.githubusercontent.com/SteamDatabase/GameTracking-Dota2/{GameFilesCommit}/game/dota/pak01_dir/scripts/npc/{path}";
+            Console.WriteLine("download " + url);
+            using HttpResponseMessage response = _http.GetAsync(url).GetAwaiter().GetResult();
+            if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
+                return null;
+            File.WriteAllText(file, response.EnsureSuccessStatusCode().Content.ReadAsStringAsync().GetAwaiter().GetResult());
+        }
+
+        return KeyValues.Tree(File.ReadAllText(file));
+    }
+
+    /// <summary>Rows of an SQL query on OpenDota's public explorer (parsed pro matches), cached under <paramref name="name"/>.</summary>
+    public JsonArray Explorer(string name, string sql)
+    {
+        string file = Path.Combine(_cache, "opendota", "explorer_" + name + ".json");
+        if (!File.Exists(file))
+        {
+            Console.WriteLine("query OpenDota explorer: " + name);
+            string url = "https://api.opendota.com/api/explorer?sql=" + Uri.EscapeDataString(sql);
+            File.WriteAllText(file, _http.GetStringAsync(url).GetAwaiter().GetResult());
+        }
+
+        JsonNode result = JsonNode.Parse(File.ReadAllText(file))!;
+        if (result["err"] is JsonNode error && error.GetValueKind() != System.Text.Json.JsonValueKind.Null)
+            throw new InvalidDataException("OpenDota explorer " + name + ": " + error.ToJsonString());
+        return result["rows"]!.AsArray();
+    }
+
+    /// <summary>
+    /// A STRATZ GraphQL response, cached under <paramref name="name"/>; null without a token. The token is read from
+    /// packs/stratz.token (git-ignored, never in the pack or the repository).
+    /// </summary>
+    public JsonNode? Stratz(string name, string query, string tokenFile)
+    {
+        string file = Path.Combine(_cache, "stratz", name + ".json");
+        if (!File.Exists(file))
+        {
+            if (!File.Exists(tokenFile))
+                return null;
+            Directory.CreateDirectory(Path.GetDirectoryName(file)!);
+            Console.WriteLine("query STRATZ: " + name);
+            using var request = new HttpRequestMessage(HttpMethod.Post, "https://api.stratz.com/graphql");
+            request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", File.ReadAllText(tokenFile).Trim());
+            request.Headers.UserAgent.Clear();
+            request.Headers.UserAgent.ParseAdd("STRATZ_API");
+            request.Content = new StringContent(new JsonObject { ["query"] = query }.ToJsonString(), System.Text.Encoding.UTF8, "application/json");
+            using HttpResponseMessage response = _http.Send(request);
+            string body = response.EnsureSuccessStatusCode().Content.ReadAsStringAsync().GetAwaiter().GetResult();
+            if (JsonNode.Parse(body)?["errors"] is JsonNode errors)
+                throw new InvalidDataException("STRATZ " + name + ": " + errors.ToJsonString());
+            File.WriteAllText(file, body);
+        }
+
+        return JsonNode.Parse(File.ReadAllText(file))!["data"];
+    }
+
     /// <summary>An OpenDota API response (free tier: at most one call per second).</summary>
     public JsonNode OpenDota(string path) =>
         Cached(Path.Combine(_cache, "opendota", path.Replace('/', '_') + ".json"), "https://api.opendota.com/api/" + path, throttle: true);
