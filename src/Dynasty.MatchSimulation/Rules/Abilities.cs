@@ -80,6 +80,12 @@ namespace Dynasty.MatchSimulation.Rules
 
         /// <summary>Kills the unit outright if its health is at or below the amount (Culling Blade's threshold).</summary>
         Execute = 18,
+
+        /// <summary>
+        /// Ends the cooldowns of the caster's abilities and items (Dota's Refresher Orb and Shard), except those of abilities that
+        /// refresh cooldowns themselves.
+        /// </summary>
+        RefreshCooldowns = 19,
     }
 
     /// <summary>What a damage effect's amounts mean: flat damage, or a percent of the target's health or mana.</summary>
@@ -239,6 +245,8 @@ namespace Dynasty.MatchSimulation.Rules
         public static EffectDefinition Execute(params int[] thresholdPerLevel) => new EffectDefinition(EffectKind.Execute, thresholdPerLevel);
 
         public static EffectDefinition RestoreMana(params int[] manaPerLevel) => new EffectDefinition(EffectKind.RestoreMana, manaPerLevel);
+
+        public static EffectDefinition RefreshCooldowns() => new EffectDefinition(EffectKind.RefreshCooldowns);
 
         public static EffectDefinition Modifier(params ModifierSpec[] perLevel) =>
             new EffectDefinition(EffectKind.ApplyModifier, modifiers: perLevel);

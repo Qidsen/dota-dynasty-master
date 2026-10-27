@@ -147,6 +147,28 @@ namespace Dynasty.MatchSimulation.Events
         }
     }
 
+    /// <summary>A hero got an item without buying it (Dota's Roshan drops).</summary>
+    public sealed class ItemReceived : IDomainEvent
+    {
+        public ItemReceived(EntityId hero, string itemId)
+        {
+            Hero = hero;
+            ItemId = itemId;
+        }
+
+        public EntityId Hero { get; }
+        public string ItemId { get; }
+
+        public string Type => "match.item_received";
+        public int SchemaVersion => 1;
+
+        public void WritePayload(ref Fnv1a64 hash)
+        {
+            hash.AddInt64(Hero.Value);
+            hash.AddString(ItemId);
+        }
+    }
+
     /// <summary>The boss cast one of its own spells (Dota's Roshan: Slam, Roar of Retribution).</summary>
     public sealed class BossAbilityCast : IDomainEvent
     {

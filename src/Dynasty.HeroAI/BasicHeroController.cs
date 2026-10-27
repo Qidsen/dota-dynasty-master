@@ -414,7 +414,7 @@ namespace Dynasty.HeroAI
 
             NoticeDeaths();
             int hpPercent = Math.HpPercent(_hero);
-            if (DrinkConsumable(hpPercent))
+            if (EatCheese(hpPercent) || UseRefresher() || DrinkConsumable(hpPercent))
                 return;
             // Healing over time that will bring the hero back to a fighting state replaces the trip home.
             bool patchedUp = Healing && ExpectedHpPercent() >= _personality.ReturnHpPercent - PatchedUpMarginPercent &&
@@ -457,6 +457,45 @@ namespace Dynasty.HeroAI
         private const int ConsumableHpPercent = 55;
         private const int ConsumablesCarried = 1;
         private const int PatchedUpMarginPercent = 30;
+
+        private const int CheeseHpPercent = 25;
+        private const int BigInstantHeal = 1000;
+
+        /// <summary>
+        /// A big instant heal (Dota's Cheese) is kept for a fight: eaten below 25% health with enemy heroes in sight.
+        /// </summary>
+        private bool EatCheese(int hpPercent)
+        {
+            if (hpPercent >= CheeseHpPercent || VisibleEnemyHeroes(_hero.Position, _settings.EngageRange).Count == 0)
+                return false;
+            AbilityState? cheese = _h.Inventory.Where(i => i.Active != null && i.Active.Definition.Targeting == AbilityTargeting.NoTarget &&
+                                                           i.Active.Definition.Effects.Any(e => e.Kind == EffectKind.Heal && e.AmountAt(1) >= BigInstantHeal))
+                .Select(i => i.Active!).FirstOrDefault(a => a.IsReady(_now));
+            if (cheese == null)
+                return false;
+            Issue(HeroOrder.CastNoTarget(cheese.Definition.Id));
+            return true;
+        }
+
+        /// <summary>
+        /// A cooldown refresher (Dota's Refresher Shard and Orb) in a fight while the ultimate (the ability learned from level 6) is on
+        /// cooldown, to cast it again.
+        /// </summary>
+        private bool UseRefresher()
+        {
+            if (VisibleEnemyHeroes(_hero.Position, _settings.EngageRange).Count == 0)
+                return false;
+            AbilityState? ultimate = _h.Abilities.Where(a => a.Level > 0 && !a.Definition.Innate && a.Definition.RequiredHeroLevel.Count > 0 && a.Definition.RequiredHeroLevel[0] >= 6)
+                .FirstOrDefault();
+            if (ultimate == null || ultimate.IsReady(_now))
+                return false;
+            AbilityState? refresher = _h.Inventory.Where(i => i.Active != null && i.Active.Definition.Effects.Any(e => e.Kind == EffectKind.RefreshCooldowns))
+                .Select(i => i.Active!).FirstOrDefault(a => a.IsReady(_now) && _h.Mana >= Fixed.FromInt(a.Definition.ManaCostAt(a.Level)));
+            if (refresher == null)
+                return false;
+            Issue(HeroOrder.CastNoTarget(refresher.Definition.Id));
+            return true;
+        }
 
         /// <summary>Drinks a carried healing consumable when hurt and not already healing (backlog B-024).</summary>
         private bool DrinkConsumable(int hpPercent)

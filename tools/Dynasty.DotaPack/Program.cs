@@ -229,6 +229,8 @@ var pack = new JsonObject
         // cast, 350, 70 + 10 a minute magical damage (creeps take +100%), 50% slow for 4 s; Roar of Retribution when the team
         // that last killed him hits him below 80% — every 60 s, 0.5 s windup, 600, 50 + 10 a minute magical damage, the units
         // take 25% more damage for 12 s and are disarmed for 2 s; cast even stunned or silenced, strongly dispels him (7.39).
+        // From the third death Cheese and a Refresher Shard (Valve 7.37–7.38, D-051); the Banner from the second is not carried over (B-152).
+        ["drops"] = new JsonArray(new JsonObject { ["item"] = "cheese", ["fromDeath"] = 3 }, new JsonObject { ["item"] = "refresher_shard", ["fromDeath"] = 3 }),
         ["abilities"] = new JsonArray(
             new JsonObject
             {
@@ -283,8 +285,8 @@ var pack = new JsonObject
             ("tower.t1", "npc_dota_goodguys_tower1_mid"), ("tower.t2", "npc_dota_goodguys_tower2_mid"), ("tower.t3", "npc_dota_goodguys_tower3_mid"),
             ("tower.t4", "npc_dota_goodguys_tower4"), ("ancient", "npc_dota_goodguys_fort"), ("barracks", "npc_dota_goodguys_melee_rax_mid"),
         }.Select(s => (JsonNode)StructureRules(Abilities.GameUnit(s.Id, s.Game, gameUnits))).Append(Fountain()).ToArray()),
-    ["abilities"] = new JsonArray(items.Abilities.Concat(heroAbilities.Abilities).Select(a => a!.DeepClone()).ToArray()),
-    ["items"] = items.Items,
+    ["abilities"] = new JsonArray(items.Abilities.Concat(heroAbilities.Abilities).Select(a => a!.DeepClone()).Concat(RoshanDropAbilities()).ToArray()),
+    ["items"] = new JsonArray(items.Items.Select(i => i!.DeepClone()).Concat(RoshanDropItems()).ToArray()),
 };
 
 string json = pack.ToJsonString(new JsonSerializerOptions { WriteIndented = true });
@@ -455,3 +457,28 @@ static JsonObject Roshan(JsonObject unit)
     });
     return unit;
 }
+
+// Roshan's drops (game file items.txt: item_cheese — cooldown 40, health_restore 2500, mana_restore 1500, one charge;
+// item_refresher_shard — cooldown 180, 200 mana, one charge, refreshes the cooldowns). Not sold in the shop, no gold value here.
+static JsonNode[] RoshanDropAbilities() => new JsonNode[]
+{
+    new JsonObject
+    {
+        ["id"] = "item_cheese", ["name"] = "Cheese", ["targeting"] = "noTarget", ["targetTeam"] = "ally", ["castRange"] = 0, ["castPoint"] = 0,
+        ["cooldown"] = new JsonArray(40), ["requiredLevels"] = new JsonArray(1),
+        ["effects"] = new JsonArray(new JsonObject { ["kind"] = "heal", ["amounts"] = new JsonArray(2500) },
+            new JsonObject { ["kind"] = "restoreMana", ["amounts"] = new JsonArray(1500) }),
+    },
+    new JsonObject
+    {
+        ["id"] = "item_refresher_shard", ["name"] = "Refresher Shard", ["targeting"] = "noTarget", ["targetTeam"] = "ally", ["castRange"] = 0, ["castPoint"] = 0,
+        ["cooldown"] = new JsonArray(180), ["manaCost"] = new JsonArray(200), ["requiredLevels"] = new JsonArray(1),
+        ["effects"] = new JsonArray(new JsonObject { ["kind"] = "refreshCooldowns" }),
+    },
+};
+
+static JsonNode[] RoshanDropItems() => new JsonNode[]
+{
+    new JsonObject { ["id"] = "cheese", ["name"] = "Cheese", ["cost"] = 0, ["active"] = "item_cheese", ["charges"] = 1, ["inShop"] = false },
+    new JsonObject { ["id"] = "refresher_shard", ["name"] = "Refresher Shard", ["cost"] = 0, ["active"] = "item_refresher_shard", ["charges"] = 1, ["inShop"] = false },
+};

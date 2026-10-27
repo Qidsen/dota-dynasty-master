@@ -333,6 +333,18 @@ namespace Dynasty.MatchSimulation.Systems
                     if (target.IsAlive && target.Hp <= Fixed.FromInt(effect.AmountAt(level)))
                         Damage.Execute(context, caster.Id, target);
                     break;
+                case EffectKind.RefreshCooldowns:
+                    if (caster.Hero != null)
+                    {
+                        long now = context.Tick.Value;
+                        foreach (AbilityState ability in caster.Hero.Abilities.Concat(caster.Hero.Inventory.Where(i => i.Active != null).Select(i => i.Active!)))
+                        {
+                            if (!ability.Definition.Effects.SelectMany(e => e.SelfAndDescendants()).Any(e => e.Kind == EffectKind.RefreshCooldowns) && ability.CooldownReadyTick > now)
+                                ability.CooldownReadyTick = now;
+                        }
+                    }
+
+                    break;
                 case EffectKind.Attack:
                     if (target.IsAlive && context.State.CanAttack(caster, target))
                         AttackSystem.Strike(context, caster, target, effect.AmountAt(level));

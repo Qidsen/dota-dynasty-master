@@ -50,6 +50,8 @@ namespace Dynasty.MatchSimulation.Systems
             ItemDefinition? item = state.Ruleset.FindItem(itemId);
             if (item == null)
                 return "unknown_item";
+            if (!item.InShop)
+                return "not_for_sale";
             if (!InShop(state, unit))
                 return "not_in_shop";
 
@@ -72,14 +74,7 @@ namespace Dynasty.MatchSimulation.Systems
                 RemoveSlot(context, unit, hero, slot);
 
             hero.Spend(Fixed.FromInt(price));
-            int oldMaxHp = unit.MaxHp;
-            ActiveModifier? bonus = item.Bonuses != null ? Modifiers.AddInstance(context, unit, item.Bonuses, unit.Id) : null;
-            if (unit.IsAlive && unit.MaxHp > oldMaxHp)
-                unit.Hp += Fixed.FromInt(unit.MaxHp - oldMaxHp);
-
-            AbilityState? active = item.ActiveAbilityId != null ? new AbilityState(state.Ruleset.FindAbility(item.ActiveAbilityId)!, level: 1) : null;
-            hero.InventorySlots.Add(new ItemSlot(item, active, bonus));
-            HeroProgression.RefreshUpgrades(context, unit);
+            HeroShop.Put(context, unit, item);
             context.Emit(new ItemPurchased(unit.Id, item.Id, price, consumed.Select(s => s.Definition.Id).ToList()));
             return null;
         }

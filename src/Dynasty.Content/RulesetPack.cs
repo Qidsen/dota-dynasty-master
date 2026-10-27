@@ -210,7 +210,12 @@ namespace Dynasty.Content
             var boss = new BossDefinition(b.String("id"), b.String("creep"), baseBoss.Position, baseBoss.LeashRadius, b.OptionalMilliseconds("firstSpawn") ?? 0,
                 b.Milliseconds("respawnMin"), b.Milliseconds("respawnMax"), b.Int("teamGold"), null, killerGold[0], killerGold[1], b.OptionalInt("xp") ?? 0, growth,
                 b.OptionalObject("aegis") is Reader ae ? ReadModifier(ae) : null, b.OptionalArray("abilities").Select(ReadBossAbility).ToList(),
-                b.OptionalInt("provokeRadius") ?? baseBoss.ProvokeRadius);
+                b.OptionalInt("provokeRadius") ?? baseBoss.ProvokeRadius, b.OptionalArray("drops").Select(d =>
+                {
+                    var drop = new BossDrop(d.String("item"), d.Int("fromDeath"));
+                    d.RejectUnknown();
+                    return drop;
+                }).ToList());
             b.RejectUnknown();
             return boss;
         }
@@ -442,6 +447,9 @@ namespace Dynasty.Content
                 case "execute":
                     effect = EffectDefinition.Execute(e.Ints("amounts").ToArray());
                     break;
+                case "refreshCooldowns":
+                    effect = EffectDefinition.RefreshCooldowns();
+                    break;
                 case "attack":
                     effect = EffectDefinition.Attack(e.OptionalInts("amounts")?.ToArray() ?? new[] { 100 });   // no amounts: a normal attack
                     break;
@@ -561,7 +569,7 @@ namespace Dynasty.Content
         {
             ModifierSpec? bonuses = i.OptionalObject("bonuses") is Reader b ? ReadModifier(b) : null;
             var item = new ItemDefinition(i.String("id"), i.String("name"), i.Int("cost"), bonuses, i.OptionalStrings("components"),
-                i.OptionalString("active"), i.OptionalInt("charges") ?? 0, i.OptionalString("upgrade"));
+                i.OptionalString("active"), i.OptionalInt("charges") ?? 0, i.OptionalString("upgrade"), i.OptionalBool("inShop") ?? true);
             i.RejectUnknown();
             return item;
         }

@@ -326,7 +326,8 @@ public class PackContentTests
     [Fact]
     public void TheBoss_IsReadWithDotasRewardsAndGrowth_InTheBasePit()
     {
-        RulesetContent rules = Apply(@"""boss"": { ""id"": ""roshan"", ""creep"": ""roshan"", ""firstSpawn"": 0, ""provokeRadius"": 0, ""respawnMin"": 480, ""respawnMax"": 660,
+        RulesetContent rules = Apply(@"""boss"": { ""id"": ""roshan"", ""creep"": ""roshan"", ""firstSpawn"": 0, ""provokeRadius"": 0,
+                ""drops"": [ { ""item"": ""shard"", ""fromDeath"": 3 } ], ""respawnMin"": 480, ""respawnMax"": 660,
                 ""teamGold"": 135, ""killerGold"": [200, 290], ""xp"": 400,
                 ""growth"": { ""interval"": 60, ""health"": 130, ""armor"": 0.4, ""damage"": 7, ""xp"": 20, ""armorFromStart"": true },
                 ""aegis"": { ""key"": ""aegis"", ""duration"": 300, ""revives"": true, ""reviveDelay"": 5, ""consumedOnRevive"": true, ""dispellable"": false,
@@ -336,7 +337,10 @@ public class PackContentTests
                     ""modifiers"": [ { ""key"": ""roshan_roar_disarm"", ""duration"": 2, ""flags"": [""disarmed""] } ] } ] },
             ""unitTypes"": [ { ""id"": ""roshan"", ""health"": 6000, ""armor"": 30, ""moveSpeed"": 270, ""visionRange"": 1400, ""attackDamageMin"": 75, ""attackDamageMax"": 75,
                 ""attackRange"": 150, ""baseAttackTime"": 2, ""modifiers"": [ { ""key"": ""roshan_immortal"", ""statusResistance"": 25, ""slowResistance"": 25,
-                ""spellBlockCooldown"": 15, ""illusionDamageTaken"": -80 } ] } ]", Hero("lion", "[]"));
+                ""spellBlockCooldown"": 15, ""illusionDamageTaken"": -80 } ] } ],
+            ""abilities"": [ { ""id"": ""item_shard"", ""name"": ""Shard"", ""targeting"": ""noTarget"", ""targetTeam"": ""ally"", ""castRange"": 0, ""castPoint"": 0,
+                ""cooldown"": [180], ""manaCost"": [200], ""requiredLevels"": [1], ""effects"": [ { ""kind"": ""refreshCooldowns"" } ] } ],
+            ""items"": [ { ""id"": ""shard"", ""name"": ""Shard"", ""cost"": 0, ""active"": ""item_shard"", ""charges"": 1, ""inShop"": false } ]", Hero("lion", "[]"));
 
         BossDefinition boss = rules.Boss!;
         BossDefinition baseBoss = BaseRuleset.Create().Boss!;
@@ -344,6 +348,9 @@ public class PackContentTests
         Assert.Equal((baseBoss.Position, baseBoss.LeashRadius), (boss.Position, boss.LeashRadius));
         Assert.Null(boss.Reward);
         Assert.Equal(0, boss.ProvokeRadius);
+        Assert.Equal(("shard", 3), (boss.Drops.Single().ItemId, boss.Drops.Single().FromDeath));
+        Assert.Equal(EffectKind.RefreshCooldowns, rules.FindAbility("item_shard")!.Effects.Single().Kind);
+        Assert.False(rules.FindItem("shard")!.InShop);
         BossAbility roar = boss.Abilities.Single();
         Assert.Equal((BossAbilityTrigger.HitByLastKillersBelowHealth, 60000, 500, 600, DamageType.Magical, 50, 10, 80, true, true, 1),
             (roar.Trigger, roar.CooldownMs, roar.CastPointMs, roar.Radius, roar.DamageType, roar.Damage, roar.DamagePerInterval, roar.BelowHealthPercent,

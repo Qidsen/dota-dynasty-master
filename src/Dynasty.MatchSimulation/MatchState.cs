@@ -878,6 +878,9 @@ namespace Dynasty.MatchSimulation
             return unit;
         }
 
+        /// <summary>How many times the boss has died.</summary>
+        public int BossDeaths { get; internal set; }
+
         /// <summary>The team that last killed the boss (Dota's Roar of Retribution answers it); neutral before.</summary>
         public Team BossLastKillerTeam { get; internal set; } = Team.Neutral;
 

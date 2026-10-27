@@ -254,6 +254,7 @@ namespace Dynasty.MatchSimulation.Systems
 
             MatchUnit? killer = state.Find(boss.LastAttackerId);
             Team team = killer != null && killer.Team != Team.Neutral ? killer.Team : Team.Neutral;
+            state.BossDeaths++;
             if (team != Team.Neutral)
             {
                 state.BossLastKillerTeam = team;
@@ -263,6 +264,14 @@ namespace Dynasty.MatchSimulation.Systems
                         Modifiers.Apply(context, hero, definition.Reward, boss.Id);
                     if (definition.TeamGold > 0)
                         HeroProgression.GrantGold(context, hero, definition.TeamGold, "boss");
+                }
+
+                foreach (BossDrop drop in definition.Drops.Where(d => state.BossDeaths >= d.FromDeath))
+                {
+                    MatchUnit? receiver = state.Heroes.Where(h => h.Team == team && h.IsAlive && h.Hero!.Inventory.Count < HeroShop.InventorySize)
+                        .OrderByDescending(h => h.Hero!.NetWorth).ThenBy(h => h.Id.Value).FirstOrDefault();
+                    if (receiver != null)
+                        HeroShop.Give(context, receiver, state.Ruleset.FindItem(drop.ItemId)!);
                 }
 
                 if (definition.Aegis != null)

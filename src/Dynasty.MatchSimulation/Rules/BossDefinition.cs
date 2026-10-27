@@ -14,8 +14,9 @@ namespace Dynasty.MatchSimulation.Rules
     {
         public BossDefinition(string id, string creepTypeId, FixedVector2 position, int leashRadius, int firstSpawnMs,
             int respawnMinMs, int respawnMaxMs, int teamGold, ModifierSpec? reward, int killerGoldMin = 0, int killerGoldMax = 0, int xp = 0,
-            BossGrowth? growth = null, ModifierSpec? aegis = null, IReadOnlyList<BossAbility>? abilities = null, int provokeRadius = 300)
+            BossGrowth? growth = null, ModifierSpec? aegis = null, IReadOnlyList<BossAbility>? abilities = null, int provokeRadius = 300, IReadOnlyList<BossDrop>? drops = null)
         {
+            Drops = (drops ?? System.Array.Empty<BossDrop>()).ToArray();
             ProvokeRadius = provokeRadius;
             Abilities = (abilities ?? System.Array.Empty<BossAbility>()).ToArray();
             Aegis = aegis;
@@ -74,6 +75,9 @@ namespace Dynasty.MatchSimulation.Rules
         /// <summary>Heroes this close to the boss provoke it without attacking; 0 = only attackers (Dota's Roshan: «only attacking when aggroed»).</summary>
         public int ProvokeRadius { get; }
 
+        /// <summary>Items its deaths give (Dota's Roshan: Cheese and a Refresher Shard from the third).</summary>
+        public IReadOnlyList<BossDrop> Drops { get; }
+
         /// <summary>Spells the boss casts by itself (Dota's Roshan: Slam, Roar of Retribution).</summary>
         public IReadOnlyList<BossAbility> Abilities { get; }
 
@@ -106,6 +110,12 @@ namespace Dynasty.MatchSimulation.Rules
             w.WriteBool(Aegis != null);
             Aegis?.WriteCanonical(w);
             w.WriteInt64(ProvokeRadius);
+            w.WriteInt64(Drops.Count);
+            foreach (BossDrop drop in Drops)
+            {
+                w.WriteString(drop.ItemId);
+                w.WriteInt64(drop.FromDeath);
+            }
             w.WriteInt64(Abilities.Count);
             foreach (BossAbility ability in Abilities)
                 ability.WriteCanonical(w);
@@ -137,6 +147,22 @@ namespace Dynasty.MatchSimulation.Rules
 
         /// <summary>Whole intervals passed at this match time.</summary>
         public int IntervalsAt(long timeMs) => (int)(timeMs / IntervalMs);
+    }
+
+    /// <summary>
+    /// An item a boss's death gives from its <see cref="FromDeath"/>-th death on, to the killing team's richest living hero with room
+    /// in its inventory (in Dota it drops to the ground).
+    /// </summary>
+    public sealed class BossDrop
+    {
+        public BossDrop(string itemId, int fromDeath)
+        {
+            ItemId = itemId;
+            FromDeath = fromDeath;
+        }
+
+        public string ItemId { get; }
+        public int FromDeath { get; }
     }
 
     /// <summary>When a boss casts a spell of its own.</summary>

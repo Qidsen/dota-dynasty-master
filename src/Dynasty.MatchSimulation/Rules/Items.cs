@@ -20,8 +20,10 @@ namespace Dynasty.MatchSimulation.Rules
             IReadOnlyList<string>? components = null,
             string? activeAbilityId = null,
             int charges = 0,
-            string? upgrade = null)
+            string? upgrade = null,
+            bool inShop = true)
         {
+            InShop = inShop;
             Upgrade = upgrade;
             Charges = charges;
             Id = id;
@@ -50,6 +52,9 @@ namespace Dynasty.MatchSimulation.Rules
         /// <summary>While carried, the hero's abilities use their variants for this upgrade ("scepter", "shard").</summary>
         public string? Upgrade { get; }
 
+        /// <summary>Sold in the shop; false for items only given (Dota's Roshan drops: Cheese, Refresher Shard).</summary>
+        public bool InShop { get; }
+
         internal void WriteCanonical(CanonicalWriter w)
         {
             w.WriteString(Id);
@@ -63,6 +68,7 @@ namespace Dynasty.MatchSimulation.Rules
             w.WriteString(ActiveAbilityId ?? "");
             w.WriteInt64(Charges);
             w.WriteString(Upgrade ?? "");
+            w.WriteBool(InShop);
         }
     }
 }

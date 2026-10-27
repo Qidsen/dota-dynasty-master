@@ -1,6 +1,8 @@
 using Dynasty.Core.Kernel;
 using Dynasty.Core.Mathematics;
 using Dynasty.MatchSimulation.Combat;
+using Dynasty.MatchSimulation.Heroes;
+using Dynasty.MatchSimulation.Tests.Abilities;
 using Dynasty.MatchSimulation.Rules;
 using static Dynasty.MatchSimulation.Tests.MatchTestKit;
 using Dynasty.MatchSimulation.Tests;
@@ -274,5 +276,126 @@ public class DotaRoshanTests
 
         Assert.False(kernel.State.Boss!.TargetId.IsValid);
         Assert.Equal(H(kernel.State, "alpha").MaxHp, H(kernel.State, "alpha").Hp.ToIntFloor());
+    }
+
+    /// <summary>
+    /// Roshan's drops (Valve 7.37–7.38, D-051): from his third death Cheese (game file `item_cheese`: +2500 health, +1500 mana) and a
+    /// Refresher Shard (`item_refresher_shard`: refreshes the cooldowns, 200 mana) — each to the killing team's richest living hero
+    /// with room in its inventory (in Dota they lie on the ground — B-149).
+    /// </summary>
+    private static readonly AbilityDefinition CheeseActive = new("item_cheese", "Cheese", AbilityTargeting.NoTarget, TargetTeam.Ally, castRange: 0, castPointMs: 0,
+        cooldownMs: new[] { 40000 }, manaCost: new[] { 0 }, requiredHeroLevel: new[] { 1 },
+        effects: new[] { EffectDefinition.Heal(2500), EffectDefinition.RestoreMana(1500) });
+
+    private static readonly AbilityDefinition ShardActive = new("item_refresher_shard", "Refresher Shard", AbilityTargeting.NoTarget, TargetTeam.Ally, castRange: 0,
+        castPointMs: 0, cooldownMs: new[] { 180000 }, manaCost: new[] { 200 }, requiredHeroLevel: new[] { 1 }, effects: new[] { EffectDefinition.RefreshCooldowns() });
+
+    private static RulesetDraft WithDrops(int respawnMs)
+    {
+        RulesetDraft draft = WithRoshan();
+        draft.Abilities.Add(CheeseActive);
+        draft.Abilities.Add(ShardActive);
+        draft.Items.Add(new ItemDefinition("item_cheese", "Cheese", 0, activeAbilityId: "item_cheese", charges: 1, inShop: false));
+        draft.Items.Add(new ItemDefinition("item_refresher_shard", "Refresher Shard", 0, activeAbilityId: "item_refresher_shard", charges: 1, inShop: false));
+        draft.Boss = new BossDefinition("roshan", "roshan", P(5000, 2500), leashRadius: 600, firstSpawnMs: 0, respawnMinMs: respawnMs, respawnMaxMs: respawnMs,
+            teamGold: 135, reward: null, provokeRadius: 0, drops: new[] { new BossDrop("item_cheese", fromDeath: 3), new BossDrop("item_refresher_shard", fromDeath: 3) });
+        return draft;
+    }
+
+    private static bool Carries(MatchState state, string hero, string item) => H(state, hero).Hero!.Inventory.Any(i => i.Definition.Id == item);
+
+    [Fact]
+    public void CheeseAndARefresherShard_DropFromTheThirdDeath_ToTheRichestHeroWithRoom()
+    {
+        var kernel = WithDrops(respawnMs: 1000).StartWithHeroes(new[] { ("alpha", "mid"), ("gamma", "mid") }, Array.Empty<(string, string)>());
+        At(kernel, 0, ctx =>
+        {
+            H(ctx.State, "alpha").Position = P(3000, 6000);
+            H(ctx.State, "gamma").Position = P(3000, 6200);
+            H(ctx.State, "gamma").Hero!.Gold = Fixed.FromInt(5000);
+        });
+        bool afterTwo = true;
+        foreach (long tick in new long[] { 2, 40, 80 })
+            At(kernel, tick, ctx => Damage.Deal(ctx, H(ctx.State, "alpha").Id, ctx.State.Boss!, Fixed.FromInt(9999999), DamageType.Pure));
+        At(kernel, 75, ctx => afterTwo = Carries(ctx.State, "gamma", "item_cheese") || Carries(ctx.State, "alpha", "item_cheese"));
+        kernel.RunTicks(85);
+
+        Assert.False(afterTwo);
+        Assert.True(Carries(kernel.State, "gamma", "item_cheese") && Carries(kernel.State, "gamma", "item_refresher_shard"));
+    }
+
+    [Fact]
+    public void TheRefresherShard_RefreshesTheCooldowns_AndIsUsedUp()
+    {
+        var draft = WithDrops(respawnMs: 480000);
+        draft.Abilities.Add(Dynasty.MatchSimulation.Tests.Abilities.TestAbilities.Bolt);
+        draft.WithHeroAbilities("alpha", "bolt");
+        var kernel = draft.StartWithHeroes(new[] { ("alpha", "mid") }, new[] { ("beta", "mid") });
+        At(kernel, 0, ctx =>
+        {
+            H(ctx.State, "alpha").Position = P(3000, 6000);
+            H(ctx.State, "beta").Position = P(3200, 6000);
+        });
+        At(kernel, 3, ctx => HeroOrders.Issue(H(ctx.State, "alpha"), HeroOrder.Cast("bolt", H(ctx.State, "beta").Id)));
+        At(kernel, 30, ctx =>
+        {
+            HeroShop.Give(ctx, H(ctx.State, "alpha"), ctx.State.Ruleset.FindItem("item_refresher_shard")!);
+            HeroOrders.Issue(H(ctx.State, "alpha"), HeroOrder.CastNoTarget("item_refresher_shard"));
+        });
+        long boltReadyBefore = 0;
+        At(kernel, 29, ctx => boltReadyBefore = H(ctx.State, "alpha").Hero!.Ability("bolt")!.CooldownReadyTick);
+        kernel.RunTicks(35);
+
+        Assert.True(boltReadyBefore > 30);
+        Assert.True(H(kernel.State, "alpha").Hero!.Ability("bolt")!.CooldownReadyTick <= 31, "bolt ready again");
+        Assert.False(Carries(kernel.State, "alpha", "item_refresher_shard"));
+    }
+
+    [Fact]
+    public void ARefresher_DoesNotRefreshItself()
+    {
+        var draft = WithDrops(respawnMs: 480000);
+        draft.Abilities.Add(new AbilityDefinition("item_refresher", "Refresher Orb", AbilityTargeting.NoTarget, TargetTeam.Ally, castRange: 0, castPointMs: 0,
+            cooldownMs: new[] { 180000 }, manaCost: new[] { 0 }, requiredHeroLevel: new[] { 1 }, effects: new[] { EffectDefinition.RefreshCooldowns() }));
+        draft.Items.Add(new ItemDefinition("item_refresher", "Refresher Orb", 0, activeAbilityId: "item_refresher"));
+        var kernel = draft.StartWithHeroes(new[] { ("alpha", "mid") }, Array.Empty<(string, string)>());
+        At(kernel, 2, ctx =>
+        {
+            HeroShop.Give(ctx, H(ctx.State, "alpha"), ctx.State.Ruleset.FindItem("item_refresher")!);
+            HeroOrders.Issue(H(ctx.State, "alpha"), HeroOrder.CastNoTarget("item_refresher"));
+        });
+        kernel.RunTicks(6);
+
+        Assert.True(H(kernel.State, "alpha").Hero!.Inventory.Single(i => i.Definition.Id == "item_refresher").Active!.CooldownReadyTick > 100);
+    }
+
+    [Fact]
+    public void ADrop_GoesToTheNextRichestHero_WhenTheRichestHasNoRoom()
+    {
+        var kernel = WithDrops(respawnMs: 1000).StartWithHeroes(new[] { ("alpha", "mid"), ("gamma", "mid") }, Array.Empty<(string, string)>());
+        At(kernel, 0, ctx =>
+        {
+            H(ctx.State, "alpha").Position = P(3000, 6000);
+            H(ctx.State, "gamma").Position = P(3000, 6200);
+            H(ctx.State, "gamma").Hero!.Gold = Fixed.FromInt(5000);
+            for (int i = 0; i < HeroShop.InventorySize; i++)
+                HeroShop.Give(ctx, H(ctx.State, "gamma"), ctx.State.Ruleset.FindItem("item_cheese")!);
+        });
+        foreach (long tick in new long[] { 2, 40, 80 })
+            At(kernel, tick, ctx => Damage.Deal(ctx, H(ctx.State, "alpha").Id, ctx.State.Boss!, Fixed.FromInt(9999999), DamageType.Pure));
+        kernel.RunTicks(85);
+
+        Assert.True(Carries(kernel.State, "alpha", "item_refresher_shard"));
+    }
+
+    [Fact]
+    public void RoshansItems_AreNotSoldInTheShop()
+    {
+        var kernel = WithDrops(respawnMs: 480000).StartWithHeroes(new[] { ("alpha", "mid") }, Array.Empty<(string, string)>());
+        At(kernel, 2, ctx => HeroShop.QueuePurchase(H(ctx.State, "alpha"), "item_cheese"));
+        kernel.RunTicks(5);
+
+        Assert.False(Carries(kernel.State, "alpha", "item_cheese"));
+        Assert.Contains(kernel.EventsOf<Dynasty.MatchSimulation.Events.ItemPurchaseFailed>(), f => f.Reason == "not_for_sale");
     }
 }

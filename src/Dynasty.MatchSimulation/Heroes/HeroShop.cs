@@ -42,6 +42,30 @@ namespace Dynasty.MatchSimulation.Heroes
     {
         public const int InventorySize = 6;
 
+        /// <summary>Puts an item into the hero's inventory for free (Dota's Roshan drops); false if there is no room.</summary>
+        public static bool Give(Dynasty.Core.Kernel.SimulationContext<MatchState> context, MatchUnit unit, ItemDefinition item)
+        {
+            if (unit.Hero == null || unit.Hero.Inventory.Count >= InventorySize)
+                return false;
+            Put(context, unit, item);
+            context.Emit(new Events.ItemReceived(unit.Id, item.Id));
+            return true;
+        }
+
+        /// <summary>The item's bonus (its health added to the current health), its active, and its slot.</summary>
+        internal static void Put(Dynasty.Core.Kernel.SimulationContext<MatchState> context, MatchUnit unit, ItemDefinition item)
+        {
+            HeroState hero = unit.Hero!;
+            int oldMaxHp = unit.MaxHp;
+            Combat.ActiveModifier? bonus = item.Bonuses != null ? Combat.Modifiers.AddInstance(context, unit, item.Bonuses, unit.Id) : null;
+            if (unit.IsAlive && unit.MaxHp > oldMaxHp)
+                unit.Hp += Dynasty.Core.Mathematics.Fixed.FromInt(unit.MaxHp - oldMaxHp);
+
+            AbilityState? active = item.ActiveAbilityId != null ? new AbilityState(context.State.Ruleset.FindAbility(item.ActiveAbilityId)!, level: 1) : null;
+            hero.InventorySlots.Add(new ItemSlot(item, active, bonus));
+            HeroProgression.RefreshUpgrades(context, unit);
+        }
+
         /// <summary>Requests a purchase; it is validated and carried out by the shop system on the next tick.</summary>
         public static void QueuePurchase(MatchUnit hero, string itemId) => hero.Hero!.ShopRequests.Add(new ShopRequest(itemId, sell: false));
 
