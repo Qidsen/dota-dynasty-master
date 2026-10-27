@@ -23,7 +23,8 @@
         }
       ],
       "onHitChance": "$bash_chance_melee",
-      "procCooldown": "$bash_cooldown"
+      "procCooldown": "$bash_cooldown",
+      "pseudoRandom": true
     }
   },
   "black_king_bar": {
@@ -73,7 +74,8 @@
         }
       ],
       "onHitChance": "$bash_chance_melee",
-      "procCooldown": "$bash_cooldown"
+      "procCooldown": "$bash_cooldown",
+      "pseudoRandom": true
     },
     "active": {
       "targeting": "unit",
@@ -424,7 +426,8 @@
           "amounts": "$bonus_chance_damage"
         }
       ],
-      "onHitChance": "$bonus_chance"
+      "onHitChance": "$bonus_chance",
+      "pseudoRandom": true
     }
   },
   "orchid": {
@@ -851,7 +854,8 @@
           "amounts": "$bonus_chance_damage"
         }
       ],
-      "onHitChance": "$bonus_chance"
+      "onHitChance": "$bonus_chance",
+      "pseudoRandom": true
     }
   },
   "mekansm": {
@@ -1567,7 +1571,8 @@
         }
       ],
       "onHitChance": "$chain_chance",
-      "procCooldown": "$chain_cooldown"
+      "procCooldown": "$chain_cooldown",
+      "pseudoRandom": true
     }
   },
   "manta": {
@@ -1621,7 +1626,8 @@
               }
             ],
             "whenAttackedChance": "$static_chance",
-            "procCooldown": "$static_cooldown"
+            "procCooldown": "$static_cooldown",
+            "pseudoRandom": true
           }
         }
       ]
@@ -1644,7 +1650,8 @@
         }
       ],
       "onHitChance": "$chain_chance",
-      "procCooldown": "$chain_cooldown"
+      "procCooldown": "$chain_cooldown",
+      "pseudoRandom": true
     }
   },
   "orb_of_venom": {

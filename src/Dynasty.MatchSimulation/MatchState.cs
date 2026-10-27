@@ -71,7 +71,13 @@ namespace Dynasty.MatchSimulation
         internal CombatRules? Combat { get; set; }
 
         /// <summary>Critical strike sources from the strongest multiplier down (Dota's stacking).</summary>
-        public IReadOnlyList<(int ChanceHundredths, int MultiplierPercent)> CritSources { get; private set; } = Array.Empty<(int, int)>();
+        public IReadOnlyList<(int ChanceHundredths, int MultiplierPercent)> CritSources => CritModifiers.Select(m => (m.Spec.CritChanceHundredths, m.Spec.CritMultiplierPercent)).ToArray();
+
+        /// <summary>The modifiers giving critical strikes, from the strongest multiplier down (each keeps its pseudo-random tries).</summary>
+        internal IReadOnlyList<ActiveModifier> CritModifiers { get; private set; } = Array.Empty<ActiveModifier>();
+
+        /// <summary>Attacks taken since the last evasion (Dota: evasion is pseudo-random).</summary>
+        internal int EvasionTries;
         public int AttackDamageMin { get; private set; }
         public int AttackDamageMax { get; private set; }
         public int AttackSpeedBonus { get; private set; }
@@ -239,7 +245,7 @@ namespace Dynasty.MatchSimulation
             bool dota = Combat?.DotaStacking == true;
             long evasionLeft = 10000;          // Dota: the chance not to evade, multiplied by every source
             Fixed magicTakenFactor = Fixed.One; // Dota: the part of magic damage taken after the bonus sources
-            List<(int, int)>? crits = null;
+            List<ActiveModifier>? crits = null;
             foreach (ActiveModifier modifier in _modifiers)
             {
                 ModifierSpec spec = modifier.Spec;
@@ -277,7 +283,7 @@ namespace Dynasty.MatchSimulation
                     for (int i = 0; i < n && spec.MagicResistBonus != 0; i++)
                         magicTakenFactor = magicTakenFactor * Fixed.FromInt(100 - spec.MagicResistBonus) / Fixed.FromInt(100);
                     if (spec.CritChanceHundredths > 0)
-                        (crits ??= new List<(int, int)>()).Add((spec.CritChanceHundredths, spec.CritMultiplierPercent));
+                        (crits ??= new List<ActiveModifier>()).Add(modifier);
                 }
                 attackRangeBonus += spec.AttackRangeBonus * n;
                 manaRegenBonus += spec.ManaRegenBonus * Fixed.FromInt(n);
@@ -346,8 +352,8 @@ namespace Dynasty.MatchSimulation
                 MagicResistHundredths = Math.Min(magicResist, 100) * 100;
             }
 
-            CritSources = crits == null ? (IReadOnlyList<(int, int)>)Array.Empty<(int, int)>()
-                : crits.OrderByDescending(c => c.Item2).ThenByDescending(c => c.Item1).ToArray();
+            CritModifiers = crits == null ? (IReadOnlyList<ActiveModifier>)Array.Empty<ActiveModifier>()
+                : crits.OrderByDescending(c => c.Spec.CritMultiplierPercent).ThenByDescending(c => c.Spec.CritChanceHundredths).ToArray();
             AttackDamageMin = Stats.AttackDamageMin + damageBonus;
             AttackDamageMax = Stats.AttackDamageMax + damageBonus;
             AttackSpeedBonus = Math.Max(attackSpeed, -80);

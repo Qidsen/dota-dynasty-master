@@ -775,7 +775,8 @@
             "attackSpeed": "-$attack_slow"
           }
         }
-      ]
+      ],
+      "pseudoRandom": true
     }
   },
   "dazzle_poison_touch": {
@@ -4419,7 +4420,8 @@
             }
           ]
         }
-      ]
+      ],
+      "pseudoRandom": true
     }
   },
   "spirit_breaker_nether_strike": {
@@ -6870,7 +6872,8 @@
             "moveSpeedPercent": "$slow"
           }
         }
-      ]
+      ],
+      "pseudoRandom": true
     }
   },
   "sniper_take_aim": {
@@ -9085,7 +9088,8 @@
             "attackSpeed": "-$maim_attack_slow"
           }
         }
-      ]
+      ],
+      "pseudoRandom": true
     }
   },
   "troll_warlord_battle_trance": {
@@ -9536,7 +9540,8 @@
         {
           "kind": "attack"
         }
-      ]
+      ],
+      "pseudoRandom": true
     }
   },
   "faceless_void_chronosphere": {
@@ -11013,7 +11018,8 @@
             }
           ]
         }
-      ]
+      ],
+      "pseudoRandom": true
     }
   },
   "phantom_lancer_doppelwalk": {

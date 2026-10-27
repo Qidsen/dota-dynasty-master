@@ -148,8 +148,10 @@ namespace Dynasty.MatchSimulation.Combat
             int evasionHundredths = 0,
             int onHitChanceHundredths = 0,
             int whenAttackedChanceHundredths = 0,
-            int incomingDamageHundredths = 0)
+            int incomingDamageHundredths = 0,
+            bool pseudoRandom = false)
         {
+            PseudoRandom = pseudoRandom;
             IncomingDamageHundredths = incomingDamagePercent * 100 + incomingDamageHundredths;
             // Percents Dota gives with decimals (2.5% per stack, 33.33%) are kept in hundredths: the whole percent plus the fraction.
             MoveSpeedHundredths = moveSpeedPercent * 100 + moveSpeedHundredths;
@@ -275,6 +277,9 @@ namespace Dynasty.MatchSimulation.Combat
         /// duration; every stack adds the modifier's stats and damage over time (Fury Swipes, Essence Shift).
         /// </summary>
         public int MaxStacks { get; }
+
+        /// <summary>Its on-hit and on-attacked chances use Dota's pseudo-random distribution (Bash, Counter Helix: dota2.fandom «Random Distribution»).</summary>
+        public bool PseudoRandom { get; }
 
         /// <summary>On-hit effects run only when the attacked unit is a hero (Essence Shift).</summary>
         public bool OnHitHeroesOnly { get; }
@@ -447,6 +452,7 @@ namespace Dynasty.MatchSimulation.Combat
             w.WriteInt64(ExtraTargetDamagePercent);
             w.WriteBool(OnKillHeroesOnly);
             w.WriteBool(Revives);
+            w.WriteBool(PseudoRandom);
             w.WriteInt64(AttackCharges);
             w.WriteBool(ExtraTargetRadiusFromAttackRange);
             w.WriteInt64(ExtraTargetChancePercent);
@@ -496,6 +502,9 @@ namespace Dynasty.MatchSimulation.Combat
 
         /// <summary>Its on-hit effects are running: an attack they make does not run them again (no chain of procs).</summary>
         internal bool Procing { get; set; }
+
+        /// <summary>Tries since its last pseudo-random proc.</summary>
+        internal int PrdTries;
 
         /// <summary>The bearer's attacks landed since the modifier was applied (<see cref="ModifierSpec.AttackCharges"/>).</summary>
         internal int AttacksLanded { get; set; }

@@ -232,7 +232,7 @@ public class PackContentTests
             ""cooldown"": [0], ""requiredLevels"": [1, 3], ""effects"": [],
             ""passive"": [ { ""key"": ""glaive"", ""extraTargets"": 4, ""extraTargetRadius"": 500, ""extraTargetDamageReduction"": 35 },
                           { ""key"": ""gunslinger"", ""extraTargetRadius"": 500, ""extraTargetChance"": 40,
-                            ""moveSpeedPercent"": 2.5, ""critChance"": 33.33, ""evasion"": 9.5, ""onHitChance"": 14.25 } ] }], ""items"": []",
+                            ""moveSpeedPercent"": 2.5, ""critChance"": 33.33, ""evasion"": 9.5, ""onHitChance"": 14.25, ""pseudoRandom"": true } ] }], ""items"": []",
             Hero("lion", @"[""glaive""]"));
 
         Assert.Equal(65, rules.FindAbility("glaive")!.PassiveModifiers[0].ExtraTargetDamagePercent);
@@ -240,6 +240,8 @@ public class PackContentTests
         Assert.Equal((1, 40), (gunslinger.ExtraTargets, gunslinger.ExtraTargetChancePercent));   // a chance alone: one extra target
         Assert.Equal((250, 3333, 950, 1425, 10000), (gunslinger.MoveSpeedHundredths, gunslinger.CritChanceHundredths, gunslinger.EvasionHundredths,
             gunslinger.OnHitChanceHundredths, gunslinger.WhenAttackedChanceHundredths));   // decimals kept; chances default to 100%
+        Assert.True(gunslinger.PseudoRandom);
+        Assert.False(rules.FindAbility("glaive")!.PassiveModifiers[0].PseudoRandom);
     }
 
     [Fact]

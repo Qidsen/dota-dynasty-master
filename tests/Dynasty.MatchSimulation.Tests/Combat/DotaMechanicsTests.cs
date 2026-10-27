@@ -853,4 +853,63 @@ public class DotaMechanicsTests
         DamageDealt byImage = kernel.EventsOf<DamageDealt>().Single(d => d.Attacker == image!.Id);
         Assert.InRange(byImage.Amount.ToDouble(), image!.AttackDamageMin * 0.6 * armor - 0.01, image.AttackDamageMax * 0.6 * armor + 0.01);
     }
+
+    /// <summary>The PRD constant C for a nominal chance (dota2.fandom «Random Distribution»: 25% → 0.084744, 50% → 0.302103, 75% → 0.666667).</summary>
+    [Theory]
+    [InlineData(2500, 0.084744)]
+    [InlineData(5000, 0.302103)]
+    [InlineData(7500, 0.666667)]
+    public void PseudoRandom_ConstantMatchesTheKnownValues(int chanceHundredths, double c)
+    {
+        Assert.InRange(PseudoRandom.ConstantFor(chanceHundredths).ToDouble(), c - 0.0005, c + 0.0005);
+    }
+
+    /// <summary>A pseudo-random proc (Skull Basher): about its nominal rate, never a long dry streak (P(N) = C × N reaches 1).</summary>
+    [Fact]
+    public void PseudoRandomOnHit_ProcsAtTheNominalRate_WithoutLongStreaks()
+    {
+        var bash = new ModifierSpec("bash", -1, onHit: new[] { EffectDefinition.Damage(DamageType.Pure, 0) }, onHitChancePercent: 25, pseudoRandom: true);
+        var kernel = Duel(onAlpha: bash, attack: false, draft: DotaCombat());
+        kernel.AddSystem(new LambdaSystem(2, ctx =>
+        {
+            for (int i = 0; i < 4000; i++)
+                AttackSystem.Strike(ctx, H(ctx.State, "alpha"), H(ctx.State, "beta"), 0);
+        }));
+        kernel.RunTicks(3);
+
+        var events = HitsOnBeta(kernel);
+        int longest = 0, run = 0, count = 0;
+        foreach (DamageDealt d in events)
+        {
+            if (d.DamageType == DamageType.Pure)
+            {
+                count++;
+                longest = Math.Max(longest, run);
+                run = 0;
+            }
+            else
+            {
+                run++;
+            }
+        }
+
+        Assert.InRange(count / 4000.0, 0.235, 0.265);
+        Assert.True(longest <= 12, "longest dry streak " + longest);   // 1 / C(25%) ≈ 11.8 attacks at most
+    }
+
+    /// <summary>Critical strikes do not work against buildings (dota2.fandom «Random Distribution», «Critical strike»).</summary>
+    [Fact]
+    public void CriticalStrikes_DoNotHitBuildings()
+    {
+        var kernel = DotaCombat().StartWithHeroes(new[] { ("alpha", "mid") }, new[] { ("beta", "mid") });
+        kernel.AddSystem(new LambdaSystem(1, ctx =>
+        {
+            Modifiers.Apply(ctx, H(ctx.State, "alpha"), new ModifierSpec("daedalus", -1, critChancePercent: 100, critMultiplierPercent: 300), EntityId.None);
+            MatchUnit tower = ctx.State.Units.First(u => u.Kind == UnitKind.Structure && u.Team == Team.Dusk);
+            AttackSystem.Strike(ctx, H(ctx.State, "alpha"), tower, 100);
+        }));
+        kernel.RunTicks(2);
+
+        Assert.False(kernel.EventsOf<DamageDealt>().Single(d => d.Attacker == H(kernel.State, "alpha").Id).IsCritical);
+    }
 }

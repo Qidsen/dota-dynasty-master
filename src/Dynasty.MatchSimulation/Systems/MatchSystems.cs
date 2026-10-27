@@ -503,14 +503,18 @@ namespace Dynasty.MatchSimulation.Systems
             critical = false;
             if (unit.Combat?.DotaStacking == true)
             {
-                // Dota: from the strongest multiplier down; the first source that procs counts.
-                foreach ((int chance, int multiplier) in unit.CritSources)
+                // Dota: from the strongest multiplier down, each pseudo-random; the first that procs counts. Not against buildings
+                // (and such attacks do not count as tries).
+                if (target.Kind != UnitKind.Structure)
                 {
-                    if (!Draw(context, chance))
-                        continue;
-                    critical = true;
-                    damage = damage * Fixed.FromInt(multiplier) / Fixed.FromInt(100);
-                    break;
+                    foreach (ActiveModifier crit in unit.CritModifiers)
+                    {
+                        if (!PseudoRandom.Roll(context, crit.Spec.CritChanceHundredths, ref crit.PrdTries))
+                            continue;
+                        critical = true;
+                        damage = damage * Fixed.FromInt(crit.Spec.CritMultiplierPercent) / Fixed.FromInt(100);
+                        break;
+                    }
                 }
             }
             else
@@ -545,7 +549,8 @@ namespace Dynasty.MatchSimulation.Systems
             // Charged buffs count the attacks that land while they are on: not the hit that grants one, not the extra targets' hits.
             List<ActiveModifier>? charged = spendsCharges ? attacker.Modifiers.Where(m => m.Spec.AttackCharges > 0).ToList() : null;
             // Draw only when there is a chance to roll, so matches without evasion or chance procs keep their random streams.
-            if (target.EvasionHundredths > 0 && Draw(context, target.EvasionHundredths))
+            if (target.EvasionHundredths > 0 &&
+                (context.State.Ruleset.Combat.DotaStacking ? PseudoRandom.Roll(context, target.EvasionHundredths, ref target.EvasionTries) : Draw(context, target.EvasionHundredths)))
                 return;
             Fixed dealt = Damage.Deal(context, attacker.Id, target, damage, DamageType.Physical, critical);
             if (attacker.LifestealPercent > 0 && attacker.IsAlive)
@@ -573,7 +578,8 @@ namespace Dynasty.MatchSimulation.Systems
                 if (modifier.Spec.OnHitAfterAttacks > 0 && modifier.AttackCount++ < modifier.Spec.OnHitAfterAttacks)
                     continue;
                 modifier.AttackCount = 0;
-                if (!Rolls(context, modifier.Spec.OnHitChanceHundredths))
+                if (modifier.Spec.PseudoRandom ? !PseudoRandom.Roll(context, modifier.Spec.OnHitChanceHundredths, ref modifier.PrdTries)
+                                                : !Rolls(context, modifier.Spec.OnHitChanceHundredths))
                     continue;
                 StartProcCooldown(context, modifier);
                 modifier.Procing = true;
@@ -587,7 +593,8 @@ namespace Dynasty.MatchSimulation.Systems
                 if (context.Tick.Value < modifier.NextProcTick || ++modifier.AttackCount < modifier.Spec.WhenAttackedEvery || !target.IsAlive)
                     continue;
                 modifier.AttackCount = 0;
-                if (!Rolls(context, modifier.Spec.WhenAttackedChanceHundredths))
+                if (modifier.Spec.PseudoRandom ? !PseudoRandom.Roll(context, modifier.Spec.WhenAttackedChanceHundredths, ref modifier.PrdTries)
+                                                : !Rolls(context, modifier.Spec.WhenAttackedChanceHundredths))
                     continue;
                 StartProcCooldown(context, modifier);
                 Effects.Run(context, target, modifier.Spec.WhenAttacked, 1, attacker, attacker.Position);

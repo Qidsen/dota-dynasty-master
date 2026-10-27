@@ -414,7 +414,7 @@ namespace Dynasty.Content
                 extraTargetDamagePercent: m.OptionalInt("extraTargetDamagePercent") ?? 100 - (m.OptionalInt("extraTargetDamageReduction") ?? 0), onKillHeroesOnly: m.OptionalBool("onKillHeroesOnly") ?? false,
                 revives: m.OptionalBool("revives") ?? false, attackCharges: m.OptionalInt("attackCharges") ?? 0,
                 extraTargetRadiusFromAttackRange: m.OptionalBool("extraTargetRadiusFromAttackRange") ?? false,
-                extraTargetChancePercent: m.OptionalInt("extraTargetChance") ?? 100);
+                extraTargetChancePercent: m.OptionalInt("extraTargetChance") ?? 100, pseudoRandom: m.OptionalBool("pseudoRandom") ?? false);
             m.RejectUnknown();
             return spec;
         }
