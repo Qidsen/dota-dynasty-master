@@ -11,6 +11,9 @@ using Dynasty.MatchSimulation.Rules;
 const string Patch = "7.41f";
 string output = args.Length > 0 ? args[0] : Path.Combine("packs", "dota-" + Patch + ".json");
 var data = new DotaData(args.Length > 1 ? args[1] : Path.Combine("packs", "cache", "dotaconstants-" + DotaData.Commit[..8]));
+DotaMap dotaMap = DotaMap.Load(Path.Combine("packs", "cache", "oldgrowth-" + DotaMap.Commit[..8]));
+foreach (string warning in dotaMap.Warnings)
+    Console.WriteLine("map: " + warning);
 
 JsonObject heroes = data.Constants("heroes").AsObject();
 JsonArray xpLevels = data.Constants("xp_level").AsArray();
@@ -208,13 +211,16 @@ var pack = new JsonObject
         },
     },
     ["heroes"] = packHeroes,
-    ["runes"] = Runes(),
-    // Roshan (game file npc_dota_roshan; Liquipedia «Roshan»; Valve 7.38 respawn 8–11 min; D-051 growth): in the base map's pit until
-    // the Dota map's two pits come (B-131); every hero of the killing team 135 gold, the last hitter 200–290 more, 400 XP to the
+    // Dota's map of 7.41f (D-053, DotaMap.cs).
+    ["map"] = dotaMap.Map,
+    ["runes"] = Runes(dotaMap.PowerSpots, dotaMap.BountySpots),
+    // Roshan (game file npc_dota_roshan; Liquipedia «Roshan»; Valve 7.38 respawn 8–11 min; D-051 growth): in the upper pit until the
+    // pits alternate (B-148); every hero of the killing team 135 gold, the last hitter 200–290 more, 400 XP to the
     // killing team's heroes around; every minute from the horn, alive or dead, +130 health, +0.4 armor (already at 0:00),
     // +7 damage, +20 XP.
     ["boss"] = new JsonObject
     {
+        ["position"] = new JsonObject { ["x"] = dotaMap.RoshanTop.X, ["y"] = dotaMap.RoshanTop.Y },
         // Roshan idles in his pit and fights only those who attack him (Fandom «Roshan»: «only attacking when aggroed»).
         ["id"] = "roshan", ["creep"] = "roshan", ["firstSpawn"] = 0, ["respawnMin"] = 480, ["respawnMax"] = 660, ["provokeRadius"] = 0,
         ["teamGold"] = 135, ["killerGold"] = new JsonArray(200, 290), ["xp"] = 400,
@@ -261,30 +267,38 @@ var pack = new JsonObject
             Wave("ranged", 1, from: 40 * 60),
             Wave("siege", 1, firstWave: 11, every: 10, from: 30 * 60), Wave("siege", 1, firstWave: 11, every: 10, from: 60 * 60)),
         // Every 7:30 (Liquipedia «Lane Creeps», 7.41; Valve 7.39–7.40 for the gold): health and damage up to 30 times, gold and XP
-        // without limit. The flagbearer follows the melee creep; siege creeps get nothing (their +16 damage after the lane's
-        // ranged barracks falls waits for the second barracks with the Dota map, B-131).
+        // without limit. The flagbearer follows the melee creep; siege creeps get nothing (only +16 damage as super creeps).
         ["upgrades"] = new JsonObject
         {
             ["interval"] = 450, ["maxStatCycles"] = 30,
             ["steps"] = new JsonArray(
                 UpgradeStep("melee", 12, 1, 1, 0), UpgradeStep("ranged", 12, 2, 3, 8), FlagbearerStep(),
-                UpgradeStep("melee_super", 19, 2, 1.5m, 0), UpgradeStep("ranged_super", 18, 3, 6, 0)),
+                UpgradeStep("melee_super", 19, 2, 1.5m, 0), UpgradeStep("ranged_super", 18, 3, 6, 0),
+                UpgradeStep("melee_mega", 0, 0, 1.5m, 0), UpgradeStep("ranged_mega", 0, 0, 6, 0)),
         },
+        // Liquipedia «Lane Creeps» (7.41f): a lane's melee barracks makes the enemy's melee creeps there super, its ranged barracks the
+        // ranged and siege creeps (siege: the game file's upgraded siege creep, +16 damage); all six down: mega creeps on every lane
+        // (they grow only in gold); flagbearers stay as they are.
+        ["superUpgrades"] = new JsonArray(CreepUpgrade("melee", "melee_super"), CreepUpgrade("ranged", "ranged_super"), CreepUpgrade("siege", "siege_super")),
+        ["megaUpgrades"] = new JsonArray(CreepUpgrade("melee", "melee_mega"), CreepUpgrade("ranged", "ranged_mega"), CreepUpgrade("siege", "siege_mega")),
     },
-    // Lane creeps and structures from the game's npc_units.txt, replacing the base rules' ones of the same id (the map is still the base one:
-    // one barracks per lane, so it gets the melee barracks; B-131).
+    // Lane creeps and structures from the game's npc_units.txt, replacing the base rules' ones of the same id; the barracks and
+    // effigy types are new (the base map has one barracks type, unused on the Dota map).
     ["unitTypes"] = new JsonArray(items.UnitTypes.Concat(heroAbilities.UnitTypes).Select(u => u!.DeepClone())
         .Concat(new (string Id, string Game)[]
             {
                 ("melee", "npc_dota_creep_goodguys_melee"), ("ranged", "npc_dota_creep_goodguys_ranged"), ("siege", "npc_dota_goodguys_siege"),
                 ("melee_super", "npc_dota_creep_goodguys_melee_upgraded"), ("ranged_super", "npc_dota_creep_goodguys_ranged_upgraded"),
+                ("siege_super", "npc_dota_goodguys_siege_upgraded"), ("melee_mega", "npc_dota_creep_goodguys_melee_upgraded_mega"),
+                ("ranged_mega", "npc_dota_creep_goodguys_ranged_upgraded_mega"), ("siege_mega", "npc_dota_goodguys_siege_upgraded_mega"),
                 ("flagbearer", "npc_dota_creep_goodguys_flagbearer"), ("roshan", "npc_dota_roshan"),
             }.Select(c => (JsonNode)Roshan(Flagbearer(Abilities.GameUnit(c.Id, c.Game, gameUnits)))))
         .ToArray()),
     ["structureTypes"] = new JsonArray(new (string Id, string Game)[]
         {
             ("tower.t1", "npc_dota_goodguys_tower1_mid"), ("tower.t2", "npc_dota_goodguys_tower2_mid"), ("tower.t3", "npc_dota_goodguys_tower3_mid"),
-            ("tower.t4", "npc_dota_goodguys_tower4"), ("ancient", "npc_dota_goodguys_fort"), ("barracks", "npc_dota_goodguys_melee_rax_mid"),
+            ("tower.t4", "npc_dota_goodguys_tower4"), ("ancient", "npc_dota_goodguys_fort"), ("barracks.melee", "npc_dota_goodguys_melee_rax_mid"),
+            ("barracks.ranged", "npc_dota_goodguys_range_rax_mid"), ("effigy", "npc_dota_goodguys_fillers"),
         }.Select(s => (JsonNode)StructureRules(Abilities.GameUnit(s.Id, s.Game, gameUnits))).Append(Fountain()).ToArray()),
     ["abilities"] = new JsonArray(items.Abilities.Concat(heroAbilities.Abilities).Select(a => a!.DeepClone()).Concat(RoshanDropAbilities()).ToArray()),
     ["items"] = new JsonArray(items.Items.Select(i => i!.DeepClone()).Concat(RoshanDropItems()).ToArray()),
@@ -316,7 +330,10 @@ static JsonObject StructureRules(JsonObject structure)
         "tower.t2" => (110, 130, 150, true, 50, 50),
         "tower.t3" => (125, 150, 170, true, 50, 50),
         "tower.t4" => (145, 170, 190, true, 50, 50),
-        "barracks" => (155, 90, 135, false, 100, 0),   // the melee barracks (one per lane until the map is carried over)
+        "barracks.melee" => (155, 90, 135, false, 100, 0),
+        "barracks.ranged" => (90, 90, 135, false, 100, 0),   // last hit 112 on average as the melee one
+        // Effigy buildings: 68 gold (Liquipedia «Buildings», 7.41f), no last-hit gold given; denied as a barracks (B-156).
+        "effigy" => (68, 0, 0, true, 100, 0),
         _ => null,
     };
     // Backdoor Protection (Liquipedia «Buildings», 7.41f; D-051): tier 2 towers by their own 900 radius, the buildings in the base
@@ -330,6 +347,10 @@ static JsonObject StructureRules(JsonObject structure)
             ["radius"] = kind == "tower.t2" ? 900 : 4000, ["aroundAncient"] = kind != "tower.t2",
             ["damageReduction"] = 50, ["summonDamageReduction"] = 75, ["healPerSecond"] = 180, ["reactivation"] = 15.5,
         };
+    if (kind == "barracks.melee")
+        structure["upgradesCreeps"] = new JsonArray("melee");
+    if (kind == "barracks.ranged")
+        structure["upgradesCreeps"] = new JsonArray("ranged", "siege");
     if (bounty is not { } b)
         return structure;
     // Tower Protection (Liquipedia «Buildings», 7.41f): allied heroes within 900 get +3/5/5/5 armor and +1/3/3/3 regeneration
@@ -354,7 +375,7 @@ static JsonObject StructureRules(JsonObject structure)
     // Glyph: towers of tier 2 and up strike 5 more enemies per attack; the first tier 1, tier 2 and melee barracks lost reset it.
     if (id is "tower.t2" or "tower.t3" or "tower.t4")
         structure["glyphExtraTargets"] = 5;
-    if (id is "tower.t1" or "tower.t2" or "barracks")
+    if (id is "tower.t1" or "tower.t2" or "barracks.melee")
         structure["resetsGlyphOnFirstLoss"] = true;
     structure["denyHealthPercent"] = 10;
     structure["bounty"] = new JsonObject
@@ -434,6 +455,8 @@ static JsonObject FlagbearerStep()
     return step;
 }
 
+static JsonObject CreepUpgrade(string from, string to) => new() { ["from"] = from, ["to"] = to };
+
 static JsonObject UpgradeStep(string creep, int health, int damage, decimal gold, int xp) =>
     new() { ["creep"] = creep, ["health"] = health, ["damage"] = damage, ["gold"] = gold, ["xp"] = xp };
 
@@ -488,7 +511,7 @@ static JsonNode[] RoshanDropItems() => new JsonNode[]
 // Arcane 25%, Haste always 22 s and Invisibility without damage reduction since 7.40, bounty gold by spawn time since 7.40;
 // D-051: bounty 40 + 6 per 4 minutes). The power spots are the base map's river spots; the base map has no bounty spots,
 // so one in each team's jungle, mirrored, until the Dota map (B-131).
-static JsonObject Runes()
+static JsonObject Runes((int X, int Y)[] power, (int X, int Y)[] bounty)
 {
     JsonObject Spot(int x, int y) => new() { ["x"] = x, ["y"] = y };
     JsonArray Spots(params (int X, int Y)[] spots) => new(spots.Select(s => (JsonNode)Spot(s.X, s.Y)).ToArray());
@@ -499,8 +522,6 @@ static JsonObject Runes()
         return fields;
     }
 
-    var power = new (int, int)[] { (3000, 7000), (7000, 3000) };
-    var bounty = new (int, int)[] { (2600, 4300), (7400, 5700) };
     JsonObject IllusionFor(string kind, int incoming) => new()
     {
         ["kind"] = kind,
