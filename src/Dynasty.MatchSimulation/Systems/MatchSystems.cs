@@ -22,18 +22,20 @@ namespace Dynasty.MatchSimulation.Systems
                 return;
 
             WaveRules waves = state.Ruleset.Waves;
+            int wave = state.WavesSpawned + 1;
+            long timeMs = now * 1000 / state.Rate.TicksPerSecond;
             foreach (LaneDefinition lane in state.Ruleset.Map.Lanes)
             {
                 foreach (Team team in new[] { Team.Dawn, Team.Dusk })
                 {
                     bool super = EnemyBarracksDestroyed(state, team, lane.Id);
-                    foreach (WaveEntry entry in waves.CompositionFor(team))
+                    foreach ((string creepTypeId, int count) in Composition(waves.CompositionFor(team), wave, timeMs))
                     {
-                        string typeId = entry.CreepTypeId;
+                        string typeId = creepTypeId;
                         if (super)
                             typeId = waves.SuperUpgrades.FirstOrDefault(u => u.FromCreepTypeId == typeId)?.ToCreepTypeId ?? typeId;
                         CreepType type = state.Ruleset.FindCreepType(typeId)!;
-                        for (int i = 0; i < entry.Count; i++)
+                        for (int i = 0; i < count; i++)
                         {
                             MatchUnit creep = state.SpawnCreep(context.Ids.Allocate(), team, type, lane, now);
                             context.Emit(new CreepSpawned(creep.Id, team, type.Id, lane.Id));
@@ -42,7 +44,36 @@ namespace Dynasty.MatchSimulation.Systems
                 }
             }
 
+            state.WavesSpawned = wave;
             state.NextWaveTick += state.Rate.TicksFor(waves.IntervalMs);
+        }
+
+        /// <summary>
+        /// The creeps of this wave by type, in the order the entries first name them: the entries the wave has, summed per type,
+        /// less the creeps replaced by others (a flagbearer instead of a melee creep).
+        /// </summary>
+        private static List<(string CreepTypeId, int Count)> Composition(IReadOnlyList<WaveEntry> entries, int wave, long timeMs)
+        {
+            var counts = new List<(string CreepTypeId, int Count)>();
+            void Add(string typeId, int count)
+            {
+                int index = counts.FindIndex(c => c.CreepTypeId == typeId);
+                if (index < 0)
+                    counts.Add((typeId, count));
+                else
+                    counts[index] = (typeId, counts[index].Count + count);
+            }
+
+            foreach (WaveEntry entry in entries)
+            {
+                if (!entry.In(wave, timeMs))
+                    continue;
+                Add(entry.CreepTypeId, entry.Count);
+                if (entry.ReplacesCreepTypeId != null)
+                    Add(entry.ReplacesCreepTypeId, -entry.Count);
+            }
+
+            return counts.Where(c => c.Count > 0).ToList();
         }
 
         /// <summary>Whether the opponent's barracks for this lane have fallen (the team's waves there become super creeps).</summary>

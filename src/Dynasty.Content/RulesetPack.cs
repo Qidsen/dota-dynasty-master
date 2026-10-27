@@ -65,6 +65,7 @@ namespace Dynasty.Content
             var structureOverrides = reader.OptionalArray("structureTypes").Select(s => ReadStructureType(s, baseRules)).ToDictionary(s => s.Id);
             IReadOnlyList<AbilityDefinition> abilities = reader.Has("abilities") ? reader.Array("abilities").Select(ReadAbility).ToList() : baseRules.Abilities;
             IReadOnlyList<ItemDefinition> items = reader.Has("items") ? reader.Array("items").Select(ReadItem).ToList() : baseRules.Items;
+            WaveRules waves = reader.OptionalObject("waves") is Reader w ? ReadWaves(w, baseRules.Waves) : baseRules.Waves;
             reader.RejectUnknown();
 
             var unitIds = new HashSet<string>(unitTypes.Select(u => u.Id));
@@ -76,7 +77,7 @@ namespace Dynasty.Content
             foreach (string unknown in structureOverrides.Keys.Where(k => k != StructureType.FountainId && baseRules.StructureTypes.All(s => s.Id != k)))
                 throw new RulesetPackException("structureTypes: \"" + unknown + "\" is not a structure type of the base rules.");
             var content = new RulesetContent(id, version, baseRules.TicksPerSecond, combat, creepTypes, structureTypes,
-                baseRules.Map, baseRules.Waves, heroes, heroRules, abilities, items, baseRules.Boss, baseRules.Runes,
+                baseRules.Map, waves, heroes, heroRules, abilities, items, baseRules.Boss, baseRules.Runes,
                 baseRules.DayNight, baseRules.Draft);
             IReadOnlyList<string> errors = content.Validate();
             if (errors.Count > 0)
@@ -158,6 +159,22 @@ namespace Dynasty.Content
                 r.OptionalObject("economy") is Reader economy ? ReadEconomy(economy) : b.Economy);
             r.RejectUnknown();
             return rules;
+        }
+
+        /// <summary>Lane waves, the same for both teams; the super creeps of destroyed barracks stay the base rules' ones.</summary>
+        private static WaveRules ReadWaves(Reader w, WaveRules baseWaves)
+        {
+            var composition = w.Array("composition").Select(e =>
+            {
+                var entry = new WaveEntry(e.String("creep"), e.Int("count"), e.OptionalInt("firstWave") ?? 1, e.OptionalInt("everyWaves") ?? 1,
+                    e.OptionalMilliseconds("from") ?? 0, e.OptionalString("replaces"));
+                e.RejectUnknown();
+                return entry;
+            }).ToList();
+            var waves = new WaveRules(w.OptionalMilliseconds("firstSpawn") ?? baseWaves.FirstSpawnMs, w.OptionalMilliseconds("interval") ?? baseWaves.IntervalMs,
+                composition, composition, baseWaves.SuperUpgrades);
+            w.RejectUnknown();
+            return waves;
         }
 
         private static GlyphRules ReadGlyph(Reader g)

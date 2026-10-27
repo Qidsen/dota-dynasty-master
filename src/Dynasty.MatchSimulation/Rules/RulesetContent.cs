@@ -496,16 +496,40 @@ namespace Dynasty.MatchSimulation.Rules
         public int NavClearance { get; }
     }
 
+    /// <summary>
+    /// Creeps of one type in a wave. Dota's waves grow and vary (Liquipedia «Lane Creeps»): an entry may start at a wave,
+    /// come only every n-th wave from there, join from a match time, and take the place of creeps of another type.
+    /// </summary>
     public sealed class WaveEntry
     {
-        public WaveEntry(string creepTypeId, int count)
+        public WaveEntry(string creepTypeId, int count, int firstWave = 1, int everyWaves = 1, int fromMs = 0, string? replacesCreepTypeId = null)
         {
             CreepTypeId = creepTypeId;
             Count = count;
+            FirstWave = firstWave;
+            EveryWaves = everyWaves;
+            FromMs = fromMs;
+            ReplacesCreepTypeId = replacesCreepTypeId;
         }
 
         public string CreepTypeId { get; }
         public int Count { get; }
+
+        /// <summary>The first wave (1 = the first one) with these creeps.</summary>
+        public int FirstWave { get; }
+
+        /// <summary>From <see cref="FirstWave"/> on, every this many waves.</summary>
+        public int EveryWaves { get; }
+
+        /// <summary>Only in waves spawned at or after this match time.</summary>
+        public int FromMs { get; }
+
+        /// <summary>These creeps replace as many of this type in the wave (Dota's flagbearer replaces a melee creep).</summary>
+        public string? ReplacesCreepTypeId { get; }
+
+        /// <summary>Whether the wave with this number (1-based), spawned at this match time, has these creeps.</summary>
+        public bool In(int wave, long timeMs) =>
+            wave >= FirstWave && (wave - FirstWave) % EveryWaves == 0 && timeMs >= FromMs;
     }
 
     /// <summary>Creep waves spawned on every lane. Compositions are per team so sandbox/lab rulesets can be asymmetric.</summary>
@@ -1077,6 +1101,10 @@ namespace Dynasty.MatchSimulation.Rules
                     errors.Add("Wave uses unknown creep type '" + entry.CreepTypeId + "'.");
                 if (entry.Count <= 0)
                     errors.Add("Wave entry '" + entry.CreepTypeId + "' must have a positive count.");
+                if (entry.FirstWave < 1 || entry.EveryWaves < 1 || entry.FromMs < 0)
+                    errors.Add("Wave entry '" + entry.CreepTypeId + "' needs a first wave and a period of at least 1 and a non-negative start time.");
+                if (entry.ReplacesCreepTypeId != null && FindCreepType(entry.ReplacesCreepTypeId) == null)
+                    errors.Add("Wave entry '" + entry.CreepTypeId + "' replaces unknown creep type '" + entry.ReplacesCreepTypeId + "'.");
             }
 
             foreach (CreepUpgrade upgrade in Waves.SuperUpgrades)
@@ -1154,6 +1182,10 @@ namespace Dynasty.MatchSimulation.Rules
             {
                 writer.WriteString(entry.CreepTypeId);
                 writer.WriteInt64(entry.Count);
+                writer.WriteInt64(entry.FirstWave);
+                writer.WriteInt64(entry.EveryWaves);
+                writer.WriteInt64(entry.FromMs);
+                writer.WriteString(entry.ReplacesCreepTypeId ?? "");
             }
         }
     }

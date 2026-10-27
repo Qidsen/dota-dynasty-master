@@ -319,6 +319,19 @@ public class PackContentTests
     }
 
     [Fact]
+    public void Waves_AreRead_WithTheirSchedule()
+    {
+        RulesetContent rules = Apply(@"""waves"": { ""interval"": 30, ""composition"": [ { ""creep"": ""melee"", ""count"": 3 },
+                { ""creep"": ""siege"", ""count"": 1, ""firstWave"": 11, ""everyWaves"": 10, ""from"": 1800 },
+                { ""creep"": ""ranged"", ""count"": 1, ""firstWave"": 5, ""everyWaves"": 2, ""replaces"": ""melee"" } ] }", Hero("lion", "[]"));
+
+        WaveEntry siege = rules.Waves.DawnComposition[1];
+        Assert.Equal((11, 10, 1800000), (siege.FirstWave, siege.EveryWaves, siege.FromMs));
+        Assert.Equal("melee", rules.Waves.DuskComposition[2].ReplacesCreepTypeId);
+        Assert.Equal((30000, BaseRuleset.Create().Waves.SuperUpgrades.Count), (rules.Waves.IntervalMs, rules.Waves.SuperUpgrades.Count));
+    }
+
+    [Fact]
     public void TheFountainsStructureType_CanBeAdded_WithSplashAndStackingDamage()
     {
         RulesetContent rules = Apply(@"""structureTypes"": [ { ""id"": ""fountain"", ""health"": 1, ""armor"": 0, ""attackDamageMin"": 290, ""attackDamageMax"": 310,

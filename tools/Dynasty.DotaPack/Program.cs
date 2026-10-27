@@ -200,6 +200,19 @@ var pack = new JsonObject
         ["glyph"] = new JsonObject { ["cooldown"] = 300, ["initialCooldown"] = 180, ["buildingDuration"] = 7, ["creepDuration"] = 3, ["resetDelay"] = 1 },
     },
     ["heroes"] = packHeroes,
+    // Lane waves (Liquipedia «Lane Creeps», updated for 7.41): every 30 s from 0:00, 3 melee and 1 ranged; a siege creep from the
+    // 11th wave every 10th; a flagbearer from the 5th wave every 2nd in place of a melee creep; +1 melee at 15:00, 30:00 and
+    // 45:00, +1 ranged at 40:00, +1 siege at 30:00 (7.41: was 35:00) and at 60:00 (new in 7.41).
+    ["waves"] = new JsonObject
+    {
+        ["firstSpawn"] = 0, ["interval"] = 30,
+        ["composition"] = new JsonArray(
+            Wave("melee", 3), Wave("ranged", 1), Wave("siege", 1, firstWave: 11, every: 10),
+            Wave("flagbearer", 1, firstWave: 5, every: 2, replaces: "melee"),
+            Wave("melee", 1, from: 15 * 60), Wave("melee", 1, from: 30 * 60), Wave("melee", 1, from: 45 * 60),
+            Wave("ranged", 1, from: 40 * 60),
+            Wave("siege", 1, firstWave: 11, every: 10, from: 30 * 60), Wave("siege", 1, firstWave: 11, every: 10, from: 60 * 60)),
+    },
     // Lane creeps and structures from the game's npc_units.txt, replacing the base rules' ones of the same id (the map is still the base one:
     // one barracks per lane, so it gets the melee barracks; B-131).
     ["unitTypes"] = new JsonArray(items.UnitTypes.Concat(heroAbilities.UnitTypes).Select(u => u!.DeepClone())
@@ -207,7 +220,8 @@ var pack = new JsonObject
             {
                 ("melee", "npc_dota_creep_goodguys_melee"), ("ranged", "npc_dota_creep_goodguys_ranged"), ("siege", "npc_dota_goodguys_siege"),
                 ("melee_super", "npc_dota_creep_goodguys_melee_upgraded"), ("ranged_super", "npc_dota_creep_goodguys_ranged_upgraded"),
-            }.Select(c => (JsonNode)Abilities.GameUnit(c.Id, c.Game, gameUnits)))
+                ("flagbearer", "npc_dota_creep_goodguys_flagbearer"),
+            }.Select(c => (JsonNode)Flagbearer(Abilities.GameUnit(c.Id, c.Game, gameUnits))))
         .ToArray()),
     ["structureTypes"] = new JsonArray(new (string Id, string Game)[]
         {
@@ -314,3 +328,25 @@ static JsonObject Fountain() => new()
             new JsonObject { ["kind"] = "damage", ["damageType"] = "physical", ["scaling"] = "perTargetStack", ["stackKey"] = "fountain_damage_stack", ["amounts"] = new JsonArray(3) }),
     }),
 };
+
+static JsonObject Wave(string creep, int count, int firstWave = 1, int every = 1, int from = 0, string? replaces = null)
+{
+    var entry = new JsonObject { ["creep"] = creep, ["count"] = count };
+    if (firstWave != 1)
+        entry["firstWave"] = firstWave;
+    if (every != 1)
+        entry["everyWaves"] = every;
+    if (from != 0)
+        entry["from"] = from;
+    if (replaces != null)
+        entry["replaces"] = replaces;
+    return entry;
+}
+
+// The flagbearer's XP: BountyXP 57 in the unit file plus its aura ability's bonus_xp 3 = 60, as in Valve's 7.41 notes ("57 → 60").
+static JsonObject Flagbearer(JsonObject unit)
+{
+    if (unit["id"]!.GetValue<string>() == "flagbearer" && unit["bounty"] is JsonObject bounty)
+        bounty["xp"] = bounty["xp"]!.GetValue<decimal>() + 3;
+    return unit;
+}

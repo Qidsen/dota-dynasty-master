@@ -548,6 +548,9 @@ namespace Dynasty.MatchSimulation
         internal TickRate Rate { get; }
         internal long NextWaveTick { get; set; }
 
+        /// <summary>Waves spawned so far.</summary>
+        public int WavesSpawned { get; internal set; }
+
         /// <summary>
         /// Whether the team currently sees the unit (own units: always). Recomputed every few ticks.
         /// Neutral units act on proximity alone and are treated as seeing everything they react to.
