@@ -177,8 +177,21 @@ namespace Dynasty.Content
                     _ => throw s.Error("attackClass", "expected basic, runty, piercing or reinforced"),
                 });
             s.Ignore("moveSpeed");
+            StructureBounty? bounty = null;
+            Reader? b = s.OptionalObject("bounty");
+            if (b != null)
+            {
+                IReadOnlyList<int> lastHit = b.Ints("lastHitGold");
+                if (lastHit.Count != 2 || lastHit[0] > lastHit[1])
+                    throw b.Error("lastHitGold", "expected [min, max]");
+                bounty = new StructureBounty(b.Int("teamGold"), lastHit[0], lastHit[1], b.OptionalBool("lastHitterGetsTeamGold") ?? true,
+                    b.OptionalInt("deniedEnemyGoldPercent") ?? 0, b.OptionalInt("deniedOwnGoldPercent") ?? 0);
+                b.RejectUnknown();
+            }
+
+            int deny = s.OptionalInt("denyHealthPercent") ?? 0;
             s.RejectUnknown();
-            return new StructureType(id, stats);
+            return new StructureType(id, stats, bounty, deny);
         }
 
         private static CreepType ReadUnitType(Reader u, RulesetContent? baseRules = null)

@@ -207,7 +207,7 @@ var pack = new JsonObject
         {
             ("tower.t1", "npc_dota_goodguys_tower1_mid"), ("tower.t2", "npc_dota_goodguys_tower2_mid"), ("tower.t3", "npc_dota_goodguys_tower3_mid"),
             ("tower.t4", "npc_dota_goodguys_tower4"), ("ancient", "npc_dota_goodguys_fort"), ("barracks", "npc_dota_goodguys_melee_rax_mid"),
-        }.Select(s => (JsonNode)Abilities.GameUnit(s.Id, s.Game, gameUnits)).ToArray()),
+        }.Select(s => (JsonNode)StructureRules(Abilities.GameUnit(s.Id, s.Game, gameUnits))).ToArray()),
     ["abilities"] = new JsonArray(items.Abilities.Concat(heroAbilities.Abilities).Select(a => a!.DeepClone()).ToArray()),
     ["items"] = items.Items,
 };
@@ -226,3 +226,31 @@ File.WriteAllLines(report, new[]
 }.Concat(heroAbilities.Coverage).Concat(talentCoverage).Append("").Concat(items.Coverage));
 Console.WriteLine($"{output}: {applied.Heroes.Count} heroes, abilities {heroAbilities.Mapped}/{heroAbilities.Total}, {applied.Items.Count} items ({items.Coverage.Count} with gaps, {report}), " +
                   $"levels 1-{applied.HeroRules!.MaxLevel}, fingerprint {applied.ToDescriptor().Fingerprint}");
+
+// Dota's structure gold and denying (Liquipedia «Buildings» as of 7.41f: team bounty, average last hit; Valve 7.27 «±10»; D-051): the game's unit
+// file has no bounty for buildings (set by the game's code). A building below 10% of its health can be denied, the ancient
+// never; a denied tower gives both teams half its team bounty, a denied barracks still gives its enemies the full one.
+static JsonObject StructureRules(JsonObject structure)
+{
+    (int Team, int LastHitMin, int LastHitMax, bool LastHitterGetsTeamGold, int DeniedEnemy, int DeniedOwn)? bounty = structure["id"]!.GetValue<string>() switch
+    {
+        "tower.t1" => (90, 110, 130, true, 50, 50),
+        "tower.t2" => (110, 130, 150, true, 50, 50),
+        "tower.t3" => (125, 150, 170, true, 50, 50),
+        "tower.t4" => (145, 170, 190, true, 50, 50),
+        "barracks" => (155, 90, 135, false, 100, 0),   // the melee barracks (one per lane until the map is carried over)
+        _ => null,
+    };
+    if (bounty is not { } b)
+        return structure;
+    structure["denyHealthPercent"] = 10;
+    structure["bounty"] = new JsonObject
+    {
+        ["teamGold"] = b.Team,
+        ["lastHitGold"] = new JsonArray(b.LastHitMin, b.LastHitMax),
+        ["lastHitterGetsTeamGold"] = b.LastHitterGetsTeamGold,
+        ["deniedEnemyGoldPercent"] = b.DeniedEnemy,
+        ["deniedOwnGoldPercent"] = b.DeniedOwn,
+    };
+    return structure;
+}

@@ -498,11 +498,47 @@ namespace Dynasty.MatchSimulation.Systems
         public static void StructureDestroyed(SimulationContext<MatchState> context, MatchUnit structure)
         {
             HeroRules? rules = context.State.Ruleset.HeroRules;
-            if (rules == null || rules.StructureTeamGold <= 0)
+            if (rules == null)
+                return;
+            StructureBounty? bounty = context.State.Ruleset.FindStructureType(structure.TypeId)?.Bounty;
+            if (bounty != null)
+            {
+                DotaStructureDestroyed(context, structure, bounty);
+                return;
+            }
+
+            if (rules.StructureTeamGold <= 0)
                 return;
 
             foreach (MatchUnit hero in context.State.Heroes.Where(h => h.Team != structure.Team).ToList())
                 HeroProgression.GrantGold(context, hero, rules.StructureTeamGold, "structure");
+        }
+
+        private static void DotaStructureDestroyed(SimulationContext<MatchState> context, MatchUnit structure, StructureBounty bounty)
+        {
+            MatchUnit? killer = context.State.Find(structure.LastAttackerId);
+            List<MatchUnit> heroes = context.State.Heroes.ToList();
+            if (killer != null && killer.Team == structure.Team)
+            {
+                foreach (MatchUnit hero in heroes)
+                {
+                    int percent = hero.Team == structure.Team ? bounty.DeniedOwnGoldPercent : bounty.DeniedEnemyGoldPercent;
+                    if (percent > 0)
+                        HeroProgression.GrantGold(context, hero, bounty.TeamGold * percent / 100, "structure_deny");
+                }
+
+                return;
+            }
+
+            MatchUnit? lastHitter = killer?.Hero != null ? killer : null;
+            foreach (MatchUnit hero in heroes.Where(h => h.Team != structure.Team))
+            {
+                if (hero != lastHitter || bounty.LastHitterGetsTeamGold)
+                    HeroProgression.GrantGold(context, hero, bounty.TeamGold, "structure");
+            }
+
+            if (lastHitter != null)
+                HeroProgression.GrantGold(context, lastHitter, context.Random("economy").NextInt(bounty.LastHitGoldMin, bounty.LastHitGoldMax + 1), "structure_last_hit");
         }
 
         /// <summary>

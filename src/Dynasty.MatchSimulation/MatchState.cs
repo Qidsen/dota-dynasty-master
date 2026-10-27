@@ -589,14 +589,21 @@ namespace Dynasty.MatchSimulation
 
         /// <summary>
         /// Whether <paramref name="attacker"/> may attack <paramref name="target"/> right now. Heroes
-        /// may also attack allied creeps below half HP (deny).
+        /// may also attack allied creeps below half HP and allied buildings below their deny threshold (deny).
         /// </summary>
         internal bool CanAttack(MatchUnit attacker, MatchUnit target)
         {
             if (!target.IsAlive || target == attacker || target.Kind == UnitKind.Rune)
                 return false;
             if (target.Team == attacker.Team)
-                return attacker.Kind == UnitKind.Hero && target.Kind == UnitKind.Creep && target.Hp * Fixed.FromInt(2) < Fixed.FromInt(target.MaxHp);
+            {
+                if (attacker.Kind != UnitKind.Hero)
+                    return false;
+                if (target.Kind == UnitKind.Creep)
+                    return target.Hp * Fixed.FromInt(2) < Fixed.FromInt(target.MaxHp);
+                int deny = target.Kind == UnitKind.Structure ? Ruleset.FindStructureType(target.TypeId)?.DenyHealthPercent ?? 0 : 0;
+                return deny > 0 && IsVulnerable(target) && target.Hp * Fixed.FromInt(100) < Fixed.FromInt(target.MaxHp * deny);
+            }
 
             return IsVulnerable(target) && !(attacker.Kind == UnitKind.Structure && target.Kind == UnitKind.Structure);
         }

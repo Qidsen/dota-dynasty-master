@@ -147,14 +147,62 @@ namespace Dynasty.MatchSimulation.Rules
 
     public sealed class StructureType
     {
-        public StructureType(string id, UnitStats stats)
+        public StructureType(string id, UnitStats stats, StructureBounty? bounty = null, int denyHealthPercent = 0)
         {
             Id = id;
             Stats = stats;
+            Bounty = bounty;
+            DenyHealthPercent = denyHealthPercent;
         }
 
         public string Id { get; }
         public UnitStats Stats { get; }
+
+        /// <summary>Dota's gold for destroying it; null = the hero rules' flat team gold.</summary>
+        public StructureBounty? Bounty { get; }
+
+        /// <summary>Allied heroes may attack it below this percent of its health (Dota: 10, never the ancient); 0 = never.</summary>
+        public int DenyHealthPercent { get; }
+
+        internal void WriteCanonical(CanonicalWriter writer)
+        {
+            writer.WriteString(Id);
+            Stats.WriteCanonical(writer);
+            writer.WriteBool(Bounty != null);
+            if (Bounty != null)
+            {
+                foreach (int value in new[] { Bounty.TeamGold, Bounty.LastHitGoldMin, Bounty.LastHitGoldMax, Bounty.DeniedEnemyGoldPercent, Bounty.DeniedOwnGoldPercent })
+                    writer.WriteInt64(value);
+                writer.WriteBool(Bounty.LastHitterGetsTeamGold);
+            }
+
+            writer.WriteInt64(DenyHealthPercent);
+        }
+    }
+
+    /// <summary>
+    /// Dota's gold for a destroyed building (Liquipedia «Buildings», 7.41f): the team bounty goes to every enemy hero, the
+    /// last-hitting hero gets a further random bounty (and the team bounty too, unless it is a barracks); a denied building
+    /// gives each hero of its enemies and of its own team a percent of the team bounty instead.
+    /// </summary>
+    public sealed class StructureBounty
+    {
+        public StructureBounty(int teamGold, int lastHitGoldMin, int lastHitGoldMax, bool lastHitterGetsTeamGold, int deniedEnemyGoldPercent, int deniedOwnGoldPercent)
+        {
+            TeamGold = teamGold;
+            LastHitGoldMin = lastHitGoldMin;
+            LastHitGoldMax = lastHitGoldMax;
+            LastHitterGetsTeamGold = lastHitterGetsTeamGold;
+            DeniedEnemyGoldPercent = deniedEnemyGoldPercent;
+            DeniedOwnGoldPercent = deniedOwnGoldPercent;
+        }
+
+        public int TeamGold { get; }
+        public int LastHitGoldMin { get; }
+        public int LastHitGoldMax { get; }
+        public bool LastHitterGetsTeamGold { get; }
+        public int DeniedEnemyGoldPercent { get; }
+        public int DeniedOwnGoldPercent { get; }
     }
 
     /// <summary>When a protected structure stops being invulnerable.</summary>
@@ -730,10 +778,7 @@ namespace Dynasty.MatchSimulation.Rules
 
             writer.WriteInt64(StructureTypes.Count);
             foreach (StructureType structure in StructureTypes)
-            {
-                writer.WriteString(structure.Id);
-                structure.Stats.WriteCanonical(writer);
-            }
+                structure.WriteCanonical(writer);
 
             writer.WriteInt64(Map.Width);
             writer.WriteInt64(Map.Height);

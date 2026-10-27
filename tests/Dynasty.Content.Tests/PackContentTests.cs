@@ -289,13 +289,18 @@ public class PackContentTests
     {
         RulesetContent rules = Apply(@"""structureTypes"": [ { ""id"": ""tower.t1"", ""health"": 1800, ""armor"": 12, ""moveSpeed"": 0, ""attackDamageMin"": 88, ""attackDamageMax"": 92,
                 ""baseAttackTime"": 0.9, ""attackPoint"": 0.6, ""attackRange"": 700, ""acquisitionRange"": 700, ""projectileSpeed"": 750, ""visionRange"": 1900,
-                ""nightVision"": 800, ""attackClass"": ""reinforced"" } ]", Hero("lion", "[]"));
+                ""nightVision"": 800, ""attackClass"": ""reinforced"", ""denyHealthPercent"": 10,
+                ""bounty"": { ""teamGold"": 90, ""lastHitGold"": [110, 130], ""lastHitterGetsTeamGold"": true, ""deniedEnemyGoldPercent"": 50, ""deniedOwnGoldPercent"": 50 } } ]", Hero("lion", "[]"));
 
         UnitStats t1 = rules.FindStructureType("tower.t1")!.Stats;
         Assert.Equal((88, 92, 900, 600, 1900, 800, AttackClass.Reinforced), (t1.AttackDamageMin, t1.AttackDamageMax, t1.AttackIntervalMs, t1.AttackPointMs, t1.VisionRange, t1.NightVisionRange, t1.AttackClass));
         UnitStats baseT1 = BaseRuleset.Create().FindStructureType("tower.t1")!.Stats;
         Assert.Equal((baseT1.BoundingRadius, baseT1.TrueSightRange), (t1.BoundingRadius, t1.TrueSightRange));
+        StructureBounty bounty = rules.FindStructureType("tower.t1")!.Bounty!;
+        Assert.Equal((90, 110, 130, true, 50, 50, 10), (bounty.TeamGold, bounty.LastHitGoldMin, bounty.LastHitGoldMax, bounty.LastHitterGetsTeamGold,
+            bounty.DeniedEnemyGoldPercent, bounty.DeniedOwnGoldPercent, rules.FindStructureType("tower.t1")!.DenyHealthPercent));
         Assert.Equal(2500, rules.FindStructureType("tower.t2")!.Stats.MaxHp);   // the others stay the base ones
+        Assert.Null(rules.FindStructureType("tower.t2")!.Bounty);
         Assert.Throws<RulesetPackException>(() => Apply(@"""structureTypes"": [ { ""id"": ""tower.t9"", ""health"": 1, ""armor"": 0, ""visionRange"": 1 } ]", Hero("lion", "[]")));
     }
 
