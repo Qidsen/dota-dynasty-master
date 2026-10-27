@@ -71,7 +71,7 @@ namespace Dynasty.MatchSimulation.Systems
             foreach (ItemSlot slot in consumed)
                 RemoveSlot(context, unit, hero, slot);
 
-            hero.Gold -= Fixed.FromInt(price);
+            hero.Spend(Fixed.FromInt(price));
             int oldMaxHp = unit.MaxHp;
             ActiveModifier? bonus = item.Bonuses != null ? Modifiers.AddInstance(context, unit, item.Bonuses, unit.Id) : null;
             if (unit.IsAlive && unit.MaxHp > oldMaxHp)

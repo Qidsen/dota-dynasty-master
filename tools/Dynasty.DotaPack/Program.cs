@@ -156,7 +156,9 @@ var pack = new JsonObject
     },
     ["heroRules"] = new JsonObject
     {
-        ["xpForLevel"] = new JsonArray(xpLevels.Select(x => (JsonNode)JsonValue.Create(x!.GetValue<int>())!).ToArray()),
+        // dotaconstants' table, except level 30: 64400 (8000 from level 29, Liquipedia «Experience»; dotaconstants has 63900) —
+        // Valve's last word is 7.32 «Changed XP required per level» without numbers; decided by the project owner (D-051).
+        ["xpForLevel"] = new JsonArray(xpLevels.Select((x, i) => (JsonNode)JsonValue.Create(i == 29 ? 64400 : x!.GetValue<int>())!).ToArray()),
         ["xpShareRadius"] = 1500,
         ["heroKillXpBase"] = 100,
         ["heroKillXpPerLevel"] = 0,
@@ -166,6 +168,25 @@ var pack = new JsonObject
         ["talentPointLevels"] = new JsonArray(10, 15, 20, 25, 27, 28, 29, 30),
         ["attributeBonusLevels"] = 7,
         ["attributeBonusPerLevel"] = 2,
+        // Dota's economy in 7.41f (docs/DOTA_RULES_AUDIT.md; decisions D-051): Liquipedia «Gold» (changes up to 7.40: assist formula),
+        // «Experience»; Valve patch notes 7.22 (death loss), 7.24 (respawn), 7.29 (buyback), 7.31 (kill bounty, streaks), 7.38 (bounty
+        // runes); dota2.fandom.com «Death» (respawn table); none of these changed in 7.41–7.41f.
+        ["economy"] = new JsonObject
+        {
+            ["killGoldBase"] = 125, ["killGoldPerLevel"] = 8, ["firstBloodGold"] = 135,
+            ["streakGold"] = new JsonArray(60, 100, 150, 210, 280, 360, 450, 550),
+            ["streakXpPerLevel"] = new JsonArray(13.75m, 20m, 28.75m, 40m, 53.75m, 70m, 88.75m, 110m),   // (1.25x² − 2.5x + 10) for streaks 3…10+
+            ["assistGoldBase"] = 15, ["assistGoldPool"] = 50, ["assistGoldNetWorthPermille"] = 37, ["assistRadius"] = 1500,
+            ["killCreditWindow"] = 20,   // D-051 (Valve 7.22 said 30; the wikis say 20)
+            ["deathGoldLossNetWorthDivisor"] = 40, ["buybackBaseGold"] = 200, ["buybackNetWorthDivisor"] = 13, ["buybackRespawnPenalty"] = 25,
+            ["respawn"] = new JsonArray(12, 15, 18, 21, 24, 26, 28, 30, 32, 34, 36, 44, 46, 48, 50, 52, 54, 65, 70, 75, 80, 85, 90, 95, 100),
+            ["neutralRespawnMin"] = 26,
+            ["periodicGold"] = new JsonArray(new (int Minute, decimal PerMinute)[]
+                {
+                    (0, 90m), (12, 94.8m), (30, 99.8m), (45, 105.5m), (62, 112.8m), (87, 120.5m), (112, 129m), (140, 139m), (175, 150.5m),
+                }.Select(s => (JsonNode)new JsonObject { ["from"] = s.Minute * 60, ["perMinute"] = s.PerMinute }).ToArray()),
+            ["heroXpCapLevel"] = 25, ["deniedCreepXpPercent"] = 50,
+        },
     },
     ["heroes"] = packHeroes,
     ["unitTypes"] = new JsonArray(items.UnitTypes.Concat(heroAbilities.UnitTypes).Select(u => u!.DeepClone()).ToArray()),

@@ -23,8 +23,12 @@ namespace Dynasty.MatchSimulation.Systems
                 return;
 
             int tps = context.TickRate.TicksPerSecond;
-            Fixed passiveGold = Fixed.FromRatio(rules.GoldPerMinute, 60L * tps);
             long now = context.Tick.Value;
+            EconomyRules? economy = rules.Economy;
+            // Dota: reliable periodic gold by the match time's table; otherwise the hero rules' gold per minute.
+            Fixed passiveGold = economy != null
+                ? Fixed.FromRatio(economy.PeriodicGoldAt(now * 1000 / tps), 100L * 60 * tps)
+                : Fixed.FromRatio(rules.GoldPerMinute, 60L * tps);
 
             foreach (MatchUnit unit in state.Units)
             {
@@ -33,6 +37,8 @@ namespace Dynasty.MatchSimulation.Systems
                     continue;
 
                 hero.Gold += passiveGold;
+                if (economy != null)
+                    hero.ReliableGold += passiveGold;
 
                 if (hero.BuybackRequested)
                 {
@@ -74,10 +80,14 @@ namespace Dynasty.MatchSimulation.Systems
 
         private static void TryBuyback(SimulationContext<MatchState> context, MatchUnit unit, HeroState hero, HeroRules rules, long now)
         {
-            string? failure = !rules.BuybackEnabled ? "disabled"
+            EconomyRules? economy = rules.Economy;
+            int cost = economy != null
+                ? (Fixed.FromInt(economy.BuybackBaseGold) + hero.NetWorth / Fixed.FromInt(economy.BuybackNetWorthDivisor)).ToIntFloor()
+                : rules.BuybackCost(hero.Level);
+            string? failure = !rules.BuybackEnabled && economy == null ? "disabled"
                 : !hero.IsDead ? "not_dead"
                 : now < hero.BuybackReadyTick ? "cooldown"
-                : hero.Gold < Fixed.FromInt(rules.BuybackCost(hero.Level)) ? "gold"
+                : hero.Gold < Fixed.FromInt(cost) ? "gold"
                 : null;
             if (failure != null)
             {
@@ -85,9 +95,10 @@ namespace Dynasty.MatchSimulation.Systems
                 return;
             }
 
-            int cost = rules.BuybackCost(hero.Level);
-            hero.Gold -= Fixed.FromInt(cost);
+            hero.Spend(Fixed.FromInt(cost), reliableFirst: economy != null);   // Dota: a buyback takes reliable gold first
             hero.BuybackReadyTick = now + context.TickRate.TicksFor(rules.BuybackCooldownMs);
+            if (economy != null)
+                hero.RespawnPenaltyMs = economy.BuybackRespawnPenaltyMs;
             Revive(context, unit, hero);
             context.Emit(new HeroBoughtBack(unit.Id, cost));
         }
@@ -284,8 +295,27 @@ namespace Dynasty.MatchSimulation.Systems
                 }
             }
 
+            if (type == null || type.Bounty.Xp <= 0)
+                return;
+            EconomyRules? economy = state.Ruleset.HeroRules.Economy;
+            if (economy != null)
+            {
+                // Dota: a denied lane creep gives its enemies part of its XP; a neutral creep's XP goes to the heroes of both teams nearby.
+                if (creep.Team == Team.Neutral)
+                {
+                    if (killer != null && killer.Team != Team.Neutral)
+                        ShareXp(context, creep, null, type.Bounty.Xp);
+                }
+                else
+                {
+                    ShareXp(context, creep, creep.Team.Opponent(), denied ? type.Bounty.Xp * economy.DeniedCreepXpPercent / 100 : type.Bounty.Xp);
+                }
+
+                return;
+            }
+
             // Denied creeps give no XP to the enemy. Neutral creeps reward the killer's team.
-            if (denied || type == null || type.Bounty.Xp <= 0)
+            if (denied)
                 return;
             if (creep.Team != Team.Neutral)
                 ShareXp(context, creep, creep.Team.Opponent(), type.Bounty.Xp);
@@ -299,6 +329,11 @@ namespace Dynasty.MatchSimulation.Systems
             HeroRules rules = state.Ruleset.HeroRules!;
             HeroState hero = victim.Hero!;
             long now = context.Tick.Value;
+            if (rules.Economy != null)
+            {
+                DotaHeroDied(context, victim, rules, rules.Economy);
+                return;
+            }
 
             hero.Deaths++;
             hero.RespawnTick = now + context.TickRate.TicksFor(rules.RespawnBaseMs + rules.RespawnPerLevelMs * hero.Level);
@@ -337,6 +372,129 @@ namespace Dynasty.MatchSimulation.Systems
             context.Emit(new HeroKilled(victim.Id, victim.LastAttackerId, assists, bounty, hero.RespawnTick));
         }
 
+        /// <summary>
+        /// A hero's death in Dota's economy. The bounty (base + level + the victim's streak + first blood) goes to the enemy
+        /// hero that killed it (summons and illusions kill for their owner); a death to enemy creeps or towers goes to the
+        /// enemy heroes that damaged or debuffed the victim within the kill credit window, or, if none did, is split among
+        /// all enemy heroes without ending the streak or counting as first blood. A death to its own team or to neutrals
+        /// gives nothing. Assist gold and XP go to the enemy heroes near the victim or that damaged or debuffed it.
+        /// The victim loses net worth / divisor of unreliable gold and respawns by the level table.
+        /// </summary>
+        private static void DotaHeroDied(SimulationContext<MatchState> context, MatchUnit victim, HeroRules rules, EconomyRules economy)
+        {
+            MatchState state = context.State;
+            HeroState hero = victim.Hero!;
+            long now = context.Tick.Value;
+            Team enemies = victim.Team.Opponent();
+            hero.Deaths++;
+
+            MatchUnit? killerUnit = state.Find(victim.LastAttackerId);
+            MatchUnit? killerHero = killerUnit?.Hero != null ? killerUnit
+                : killerUnit != null && killerUnit.Owner.IsValid ? state.Find(killerUnit.Owner) : null;
+            if (killerHero?.Hero == null || killerHero.Team != enemies)
+                killerHero = null;
+            long window = context.TickRate.TicksFor(economy.KillCreditWindowMs);
+            List<MatchUnit> recent = hero.RecentHeroAttackers
+                .Where(e => now - e.Value <= window)
+                .Select(e => state.Find(new EntityId(e.Key)))
+                .Where(u => u?.Hero != null && u.Team == enemies)
+                .Select(u => u!)
+                .ToList();
+
+            bool byEnemy = killerUnit != null && killerUnit.Team == enemies;
+            List<MatchUnit> enemyHeroes = state.Heroes.Where(h => h.Team == enemies).ToList();
+            List<MatchUnit> credited = !byEnemy ? new List<MatchUnit>()
+                : killerHero != null ? new List<MatchUnit> { killerHero }
+                : recent.Count > 0 ? recent
+                : enemyHeroes;
+            bool heroKill = byEnemy && (killerHero != null || recent.Count > 0);
+
+            // Everything is measured before the death costs the victim its gold.
+            Fixed victimNetWorth = hero.NetWorth;
+            Fixed victimTeamNetWorth = Fixed.Zero, killerTeamNetWorth = Fixed.Zero;
+            foreach (MatchUnit h in state.Heroes)
+            {
+                if (h.Team == victim.Team)
+                    victimTeamNetWorth += h.Hero!.NetWorth;
+                else if (h.Team == enemies)
+                    killerTeamNetWorth += h.Hero!.NetWorth;
+            }
+
+            int streak = hero.KillStreak;
+            int bounty = economy.KillGoldBase + economy.KillGoldPerLevel * hero.Level +
+                         (heroKill ? economy.StreakGoldFor(streak) : 0) + (heroKill && !state.FirstBloodTaken ? economy.FirstBloodGold : 0);
+            if (credited.Count > 0)
+            {
+                Fixed share = Fixed.FromInt(bounty) / Fixed.FromInt(credited.Count);
+                foreach (MatchUnit receiver in credited)
+                    HeroProgression.GrantGold(context, receiver, share, "hero_kill");
+            }
+
+            if (heroKill)
+            {
+                if (credited.Count == 1)
+                {
+                    credited[0].Hero!.Kills++;
+                    credited[0].Hero!.KillStreak++;
+                }
+
+                state.FirstBloodTaken = true;
+                hero.KillStreak = 0;
+            }
+
+            // Assist gold and XP: enemy heroes near the victim, or that damaged or debuffed it, and the killer wherever it stands.
+            var assists = new List<EntityId>();
+            if (byEnemy)
+            {
+                List<MatchUnit> receivers = enemyHeroes
+                    .Where(h => h.IsAlive && (h == killerHero || recent.Contains(h) || Geometry.WithinRange(h.Position, victim.Position, economy.AssistRadius)))
+                    .ToList();
+                if (receivers.Count > 0)
+                {
+                    Fixed n = Fixed.FromInt(receivers.Count);
+                    if (heroKill && killerTeamNetWorth > Fixed.Zero)
+                    {
+                        Fixed f = Fixed.FromInt(economy.AssistGoldBase) +
+                                  (Fixed.FromInt(economy.AssistGoldPool) + victimNetWorth * Fixed.FromRatio(economy.AssistGoldNetWorthPermille, 1000)) / n;
+                        Fixed assistGold = f * victimTeamNetWorth / killerTeamNetWorth;
+                        foreach (MatchUnit receiver in receivers)
+                            HeroProgression.GrantGold(context, receiver, assistGold, "assist");
+                    }
+
+                    int capLevel = System.Math.Min(economy.HeroXpCapLevel, rules.MaxLevel);
+                    int countedXp = System.Math.Min(hero.Xp, rules.XpForLevel[capLevel - 1]);
+                    Fixed baseXp = Fixed.FromInt(rules.HeroKillXpBase + rules.HeroKillXpPerLevel * hero.Level) +
+                                   Fixed.FromRatio((long)countedXp * rules.HeroKillXpPercentOfVictim, 100);
+                    Fixed xp = baseXp / n + (heroKill ? economy.StreakXpFor(streak, hero.Level) : Fixed.Zero);
+                    foreach (MatchUnit receiver in receivers)
+                    {
+                        HeroProgression.GrantXp(context, receiver, xp.ToIntFloor());
+                        if (receiver != killerHero && recent.Contains(receiver))
+                        {
+                            receiver.Hero!.Assists++;
+                            assists.Add(receiver.Id);
+                        }
+                    }
+                }
+            }
+
+            Fixed loss = victimNetWorth / Fixed.FromInt(economy.DeathGoldLossNetWorthDivisor);
+            hero.Gold -= Fixed.Min(loss, Fixed.Max(Fixed.Zero, hero.Gold - hero.ReliableGold));
+
+            int respawnMs = economy.RespawnMsAt(hero.Level) + hero.RespawnPenaltyMs;
+            hero.RespawnPenaltyMs = 0;
+            if (killerUnit != null && killerUnit.Team == Team.Neutral)
+                respawnMs = System.Math.Max(respawnMs, economy.NeutralRespawnMinMs);
+            hero.RespawnTick = now + context.TickRate.TicksFor(respawnMs);
+
+            hero.RecentHeroAttackers.Clear();
+            hero.Path = null;
+            HeroOrders.Issue(victim, HeroOrder.Idle);
+            victim.PendingAttackTick = -1;
+            victim.ClearTemporaryModifiers();
+            context.Emit(new HeroKilled(victim.Id, victim.LastAttackerId, assists, bounty, hero.RespawnTick));
+        }
+
         public static void StructureDestroyed(SimulationContext<MatchState> context, MatchUnit structure)
         {
             HeroRules? rules = context.State.Ruleset.HeroRules;
@@ -351,11 +509,13 @@ namespace Dynasty.MatchSimulation.Systems
         /// Living heroes of the receiving team within the share radius split the XP equally (remainder dropped);
         /// a hero killer always shares, wherever it stands.
         /// </summary>
-        private static void ShareXp(SimulationContext<MatchState> context, MatchUnit dead, Team receivingTeam, int xp, MatchUnit? killer = null)
+        private static void ShareXp(SimulationContext<MatchState> context, MatchUnit dead, Team? receivingTeam, int xp, MatchUnit? killer = null)
         {
             int radius = context.State.Ruleset.HeroRules!.XpShareRadius;
+            // A null team: heroes of both teams (Dota's neutral creeps).
             List<MatchUnit> receivers = context.State.Heroes
-                .Where(h => h.Team == receivingTeam && h.IsAlive && (h == killer || Geometry.WithinRange(h.Position, dead.Position, radius)))
+                .Where(h => (receivingTeam == null ? h.Team != Team.Neutral : h.Team == receivingTeam) && h.IsAlive &&
+                            (h == killer || Geometry.WithinRange(h.Position, dead.Position, radius)))
                 .ToList();
             if (receivers.Count == 0)
                 return;

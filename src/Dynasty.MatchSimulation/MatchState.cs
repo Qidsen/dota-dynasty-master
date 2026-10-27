@@ -420,6 +420,9 @@ namespace Dynasty.MatchSimulation
 
         internal void RemoveProjectile(Projectile projectile) => _projectiles.Remove(projectile);
 
+        /// <summary>The first hero kill of the match happened (Dota's first blood bonus is paid once).</summary>
+        public bool FirstBloodTaken { get; internal set; }
+
         /// <summary>Ground zones left by abilities, in creation order.</summary>
         public IReadOnlyList<GroundZone> Zones => _zones;
 

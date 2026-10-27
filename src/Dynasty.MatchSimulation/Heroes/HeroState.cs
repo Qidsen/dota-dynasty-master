@@ -54,6 +54,28 @@ namespace Dynasty.MatchSimulation.Heroes
         public int Level { get; internal set; }
         public int Xp { get; internal set; }
         public Fixed Gold { get; internal set; }
+
+        /// <summary>The reliable part of <see cref="Gold"/> (Dota: periodic income); deaths take only unreliable gold.</summary>
+        public Fixed ReliableGold { get; internal set; }
+
+        /// <summary>Hero kills since the last death that ended the streak.</summary>
+        public int KillStreak { get; internal set; }
+
+        /// <summary>Added to the next respawn time (Dota: after a buyback).</summary>
+        internal int RespawnPenaltyMs { get; set; }
+
+        /// <summary>Gold plus the cost of the items carried.</summary>
+        public Fixed NetWorth => Gold + Fixed.FromInt(InventorySlots.Sum(s => s.Definition.Cost));
+
+        /// <summary>Spends gold, unreliable first (or reliable first, for a buyback); reliable gold never exceeds the total.</summary>
+        internal void Spend(Fixed amount, bool reliableFirst = false)
+        {
+            if (reliableFirst)
+                ReliableGold -= Fixed.Min(ReliableGold, amount);
+            Gold -= amount;
+            if (ReliableGold > Gold)
+                ReliableGold = Fixed.Max(Fixed.Zero, Gold);
+        }
         public Fixed Mana { get; internal set; }
         public int MaxMana { get; internal set; }
         public int Kills { get; internal set; }
@@ -358,6 +380,13 @@ namespace Dynasty.MatchSimulation.Heroes
         {
             hero.Hero!.Gold += Fixed.FromInt(amount);
             context.Emit(new GoldEarned(hero.Id, amount, reason));
+        }
+
+        /// <summary>Unreliable gold with a fraction (Dota's shares and assist gold); the event reports the whole part.</summary>
+        public static void GrantGold(SimulationContext<MatchState> context, MatchUnit hero, Fixed amount, string reason)
+        {
+            hero.Hero!.Gold += amount;
+            context.Emit(new GoldEarned(hero.Id, amount.ToIntFloor(), reason));
         }
 
         private static void LevelUp(SimulationContext<MatchState> context, MatchUnit hero, HeroState state)

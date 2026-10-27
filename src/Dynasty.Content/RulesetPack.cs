@@ -102,6 +102,23 @@ namespace Dynasty.Content
             return hero;
         }
 
+        private static EconomyRules ReadEconomy(Reader e)
+        {
+            var periodic = e.Array("periodicGold").Select(p =>
+            {
+                var step = new PeriodicGold(p.Milliseconds("from"), p.OptionalHundredth("perMinute") ?? throw p.Error("perMinute", "missing"));
+                p.RejectUnknown();
+                return step;
+            }).ToList();
+            var economy = new EconomyRules(e.Int("killGoldBase"), e.Int("killGoldPerLevel"), e.Int("firstBloodGold"), e.Ints("streakGold"),
+                e.Fixeds("streakXpPerLevel"), e.Int("assistGoldBase"), e.Int("assistGoldPool"), e.Int("assistGoldNetWorthPermille"), e.Int("assistRadius"),
+                e.Milliseconds("killCreditWindow"), e.Int("deathGoldLossNetWorthDivisor"), e.Int("buybackBaseGold"), e.Int("buybackNetWorthDivisor"),
+                e.Milliseconds("buybackRespawnPenalty"), e.Seconds("respawn"), e.Milliseconds("neutralRespawnMin"), periodic, e.Int("heroXpCapLevel"),
+                e.Int("deniedCreepXpPercent"));
+            e.RejectUnknown();
+            return economy;
+        }
+
         private static TalentDefinition ReadTalent(Reader t)
         {
             var talent = new TalentDefinition(t.String("id"), t.String("name"), t.Int("level"), t.OptionalObject("bonus") is Reader b ? ReadModifier(b) : null);
@@ -121,7 +138,8 @@ namespace Dynasty.Content
                 b.BuybackBaseGold, b.BuybackGoldPerLevel, b.BuybackCooldownMs,
                 r.OptionalInt("heroKillXpPercentOfVictim") ?? b.HeroKillXpPercentOfVictim, b.Attributes,
                 r.OptionalInts("skillPointLevels") ?? b.SkillPointLevels, r.OptionalInts("talentPointLevels") ?? b.TalentPointLevels,
-                r.OptionalInt("attributeBonusLevels") ?? b.AttributeBonusLevels, r.OptionalInt("attributeBonusPerLevel") ?? b.AttributeBonusPerLevel);
+                r.OptionalInt("attributeBonusLevels") ?? b.AttributeBonusLevels, r.OptionalInt("attributeBonusPerLevel") ?? b.AttributeBonusPerLevel,
+                r.OptionalObject("economy") is Reader economy ? ReadEconomy(economy) : b.Economy);
             r.RejectUnknown();
             return rules;
         }
@@ -462,6 +480,8 @@ namespace Dynasty.Content
                 .Select(i => (i.AsFixed() * Dynasty.Core.Mathematics.Fixed.FromInt(100) + Dynasty.Core.Mathematics.Fixed.FromRatio(1, 2)).ToIntFloor()).ToList());
 
             public IReadOnlyList<string> Strings(string field) => Read(field, v => ItemsOf(v).Select(i => i.AsString()).ToList());
+
+            public IReadOnlyList<Fixed> Fixeds(string field) => Read(field, v => ItemsOf(v).Select(i => i.AsFixed()).ToList());
 
             public IReadOnlyList<string>? OptionalStrings(string field) => Has(field) ? Strings(field) : null;
 

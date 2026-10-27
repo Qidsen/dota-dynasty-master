@@ -540,6 +540,9 @@ namespace Dynasty.MatchSimulation.Combat
             }
 
             context.Emit(new ModifierApplied(target.Id, source, spec.Key, expires));
+            if (spec.IsDebuff && target.Hero != null && context.State.Ruleset.HeroRules?.Economy != null &&
+                context.State.Find(source) is MatchUnit by && by.Hero != null && by.Team != target.Team)
+                target.Hero.RecentHeroAttackers[source.Value] = now;   // Dota: debuffing a hero counts for its assists
             return modifier;
         }
 

@@ -6,6 +6,160 @@ using Dynasty.Core.Mathematics;
 
 namespace Dynasty.MatchSimulation.Rules
 {
+    /// <summary>Periodic gold from a match time on (Dota's table: 90 a minute from 0:00, 94.8 from 12:00, …).</summary>
+    public sealed class PeriodicGold
+    {
+        public PeriodicGold(int fromMs, int perMinuteHundredths)
+        {
+            FromMs = fromMs;
+            PerMinuteHundredths = perMinuteHundredths;
+        }
+
+        public int FromMs { get; }
+
+        /// <summary>Gold a minute, in hundredths (94.8 = 9480).</summary>
+        public int PerMinuteHundredths { get; }
+    }
+
+    /// <summary>
+    /// Dota's economy (docs/DOTA_RULES_AUDIT.md): kill bounty with streaks and first blood, AoE assist gold scaled by the
+    /// teams' net worth, reliable gold, death loss and buyback from net worth, respawn by level, hero kill XP with a level
+    /// cap and streak XP, half XP for denied lane creeps, neutral XP for both teams. Without it (null) the simpler economy
+    /// of the hero rules applies.
+    /// </summary>
+    public sealed class EconomyRules
+    {
+        public EconomyRules(
+            int killGoldBase,
+            int killGoldPerLevel,
+            int firstBloodGold,
+            IReadOnlyList<int> streakGold,
+            IReadOnlyList<Fixed> streakXpPerLevel,
+            int assistGoldBase,
+            int assistGoldPool,
+            int assistGoldNetWorthPermille,
+            int assistRadius,
+            int killCreditWindowMs,
+            int deathGoldLossNetWorthDivisor,
+            int buybackBaseGold,
+            int buybackNetWorthDivisor,
+            int buybackRespawnPenaltyMs,
+            IReadOnlyList<int> respawnMs,
+            int neutralRespawnMinMs,
+            IReadOnlyList<PeriodicGold> periodicGold,
+            int heroXpCapLevel,
+            int deniedCreepXpPercent)
+        {
+            KillGoldBase = killGoldBase;
+            KillGoldPerLevel = killGoldPerLevel;
+            FirstBloodGold = firstBloodGold;
+            StreakGold = streakGold.ToArray();
+            StreakXpPerLevel = streakXpPerLevel.ToArray();
+            AssistGoldBase = assistGoldBase;
+            AssistGoldPool = assistGoldPool;
+            AssistGoldNetWorthPermille = assistGoldNetWorthPermille;
+            AssistRadius = assistRadius;
+            KillCreditWindowMs = killCreditWindowMs;
+            DeathGoldLossNetWorthDivisor = deathGoldLossNetWorthDivisor;
+            BuybackBaseGold = buybackBaseGold;
+            BuybackNetWorthDivisor = buybackNetWorthDivisor;
+            BuybackRespawnPenaltyMs = buybackRespawnPenaltyMs;
+            RespawnMs = respawnMs.ToArray();
+            NeutralRespawnMinMs = neutralRespawnMinMs;
+            PeriodicGold = periodicGold.OrderBy(p => p.FromMs).ToArray();
+            HeroXpCapLevel = heroXpCapLevel;
+            DeniedCreepXpPercent = deniedCreepXpPercent;
+        }
+
+        public int KillGoldBase { get; }
+        public int KillGoldPerLevel { get; }
+        public int FirstBloodGold { get; }
+
+        /// <summary>Gold for ending a streak of 3, 4, …; the last value for longer streaks.</summary>
+        public IReadOnlyList<int> StreakGold { get; }
+
+        /// <summary>XP per victim level for ending a streak of 3, 4, …; the last value for longer streaks.</summary>
+        public IReadOnlyList<Fixed> StreakXpPerLevel { get; }
+
+        /// <summary>Assist gold f = base + (pool + permille × victim NW / 1000) / n, times victim team NW / killer team NW.</summary>
+        public int AssistGoldBase { get; }
+        public int AssistGoldPool { get; }
+        public int AssistGoldNetWorthPermille { get; }
+
+        /// <summary>Heroes this close to the victim, or that damaged or debuffed it within the kill credit window, share the assist gold and XP.</summary>
+        public int AssistRadius { get; }
+
+        /// <summary>A hero dying to creeps or towers is credited to the enemy heroes that damaged it within this window.</summary>
+        public int KillCreditWindowMs { get; }
+
+        /// <summary>A death costs net worth / this, of unreliable gold only.</summary>
+        public int DeathGoldLossNetWorthDivisor { get; }
+
+        public int BuybackBaseGold { get; }
+        public int BuybackNetWorthDivisor { get; }
+
+        /// <summary>Added to the respawn time of the death after a buyback.</summary>
+        public int BuybackRespawnPenaltyMs { get; }
+
+        /// <summary>Respawn time by hero level (index 0 = level 1); the last value for higher levels.</summary>
+        public IReadOnlyList<int> RespawnMs { get; }
+
+        /// <summary>A hero killed by neutral creeps respawns no sooner than this.</summary>
+        public int NeutralRespawnMinMs { get; }
+
+        public IReadOnlyList<PeriodicGold> PeriodicGold { get; }
+
+        /// <summary>The victim's XP counts for the kill XP only up to this level's total.</summary>
+        public int HeroXpCapLevel { get; }
+
+        /// <summary>Share of a lane creep's XP its enemies get when it is denied.</summary>
+        public int DeniedCreepXpPercent { get; }
+
+        public int StreakGoldFor(int streak) => streak < 3 || StreakGold.Count == 0 ? 0 : StreakGold[Math.Min(streak - 3, StreakGold.Count - 1)];
+
+        public Fixed StreakXpFor(int streak, int level) =>
+            streak < 3 || StreakXpPerLevel.Count == 0 ? Fixed.Zero : StreakXpPerLevel[Math.Min(streak - 3, StreakXpPerLevel.Count - 1)] * Fixed.FromInt(level);
+
+        public int RespawnMsAt(int level) => RespawnMs[Math.Min(Math.Max(level, 1), RespawnMs.Count) - 1];
+
+        /// <summary>Periodic gold a minute (hundredths) at a match time.</summary>
+        public int PeriodicGoldAt(long ms)
+        {
+            int result = 0;
+            foreach (PeriodicGold step in PeriodicGold)
+            {
+                if (step.FromMs <= ms)
+                    result = step.PerMinuteHundredths;
+            }
+
+            return result;
+        }
+
+        internal void WriteCanonical(CanonicalWriter w)
+        {
+            foreach (int value in new[] { KillGoldBase, KillGoldPerLevel, FirstBloodGold, AssistGoldBase, AssistGoldPool, AssistGoldNetWorthPermille, AssistRadius,
+                         KillCreditWindowMs, DeathGoldLossNetWorthDivisor, BuybackBaseGold, BuybackNetWorthDivisor, BuybackRespawnPenaltyMs, NeutralRespawnMinMs,
+                         HeroXpCapLevel, DeniedCreepXpPercent })
+                w.WriteInt64(value);
+            foreach (IReadOnlyList<int> list in new[] { StreakGold, RespawnMs })
+            {
+                w.WriteInt64(list.Count);
+                foreach (int value in list)
+                    w.WriteInt64(value);
+            }
+
+            w.WriteInt64(StreakXpPerLevel.Count);
+            foreach (Fixed value in StreakXpPerLevel)
+                w.WriteFixed(value);
+            w.WriteInt64(PeriodicGold.Count);
+            foreach (PeriodicGold step in PeriodicGold)
+            {
+                w.WriteInt64(step.FromMs);
+                w.WriteInt64(step.PerMinuteHundredths);
+            }
+        }
+    }
+
     /// <summary>
     /// A talent (Dota): one of the two choices of a tier at <see cref="Level"/>. It gives a permanent
     /// <see cref="Bonus"/> (generic stat talents) and/or upgrades abilities that have a variant for its id.
@@ -205,8 +359,10 @@ namespace Dynasty.MatchSimulation.Rules
             IReadOnlyList<int>? skillPointLevels = null,
             IReadOnlyList<int>? talentPointLevels = null,
             int attributeBonusLevels = 0,
-            int attributeBonusPerLevel = 0)
+            int attributeBonusPerLevel = 0,
+            EconomyRules? economy = null)
         {
+            Economy = economy;
             SkillPointLevels = skillPointLevels?.ToArray();
             TalentPointLevels = (talentPointLevels ?? Array.Empty<int>()).ToArray();
             AttributeBonusLevels = attributeBonusLevels;
@@ -298,6 +454,9 @@ namespace Dynasty.MatchSimulation.Rules
         public int AttributeBonusLevels { get; }
         public int AttributeBonusPerLevel { get; }
 
+        /// <summary>Dota's economy; null for the simple one (gold per minute, fixed kill gold, respawn by formula).</summary>
+        public EconomyRules? Economy { get; }
+
         /// <summary>The attribute bonus modifier (each level adds a stack); null without an attribute bonus.</summary>
         public Combat.ModifierSpec? AttributeBonus { get; }
 
@@ -333,6 +492,8 @@ namespace Dynasty.MatchSimulation.Rules
                 w.WriteInt64(level);
             w.WriteInt64(AttributeBonusLevels);
             w.WriteInt64(AttributeBonusPerLevel);
+            w.WriteBool(Economy != null);
+            Economy?.WriteCanonical(w);
         }
     }
 

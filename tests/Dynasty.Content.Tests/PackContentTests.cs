@@ -248,7 +248,12 @@ public class PackContentTests
         string hero = Hero("lion", @"[""spike""]").Replace(@"""abilities"": ", @"""talents"": [
             { ""id"": ""special_bonus_unique_lion_5"", ""name"": ""-2s Hex Cooldown"", ""level"": 10 },
             { ""id"": ""special_bonus_movement_speed_20"", ""name"": ""+20 Movement Speed"", ""level"": 10, ""bonus"": { ""key"": ""t"", ""moveSpeed"": 20 } } ], ""abilities"": ");
-        RulesetContent rules = Apply(@"""heroRules"": { ""talentPointLevels"": [10, 15, 20, 25, 27, 28, 29, 30], ""attributeBonusLevels"": 7, ""attributeBonusPerLevel"": 2 },
+        RulesetContent rules = Apply(@"""heroRules"": { ""talentPointLevels"": [10, 15, 20, 25, 27, 28, 29, 30], ""attributeBonusLevels"": 7, ""attributeBonusPerLevel"": 2,
+                ""economy"": { ""killGoldBase"": 125, ""killGoldPerLevel"": 8, ""firstBloodGold"": 135, ""streakGold"": [60, 100], ""streakXpPerLevel"": [13.75, 20],
+                    ""assistGoldBase"": 15, ""assistGoldPool"": 50, ""assistGoldNetWorthPermille"": 37, ""assistRadius"": 1500, ""killCreditWindow"": 20,
+                    ""deathGoldLossNetWorthDivisor"": 40, ""buybackBaseGold"": 200, ""buybackNetWorthDivisor"": 13, ""buybackRespawnPenalty"": 25,
+                    ""respawn"": [12, 15], ""neutralRespawnMin"": 26, ""periodicGold"": [ { ""from"": 0, ""perMinute"": 90 }, { ""from"": 720, ""perMinute"": 94.8 } ],
+                    ""heroXpCapLevel"": 25, ""deniedCreepXpPercent"": 50 } },
             ""abilities"": [{ ""id"": ""spike"", ""name"": ""Spike"", ""targeting"": ""unit"", ""targetTeam"": ""enemy"", ""castRange"": 600, ""castPoint"": 0,
             ""cooldown"": [12], ""requiredLevels"": [1], ""effects"": [ { ""kind"": ""damage"", ""damageType"": ""magical"", ""amounts"": [100] } ],
             ""variants"": [ { ""upgrades"": [""special_bonus_unique_lion_5""], ""id"": ""spike"", ""name"": ""Spike"", ""targeting"": ""unit"", ""targetTeam"": ""enemy"",
@@ -262,6 +267,10 @@ public class PackContentTests
         AbilityVariant variant = rules.FindAbility("spike")!.Variants.Single();
         Assert.Equal(("special_bonus_unique_lion_5", 10000), (variant.Upgrades.Single(), variant.Definition.CooldownAt(1)));
         Assert.Equal("scepter", rules.FindItem("ultimate_scepter")!.Upgrade);
+        EconomyRules economy = rules.HeroRules.Economy!;
+        Assert.Equal((125, 135, 60, 20000, 15000, 9480), (economy.KillGoldBase, economy.FirstBloodGold, economy.StreakGoldFor(3), economy.KillCreditWindowMs,
+            economy.RespawnMsAt(2), economy.PeriodicGoldAt(12 * 60000)));
+        Assert.Equal(27.5, economy.StreakXpFor(3, 2).ToDouble(), 3);
     }
 
     [Fact]

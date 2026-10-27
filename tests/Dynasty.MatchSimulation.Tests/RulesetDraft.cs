@@ -106,6 +106,9 @@ public sealed class RulesetDraft
     public List<int>? TalentPointLevels { get; set; }
 
     public int AttributeBonusLevels { get; set; }
+
+    /// <summary>Dota's economy (null: the simple one).</summary>
+    public EconomyRules? Economy { get; set; }
     public int AttributeBonusPerLevel { get; set; }
 
     public HeroRules BuildHeroRules() => new(
@@ -117,7 +120,8 @@ public sealed class RulesetDraft
         goldLossPerLevel: 30, structureTeamGold: 100, fountainHealPercentPerSecond: 5,
         buybackBaseGold: BuybackBaseGold, buybackGoldPerLevel: BuybackGoldPerLevel, buybackCooldownMs: BuybackCooldownMs,
         heroKillXpPercentOfVictim: HeroKillXpPercentOfVictim, skillPointLevels: SkillPointLevels,
-        talentPointLevels: TalentPointLevels, attributeBonusLevels: AttributeBonusLevels, attributeBonusPerLevel: AttributeBonusPerLevel);
+        talentPointLevels: TalentPointLevels, attributeBonusLevels: AttributeBonusLevels, attributeBonusPerLevel: AttributeBonusPerLevel,
+        economy: Economy);
 
     public int FirstSpawnMs { get; set; } = 0;
     public int IntervalMs { get; set; } = 30000;
