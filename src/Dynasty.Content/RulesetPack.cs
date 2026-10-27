@@ -52,14 +52,19 @@ namespace Dynasty.Content
             reader.Ignore("provenance");
             IReadOnlyList<HeroDefinition> heroes = reader.Array("heroes").Select(ReadHero).ToList();
             HeroRules? heroRules = reader.OptionalObject("heroRules") is Reader rules ? ReadHeroRules(rules, baseRules.HeroRules) : baseRules.HeroRules;
-            List<CreepType> unitTypes = reader.OptionalArray("unitTypes").Select(ReadUnitType).ToList();
+            List<CreepType> unitTypes = reader.OptionalArray("unitTypes").Select(u => ReadUnitType(u, baseRules)).ToList();
+            // Structure types replace the base ones of the same id; a structure keeps its base size (the map stays the base one).
+            var structureOverrides = reader.OptionalArray("structureTypes").Select(s => ReadStructureType(s, baseRules)).ToDictionary(s => s.Id);
             IReadOnlyList<AbilityDefinition> abilities = reader.Has("abilities") ? reader.Array("abilities").Select(ReadAbility).ToList() : baseRules.Abilities;
             IReadOnlyList<ItemDefinition> items = reader.Has("items") ? reader.Array("items").Select(ReadItem).ToList() : baseRules.Items;
             reader.RejectUnknown();
 
             var unitIds = new HashSet<string>(unitTypes.Select(u => u.Id));
             IReadOnlyList<CreepType> creepTypes = baseRules.CreepTypes.Where(c => !unitIds.Contains(c.Id)).Concat(unitTypes).ToList();
-            var content = new RulesetContent(id, version, baseRules.TicksPerSecond, baseRules.Combat, creepTypes, baseRules.StructureTypes,
+            IReadOnlyList<StructureType> structureTypes = baseRules.StructureTypes.Select(s => structureOverrides.TryGetValue(s.Id, out StructureType? o) ? o : s).ToList();
+            foreach (string unknown in structureOverrides.Keys.Where(k => baseRules.StructureTypes.All(s => s.Id != k)))
+                throw new RulesetPackException("structureTypes: \"" + unknown + "\" is not a structure type of the base rules.");
+            var content = new RulesetContent(id, version, baseRules.TicksPerSecond, baseRules.Combat, creepTypes, structureTypes,
                 baseRules.Map, baseRules.Waves, heroes, heroRules, abilities, items, baseRules.Boss, baseRules.Runes,
                 baseRules.DayNight, baseRules.Draft);
             IReadOnlyList<string> errors = content.Validate();
@@ -144,7 +149,31 @@ namespace Dynasty.Content
             return rules;
         }
 
-        private static CreepType ReadUnitType(Reader u)
+        private static StructureType ReadStructureType(Reader s, RulesetContent baseRules)
+        {
+            string id = s.String("id");
+            UnitStats? baseStats = baseRules.StructureTypes.FirstOrDefault(t => t.Id == id)?.Stats;
+            int vision = s.Int("visionRange");
+            var stats = new UnitStats(s.Int("health"), s.Fixed("armor"), 0, s.OptionalInt("attackDamageMin") ?? 0, s.OptionalInt("attackDamageMax") ?? 0,
+                s.OptionalInt("attackRange") ?? 0, s.OptionalMilliseconds("baseAttackTime") ?? 1000, s.OptionalMilliseconds("attackPoint") ?? 0,
+                s.OptionalInt("acquisitionRange") ?? 0, baseStats?.BoundingRadius ?? 100, s.OptionalInt("magicResist") ?? 0, vision,
+                // True sight is not in the game's unit file (towers' 700 is set by the game's code): kept from the base type unless given.
+                s.OptionalInt("trueSight") ?? baseStats?.TrueSightRange ?? 0, ModifierFlags.None, s.OptionalInt("projectileSpeed") ?? 0, s.OptionalInt("nightVision") ?? vision,
+                s.OptionalString("attackClass") switch
+                {
+                    null => AttackClass.Basic,
+                    "basic" => AttackClass.Basic,
+                    "runty" => AttackClass.Runty,
+                    "piercing" => AttackClass.Piercing,
+                    "reinforced" => AttackClass.Reinforced,
+                    _ => throw s.Error("attackClass", "expected basic, runty, piercing or reinforced"),
+                });
+            s.Ignore("moveSpeed");
+            s.RejectUnknown();
+            return new StructureType(id, stats);
+        }
+
+        private static CreepType ReadUnitType(Reader u, RulesetContent? baseRules = null)
         {
             string? classText = u.OptionalString("attackClass");
             AttackClass attackClass = classText switch
@@ -159,7 +188,8 @@ namespace Dynasty.Content
             int vision = u.Int("visionRange");
             var stats = new UnitStats(u.Int("health"), u.Fixed("armor"), u.Int("moveSpeed"), u.OptionalInt("attackDamageMin") ?? 0, u.OptionalInt("attackDamageMax") ?? 0,
                 u.OptionalInt("attackRange") ?? 0, u.OptionalMilliseconds("baseAttackTime") ?? 1000, u.OptionalMilliseconds("attackPoint") ?? 0,
-                u.OptionalInt("acquisitionRange") ?? 0, u.OptionalInt("radius") ?? 16, u.OptionalInt("magicResist") ?? 0, vision,
+                // A unit type replacing a base one (lane creeps) keeps its base size unless the pack gives one.
+                u.OptionalInt("acquisitionRange") ?? 0, u.OptionalInt("radius") ?? baseRules?.FindCreepType(u.String("id"))?.Stats.BoundingRadius ?? 16, u.OptionalInt("magicResist") ?? 0, vision,
                 u.OptionalInt("trueSight") ?? 0, u.OptionalBool("invisible") == true ? ModifierFlags.Invisible : ModifierFlags.None,
                 u.OptionalInt("projectileSpeed") ?? 0, u.OptionalInt("nightVision") ?? vision, attackClass);
             Bounty bounty = Bounty.None;

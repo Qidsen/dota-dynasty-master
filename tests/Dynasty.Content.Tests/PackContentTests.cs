@@ -274,6 +274,21 @@ public class PackContentTests
     }
 
     [Fact]
+    public void StructureTypes_ReplaceTheBaseOnes_KeepingTheirSize()
+    {
+        RulesetContent rules = Apply(@"""structureTypes"": [ { ""id"": ""tower.t1"", ""health"": 1800, ""armor"": 12, ""moveSpeed"": 0, ""attackDamageMin"": 88, ""attackDamageMax"": 92,
+                ""baseAttackTime"": 0.9, ""attackPoint"": 0.6, ""attackRange"": 700, ""acquisitionRange"": 700, ""projectileSpeed"": 750, ""visionRange"": 1900,
+                ""nightVision"": 800, ""attackClass"": ""reinforced"" } ]", Hero("lion", "[]"));
+
+        UnitStats t1 = rules.FindStructureType("tower.t1")!.Stats;
+        Assert.Equal((88, 92, 900, 600, 1900, 800, AttackClass.Reinforced), (t1.AttackDamageMin, t1.AttackDamageMax, t1.AttackIntervalMs, t1.AttackPointMs, t1.VisionRange, t1.NightVisionRange, t1.AttackClass));
+        UnitStats baseT1 = BaseRuleset.Create().FindStructureType("tower.t1")!.Stats;
+        Assert.Equal((baseT1.BoundingRadius, baseT1.TrueSightRange), (t1.BoundingRadius, t1.TrueSightRange));
+        Assert.Equal(2500, rules.FindStructureType("tower.t2")!.Stats.MaxHp);   // the others stay the base ones
+        Assert.Throws<RulesetPackException>(() => Apply(@"""structureTypes"": [ { ""id"": ""tower.t9"", ""health"": 1, ""armor"": 0, ""visionRange"": 1 } ]", Hero("lion", "[]")));
+    }
+
+    [Fact]
     public void Effects_ReadZonesAndPulls()
     {
         RulesetContent rules = Apply(@"""abilities"": [{ ""id"": ""pyre"", ""name"": ""Pyre"", ""targeting"": ""point"", ""targetTeam"": ""enemy"", ""castRange"": 900, ""castPoint"": 0,

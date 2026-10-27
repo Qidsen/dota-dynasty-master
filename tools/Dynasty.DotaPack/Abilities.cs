@@ -184,6 +184,17 @@ static class Abilities
         return unit;
     }
 
+    /// <summary>A unit of the game's npc_units.txt as a pack unit or structure type with the given id.</summary>
+    public static JsonObject GameUnit(string id, string gameUnit, Dictionary<string, Dictionary<string, string>> gameUnits)
+    {
+        if (!gameUnits.TryGetValue(gameUnit, out Dictionary<string, string>? game))
+            throw new InvalidDataException("no game unit \"" + gameUnit + "\"");
+        var unit = new JsonObject { ["id"] = id };
+        foreach (var (field, value) in GameUnitStats(game))
+            unit[field] = value;
+        return unit;
+    }
+
     /// <summary>A game unit's stats in the pack's unit fields; the attack only for units that attack, the bounty when it has one.</summary>
     private static IEnumerable<(string Field, JsonNode Value)> GameUnitStats(Dictionary<string, string> game)
     {
@@ -203,7 +214,16 @@ static class Abilities
         foreach (var (field, key) in fields)
             if (Number(key) is decimal value && (value != 0 || field is "health" or "armor" or "moveSpeed" or "visionRange"))
                 yield return (field, JsonValue.Create(value)!);
-        if (game.GetValueOrDefault("CombatClassAttack") is "DOTA_COMBAT_CLASS_ATTACK_BASIC" or "DOTA_COMBAT_CLASS_ATTACK_PIERCE")
+        // The attack class comes from the unit's innate class ability (creep_irresolute: runty, creep_piercing: piercing,
+        // creep_siege: reinforced — siege creeps, towers and buildings), otherwise from CombatClassAttack.
+        string[] classAbilities = game.Where(kv => kv.Key.StartsWith("Ability", StringComparison.Ordinal)).Select(kv => kv.Value).ToArray();
+        if (classAbilities.Contains("creep_irresolute"))
+            yield return ("attackClass", "runty");
+        else if (classAbilities.Contains("creep_piercing"))
+            yield return ("attackClass", "piercing");
+        else if (classAbilities.Contains("creep_siege") && game.GetValueOrDefault("AttackCapabilities") != "DOTA_UNIT_CAP_NO_ATTACK")
+            yield return ("attackClass", "reinforced");
+        else if (game.GetValueOrDefault("CombatClassAttack") is "DOTA_COMBAT_CLASS_ATTACK_BASIC" or "DOTA_COMBAT_CLASS_ATTACK_PIERCE")
             yield return ("attackClass", game["CombatClassAttack"] == "DOTA_COMBAT_CLASS_ATTACK_BASIC" ? "basic" : "piercing");
         if (Number("BountyGoldMin") is decimal goldMin && Number("BountyGoldMax") is decimal goldMax && Number("BountyXP") is decimal xp && goldMax + xp > 0)
             yield return ("bounty", new JsonObject { ["goldMin"] = goldMin, ["goldMax"] = goldMax, ["xp"] = xp });

@@ -30,7 +30,8 @@ Dictionary<string, Dictionary<string, Talents.Link>>? LinksOf(string hero)
     return links;
 }
 
-Abilities.Result heroAbilities = Abilities.Convert(abilitiesData, heroAbilitiesData, abilityMap, data.GameUnits(), LinksOf);
+var gameUnits = data.GameUnits();
+Abilities.Result heroAbilities = Abilities.Convert(abilitiesData, heroAbilitiesData, abilityMap, gameUnits, LinksOf);
 
 // Which talent of a tier the AI takes first: the one picked more in pro matches of the latest patch (OpenDota explorer)
 // when the hero has at least MinProGames there, otherwise in Divine–Immortal public matches (STRATZ, recent weeks:
@@ -189,7 +190,20 @@ var pack = new JsonObject
         },
     },
     ["heroes"] = packHeroes,
-    ["unitTypes"] = new JsonArray(items.UnitTypes.Concat(heroAbilities.UnitTypes).Select(u => u!.DeepClone()).ToArray()),
+    // Lane creeps and structures from the game's npc_units.txt, replacing the base rules' ones of the same id (the map is still the base one:
+    // one barracks per lane, so it gets the melee barracks; B-131).
+    ["unitTypes"] = new JsonArray(items.UnitTypes.Concat(heroAbilities.UnitTypes).Select(u => u!.DeepClone())
+        .Concat(new (string Id, string Game)[]
+            {
+                ("melee", "npc_dota_creep_goodguys_melee"), ("ranged", "npc_dota_creep_goodguys_ranged"), ("siege", "npc_dota_goodguys_siege"),
+                ("melee_super", "npc_dota_creep_goodguys_melee_upgraded"), ("ranged_super", "npc_dota_creep_goodguys_ranged_upgraded"),
+            }.Select(c => (JsonNode)Abilities.GameUnit(c.Id, c.Game, gameUnits)))
+        .ToArray()),
+    ["structureTypes"] = new JsonArray(new (string Id, string Game)[]
+        {
+            ("tower.t1", "npc_dota_goodguys_tower1_mid"), ("tower.t2", "npc_dota_goodguys_tower2_mid"), ("tower.t3", "npc_dota_goodguys_tower3_mid"),
+            ("tower.t4", "npc_dota_goodguys_tower4"), ("ancient", "npc_dota_goodguys_fort"), ("barracks", "npc_dota_goodguys_melee_rax_mid"),
+        }.Select(s => (JsonNode)Abilities.GameUnit(s.Id, s.Game, gameUnits)).ToArray()),
     ["abilities"] = new JsonArray(items.Abilities.Concat(heroAbilities.Abilities).Select(a => a!.DeepClone()).ToArray()),
     ["items"] = items.Items,
 };
