@@ -213,6 +213,10 @@ namespace Dynasty.MatchSimulation
         public RuneType? Rune { get; internal set; }
         internal int RuneSpot { get; set; }
 
+        /// <summary>A rune's schedule (Dota's rune timings; -1 = the plain rule) and when it appeared.</summary>
+        internal int RuneSchedule { get; set; } = -1;
+        internal long RuneSpawnTick { get; set; }
+
         /// <summary>Neutral units only: where they return to and how far they may chase.</summary>
         internal FixedVector2 NeutralHome { get; set; }
         internal int LeashRadius { get; set; }
@@ -527,6 +531,11 @@ namespace Dynasty.MatchSimulation
 
         /// <summary>Tick of the next rune spawn; -1 without runes.</summary>
         internal long NextRuneTick { get; set; } = -1;
+
+        /// <summary>Dota's rune schedules: how many spawns each has had, the types left in its cycle, and its last type.</summary>
+        internal int[]? RuneScheduleSpawns;
+        internal List<RuneType>[]? RuneBags;
+        internal RuneType?[]? RuneLastTypes;
 
         private static readonly UnitStats RuneStats = new UnitStats(1, Fixed.Zero, 0, 0, 0, 0, 1000, 0, 0, 16, visionRange: 0);
 

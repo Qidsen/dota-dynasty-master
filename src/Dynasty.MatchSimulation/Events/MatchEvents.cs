@@ -147,6 +147,28 @@ namespace Dynasty.MatchSimulation.Events
         }
     }
 
+    /// <summary>A rune nobody took was gone when the next ones came (Dota's power and water runes).</summary>
+    public sealed class RuneExpired : IDomainEvent
+    {
+        public RuneExpired(EntityId rune, string runeTypeId)
+        {
+            Rune = rune;
+            RuneTypeId = runeTypeId;
+        }
+
+        public EntityId Rune { get; }
+        public string RuneTypeId { get; }
+
+        public string Type => "match.rune_expired";
+        public int SchemaVersion => 1;
+
+        public void WritePayload(ref Fnv1a64 hash)
+        {
+            hash.AddInt64(Rune.Value);
+            hash.AddString(RuneTypeId);
+        }
+    }
+
     /// <summary>A hero got an item without buying it (Dota's Roshan drops).</summary>
     public sealed class ItemReceived : IDomainEvent
     {

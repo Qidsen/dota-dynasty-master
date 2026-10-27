@@ -836,7 +836,22 @@ namespace Dynasty.MatchSimulation.Rules
                 errors.Add("Day and night phases must both be positive.");
             Draft?.Validate(errors, Heroes);
 
-            if (Runes != null)
+            if (Runes != null && Runes.Schedules.Count > 0)
+            {
+                foreach (RuneSchedule schedule in Runes.Schedules)
+                {
+                    if (schedule.Types.Count == 0 || schedule.Spots.Count == 0)
+                        errors.Add("Rune schedule '" + schedule.Id + "' needs at least one rune type and one spot.");
+                    if (schedule.IntervalMs < 0 || schedule.FirstSpawnMs < 0 || schedule.UntilMs < 0)
+                        errors.Add("Rune schedule '" + schedule.Id + "' has negative timings.");
+                    if (schedule.Spots.Any(s => !IsInsideMap(s)))
+                        errors.Add("A spot of rune schedule '" + schedule.Id + "' is outside the map.");
+                }
+
+                if (Runes.PickupRadius <= 0)
+                    errors.Add("Rune rules need a positive pickup radius.");
+            }
+            else if (Runes != null)
             {
                 if (Runes.Types.Count == 0 || Runes.Spots.Count == 0)
                     errors.Add("Rune rules need at least one rune type and one spot.");
