@@ -1008,13 +1008,13 @@ namespace Dynasty.HeroAI
 
                 // Hit it together: wait at the gathering point until enough of the team has arrived.
                 bool assembled = !objective.CanAttackAtAll || AlliedHeroesNear(objective.Position, Math.TowerReach(objective) + 700) >= needed;
-                if (assembled && _state.IsVulnerable(objective))
+                if (assembled && _state.IsVulnerable(objective) && !objective.BackdoorActive)
                 {
                     Issue(HeroOrder.Attack(objective.Id));
                     return true;
                 }
 
-                // Gather just outside its range until creeps arrive or the team is assembled.
+                // Gather just outside its range until creeps arrive (lifting Backdoor Protection) or the team is assembled.
                 int wait = Math.TowerReach(objective) + 250;
                 Issue(HeroOrder.Move(FixedVector2.MoveTowards(objective.Position, Home, Fixed.FromInt(wait))));
                 return true;
@@ -1292,7 +1292,8 @@ namespace Dynasty.HeroAI
             {
                 if (structure.Kind != UnitKind.Structure || structure.Team == _hero.Team || !structure.IsAlive || !_state.IsVulnerable(structure))
                     continue;
-                if (!Math.Within(_hero.Position, structure.Position, 1000))
+                // Backdoor Protection (shown on the building) heals what heroes alone deal: push it with the creeps.
+                if (structure.BackdoorActive || !Math.Within(_hero.Position, structure.Position, 1000))
                     continue;
                 if (CreepsTanking(structure) || !structure.CanAttackAtAll)
                     return structure;

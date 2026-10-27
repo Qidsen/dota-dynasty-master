@@ -56,6 +56,31 @@ public class BasicHeroControllerTests
     }
 
     [Fact]
+    public void Controller_DoesNotHitABuildingUnderBackdoorProtection_ButDoesOnceItIsOff()
+    {
+        var draft = TestAbilities.Draft().WithoutWaves();
+        draft.StructureTypes.Add(new StructureType("barracks", AncientStats(),
+            backdoor: new BackdoorProtection(4000, aroundAncient: true, damageReductionPercent: 50, summonDamageReductionPercent: 75, healPerSecond: 180, reactivationMs: 15500)));
+        draft.Placements.Add(new StructurePlacement("dusk.mid.barracks", Team.Dusk, "barracks", P(8000, 3000), false, Array.Empty<string>(),
+            VulnerabilityRule.AnyProtectorDestroyed, barracksLane: "mid"));
+        var kernel = draft.StartWithHeroes(new[] { ("alpha", "mid") }, NoHeroes);
+        HeroAi.Attach(kernel);
+        At(kernel, 0, ctx => H(ctx.State, "alpha").Position = P(7400, 3000));
+        MatchUnit barracks = kernel.State.Units.Single(u => u.Placement?.Id == "dusk.mid.barracks");
+        At(kernel, 151, ctx =>
+        {
+            barracks.BackdoorOffUntilTick = long.MaxValue / 2;   // as if enemy creeps were near
+            H(ctx.State, "alpha").Position = P(7400, 3000);
+        });
+
+        kernel.RunTicks(150);
+        Assert.DoesNotContain(kernel.EventsOf<AttackStarted>(), a => a.Target == barracks.Id);
+
+        kernel.RunTicks(150);
+        Assert.Contains(kernel.EventsOf<AttackStarted>(), a => a.Target == barracks.Id);
+    }
+
+    [Fact]
     public void Controller_GoesToItsLaneAndLastHitsCreeps()
     {
         var kernel = new RulesetDraft().StartWithHeroes(new[] { ("alpha", "mid") }, NoHeroes);

@@ -192,8 +192,16 @@ namespace Dynasty.Content
             int deny = s.OptionalInt("denyHealthPercent") ?? 0;
             var modifiers = s.OptionalArray("modifiers").Select(ReadModifier).ToList();
             int reinforcement = s.OptionalInt("armorPerStandingBarracks") ?? 0;
+            BackdoorProtection? backdoor = null;
+            if (s.OptionalObject("backdoor") is Reader d)
+            {
+                backdoor = new BackdoorProtection(d.Int("radius"), d.OptionalBool("aroundAncient") ?? false, d.Int("damageReduction"), d.Int("summonDamageReduction"),
+                    d.Int("healPerSecond"), d.Milliseconds("reactivation"));
+                d.RejectUnknown();
+            }
+
             s.RejectUnknown();
-            return new StructureType(id, stats, bounty, deny, modifiers, reinforcement);
+            return new StructureType(id, stats, bounty, deny, modifiers, reinforcement, backdoor);
         }
 
         private static CreepType ReadUnitType(Reader u, RulesetContent? baseRules = null)

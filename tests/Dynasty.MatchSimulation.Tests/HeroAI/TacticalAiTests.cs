@@ -174,6 +174,35 @@ public class TacticalAiTests
     }
 
     /// <summary>
+    /// Dota's Backdoor Protection heals what heroes alone deal to a building: a push waits for the creeps instead of
+    /// hitting a protected building.
+    /// </summary>
+    [Fact]
+    public void Push_DoesNotHitABuildingUnderBackdoorProtection()
+    {
+        var draft = TestAbilities.Draft().WithoutWaves();
+        draft.StructureTypes.RemoveAll(t => t.Id == "tower");
+        draft.StructureTypes.Add(new StructureType("tower", RulesetDraft.TowerStats(dmg: 0),
+            backdoor: new BackdoorProtection(900, aroundAncient: false, damageReductionPercent: 50, summonDamageReductionPercent: 75, healPerSecond: 180, reactivationMs: 15500)));
+        var settings = new HeroAiSettings { ReactionJitterTicks = 0, MisjudgementPercent = 0, LaningPhaseMinutes = 0, EvenPushFromMinute = 0 };
+        foreach (string hero in new[] { "alpha", "gamma", "delta" })
+            settings.Personalities[hero] = new HeroPersonality();
+        var kernel = draft.StartWithHeroes(new[] { ("alpha", "mid"), ("gamma", "mid"), ("delta", "mid") }, Array.Empty<(string, string)>());
+        At(kernel, 0, ctx =>
+        {
+            H(ctx.State, "alpha").Position = P(6300, 5000);
+            H(ctx.State, "gamma").Position = P(6300, 5200);
+            H(ctx.State, "delta").Position = P(6300, 4800);
+        });
+        HeroAi.Attach(kernel, settings);
+        MatchUnit tower = kernel.State.FindStructure("dusk.mid.t1")!;
+
+        kernel.RunTicks(150);
+
+        Assert.DoesNotContain(kernel.EventsOf<AttackStarted>(), a => a.Target == tower.Id);
+    }
+
+    /// <summary>
     /// A target that runs away just as fast cannot be caught: after a short chase without closing in the
     /// heroes give it up instead of following it across the map (nothing slows or holds it).
     /// </summary>

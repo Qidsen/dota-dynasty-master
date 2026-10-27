@@ -148,8 +148,9 @@ namespace Dynasty.MatchSimulation.Rules
     public sealed class StructureType
     {
         public StructureType(string id, UnitStats stats, StructureBounty? bounty = null, int denyHealthPercent = 0,
-            IReadOnlyList<ModifierSpec>? modifiers = null, int armorPerStandingBarracks = 0)
+            IReadOnlyList<ModifierSpec>? modifiers = null, int armorPerStandingBarracks = 0, BackdoorProtection? backdoor = null)
         {
+            Backdoor = backdoor;
             Id = id;
             Stats = stats;
             Bounty = bounty;
@@ -167,6 +168,9 @@ namespace Dynasty.MatchSimulation.Rules
         public int ArmorPerStandingBarracks { get; }
 
         internal ModifierSpec? BarracksReinforcement { get; }
+
+        /// <summary>Dota's Backdoor Protection; null = none (Dota: tier 1 towers).</summary>
+        public BackdoorProtection? Backdoor { get; }
 
         public string Id { get; }
         public UnitStats Stats { get; }
@@ -194,7 +198,40 @@ namespace Dynasty.MatchSimulation.Rules
             foreach (ModifierSpec modifier in Modifiers)
                 modifier.WriteCanonical(writer);
             writer.WriteInt64(ArmorPerStandingBarracks);
+            writer.WriteBool(Backdoor != null);
+            if (Backdoor != null)
+            {
+                foreach (int value in new[] { Backdoor.Radius, Backdoor.DamageReductionPercent, Backdoor.SummonDamageReductionPercent, Backdoor.HealPerSecond, Backdoor.ReactivationMs })
+                    writer.WriteInt64(value);
+                writer.WriteBool(Backdoor.AroundAncient);
+            }
         }
+    }
+
+    /// <summary>
+    /// Dota's Backdoor Protection (Liquipedia «Buildings», 7.41f; D-051): while no enemy lane creep is within the radius
+    /// (around the building, or around its team's ancient for the buildings in the base) and for the reactivation time
+    /// after the last one left, the building takes less damage (even less from illusions and summons) and heals the
+    /// damage enemies dealt to it.
+    /// </summary>
+    public sealed class BackdoorProtection
+    {
+        public BackdoorProtection(int radius, bool aroundAncient, int damageReductionPercent, int summonDamageReductionPercent, int healPerSecond, int reactivationMs)
+        {
+            Radius = radius;
+            AroundAncient = aroundAncient;
+            DamageReductionPercent = damageReductionPercent;
+            SummonDamageReductionPercent = summonDamageReductionPercent;
+            HealPerSecond = healPerSecond;
+            ReactivationMs = reactivationMs;
+        }
+
+        public int Radius { get; }
+        public bool AroundAncient { get; }
+        public int DamageReductionPercent { get; }
+        public int SummonDamageReductionPercent { get; }
+        public int HealPerSecond { get; }
+        public int ReactivationMs { get; }
     }
 
     /// <summary>

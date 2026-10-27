@@ -92,6 +92,60 @@ namespace Dynasty.MatchSimulation.Systems
         }
     }
 
+    /// <summary>
+    /// Dota's Backdoor Protection: an enemy lane creep within a building's radius turns its protection off until the
+    /// reactivation time after the last one leaves; while on, it heals the enemy damage taken. Depends only on positions.
+    /// </summary>
+    internal sealed class BackdoorSystem : ISimulationSystem<MatchState>
+    {
+        public string Name => "backdoor";
+
+        public void Tick(SimulationContext<MatchState> context)
+        {
+            MatchState state = context.State;
+            IReadOnlyList<MatchUnit> units = state.Units;
+            long now = context.Tick.Value;
+            for (int i = 0, count = units.Count; i < count; i++)
+            {
+                MatchUnit building = units[i];
+                BackdoorProtection? backdoor = building.Backdoor;
+                if (backdoor == null || !building.IsAlive)
+                    continue;
+                FixedVector2 center = building.Position;
+                if (backdoor.AroundAncient)
+                {
+                    MatchUnit? ancient = units.FirstOrDefault(u => u.Kind == UnitKind.Structure && u.Team == building.Team && u.Placement?.IsAncient == true);
+                    if (ancient != null)
+                        center = ancient.Position;
+                }
+
+                Team enemy = building.Team.Opponent();
+                for (int j = 0; j < count; j++)
+                {
+                    MatchUnit creep = units[j];
+                    if (creep.Kind == UnitKind.Creep && creep.Team == enemy && creep.IsAlive && Geometry.WithinRange(creep.Position, center, backdoor.Radius))
+                    {
+                        building.BackdoorOffUntilTick = now + context.TickRate.TicksFor(backdoor.ReactivationMs);
+                        break;
+                    }
+                }
+
+                building.BackdoorActive = now >= building.BackdoorOffUntilTick;
+                if (!building.BackdoorActive)
+                {
+                    building.BackdoorHealLeft = Fixed.Zero;
+                    continue;
+                }
+
+                if (building.BackdoorHealLeft <= Fixed.Zero)
+                    continue;
+                Fixed heal = Fixed.Min(building.BackdoorHealLeft, Fixed.FromInt(backdoor.HealPerSecond) / Fixed.FromInt(context.TickRate.TicksPerSecond));
+                building.BackdoorHealLeft -= heal;
+                Damage.Heal(context, building.Id, building, heal);
+            }
+        }
+    }
+
     /// <summary>Pulses ground zones in creation order and removes expired ones; a zone whose source is gone ends.</summary>
     internal sealed class ZoneSystem : ISimulationSystem<MatchState>
     {

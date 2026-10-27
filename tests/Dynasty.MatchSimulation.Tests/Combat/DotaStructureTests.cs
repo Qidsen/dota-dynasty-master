@@ -1,3 +1,4 @@
+using Dynasty.Core.Ids;
 using Dynasty.Core.Kernel;
 using Dynasty.Core.Mathematics;
 using Dynasty.MatchSimulation.Combat;
@@ -202,5 +203,108 @@ public class DotaStructureTests
 
         Fixed baseArmor = S(kernel.State, "dusk.base.t4").Stats.Armor;
         Assert.Equal((baseArmor + Fixed.FromInt(8), baseArmor + Fixed.FromInt(4)), (before, after));
+    }
+
+    /// <summary>
+    /// Backdoor Protection: without enemy lane creeps in its radius (its own 900, or 4000 around the ancient for buildings in
+    /// the base) a building takes 50% less damage (75% from illusions and summons) and heals the enemy damage at 180 HP/s;
+    /// an enemy lane creep in the radius turns it off until 15.5 s after the last one leaves.
+    /// </summary>
+    private static SimulationKernel<MatchState> BackdoorArena()
+    {
+        RulesetDraft draft = TestAbilities.Draft();
+        var own = new BackdoorProtection(radius: 900, aroundAncient: false, damageReductionPercent: 50, summonDamageReductionPercent: 75, healPerSecond: 180, reactivationMs: 15500);
+        var inBase = new BackdoorProtection(radius: 4000, aroundAncient: true, damageReductionPercent: 50, summonDamageReductionPercent: 75, healPerSecond: 180, reactivationMs: 15500);
+        draft.StructureTypes.Clear();
+        draft.StructureTypes.Add(new StructureType("tower", TowerStats(dmg: 0), backdoor: own));
+        draft.StructureTypes.Add(new StructureType("ancient", AncientStats(), backdoor: inBase));
+        draft.StructureTypes.Add(new StructureType("barracks", AncientStats(), backdoor: inBase));
+        draft.Placements.Add(new StructurePlacement("dusk.mid.barracks", Team.Dusk, "barracks", P(9000, 6500), false, Array.Empty<string>(), VulnerabilityRule.AnyProtectorDestroyed, barracksLane: "mid"));
+        var kernel = draft.StartWithHeroes(new[] { ("alpha", "mid") }, new[] { ("beta", "mid") });
+        At(kernel, 0, ctx =>
+        {
+            H(ctx.State, "alpha").Position = P(5000, 2000);
+            H(ctx.State, "beta").Position = P(5000, 8000);
+        });
+        return kernel;
+    }
+
+    private static Fixed Hit(SimulationContext<MatchState> ctx, EntityId attacker, string placement, int amount)
+    {
+        MatchUnit building = S(ctx.State, placement);
+        Fixed before = building.Hp;
+        Damage.Deal(ctx, attacker, building, Fixed.FromInt(amount), DamageType.Pure);
+        return before - building.Hp;
+    }
+
+    private static MatchUnit DawnCreepAt(SimulationContext<MatchState> ctx, FixedVector2 position)
+    {
+        MatchUnit creep = ctx.State.SpawnCreep(ctx.Ids.Allocate(), Team.Dawn, ctx.State.Ruleset.CreepTypes.First(), ctx.State.Ruleset.Map.Lanes[0], ctx.Tick.Value);
+        creep.Position = position;
+        return creep;
+    }
+
+    [Fact]
+    public void AProtectedBuilding_TakesHalfTheDamage_AndHealsItBack()
+    {
+        var kernel = BackdoorArena();
+        Fixed taken = Fixed.Zero;
+        At(kernel, 2, ctx => taken = Hit(ctx, H(ctx.State, "alpha").Id, "dusk.mid.t1", 100));
+        kernel.RunTicks(20);   // 50 HP back at 180/s: within 0.3 s
+
+        Assert.Equal(Fixed.FromInt(50), taken);
+        MatchUnit tower = S(kernel.State, "dusk.mid.t1");
+        Assert.Equal(Fixed.FromInt(tower.MaxHp), tower.Hp);
+    }
+
+    [Fact]
+    public void ASummon_DealsAQuarterToAProtectedBuilding()
+    {
+        var kernel = BackdoorArena();
+        Fixed taken = Fixed.Zero;
+        At(kernel, 2, ctx =>
+        {
+            MatchUnit bug = ctx.State.SpawnSummon(ctx.Ids.Allocate(), H(ctx.State, "alpha"), ctx.State.Ruleset.CreepTypes.First(), ctx.Tick.Value, ctx.Tick.Value + 100000);
+            taken = Hit(ctx, bug.Id, "dusk.mid.t1", 100);
+        });
+        kernel.RunTicks(3);
+
+        Assert.Equal(Fixed.FromInt(25), taken);
+    }
+
+    [Fact]
+    public void AnEnemyLaneCreepNearby_TurnsItOff_UntilFifteenAndAHalfSecondsAfterItLeaves()
+    {
+        var kernel = BackdoorArena();
+        MatchUnit? creep = null;
+        Fixed whileThere = Fixed.Zero, soonAfter = Fixed.Zero, later = Fixed.Zero, healed = Fixed.Zero;
+        At(kernel, 2, ctx => creep = DawnCreepAt(ctx, P(6300, 5000)));   // 700 from the tower
+        At(kernel, 4, ctx => whileThere = Hit(ctx, H(ctx.State, "alpha").Id, "dusk.mid.t1", 100));
+        At(kernel, 5, ctx => Damage.Deal(ctx, default, creep!, Fixed.FromInt(99999), DamageType.Pure));
+        At(kernel, 30, ctx => healed = Fixed.FromInt(S(ctx.State, "dusk.mid.t1").MaxHp) - S(ctx.State, "dusk.mid.t1").Hp);
+        At(kernel, 5 + 450, ctx => soonAfter = Hit(ctx, H(ctx.State, "alpha").Id, "dusk.mid.t1", 100));   // 15 s after
+        At(kernel, 5 + 480, ctx => later = Hit(ctx, H(ctx.State, "alpha").Id, "dusk.mid.t1", 100));      // 16 s after
+        kernel.RunTicks(5 + 482);
+
+        Assert.Equal(Fixed.FromInt(100), whileThere);
+        Assert.True(healed >= Fixed.FromInt(100), "no healing while off");
+        Assert.Equal(Fixed.FromInt(100), soonAfter);
+        Assert.Equal(Fixed.FromInt(50), later);
+    }
+
+    [Fact]
+    public void BuildingsInTheBase_AreProtectedByTheAncientsRadius()
+    {
+        var kernel = BackdoorArena();
+        Fixed barracks = Fixed.Zero, tower = Fixed.Zero;
+        At(kernel, 2, ctx => DawnCreepAt(ctx, P(6500, 2500)));   // 3900 from the ancient; 4700 from the barracks, 2550 from the tower
+        At(kernel, 4, ctx =>
+        {
+            barracks = Hit(ctx, H(ctx.State, "alpha").Id, "dusk.mid.barracks", 100);
+            tower = Hit(ctx, H(ctx.State, "alpha").Id, "dusk.mid.t1", 100);
+        });
+        kernel.RunTicks(5);
+
+        Assert.Equal((Fixed.FromInt(100), Fixed.FromInt(50)), (barracks, tower));
     }
 }

@@ -241,6 +241,17 @@ static JsonObject StructureRules(JsonObject structure)
         "barracks" => (155, 90, 135, false, 100, 0),   // the melee barracks (one per lane until the map is carried over)
         _ => null,
     };
+    // Backdoor Protection (Liquipedia «Buildings», 7.41f; D-051): tier 2 towers by their own 900 radius, the buildings in the base
+    // by 4000 around the ancient (the game file's backdoor_protection_in_base says 900 — the wikis: the ancient's radius
+    // governs them); off while an enemy lane creep is inside and 15 s (file: activation_time) + 0.5 s linger after;
+    // −50% damage, −75% from illusions and summons; heals the enemy damage at 180 HP/s (file: 90, wikis and Valve 7.32: 180).
+    string kind = structure["id"]!.GetValue<string>();
+    if (kind != "tower.t1")
+        structure["backdoor"] = new JsonObject
+        {
+            ["radius"] = kind == "tower.t2" ? 900 : 4000, ["aroundAncient"] = kind != "tower.t2",
+            ["damageReduction"] = 50, ["summonDamageReduction"] = 75, ["healPerSecond"] = 180, ["reactivation"] = 15.5,
+        };
     if (bounty is not { } b)
         return structure;
     // Tower Protection (Liquipedia «Buildings», 7.41f): allied heroes within 900 get +3/5/5/5 armor and +1/3/3/3 regeneration

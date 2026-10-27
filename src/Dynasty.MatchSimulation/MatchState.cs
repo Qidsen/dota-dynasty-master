@@ -76,6 +76,18 @@ namespace Dynasty.MatchSimulation
         /// <summary>The modifiers giving critical strikes, from the strongest multiplier down (each keeps its pseudo-random tries).</summary>
         internal IReadOnlyList<ActiveModifier> CritModifiers { get; private set; } = Array.Empty<ActiveModifier>();
 
+        /// <summary>A building's Backdoor Protection (<see cref="StructureType.Backdoor"/>); null = none.</summary>
+        internal BackdoorProtection? Backdoor { get; set; }
+
+        /// <summary>Whether its Backdoor Protection is on (no enemy lane creeps nearby lately).</summary>
+        public bool BackdoorActive { get; internal set; }
+
+        /// <summary>The tick until which its Backdoor Protection stays off.</summary>
+        internal long BackdoorOffUntilTick;
+
+        /// <summary>Enemy damage its Backdoor Protection has still to heal.</summary>
+        internal Fixed BackdoorHealLeft;
+
         /// <summary>Attacks taken since the last evasion (Dota: evasion is pseudo-random).</summary>
         internal int EvasionTries;
         public int AttackDamageMin { get; private set; }
@@ -680,6 +692,8 @@ namespace Dynasty.MatchSimulation
             };
             foreach (ModifierSpec spec in type.Modifiers)
                 unit.AddModifier(new ActiveModifier(spec, id, 0, -1, 0));
+            unit.Backdoor = type.Backdoor;
+            unit.BackdoorActive = type.Backdoor != null;
             Add(unit);
             _structures.Add(placement.Id, unit);
             return unit;

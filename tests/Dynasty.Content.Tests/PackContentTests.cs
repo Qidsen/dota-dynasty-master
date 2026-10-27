@@ -291,6 +291,7 @@ public class PackContentTests
                 ""baseAttackTime"": 0.9, ""attackPoint"": 0.6, ""attackRange"": 700, ""acquisitionRange"": 700, ""projectileSpeed"": 750, ""visionRange"": 1900,
                 ""nightVision"": 800, ""attackClass"": ""reinforced"", ""denyHealthPercent"": 10,
                 ""bounty"": { ""teamGold"": 90, ""lastHitGold"": [110, 130], ""lastHitterGetsTeamGold"": true, ""deniedEnemyGoldPercent"": 50, ""deniedOwnGoldPercent"": 50 },
+                ""backdoor"": { ""radius"": 4000, ""aroundAncient"": true, ""damageReduction"": 50, ""summonDamageReduction"": 75, ""healPerSecond"": 180, ""reactivation"": 15.5 },
                 ""armorPerStandingBarracks"": 4, ""modifiers"": [ { ""key"": ""tower_aura_source"", ""aura"": { ""radius"": 900, ""team"": ""ally"", ""heroesOnly"": true,
                     ""modifier"": { ""key"": ""tower_aura"", ""duration"": 0.5, ""armor"": 3, ""healthRegen"": 1, ""unique"": true } } } ] } ]", Hero("lion", "[]"));
 
@@ -305,6 +306,9 @@ public class PackContentTests
         Assert.Null(rules.FindStructureType("tower.t2")!.Bounty);
         StructureType tower = rules.FindStructureType("tower.t1")!;
         ModifierSpec aura = tower.Modifiers.Single().Aura!.Modifier;
+        BackdoorProtection backdoor = tower.Backdoor!;
+        Assert.Equal((4000, true, 50, 75, 180, 15500), (backdoor.Radius, backdoor.AroundAncient, backdoor.DamageReductionPercent, backdoor.SummonDamageReductionPercent,
+            backdoor.HealPerSecond, backdoor.ReactivationMs));
         Assert.Equal((4, 900, true, 3, true), (tower.ArmorPerStandingBarracks, tower.Modifiers[0].Aura!.Radius, tower.Modifiers[0].Aura!.HeroesOnly, aura.ArmorBonus.ToIntFloor(), aura.Unique));
         Assert.Throws<RulesetPackException>(() => Apply(@"""structureTypes"": [ { ""id"": ""tower.t9"", ""health"": 1, ""armor"": 0, ""visionRange"": 1 } ]", Hero("lion", "[]")));
     }

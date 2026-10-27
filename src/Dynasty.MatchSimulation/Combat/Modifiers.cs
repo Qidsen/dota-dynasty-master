@@ -625,14 +625,25 @@ namespace Dynasty.MatchSimulation.Combat
                     ? rawAmount * Fixed.FromInt(10000 - target.MagicResistHundredths) / Fixed.FromInt(10000)
                     : DamageMath.Mitigate(rawAmount, type, target.Armor, target.MagicResistPercent, context.State.Ruleset.Combat.ArmorFactor);
             // A whole percent keeps its old formula (same fixed-point result); a fractional one works in hundredths.
-            if (target.IncomingDamageHundredths % 100 != 0)
+            MatchUnit? from = attacker.IsValid ? context.State.Find(attacker) : null;
+            if (target.BackdoorActive)
+            {
+                // Dota: adds to the other incoming damage changes; even less from illusions and summons.
+                bool summoned = from != null && (from.IllusionOf.IsValid || from.Kind == UnitKind.Summon);
+                int reduction = summoned ? target.Backdoor!.SummonDamageReductionPercent : target.Backdoor!.DamageReductionPercent;
+                amount = amount * Fixed.FromInt(Math.Max(0, 10000 + target.IncomingDamageHundredths - reduction * 100)) / Fixed.FromInt(10000);
+            }
+            else if (target.IncomingDamageHundredths % 100 != 0)
                 amount = amount * Fixed.FromInt(10000 + target.IncomingDamageHundredths) / Fixed.FromInt(10000);
             else if (target.IncomingDamageHundredths != 0)
                 amount = amount * Fixed.FromInt(100 + target.IncomingDamageHundredths / 100) / Fixed.FromInt(100);
             amount = Absorb(context, target, amount);
             if ((target.Flags & ModifierFlags.CannotDie) != 0)
                 amount = Fixed.Max(Fixed.Zero, Fixed.Min(amount, target.Hp - Fixed.One));
+            Fixed before = target.Hp;
             target.Hp = Fixed.Max(Fixed.Zero, target.Hp - amount);
+            if (target.BackdoorActive && from != null && from.Team != target.Team)
+                target.BackdoorHealLeft += before - target.Hp;
             if (attacker.IsValid)
             {
                 target.LastAttackerId = attacker;
