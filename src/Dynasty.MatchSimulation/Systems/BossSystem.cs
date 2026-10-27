@@ -88,6 +88,20 @@ namespace Dynasty.MatchSimulation.Systems
             BossDefinition? definition = state.Ruleset.Boss;
             if (definition != null && state.Boss == null && state.NextBossSpawnTick >= 0 && now >= state.NextBossSpawnTick)
             {
+                // Dota: Roshan takes back an unused Aegis when he respawns; its carrier gets the regeneration instead.
+                if (definition.Aegis != null)
+                {
+                    foreach (MatchUnit hero in state.Heroes.ToList())
+                    {
+                        ActiveModifier? aegis = hero.FindModifier(definition.Aegis.Key, hero.Modifiers.FirstOrDefault(m => m.Spec.Key == definition.Aegis.Key)?.Source ?? default);
+                        if (aegis == null)
+                            continue;
+                        Modifiers.Remove(context, hero, aegis, "reclaimed");
+                        if (definition.Aegis.ExpireModifier != null && hero.IsAlive)
+                            Modifiers.Apply(context, hero, definition.Aegis.ExpireModifier, aegis.Source);
+                    }
+                }
+
                 MatchUnit spawned = state.SpawnBoss(context.Ids.Allocate(), definition);
                 context.Emit(new BossSpawned(spawned.Id, definition.Id));
             }
@@ -182,6 +196,14 @@ namespace Dynasty.MatchSimulation.Systems
                         Modifiers.Apply(context, hero, definition.Reward, boss.Id);
                     if (definition.TeamGold > 0)
                         HeroProgression.GrantGold(context, hero, definition.TeamGold, "boss");
+                }
+
+                if (definition.Aegis != null)
+                {
+                    MatchUnit? holder = state.Heroes.Where(h => h.Team == team && h.IsAlive)
+                        .OrderByDescending(h => h.Hero!.NetWorth).ThenBy(h => h.Id.Value).FirstOrDefault();
+                    if (holder != null)
+                        Modifiers.Apply(context, holder, definition.Aegis, boss.Id);
                 }
 
                 // Dota: more gold for the hero that landed the last hit; XP for the killing team's heroes around.

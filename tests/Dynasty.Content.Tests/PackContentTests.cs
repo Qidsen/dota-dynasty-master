@@ -328,7 +328,9 @@ public class PackContentTests
     {
         RulesetContent rules = Apply(@"""boss"": { ""id"": ""roshan"", ""creep"": ""roshan"", ""firstSpawn"": 0, ""respawnMin"": 480, ""respawnMax"": 660,
                 ""teamGold"": 135, ""killerGold"": [200, 290], ""xp"": 400,
-                ""growth"": { ""interval"": 60, ""health"": 130, ""armor"": 0.4, ""damage"": 7, ""xp"": 20, ""armorFromStart"": true } },
+                ""growth"": { ""interval"": 60, ""health"": 130, ""armor"": 0.4, ""damage"": 7, ""xp"": 20, ""armorFromStart"": true },
+                ""aegis"": { ""key"": ""aegis"", ""duration"": 300, ""revives"": true, ""reviveDelay"": 5, ""consumedOnRevive"": true, ""dispellable"": false,
+                    ""expireModifier"": { ""key"": ""aegis_regen"", ""duration"": 5, ""healthRegenMaxPercent"": 20, ""manaRegenMaxPercent"": 20 } } },
             ""unitTypes"": [ { ""id"": ""roshan"", ""health"": 6000, ""armor"": 30, ""moveSpeed"": 270, ""visionRange"": 1400, ""attackDamageMin"": 75, ""attackDamageMax"": 75,
                 ""attackRange"": 150, ""baseAttackTime"": 2 } ]", Hero("lion", "[]"));
 
@@ -337,6 +339,9 @@ public class PackContentTests
         Assert.Equal(("roshan", 480000, 660000, 135, 200, 290, 400), (boss.CreepTypeId, boss.RespawnMinMs, boss.RespawnMaxMs, boss.TeamGold, boss.KillerGoldMin, boss.KillerGoldMax, boss.Xp));
         Assert.Equal((baseBoss.Position, baseBoss.LeashRadius), (boss.Position, boss.LeashRadius));
         Assert.Null(boss.Reward);
+        ModifierSpec aegis = boss.Aegis!;
+        Assert.Equal((300000, true, 5000, true), (aegis.DurationMs, aegis.Revives, aegis.ReviveDelayMs, aegis.ConsumedOnRevive));
+        Assert.Equal((5000, 20, 20), (aegis.ExpireModifier!.DurationMs, aegis.ExpireModifier.HealPerSecondMaxHealthPercent.ToIntFloor(), aegis.ExpireModifier.ManaPerSecondMaxManaPercent.ToIntFloor()));
         Assert.Equal((60000, 130, 7, 20, true), (boss.Growth!.IntervalMs, boss.Growth.Health, boss.Growth.Damage, boss.Growth.Xp, boss.Growth.ArmorFromStart));
     }
 

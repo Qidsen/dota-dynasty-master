@@ -341,11 +341,20 @@ namespace Dynasty.MatchSimulation.Systems
                             Damage.Deal(context, modifier.Source, unit, Fixed.FromInt(unit.MaxHp) * spec.DamagePerSecondMaxHealthPercent / Fixed.FromInt(100) * periodFraction, spec.DamageType);
                         if (spec.HealPerSecond > Fixed.Zero)
                             Damage.Heal(context, modifier.Source, unit, spec.HealPerSecond * periodFraction);
+                        if (spec.HealPerSecondMaxHealthPercent > Fixed.Zero)
+                            Damage.Heal(context, modifier.Source, unit, Fixed.FromInt(unit.MaxHp) * spec.HealPerSecondMaxHealthPercent / Fixed.FromInt(100) * periodFraction);
+                        if (spec.ManaPerSecondMaxManaPercent > Fixed.Zero && unit.Hero != null)
+                            unit.Hero.Mana = Fixed.Min(Fixed.FromInt(unit.Hero.MaxMana),
+                                unit.Hero.Mana + Fixed.FromInt(unit.Hero.MaxMana) * spec.ManaPerSecondMaxManaPercent / Fixed.FromInt(100) * periodFraction);
                         modifier.NextPeriodTick += context.TickRate.TicksFor(spec.PeriodMs);
                     }
 
                     if (modifier.ExpiresTick >= 0 && now >= modifier.ExpiresTick)
+                    {
                         Modifiers.Remove(context, unit, modifier, "expired");
+                        if (spec.ExpireModifier != null && unit.IsAlive)
+                            Modifiers.Apply(context, unit, spec.ExpireModifier, modifier.Source);
+                    }
                     else if (spec.BreakRadius > 0 && EnemyBreakerNear(context.State, unit, spec.BreakRadius))
                         Modifiers.Remove(context, unit, modifier, "broken");
                 }
@@ -905,6 +914,19 @@ namespace Dynasty.MatchSimulation.Systems
             ActiveModifier? revive = unit.Modifiers.FirstOrDefault(m => m.Spec.Revives && now >= m.NextProcTick);
             if (revive == null)
                 return false;
+            if (revive.Spec.ConsumedOnRevive)
+                unit.RemoveModifier(revive);
+            if (revive.Spec.ReviveDelayMs > 0 && unit.Hero != null)
+            {
+                // Dota's Aegis: down where it died for the delay, then back there (the hero economy system brings it back).
+                unit.Hero.RespawnTick = now + context.TickRate.TicksFor(revive.Spec.ReviveDelayMs);
+                unit.Hero.Reincarnating = true;
+                Heroes.HeroOrders.Issue(unit, Heroes.HeroOrder.Idle);
+                unit.PendingAttackTick = -1;
+                Effects.Run(context, unit, revive.Spec.OnDeath, 1, context.State.Find(unit.LastAttackerId) ?? unit, unit.Position);
+                return true;
+            }
+
             unit.Hp = Fixed.FromInt(unit.MaxHp);
             if (unit.Hero != null)
                 unit.Hero.Mana = Fixed.FromInt(unit.Hero.MaxMana);

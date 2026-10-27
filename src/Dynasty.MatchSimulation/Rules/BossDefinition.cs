@@ -12,8 +12,9 @@ namespace Dynasty.MatchSimulation.Rules
     {
         public BossDefinition(string id, string creepTypeId, FixedVector2 position, int leashRadius, int firstSpawnMs,
             int respawnMinMs, int respawnMaxMs, int teamGold, ModifierSpec? reward, int killerGoldMin = 0, int killerGoldMax = 0, int xp = 0,
-            BossGrowth? growth = null)
+            BossGrowth? growth = null, ModifierSpec? aegis = null)
         {
+            Aegis = aegis;
             KillerGoldMin = killerGoldMin;
             KillerGoldMax = killerGoldMax;
             Xp = xp;
@@ -60,6 +61,12 @@ namespace Dynasty.MatchSimulation.Rules
         /// <summary>Dota's Roshan grows every interval from the horn, alive or dead; null = never.</summary>
         public BossGrowth? Growth { get; }
 
+        /// <summary>
+        /// Dota's Aegis of the Immortal: given at every death to the killing team's richest living hero (in Dota it drops to be
+        /// picked up); the boss's respawn takes an unused one back, as if it ran out. Null = none.
+        /// </summary>
+        public ModifierSpec? Aegis { get; }
+
         internal void WriteCanonical(CanonicalWriter w)
         {
             w.WriteString(Id);
@@ -85,6 +92,9 @@ namespace Dynasty.MatchSimulation.Rules
                 w.WriteInt64(Growth.Xp);
                 w.WriteBool(Growth.ArmorFromStart);
             }
+
+            w.WriteBool(Aegis != null);
+            Aegis?.WriteCanonical(w);
         }
     }
 

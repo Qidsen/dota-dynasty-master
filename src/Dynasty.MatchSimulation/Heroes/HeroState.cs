@@ -89,6 +89,9 @@ namespace Dynasty.MatchSimulation.Heroes
 
         public bool IsDead => RespawnTick >= 0;
 
+        /// <summary>Down for a delayed revive where it died (Dota's Aegis), not dead for the scoreboard.</summary>
+        public bool Reincarnating { get; internal set; }
+
         /// <summary>First tick a buyback is allowed again.</summary>
         public long BuybackReadyTick { get; internal set; }
 

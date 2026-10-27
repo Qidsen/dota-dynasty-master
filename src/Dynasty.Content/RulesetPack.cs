@@ -208,7 +208,8 @@ namespace Dynasty.Content
             }
 
             var boss = new BossDefinition(b.String("id"), b.String("creep"), baseBoss.Position, baseBoss.LeashRadius, b.OptionalMilliseconds("firstSpawn") ?? 0,
-                b.Milliseconds("respawnMin"), b.Milliseconds("respawnMax"), b.Int("teamGold"), null, killerGold[0], killerGold[1], b.OptionalInt("xp") ?? 0, growth);
+                b.Milliseconds("respawnMin"), b.Milliseconds("respawnMax"), b.Int("teamGold"), null, killerGold[0], killerGold[1], b.OptionalInt("xp") ?? 0, growth,
+                b.OptionalObject("aegis") is Reader ae ? ReadModifier(ae) : null);
             b.RejectUnknown();
             return boss;
         }
@@ -505,7 +506,11 @@ namespace Dynasty.Content
                 evasionHundredths: m.OptionalHundredth("evasion") ?? 0, onHit: m.OptionalArray("onHit").Select(ReadEffect).ToList(),
                 onHitChancePercent: 0, onHitChanceHundredths: m.OptionalHundredth("onHitChance") ?? 10000, aura: m.OptionalObject("aura") is Reader a ? ReadAura(a) : null,
                 cleavePercent: m.OptionalInt("cleavePercent") ?? 0, cleaveRadius: m.OptionalInt("cleaveRadius") ?? 0,
-                splashPercent: m.OptionalInt("splash") ?? 0, splashRadius: m.OptionalInt("splashRadius") ?? 0, barrier: m.OptionalInt("barrier") ?? 0, consumedOnHit: m.OptionalBool("consumedOnHit") ?? false,
+                splashPercent: m.OptionalInt("splash") ?? 0, splashRadius: m.OptionalInt("splashRadius") ?? 0,
+                reviveDelayMs: m.OptionalMilliseconds("reviveDelay") ?? 0, consumedOnRevive: m.OptionalBool("consumedOnRevive") ?? false,
+                expireModifier: m.OptionalObject("expireModifier") is Reader ex ? ReadModifier(ex) : null,
+                healPerSecondMaxHealthPercent: m.OptionalFixed("healthRegenMaxPercent") ?? Dynasty.Core.Mathematics.Fixed.Zero,
+                manaPerSecondMaxManaPercent: m.OptionalFixed("manaRegenMaxPercent") ?? Dynasty.Core.Mathematics.Fixed.Zero, barrier: m.OptionalInt("barrier") ?? 0, consumedOnHit: m.OptionalBool("consumedOnHit") ?? false,
                 damagePerSecondMaxHealthPercent: m.OptionalFixed("damagePerSecondMaxHealthPercent") ?? Fixed.Zero,
                 onHitAfterAttacks: m.OptionalInt("onHitAfterAttacks") ?? 0, whenAttacked: m.OptionalArray("whenAttacked").Select(ReadEffect).ToList(),
                 whenAttackedEvery: m.OptionalInt("whenAttackedEvery") ?? 1,

@@ -217,6 +217,13 @@ var pack = new JsonObject
         ["id"] = "roshan", ["creep"] = "roshan", ["firstSpawn"] = 0, ["respawnMin"] = 480, ["respawnMax"] = 660,
         ["teamGold"] = 135, ["killerGold"] = new JsonArray(200, 290), ["xp"] = 400,
         ["growth"] = new JsonObject { ["interval"] = 60, ["health"] = 130, ["armor"] = 0.4, ["damage"] = 7, ["xp"] = 20, ["armorFromStart"] = true },
+        // The Aegis (game file item_aegis: reincarnate_time 5, disappear_time 300; Fandom «Aegis of the Immortal» 2024-11: unused or
+        // taken back by Roshan's respawn, 20% of max health and mana per second for 5 s): to the killing team's richest hero (B-149).
+        ["aegis"] = new JsonObject
+        {
+            ["key"] = "aegis", ["duration"] = 300, ["revives"] = true, ["reviveDelay"] = 5, ["consumedOnRevive"] = true, ["dispellable"] = false,
+            ["expireModifier"] = new JsonObject { ["key"] = "aegis_regen", ["duration"] = 5, ["healthRegenMaxPercent"] = 20, ["manaRegenMaxPercent"] = 20 },
+        },
     },
     // Lane waves (Liquipedia «Lane Creeps», updated for 7.41): every 30 s from 0:00, 3 melee and 1 ranged; a siege creep from the
     // 11th wave every 10th; a flagbearer from the 5th wave every 2nd in place of a melee creep; +1 melee at 15:00, 30:00 and

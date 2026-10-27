@@ -74,6 +74,18 @@ namespace Dynasty.MatchSimulation.Systems
 
         private static void Respawn(SimulationContext<MatchState> context, MatchUnit unit, HeroState hero)
         {
+            if (hero.Reincarnating)
+            {
+                // Dota's Aegis: back where it died, with full health and mana.
+                hero.Reincarnating = false;
+                hero.RespawnTick = -1;
+                unit.Hp = Fixed.FromInt(unit.MaxHp);
+                hero.Mana = Fixed.FromInt(hero.MaxMana);
+                unit.LastActiveTick = context.Tick.Value;
+                context.Emit(new UnitRevived(unit.Id, "reincarnation"));
+                return;
+            }
+
             Revive(context, unit, hero);
             context.Emit(new HeroRespawned(unit.Id));
         }
@@ -86,6 +98,7 @@ namespace Dynasty.MatchSimulation.Systems
                 : rules.BuybackCost(hero.Level);
             string? failure = !rules.BuybackEnabled && economy == null ? "disabled"
                 : !hero.IsDead ? "not_dead"
+                : hero.Reincarnating ? "reincarnating"
                 : now < hero.BuybackReadyTick ? "cooldown"
                 : hero.Gold < Fixed.FromInt(cost) ? "gold"
                 : null;

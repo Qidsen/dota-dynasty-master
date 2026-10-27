@@ -158,8 +158,18 @@ namespace Dynasty.MatchSimulation.Combat
             bool pseudoRandom = false,
             bool unique = false,
             int splashPercent = 0,
-            int splashRadius = 0)
+            int splashRadius = 0,
+            int reviveDelayMs = 0,
+            bool consumedOnRevive = false,
+            ModifierSpec? expireModifier = null,
+            Fixed healPerSecondMaxHealthPercent = default,
+            Fixed manaPerSecondMaxManaPercent = default)
         {
+            ReviveDelayMs = reviveDelayMs;
+            ConsumedOnRevive = consumedOnRevive;
+            ExpireModifier = expireModifier;
+            HealPerSecondMaxHealthPercent = healPerSecondMaxHealthPercent;
+            ManaPerSecondMaxManaPercent = manaPerSecondMaxManaPercent;
             SplashPercent = splashPercent;
             SplashRadius = splashRadius;
             PseudoRandom = pseudoRandom;
@@ -331,6 +341,22 @@ namespace Dynasty.MatchSimulation.Combat
         /// </summary>
         public bool Revives { get; }
 
+        /// <summary>
+        /// With <see cref="Revives"/>: the hero stays down this long where it died before coming back there (Dota's Aegis: 5 s);
+        /// the death is not counted. 0 = at once.
+        /// </summary>
+        public int ReviveDelayMs { get; }
+
+        /// <summary>With <see cref="Revives"/>: the modifier is used up by the revive (Dota's Aegis).</summary>
+        public bool ConsumedOnRevive { get; }
+
+        /// <summary>Applied to the bearer when the modifier runs out (Dota's unused Aegis: a quick regeneration).</summary>
+        public ModifierSpec? ExpireModifier { get; }
+
+        /// <summary>Percent of the bearer's maximum health and mana restored per second (Dota's Aegis regeneration).</summary>
+        public Fixed HealPerSecondMaxHealthPercent { get; }
+        public Fixed ManaPerSecondMaxManaPercent { get; }
+
         /// <summary><see cref="OnKill"/> runs only for hero victims (Flesh Heap).</summary>
         public bool OnKillHeroesOnly { get; }
 
@@ -412,7 +438,8 @@ namespace Dynasty.MatchSimulation.Combat
             MoveSpeedHundredths < 0 || AttackSpeedBonus < 0 || ArmorBonus < Fixed.Zero || DamageBonus < 0 || MagicResistBonus < 0 ||
             DamagePerSecond > Fixed.Zero;
 
-        public bool IsPeriodic => DamagePerSecond > Fixed.Zero || HealPerSecond > Fixed.Zero || DamagePerSecondMaxHealthPercent > Fixed.Zero;
+        public bool IsPeriodic => DamagePerSecond > Fixed.Zero || HealPerSecond > Fixed.Zero || DamagePerSecondMaxHealthPercent > Fixed.Zero ||
+                                  HealPerSecondMaxHealthPercent > Fixed.Zero || ManaPerSecondMaxManaPercent > Fixed.Zero;
 
         public bool IsPermanent => DurationMs < 0;
 
@@ -478,6 +505,12 @@ namespace Dynasty.MatchSimulation.Combat
             w.WriteBool(Unique);
             w.WriteInt64(SplashPercent);
             w.WriteInt64(SplashRadius);
+            w.WriteInt64(ReviveDelayMs);
+            w.WriteBool(ConsumedOnRevive);
+            w.WriteBool(ExpireModifier != null);
+            ExpireModifier?.WriteCanonical(w);
+            w.WriteFixed(HealPerSecondMaxHealthPercent);
+            w.WriteFixed(ManaPerSecondMaxManaPercent);
             w.WriteInt64(AttackCharges);
             w.WriteBool(ExtraTargetRadiusFromAttackRange);
             w.WriteInt64(ExtraTargetChancePercent);

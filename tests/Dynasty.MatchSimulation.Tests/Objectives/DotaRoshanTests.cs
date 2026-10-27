@@ -2,6 +2,7 @@ using Dynasty.Core.Kernel;
 using Dynasty.Core.Mathematics;
 using Dynasty.MatchSimulation.Combat;
 using Dynasty.MatchSimulation.Rules;
+using Dynasty.MatchSimulation.Tests;
 using static Dynasty.MatchSimulation.Tests.RulesetDraft;
 
 namespace Dynasty.MatchSimulation.Tests.Objectives;
@@ -82,5 +83,103 @@ public class DotaRoshanTests
         Assert.Equal(0, Gain("beta"));
         Assert.Equal((400 + 20) / 2, H(kernel.State, "gamma").Hero!.Xp - xpBefore["gamma"]);
         Assert.Equal(0, H(kernel.State, "beta").Hero!.Xp - xpBefore["beta"]);
+    }
+
+    /// <summary>
+    /// The Aegis (game file `item_aegis`: reincarnate after 5 s, gone after 300 s; Fandom «Aegis of the Immortal»: unused, it
+    /// restores 20% of health and mana per second for 5 s): the killing team's richest living hero carries it (in Dota it lies on
+    /// the ground — B-149); dying with it, the hero comes back where it died after the delay with full health and mana; the
+    /// death is not counted and gives no bounty. Shortened times here.
+    /// </summary>
+    private static readonly ModifierSpec AegisRegen = new("aegis_regen", 1000, healPerSecondMaxHealthPercent: Fixed.FromInt(20), manaPerSecondMaxManaPercent: Fixed.FromInt(20));
+
+    private static readonly ModifierSpec Aegis = new("aegis", 4000, revives: true, reviveDelayMs: 1000, consumedOnRevive: true, expireModifier: AegisRegen, dispellable: false);
+
+    private static SimulationKernel<MatchState> AegisArena()
+    {
+        RulesetDraft draft = WithRoshan();
+        draft.Boss = new BossDefinition("roshan", "roshan", P(5000, 2500), leashRadius: 600, firstSpawnMs: 0, respawnMinMs: 480000, respawnMaxMs: 660000,
+            teamGold: 135, reward: null, killerGoldMin: 200, killerGoldMax: 290, xp: 400, aegis: Aegis);
+        draft.BuybackBaseGold = 100;   // buyback on: refused while reincarnating
+        draft.BuybackCooldownMs = 1000;
+        var kernel = draft.StartWithHeroes(new[] { ("alpha", "mid"), ("gamma", "mid") }, new[] { ("beta", "mid") });
+        At(kernel, 0, ctx =>
+        {
+            H(ctx.State, "alpha").Position = P(5000, 2700);
+            H(ctx.State, "gamma").Position = P(3000, 6000);
+            H(ctx.State, "beta").Position = P(3000, 6200);
+            H(ctx.State, "gamma").Hero!.Gold = Fixed.FromInt(5000);   // the richest of Dawn
+        });
+        At(kernel, 2, ctx => Damage.Deal(ctx, H(ctx.State, "alpha").Id, ctx.State.Boss!, Fixed.FromInt(999999), DamageType.Pure));
+        return kernel;
+    }
+
+    [Fact]
+    public void TheAegis_RevivesItsCarrierWhereItDied_AfterTheDelay_WithoutCountingTheDeath()
+    {
+        var kernel = AegisArena();
+        bool hadAegis = false, deadDuring = false;
+        double betaGold = 0;
+        At(kernel, 4, ctx => hadAegis = H(ctx.State, "gamma").Modifiers.Any(m => m.Spec.Key == "aegis") && !H(ctx.State, "alpha").Modifiers.Any(m => m.Spec.Key == "aegis"));
+        At(kernel, 5, ctx =>
+        {
+            betaGold = H(ctx.State, "beta").Hero!.Gold.ToDouble();
+            Damage.Deal(ctx, H(ctx.State, "beta").Id, H(ctx.State, "gamma"), Fixed.FromInt(99999), DamageType.Pure);
+        });
+        At(kernel, 20, ctx =>
+        {
+            deadDuring = H(ctx.State, "gamma").Hero!.IsDead && !H(ctx.State, "gamma").IsAlive;
+            Dynasty.MatchSimulation.Heroes.HeroActions.QueueBuyback(H(ctx.State, "gamma"));
+        });
+        kernel.RunTicks(5 + 35);
+
+        MatchUnit gamma = H(kernel.State, "gamma");
+        Assert.True(hadAegis, "the richest hero of the killing team carries the Aegis");
+        Assert.True(deadDuring, "down during the delay");
+        Assert.True(gamma.IsAlive && !gamma.Hero!.IsDead);
+        Assert.Equal(P(3000, 6000), gamma.Position);                   // where it died
+        Assert.Equal(gamma.MaxHp, gamma.Hp.ToIntFloor());
+        Assert.Equal(0, gamma.Hero.Deaths);
+        Assert.DoesNotContain(gamma.Modifiers, m => m.Spec.Key == "aegis");   // used up
+        Assert.True(H(kernel.State, "beta").Hero!.Gold.ToDouble() - betaGold < 5, "no bounty");
+        Assert.Contains(kernel.EventsOf<Dynasty.MatchSimulation.Events.BuybackFailed>(), f => f.Reason == "reincarnating");
+    }
+
+    [Fact]
+    public void AnUnusedAegis_Expires_IntoAQuickRegeneration()
+    {
+        var kernel = AegisArena();
+        At(kernel, 5, ctx =>
+        {
+            MatchUnit gamma = H(ctx.State, "gamma");
+            gamma.Hp = Fixed.FromInt(gamma.MaxHp / 2);
+        });
+        bool regen = false;
+        At(kernel, 3 + 120 + 5, ctx => regen = H(ctx.State, "gamma").Modifiers.Any(m => m.Spec.Key == "aegis_regen"));
+        kernel.RunTicks(3 + 120 + 40);
+
+        MatchUnit g = H(kernel.State, "gamma");
+        Assert.True(regen, "the regeneration follows the expiry");
+        Assert.DoesNotContain(g.Modifiers, m => m.Spec.Key == "aegis");
+        Assert.InRange(g.Hp.ToDouble() / g.MaxHp, 0.69, 0.75);   // half, then 20% a second for 1 s (and a little regeneration)
+    }
+
+    [Fact]
+    public void RoshansRespawn_TakesBackAnUnusedAegis()
+    {
+        RulesetDraft draft = WithRoshan();
+        draft.Boss = new BossDefinition("roshan", "roshan", P(5000, 2500), leashRadius: 600, firstSpawnMs: 0, respawnMinMs: 1000, respawnMaxMs: 1000,
+            teamGold: 135, reward: null, aegis: new ModifierSpec("aegis", 600000, revives: true, reviveDelayMs: 1000, consumedOnRevive: true, expireModifier: AegisRegen));
+        var kernel = draft.StartWithHeroes(new[] { ("alpha", "mid") }, Array.Empty<(string, string)>());
+        At(kernel, 0, ctx => H(ctx.State, "alpha").Position = P(3000, 6000));
+        At(kernel, 2, ctx => Damage.Deal(ctx, H(ctx.State, "alpha").Id, ctx.State.Boss!, Fixed.FromInt(999999), DamageType.Pure));
+        bool had = false;
+        At(kernel, 10, ctx => had = H(ctx.State, "alpha").Modifiers.Any(m => m.Spec.Key == "aegis"));
+        kernel.RunTicks(2 + 30 + 5);   // respawned after 1 s
+
+        Assert.True(had);
+        Assert.NotNull(kernel.State.Boss);
+        Assert.DoesNotContain(H(kernel.State, "alpha").Modifiers, m => m.Spec.Key == "aegis");
+        Assert.Contains(H(kernel.State, "alpha").Modifiers, m => m.Spec.Key == "aegis_regen");
     }
 }
