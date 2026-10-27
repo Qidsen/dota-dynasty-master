@@ -364,6 +364,33 @@ public class PackContentTests
     }
 
     [Fact]
+    public void Runes_AreReadWithTheirTypesAndSchedules()
+    {
+        RulesetContent rules = Apply(@"""runes"": { ""types"": [
+                { ""id"": ""bounty"", ""teamGold"": 40, ""teamGoldPerInterval"": 6, ""teamGoldInterval"": 240 },
+                { ""id"": ""water"", ""effects"": [ { ""kind"": ""heal"", ""amounts"": [40] }, { ""kind"": ""restoreMana"", ""amounts"": [80] } ] },
+                { ""id"": ""arcane"", ""modifier"": { ""key"": ""rune_arcane"", ""duration"": 50, ""cooldownReduction"": 25, ""manaCostReduction"": 30 } },
+                { ""id"": ""illusion"", ""effects"": [ { ""kind"": ""ifMelee"", ""effects"": [ { ""kind"": ""heal"", ""amounts"": [1] } ] } ] },
+                { ""id"": ""regeneration"", ""modifier"": { ""key"": ""rune_regeneration"", ""duration"": 30, ""healthRegenMaxPercent"": 6, ""damagedRegenMaxPercent"": 1,
+                    ""damagedRegen"": 3, ""endsWhenFull"": true, ""baseDamagePercent"": 80, ""spellAmplification"": 15, ""fixedMoveSpeed"": 550, ""barrierMaxHealthPercent"": 50 } } ],
+            ""schedules"": [ { ""id"": ""power"", ""spots"": [ { ""x"": 3000, ""y"": 7000 }, { ""x"": 7000, ""y"": 3000 } ], ""first"": 360, ""interval"": 120,
+                ""types"": [""arcane"", ""regeneration""], ""placement"": ""oneRandomSpot"", ""noRepeat"": true },
+                { ""id"": ""water"", ""spots"": [ { ""x"": 3000, ""y"": 7000 } ], ""first"": 120, ""interval"": 120, ""until"": 240, ""types"": [""water""], ""stay"": false } ] }",
+            Hero("lion", "[]"));
+
+        RuneSchedule power = rules.Runes!.Schedules[0];
+        Assert.Equal((360000, 120000, RunePlacement.OneRandomSpot, true, 2), (power.FirstSpawnMs, power.IntervalMs, power.Placement, power.NoRepeat, power.Types.Count));
+        Assert.Equal(240000, rules.Runes.Schedules[1].UntilMs);
+        RuneType bounty = rules.Runes.Schedules[0].Types[0] == null ? null! : power.Types[0];
+        ModifierSpec arcane = power.Types[0].Effect!;
+        Assert.Equal((25, 30), (arcane.CooldownReductionPercent, arcane.ManaCostReductionPercent));
+        ModifierSpec regen = power.Types[1].Effect!;
+        Assert.Equal((3000, true, 80, 15, 550, 50), (regen.DamagedRegenMs, regen.EndsWhenFull, regen.BaseDamagePercent, regen.SpellAmplificationPercent, regen.FixedMoveSpeed,
+            regen.BarrierMaxHealthPercent));
+        Assert.Equal(2, rules.Runes.Schedules[1].Types[0].Effects.Count);
+    }
+
+    [Fact]
     public void Waves_AreRead_WithTheirSchedule()
     {
         RulesetContent rules = Apply(@"""waves"": { ""interval"": 30, ""composition"": [ { ""creep"": ""melee"", ""count"": 3 },

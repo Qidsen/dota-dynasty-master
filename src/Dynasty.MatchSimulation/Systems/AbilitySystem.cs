@@ -90,7 +90,7 @@ namespace Dynasty.MatchSimulation.Systems
                 return "silenced";
             if (!ability.IsReady(now))
                 return "cooldown";
-            if (hero.Mana < Fixed.FromInt(ability.Definition.ManaCostAt(ability.Level)))
+            if (hero.Mana < ManaCost(caster, ability))
                 return "mana";
             if (ability.Definition.Targeting == AbilityTargeting.Unit)
             {
@@ -127,8 +127,8 @@ namespace Dynasty.MatchSimulation.Systems
                 return;
             }
 
-            hero.Mana -= Fixed.FromInt(definition.ManaCostAt(ability.Level));
-            ability.CooldownReadyTick = now + context.TickRate.TicksFor(definition.CooldownAt(ability.Level));
+            hero.Mana -= ManaCost(caster, ability);
+            ability.CooldownReadyTick = now + context.TickRate.TicksFor((int)((long)definition.CooldownAt(ability.Level) * caster.CooldownLeftHundredths / 10000));
             ability.SpendCharge(now, context.TickRate);
             ConsumeCharge(context, caster, hero, ability);
             hero.CastEndTick = -1;
@@ -147,7 +147,7 @@ namespace Dynasty.MatchSimulation.Systems
             }
 
             FixedVector2 point = definition.Targeting == AbilityTargeting.Point ? order.Point : target.Position;
-            Effects.Run(context, caster, definition.Effects, ability.Level, target, point);
+            Effects.RunSpell(context, caster, definition.Effects, ability.Level, target, point);
             foreach (ActiveModifier modifier in caster.Modifiers.Where(m => m.Spec.OnCast.Count > 0).ToList())
                 Effects.Run(context, caster, modifier.Spec.OnCast, 1, target, point);
         }
@@ -168,6 +168,10 @@ namespace Dynasty.MatchSimulation.Systems
                 Modifiers.Remove(context, caster, slot.Bonus, "item_consumed");
             HeroProgression.RefreshUpgrades(context, caster);
         }
+
+        /// <summary>The ability's mana cost for this caster (Dota's Arcane rune makes it cheaper).</summary>
+        internal static Fixed ManaCost(MatchUnit caster, AbilityState ability) =>
+            Fixed.FromInt((int)((long)ability.Definition.ManaCostAt(ability.Level) * caster.ManaCostLeftHundredths / 10000));
 
         private static void Fail(SimulationContext<MatchState> context, MatchUnit caster, string abilityId, string reason)
         {
@@ -211,6 +215,20 @@ namespace Dynasty.MatchSimulation.Systems
                     return amount * Fixed.FromInt(target.FindModifier(effect.StackKey!, caster.Id)?.Stacks ?? 0);
                 default:
                     return amount;
+            }
+        }
+
+        /// <summary>A spell's effects: its damage gets the caster's spell amplification.</summary>
+        public static void RunSpell(SimulationContext<MatchState> context, MatchUnit caster, IReadOnlyList<EffectDefinition> effects, int level, MatchUnit target, FixedVector2 point)
+        {
+            caster.CastingSpell++;
+            try
+            {
+                Run(context, caster, effects, level, target, point);
+            }
+            finally
+            {
+                caster.CastingSpell--;
             }
         }
 
@@ -321,6 +339,15 @@ namespace Dynasty.MatchSimulation.Systems
                     }
 
                     break;
+                case EffectKind.IfMelee:
+                case EffectKind.IfRanged:
+                    if ((target.Stats.ProjectileSpeed == 0) == (effect.Kind == EffectKind.IfMelee))
+                    {
+                        foreach (EffectDefinition inner in effect.Inner)
+                            RunOne(context, caster, inner, level, target, point);
+                    }
+
+                    break;
                 case EffectKind.IfHero:
                     if (target.Hero != null)
                     {
@@ -361,8 +388,18 @@ namespace Dynasty.MatchSimulation.Systems
         }
 
         /// <summary>One pulse of a ground zone: its effects on the matching units inside, with the zone's point as the point.</summary>
-        public static void Pulse(SimulationContext<MatchState> context, MatchUnit caster, GroundZone zone) =>
-            RunAround(context, caster, zone.Definition, zone.Level, zone.Position, zone.Position);
+        public static void Pulse(SimulationContext<MatchState> context, MatchUnit caster, GroundZone zone)
+        {
+            caster.CastingSpell++;
+            try
+            {
+                RunAround(context, caster, zone.Definition, zone.Level, zone.Position, zone.Position);
+            }
+            finally
+            {
+                caster.CastingSpell--;
+            }
+        }
 
         private static void RunAround(SimulationContext<MatchState> context, MatchUnit caster, EffectDefinition effect, int level, FixedVector2 center, FixedVector2 point)
         {

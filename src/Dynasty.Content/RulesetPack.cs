@@ -68,6 +68,7 @@ namespace Dynasty.Content
             IReadOnlyList<ItemDefinition> items = reader.Has("items") ? reader.Array("items").Select(ReadItem).ToList() : baseRules.Items;
             WaveRules waves = reader.OptionalObject("waves") is Reader w ? ReadWaves(w, baseRules.Waves) : baseRules.Waves;
             BossDefinition? boss = reader.OptionalObject("boss") is Reader bo ? ReadBoss(bo, baseRules.Boss) : baseRules.Boss;
+            RuneRules? runes = reader.OptionalObject("runes") is Reader ru ? ReadRunes(ru, baseRules.Runes) : baseRules.Runes;
             reader.RejectUnknown();
 
             var unitIds = new HashSet<string>(unitTypes.Select(u => u.Id));
@@ -79,7 +80,7 @@ namespace Dynasty.Content
             foreach (string unknown in structureOverrides.Keys.Where(k => k != StructureType.FountainId && baseRules.StructureTypes.All(s => s.Id != k)))
                 throw new RulesetPackException("structureTypes: \"" + unknown + "\" is not a structure type of the base rules.");
             var content = new RulesetContent(id, version, baseRules.TicksPerSecond, combat, creepTypes, structureTypes,
-                baseRules.Map, waves, heroes, heroRules, abilities, items, boss, baseRules.Runes,
+                baseRules.Map, waves, heroes, heroRules, abilities, items, boss, runes,
                 baseRules.DayNight, baseRules.Draft);
             IReadOnlyList<string> errors = content.Validate();
             if (errors.Count > 0)
@@ -218,6 +219,46 @@ namespace Dynasty.Content
                 }).ToList());
             b.RejectUnknown();
             return boss;
+        }
+
+        /// <summary>
+        /// Dota's runes: their types and their schedules (spots on the base map until the Dota map comes); the base rules' plain
+        /// spots and types stay underneath, unused once there are schedules.
+        /// </summary>
+        private static RuneRules ReadRunes(Reader r, RuneRules? baseRunes)
+        {
+            var types = r.Array("types").Select(t =>
+            {
+                var type = new RuneType(t.String("id"), t.OptionalObject("modifier") is Reader m ? ReadModifier(m) : null, t.OptionalInt("gold") ?? 0,
+                    t.OptionalArray("effects").Select(ReadEffect).ToList(), t.OptionalInt("teamGold") ?? 0, t.OptionalInt("teamGoldPerInterval") ?? 0,
+                    t.OptionalMilliseconds("teamGoldInterval") ?? 0);
+                t.RejectUnknown();
+                return type;
+            }).ToDictionary(t => t.Id);
+            var schedules = r.Array("schedules").Select(s =>
+            {
+                RunePlacement placement = s.OptionalString("placement") switch
+                {
+                    null or "everySpot" => RunePlacement.EverySpot,
+                    "oneRandomSpot" => RunePlacement.OneRandomSpot,
+                    _ => throw s.Error("placement", "expected everySpot or oneRandomSpot"),
+                };
+                var spots = s.Array("spots").Select(p =>
+                {
+                    var spot = Dynasty.Core.Mathematics.FixedVector2.FromInts(p.Int("x"), p.Int("y"));
+                    p.RejectUnknown();
+                    return spot;
+                }).ToList();
+                var schedule = new RuneSchedule(s.String("id"), spots, s.Milliseconds("first"), s.OptionalMilliseconds("interval") ?? 0, s.OptionalMilliseconds("until") ?? 0,
+                    s.Strings("types").Select(id => types.TryGetValue(id, out RuneType? t) ? t : throw s.Error("types", "unknown rune type \"" + id + "\"")).ToList(),
+                    placement, s.OptionalBool("noRepeat") ?? false, s.OptionalBool("stay") ?? false);
+                s.RejectUnknown();
+                return schedule;
+            }).ToList();
+            var rules = new RuneRules(baseRunes?.Spots ?? System.Array.Empty<Dynasty.Core.Mathematics.FixedVector2>(), baseRunes?.FirstSpawnMs ?? 0,
+                baseRunes?.IntervalMs ?? 1000, baseRunes?.Types ?? System.Array.Empty<RuneType>(), r.OptionalInt("pickupRadius") ?? baseRunes?.PickupRadius ?? 100, schedules);
+            r.RejectUnknown();
+            return rules;
         }
 
         private static BossAbility ReadBossAbility(Reader a)
@@ -450,6 +491,12 @@ namespace Dynasty.Content
                 case "refreshCooldowns":
                     effect = EffectDefinition.RefreshCooldowns();
                     break;
+                case "ifMelee":
+                    effect = EffectDefinition.IfMelee(e.Array("effects").Select(ReadEffect).ToArray());
+                    break;
+                case "ifRanged":
+                    effect = EffectDefinition.IfRanged(e.Array("effects").Select(ReadEffect).ToArray());
+                    break;
                 case "attack":
                     effect = EffectDefinition.Attack(e.OptionalInts("amounts")?.ToArray() ?? new[] { 100 });   // no amounts: a normal attack
                     break;
@@ -537,7 +584,12 @@ namespace Dynasty.Content
                 healPerSecondMaxHealthPercent: m.OptionalFixed("healthRegenMaxPercent") ?? Dynasty.Core.Mathematics.Fixed.Zero,
                 manaPerSecondMaxManaPercent: m.OptionalFixed("manaRegenMaxPercent") ?? Dynasty.Core.Mathematics.Fixed.Zero,
                 statusResistancePercent: m.OptionalInt("statusResistance") ?? 0, slowResistancePercent: m.OptionalInt("slowResistance") ?? 0,
-                spellBlockCooldownMs: m.OptionalMilliseconds("spellBlockCooldown") ?? 0, illusionDamageTakenPercent: m.OptionalInt("illusionDamageTaken") ?? 0, barrier: m.OptionalInt("barrier") ?? 0, consumedOnHit: m.OptionalBool("consumedOnHit") ?? false,
+                spellBlockCooldownMs: m.OptionalMilliseconds("spellBlockCooldown") ?? 0, illusionDamageTakenPercent: m.OptionalInt("illusionDamageTaken") ?? 0,
+                baseDamagePercent: m.OptionalInt("baseDamagePercent") ?? 0, spellAmplificationPercent: m.OptionalInt("spellAmplification") ?? 0,
+                cooldownReductionPercent: m.OptionalInt("cooldownReduction") ?? 0, manaCostReductionPercent: m.OptionalInt("manaCostReduction") ?? 0,
+                fixedMoveSpeed: m.OptionalInt("fixedMoveSpeed") ?? 0, barrierMaxHealthPercent: m.OptionalInt("barrierMaxHealthPercent") ?? 0,
+                damagedRegenMaxPercent: m.OptionalFixed("damagedRegenMaxPercent") ?? Dynasty.Core.Mathematics.Fixed.Zero, damagedRegenMs: m.OptionalMilliseconds("damagedRegen") ?? 0,
+                endsWhenFull: m.OptionalBool("endsWhenFull") ?? false, barrier: m.OptionalInt("barrier") ?? 0, consumedOnHit: m.OptionalBool("consumedOnHit") ?? false,
                 damagePerSecondMaxHealthPercent: m.OptionalFixed("damagePerSecondMaxHealthPercent") ?? Fixed.Zero,
                 onHitAfterAttacks: m.OptionalInt("onHitAfterAttacks") ?? 0, whenAttacked: m.OptionalArray("whenAttacked").Select(ReadEffect).ToList(),
                 whenAttackedEvery: m.OptionalInt("whenAttackedEvery") ?? 1,

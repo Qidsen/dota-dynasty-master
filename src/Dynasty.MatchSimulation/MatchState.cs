@@ -113,6 +113,19 @@ namespace Dynasty.MatchSimulation
         /// <summary>Enemy damage its Backdoor Protection has still to heal.</summary>
         internal Fixed BackdoorHealLeft;
 
+        /// <summary>Percent more damage its spells deal (Dota's spell amplification).</summary>
+        public int SpellAmplificationPercent { get; private set; }
+
+        /// <summary>The parts of its cooldowns and mana costs left, in hundredths of a percent (Dota's Arcane rune).</summary>
+        public int CooldownLeftHundredths { get; private set; } = 10000;
+        public int ManaCostLeftHundredths { get; private set; } = 10000;
+
+        /// <summary>The last tick a player's unit or the boss damaged it (-1 = never).</summary>
+        internal long LastPlayerDamageTick = -1;
+
+        /// <summary>Above zero while its spell's effects run (they get its spell amplification).</summary>
+        internal int CastingSpell;
+
         /// <summary>Dota's status resistance in hundredths of a percent (enemy debuffs last that much less).</summary>
         public int StatusResistanceHundredths { get; private set; }
 
@@ -325,7 +338,8 @@ namespace Dynasty.MatchSimulation
             Fixed magicTakenFactor = Fixed.One; // Dota: the part of magic damage taken after the bonus sources
             List<ActiveModifier>? crits = null;
             long statusLeft = 10000, slowLeft = 10000;   // Dota: the parts left after status and slow resistance, every source multiplied
-            int moveSlow = 0, illusionTaken = 0;
+            int moveSlow = 0, illusionTaken = 0, baseDamagePercent = 0, spellAmp = 0, fixedSpeed = 0;
+            long cooldownLeft = 10000, manaCostLeft = 10000;   // Dota: the parts of cooldowns and mana costs left, every source multiplied
             SpellBlocker = null;
             foreach (ActiveModifier modifier in _modifiers)
             {
@@ -363,6 +377,14 @@ namespace Dynasty.MatchSimulation
                 for (int i = 0; i < n && spec.SlowResistancePercent != 0; i++)
                     slowLeft = slowLeft * (100 - spec.SlowResistancePercent) / 100;
                 illusionTaken += spec.IllusionDamageTakenPercent * n;
+                baseDamagePercent += spec.BaseDamagePercent * n;
+                spellAmp += spec.SpellAmplificationPercent * n;
+                for (int i = 0; i < n && spec.CooldownReductionPercent != 0; i++)
+                    cooldownLeft = cooldownLeft * (100 - spec.CooldownReductionPercent) / 100;
+                for (int i = 0; i < n && spec.ManaCostReductionPercent != 0; i++)
+                    manaCostLeft = manaCostLeft * (100 - spec.ManaCostReductionPercent) / 100;
+                if (spec.FixedMoveSpeed > fixedSpeed)
+                    fixedSpeed = spec.FixedMoveSpeed;
                 if (spec.SpellBlockCooldownMs > 0 && SpellBlocker == null)
                     SpellBlocker = modifier;
                 moveFlat += spec.MoveSpeedBonus * n;
@@ -447,8 +469,11 @@ namespace Dynasty.MatchSimulation
 
             CritModifiers = crits == null ? (IReadOnlyList<ActiveModifier>)Array.Empty<ActiveModifier>()
                 : crits.OrderByDescending(c => c.Spec.CritMultiplierPercent).ThenByDescending(c => c.Spec.CritChanceHundredths).ToArray();
-            AttackDamageMin = Stats.AttackDamageMin + damageBonus;
-            AttackDamageMax = Stats.AttackDamageMax + damageBonus;
+            AttackDamageMin = Stats.AttackDamageMin + damageBonus + Stats.AttackDamageMin * baseDamagePercent / 100;
+            AttackDamageMax = Stats.AttackDamageMax + damageBonus + Stats.AttackDamageMax * baseDamagePercent / 100;
+            SpellAmplificationPercent = spellAmp;
+            CooldownLeftHundredths = (int)cooldownLeft;
+            ManaCostLeftHundredths = (int)manaCostLeft;
             AttackSpeedBonus = Math.Max(attackSpeed, -80);
             if (Combat != null && Combat.MaxAttackSpeed > 0)
                 AttackSpeedBonus = Math.Min(AttackSpeedBonus, Combat.MaxAttackSpeed - 100);
@@ -466,7 +491,7 @@ namespace Dynasty.MatchSimulation
 
             // Dota: flat bonuses first, then percentages; at least 100 (or the base, if lower), at most 550.
             int speed = Math.Min((Stats.MoveSpeed + moveFlat) * (10000 + movePercent) / 10000, MaxMoveSpeed);   // movePercent in hundredths
-            MoveSpeed = Stats.MoveSpeed == 0 ? 0 : Math.Max(speed, Math.Min(100, Stats.MoveSpeed));
+            MoveSpeed = Stats.MoveSpeed == 0 ? 0 : fixedSpeed > 0 ? fixedSpeed : Math.Max(speed, Math.Min(100, Stats.MoveSpeed));
             AttackRange = Stats.AttackRange + attackRangeBonus;
             IncomingDamageHundredths = Math.Max(incomingDamage, -10000);
             AttackDamagePercent = Math.Max(attackDamagePercent, -100);

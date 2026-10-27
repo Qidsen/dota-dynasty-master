@@ -341,12 +341,23 @@ namespace Dynasty.MatchSimulation.Systems
                             Damage.Deal(context, modifier.Source, unit, Fixed.FromInt(unit.MaxHp) * spec.DamagePerSecondMaxHealthPercent / Fixed.FromInt(100) * periodFraction, spec.DamageType);
                         if (spec.HealPerSecond > Fixed.Zero)
                             Damage.Heal(context, modifier.Source, unit, spec.HealPerSecond * periodFraction);
-                        if (spec.HealPerSecondMaxHealthPercent > Fixed.Zero)
-                            Damage.Heal(context, modifier.Source, unit, Fixed.FromInt(unit.MaxHp) * spec.HealPerSecondMaxHealthPercent / Fixed.FromInt(100) * periodFraction);
-                        if (spec.ManaPerSecondMaxManaPercent > Fixed.Zero && unit.Hero != null)
+                        // Dota's Regeneration rune: lower for a while after damage from any player's unit or the boss.
+                        bool damaged = spec.DamagedRegenMs > 0 && unit.LastPlayerDamageTick >= 0 &&
+                                       now - unit.LastPlayerDamageTick < context.TickRate.TicksFor(spec.DamagedRegenMs);
+                        Fixed healPercent = damaged ? spec.DamagedRegenMaxPercent : spec.HealPerSecondMaxHealthPercent;
+                        Fixed manaPercent = damaged ? spec.DamagedRegenMaxPercent : spec.ManaPerSecondMaxManaPercent;
+                        if (healPercent > Fixed.Zero)
+                            Damage.Heal(context, modifier.Source, unit, Fixed.FromInt(unit.MaxHp) * healPercent / Fixed.FromInt(100) * periodFraction);
+                        if (manaPercent > Fixed.Zero && unit.Hero != null)
                             unit.Hero.Mana = Fixed.Min(Fixed.FromInt(unit.Hero.MaxMana),
-                                unit.Hero.Mana + Fixed.FromInt(unit.Hero.MaxMana) * spec.ManaPerSecondMaxManaPercent / Fixed.FromInt(100) * periodFraction);
+                                unit.Hero.Mana + Fixed.FromInt(unit.Hero.MaxMana) * manaPercent / Fixed.FromInt(100) * periodFraction);
                         modifier.NextPeriodTick += context.TickRate.TicksFor(spec.PeriodMs);
+                    }
+
+                    if (spec.EndsWhenFull && unit.Hp >= Fixed.FromInt(unit.MaxHp) && (unit.Hero == null || unit.Hero.Mana >= Fixed.FromInt(unit.Hero.MaxMana)))
+                    {
+                        Modifiers.Remove(context, unit, modifier, "full");
+                        continue;
                     }
 
                     if (modifier.ExpiresTick >= 0 && now >= modifier.ExpiresTick)
@@ -888,7 +899,7 @@ namespace Dynasty.MatchSimulation.Systems
                 if (projectile.IsAbility)
                 {
                     if (source != null)
-                        Effects.Run(context, source, projectile.Effects!, projectile.Level, target, target.Position);
+                        Effects.RunSpell(context, source, projectile.Effects!, projectile.Level, target, target.Position);
                 }
                 else if (source != null)
                 {

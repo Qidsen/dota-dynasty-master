@@ -167,8 +167,26 @@ namespace Dynasty.MatchSimulation.Combat
             int statusResistancePercent = 0,
             int slowResistancePercent = 0,
             int spellBlockCooldownMs = 0,
-            int illusionDamageTakenPercent = 0)
+            int illusionDamageTakenPercent = 0,
+            int baseDamagePercent = 0,
+            int spellAmplificationPercent = 0,
+            int cooldownReductionPercent = 0,
+            int manaCostReductionPercent = 0,
+            int fixedMoveSpeed = 0,
+            int barrierMaxHealthPercent = 0,
+            Fixed damagedRegenMaxPercent = default,
+            int damagedRegenMs = 0,
+            bool endsWhenFull = false)
         {
+            BaseDamagePercent = baseDamagePercent;
+            SpellAmplificationPercent = spellAmplificationPercent;
+            CooldownReductionPercent = cooldownReductionPercent;
+            ManaCostReductionPercent = manaCostReductionPercent;
+            FixedMoveSpeed = fixedMoveSpeed;
+            BarrierMaxHealthPercent = barrierMaxHealthPercent;
+            DamagedRegenMaxPercent = damagedRegenMaxPercent;
+            DamagedRegenMs = damagedRegenMs;
+            EndsWhenFull = endsWhenFull;
             StatusResistancePercent = statusResistancePercent;
             SlowResistancePercent = slowResistancePercent;
             SpellBlockCooldownMs = spellBlockCooldownMs;
@@ -380,6 +398,32 @@ namespace Dynasty.MatchSimulation.Combat
         /// <summary>Changes the damage illusions deal to the bearer by this percent (Dota's Roshan: −80).</summary>
         public int IllusionDamageTakenPercent { get; }
 
+        /// <summary>A percent of the bearer's base attack damage added (Dota's Amplify Damage rune: 80).</summary>
+        public int BaseDamagePercent { get; }
+
+        /// <summary>The bearer's spells deal this percent more damage (Dota's spell amplification).</summary>
+        public int SpellAmplificationPercent { get; }
+
+        /// <summary>The bearer's cooldowns and mana costs are this percent shorter and cheaper (Dota's Arcane rune; sources multiply).</summary>
+        public int CooldownReductionPercent { get; }
+        public int ManaCostReductionPercent { get; }
+
+        /// <summary>The bearer moves at exactly this speed (Dota's Haste rune: 550); 0 = none.</summary>
+        public int FixedMoveSpeed { get; }
+
+        /// <summary>A barrier of this percent of the bearer's maximum health (Dota's Shield rune: 50).</summary>
+        public int BarrierMaxHealthPercent { get; }
+
+        /// <summary>
+        /// For <see cref="DamagedRegenMs"/> after damage from a player's unit or the boss the percent regeneration is this instead
+        /// (Dota's Regeneration rune: 1%).
+        /// </summary>
+        public Fixed DamagedRegenMaxPercent { get; }
+        public int DamagedRegenMs { get; }
+
+        /// <summary>The modifier ends once the bearer's health and mana are full (Dota's Regeneration rune).</summary>
+        public bool EndsWhenFull { get; }
+
         /// <summary><see cref="OnKill"/> runs only for hero victims (Flesh Heap).</summary>
         public bool OnKillHeroesOnly { get; }
 
@@ -538,6 +582,10 @@ namespace Dynasty.MatchSimulation.Combat
             w.WriteInt64(SlowResistancePercent);
             w.WriteInt64(SpellBlockCooldownMs);
             w.WriteInt64(IllusionDamageTakenPercent);
+            foreach (int value in new[] { BaseDamagePercent, SpellAmplificationPercent, CooldownReductionPercent, ManaCostReductionPercent, FixedMoveSpeed, BarrierMaxHealthPercent, DamagedRegenMs })
+                w.WriteInt64(value);
+            w.WriteFixed(DamagedRegenMaxPercent);
+            w.WriteBool(EndsWhenFull);
             w.WriteInt64(AttackCharges);
             w.WriteBool(ExtraTargetRadiusFromAttackRange);
             w.WriteInt64(ExtraTargetChancePercent);
@@ -622,7 +670,7 @@ namespace Dynasty.MatchSimulation.Combat
             {
                 existing.AppliedTick = now;
                 existing.ExpiresTick = expires;
-                existing.BarrierLeft = spec.Barrier;
+                existing.BarrierLeft = spec.BarrierMaxHealthPercent > 0 ? target.MaxHp * spec.BarrierMaxHealthPercent / 100 : spec.Barrier;
                 existing.AttacksLanded = 0;
                 modifier = existing;
                 if (spec.MaxStacks > existing.Stacks)
@@ -634,6 +682,8 @@ namespace Dynasty.MatchSimulation.Combat
             else
             {
                 modifier = new ActiveModifier(spec, source, now, expires, now + context.TickRate.TicksFor(spec.PeriodMs));
+                if (spec.BarrierMaxHealthPercent > 0)
+                    modifier.BarrierLeft = target.MaxHp * spec.BarrierMaxHealthPercent / 100;
                 target.AddModifier(modifier);
             }
 
@@ -706,6 +756,8 @@ namespace Dynasty.MatchSimulation.Combat
                     : DamageMath.Mitigate(rawAmount, type, target.Armor, target.MagicResistPercent, context.State.Ruleset.Combat.ArmorFactor);
             // A whole percent keeps its old formula (same fixed-point result); a fractional one works in hundredths.
             MatchUnit? from = attacker.IsValid ? context.State.Find(attacker) : null;
+            if (from != null && from.CastingSpell > 0 && from.SpellAmplificationPercent != 0)
+                amount = amount * Fixed.FromInt(100 + from.SpellAmplificationPercent) / Fixed.FromInt(100);
             if (from != null && from.IllusionOf.IsValid && target.IllusionDamageTakenPercent != 0)
                 amount = amount * Fixed.FromInt(Math.Max(0, 100 + target.IllusionDamageTakenPercent)) / Fixed.FromInt(100);
             if (target.BackdoorActive)
@@ -724,6 +776,9 @@ namespace Dynasty.MatchSimulation.Combat
                 amount = Fixed.Max(Fixed.Zero, Fixed.Min(amount, target.Hp - Fixed.One));
             Fixed before = target.Hp;
             target.Hp = Fixed.Max(Fixed.Zero, target.Hp - amount);
+            // Damage from a player's unit (any team, the unit itself too) or the boss: Dota's Regeneration rune slows for a while.
+            if (amount > Fixed.Zero && from != null && (from.Kind == UnitKind.Hero || from.Kind == UnitKind.Summon || from.Kind == UnitKind.Boss || from.IllusionOf.IsValid))
+                target.LastPlayerDamageTick = context.Tick.Value;
             if (target.BackdoorActive && from != null && from.Team != target.Team)
                 target.BackdoorHealLeft += before - target.Hp;
             if (attacker.IsValid)

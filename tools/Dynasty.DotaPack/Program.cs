@@ -208,6 +208,7 @@ var pack = new JsonObject
         },
     },
     ["heroes"] = packHeroes,
+    ["runes"] = Runes(),
     // Roshan (game file npc_dota_roshan; Liquipedia «Roshan»; Valve 7.38 respawn 8–11 min; D-051 growth): in the base map's pit until
     // the Dota map's two pits come (B-131); every hero of the killing team 135 gold, the last hitter 200–290 more, 400 XP to the
     // killing team's heroes around; every minute from the horn, alive or dead, +130 health, +0.4 armor (already at 0:00),
@@ -482,3 +483,63 @@ static JsonNode[] RoshanDropItems() => new JsonNode[]
     new JsonObject { ["id"] = "cheese", ["name"] = "Cheese", ["cost"] = 0, ["active"] = "item_cheese", ["charges"] = 1, ["inShop"] = false },
     new JsonObject { ["id"] = "refresher_shard", ["name"] = "Refresher Shard", ["cost"] = 0, ["active"] = "item_refresher_shard", ["charges"] = 1, ["inShop"] = false },
 };
+
+// Runes (Fandom «Runes» 2025-09 and the runes' pages; Valve 7.35–7.41 for what changed since: Amplify 80% + 15% spell amp,
+// Arcane 25%, Haste always 22 s and Invisibility without damage reduction since 7.40, bounty gold by spawn time since 7.40;
+// D-051: bounty 40 + 6 per 4 minutes). The power spots are the base map's river spots; the base map has no bounty spots,
+// so one in each team's jungle, mirrored, until the Dota map (B-131).
+static JsonObject Runes()
+{
+    JsonObject Spot(int x, int y) => new() { ["x"] = x, ["y"] = y };
+    JsonArray Spots(params (int X, int Y)[] spots) => new(spots.Select(s => (JsonNode)Spot(s.X, s.Y)).ToArray());
+    JsonObject Modifier(string key, double duration, JsonObject fields)
+    {
+        fields["key"] = key;
+        fields["duration"] = duration;
+        return fields;
+    }
+
+    var power = new (int, int)[] { (3000, 7000), (7000, 3000) };
+    var bounty = new (int, int)[] { (2600, 4300), (7400, 5700) };
+    JsonObject IllusionFor(string kind, int incoming) => new()
+    {
+        ["kind"] = kind,
+        ["effects"] = new JsonArray(new JsonObject
+        {
+            ["kind"] = "illusion", ["counts"] = new JsonArray(2), ["duration"] = 75,
+            ["modifiers"] = new JsonArray(new JsonObject { ["key"] = "rune_illusion", ["incomingDamagePercent"] = incoming, ["attackDamagePercent"] = -65 }),
+        }),
+    };
+    return new JsonObject
+    {
+        ["types"] = new JsonArray(
+            new JsonObject { ["id"] = "bounty", ["teamGold"] = 40, ["teamGoldPerInterval"] = 6, ["teamGoldInterval"] = 240 },
+            new JsonObject { ["id"] = "water", ["effects"] = new JsonArray(new JsonObject { ["kind"] = "heal", ["amounts"] = new JsonArray(40) },
+                new JsonObject { ["kind"] = "restoreMana", ["amounts"] = new JsonArray(80) }) },
+            new JsonObject { ["id"] = "amplify_damage", ["modifier"] = Modifier("rune_amplify_damage", 45, new JsonObject { ["baseDamagePercent"] = 80, ["spellAmplification"] = 15 }) },
+            new JsonObject { ["id"] = "arcane", ["modifier"] = Modifier("rune_arcane", 50, new JsonObject { ["cooldownReduction"] = 25, ["manaCostReduction"] = 30 }) },
+            new JsonObject { ["id"] = "haste", ["modifier"] = Modifier("rune_haste", 22, new JsonObject { ["fixedMoveSpeed"] = 550 }) },
+            // Illusion: a basic dispel on the hero, 2 illusions for 75 s dealing 35% and taking 200% (melee) or 300% (ranged).
+            new JsonObject { ["id"] = "illusion", ["effects"] = new JsonArray(new JsonObject { ["kind"] = "dispel" }, IllusionFor("ifMelee", 100), IllusionFor("ifRanged", 200)) },
+            // Invisibility: after a 2 s fade, invisible for 45 s until it attacks or casts.
+            new JsonObject { ["id"] = "invisibility", ["modifier"] = Modifier("rune_invisibility_fade", 2, new JsonObject
+            {
+                ["expireModifier"] = Modifier("rune_invisibility", 45, new JsonObject { ["flags"] = new JsonArray("invisible"), ["breakOnAction"] = true }),
+            }) },
+            // Regeneration: 6% of health and mana a second for 30 s, 1% for 3 s after a player's damage, gone when full.
+            new JsonObject { ["id"] = "regeneration", ["modifier"] = Modifier("rune_regeneration", 30, new JsonObject
+            {
+                ["healthRegenMaxPercent"] = 6, ["manaRegenMaxPercent"] = 6, ["damagedRegenMaxPercent"] = 1, ["damagedRegen"] = 3, ["endsWhenFull"] = true,
+            }) },
+            new JsonObject { ["id"] = "shield", ["modifier"] = Modifier("rune_shield", 75, new JsonObject { ["barrierMaxHealthPercent"] = 50 }) }),
+        ["schedules"] = new JsonArray(
+            new JsonObject { ["id"] = "bounty_first", ["spots"] = Spots(power.Concat(bounty).ToArray()), ["first"] = 0, ["types"] = new JsonArray("bounty"), ["stay"] = true },
+            new JsonObject { ["id"] = "bounty", ["spots"] = Spots(bounty), ["first"] = 240, ["interval"] = 240, ["types"] = new JsonArray("bounty"), ["stay"] = true },
+            new JsonObject { ["id"] = "water", ["spots"] = Spots(power), ["first"] = 120, ["interval"] = 120, ["until"] = 240, ["types"] = new JsonArray("water") },
+            new JsonObject
+            {
+                ["id"] = "power", ["spots"] = Spots(power), ["first"] = 360, ["interval"] = 120, ["placement"] = "oneRandomSpot", ["noRepeat"] = true,
+                ["types"] = new JsonArray("amplify_damage", "arcane", "haste", "illusion", "invisibility", "regeneration", "shield"),
+            }),
+    };
+}

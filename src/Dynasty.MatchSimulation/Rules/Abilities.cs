@@ -86,6 +86,12 @@ namespace Dynasty.MatchSimulation.Rules
         /// refresh cooldowns themselves.
         /// </summary>
         RefreshCooldowns = 19,
+
+        /// <summary>Runs its inner effects only on a melee target (Dota's Illusion rune: melee illusions take 200%).</summary>
+        IfMelee = 20,
+
+        /// <summary>Runs its inner effects only on a ranged target.</summary>
+        IfRanged = 21,
     }
 
     /// <summary>What a damage effect's amounts mean: flat damage, or a percent of the target's health or mana.</summary>
@@ -247,6 +253,10 @@ namespace Dynasty.MatchSimulation.Rules
         public static EffectDefinition RestoreMana(params int[] manaPerLevel) => new EffectDefinition(EffectKind.RestoreMana, manaPerLevel);
 
         public static EffectDefinition RefreshCooldowns() => new EffectDefinition(EffectKind.RefreshCooldowns);
+
+        public static EffectDefinition IfMelee(params EffectDefinition[] inner) => new EffectDefinition(EffectKind.IfMelee, inner: inner);
+
+        public static EffectDefinition IfRanged(params EffectDefinition[] inner) => new EffectDefinition(EffectKind.IfRanged, inner: inner);
 
         public static EffectDefinition Modifier(params ModifierSpec[] perLevel) =>
             new EffectDefinition(EffectKind.ApplyModifier, modifiers: perLevel);
