@@ -530,6 +530,12 @@ namespace Dynasty.MatchSimulation
 
         /// <summary>Tick of the next spawn; -1 while creeps of the current spawn are alive.</summary>
         public long NextSpawnTick { get; set; }
+
+        /// <summary>The variant of the last spawn (Dota: the next one differs); -1 before the first.</summary>
+        public int LastVariant { get; set; } = -1;
+
+        /// <summary>The evolution stage of the creeps spawned last; -1 before the first.</summary>
+        public int Stage { get; set; } = -1;
     }
 
     /// <summary>Authoritative state of one match (world truth).</summary>

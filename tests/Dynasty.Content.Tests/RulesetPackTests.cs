@@ -198,6 +198,27 @@ public class RulesetPackTests
     }
 
     [Fact]
+    public void Camps_MayGiveCampTypesOrEvolutionStages()
+    {
+        string camps = @"""alignedToClock"": true },
+            { ""id"": ""camp.dawn.medium"", ""x"": 4000, ""y"": 3000, ""variants"": [ [ { ""creep"": ""jungle_small"", ""count"": 3 } ], [ { ""creep"": ""jungle_medium"", ""count"": 2 } ] ],
+              ""firstSpawn"": 60, ""respawn"": 60, ""leashRadius"": 600, ""alignedToClock"": true },
+            { ""id"": ""camp.dawn.flooded"", ""x"": 5000, ""y"": 3000, ""evolution"": { ""interval"": 300, ""stages"": [ [ { ""creep"": ""jungle_small"", ""count"": 3 } ],
+                [ { ""creep"": ""jungle_small"", ""count"": 2 }, { ""creep"": ""jungle_medium"", ""count"": 1 } ] ] },
+              ""firstSpawn"": 60, ""respawn"": 60, ""leashRadius"": 600, ""alignedToClock"": true }";
+        string json = PackWith(MapSection()).Replace(@"""alignedToClock"": true }", camps);
+
+        MapDefinition map = Apply(json).Map;
+
+        NeutralCampDefinition medium = map.Camps.Single(c => c.Id == "camp.dawn.medium");
+        Assert.Equal(new[] { "jungle_small:3", "jungle_medium:2" }, medium.Variants.Select(v => string.Join(",", v.Select(e => e.CreepTypeId + ":" + e.Count))));
+        Assert.Null(medium.Evolution);
+        CampEvolution evolution = map.Camps.Single(c => c.Id == "camp.dawn.flooded").Evolution!;
+        Assert.Equal(300000, evolution.IntervalMs);
+        Assert.Equal(new[] { "jungle_small:3", "jungle_small:2,jungle_medium:1" }, evolution.Stages.Select(v => string.Join(",", v.Select(e => e.CreepTypeId + ":" + e.Count))));
+    }
+
+    [Fact]
     public void Map_FromThePack_Plays()
     {
         RulesetContent pack = Apply(PackWith(MapSection()));

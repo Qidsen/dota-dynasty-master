@@ -178,14 +178,62 @@ namespace Dynasty.MatchSimulation.Systems
             {
                 if (camp.Members.All(m => !m.IsAlive))
                     camp.NextSpawnTick = NextSpawnAfterClear(context, camp.Definition, now);
+                else if (Evolves(context, camp, now) && !Busy(state, camp))
+                {
+                    // Dota's flooded camp evolves: the idle camp is replaced by its new stage.
+                    foreach (MatchUnit member in camp.Members.Where(m => m.IsAlive).ToList())
+                    {
+                        state.Remove(member);
+                        context.Emit(new UnitExpired(member.Id));
+                    }
+
+                    Spawn(context, state, camp, now);
+                }
+
                 return;
             }
 
             if (now < camp.NextSpawnTick)
                 return;
+            Spawn(context, state, camp, now);
+        }
+
+        private static bool Evolves(SimulationContext<MatchState> context, CampState camp, long now) =>
+            camp.Definition.Evolution is CampEvolution evolution && evolution.StageAt(now * 1000 / context.TickRate.TicksPerSecond) != camp.Stage;
+
+        /// <summary>Fighting, or blocked by a living unit of the teams within its leash.</summary>
+        private static bool Busy(MatchState state, CampState camp) =>
+            camp.Members.Any(m => m.IsAlive && m.TargetId.IsValid) ||
+            state.Units.Any(u => u.Team != Team.Neutral && u.IsAlive && (u.Kind == UnitKind.Hero || u.Kind == UnitKind.Creep || u.Kind == UnitKind.Summon) &&
+                                 Geometry.WithinRange(u.Position, camp.Definition.Position, camp.Definition.LeashRadius));
+
+        private static void Spawn(SimulationContext<MatchState> context, MatchState state, CampState camp, long now)
+        {
+            NeutralCampDefinition definition = camp.Definition;
+            System.Collections.Generic.IReadOnlyList<WaveEntry> creeps;
+            if (definition.Evolution is CampEvolution evolution)
+            {
+                camp.Stage = evolution.StageAt(now * 1000 / context.TickRate.TicksPerSecond);
+                creeps = evolution.Stages[camp.Stage];
+            }
+            else
+            {
+                int variant = 0;
+                if (definition.Variants.Count > 1)
+                {
+                    // Never the last one again: draw among the others.
+                    int count = camp.LastVariant < 0 ? definition.Variants.Count : definition.Variants.Count - 1;
+                    variant = context.Random("neutrals").NextInt(0, count);
+                    if (camp.LastVariant >= 0 && variant >= camp.LastVariant)
+                        variant++;
+                }
+
+                camp.LastVariant = variant;
+                creeps = definition.Variants[variant];
+            }
 
             camp.Members.Clear();
-            foreach (WaveEntry entry in camp.Definition.Creeps)
+            foreach (WaveEntry entry in creeps)
             {
                 CreepType type = state.Ruleset.FindCreepType(entry.CreepTypeId)!;
                 for (int i = 0; i < entry.Count; i++)
@@ -193,7 +241,7 @@ namespace Dynasty.MatchSimulation.Systems
             }
 
             camp.NextSpawnTick = -1;
-            context.Emit(new CampSpawned(camp.Definition.Id));
+            context.Emit(new CampSpawned(definition.Id));
         }
 
         private static long NextSpawnAfterClear(SimulationContext<MatchState> context, NeutralCampDefinition camp, long now)

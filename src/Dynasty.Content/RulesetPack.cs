@@ -129,14 +129,19 @@ namespace Dynasty.Content
             }).ToList();
             var camps = m.OptionalArray("camps").Select(c =>
             {
-                var creeps = c.Array("creeps").Select(e =>
+                // A camp's creeps, or the camp types it may spawn (variants), or its stages (evolution).
+                List<IReadOnlyList<WaveEntry>>? variants = c.Has("variants") ? Compositions(c, "variants") : null;
+                CampEvolution? evolution = null;
+                if (c.OptionalObject("evolution") is Reader ev)
                 {
-                    var entry = new WaveEntry(e.String("creep"), e.Int("count"));
-                    e.RejectUnknown();
-                    return entry;
-                }).ToList();
+                    evolution = new CampEvolution(ev.Milliseconds("interval"), Compositions(ev, "stages"));
+                    ev.RejectUnknown();
+                }
+
+                IReadOnlyList<WaveEntry> creeps = c.Has("creeps") ? CampCreeps(c.Array("creeps"))
+                    : evolution?.Stages.FirstOrDefault() ?? variants?.FirstOrDefault() ?? throw c.Error("creeps", "missing (or give variants or evolution)");
                 var camp = new NeutralCampDefinition(c.String("id"), FixedVector2.FromInts(c.Int("x"), c.Int("y")), creeps, c.Milliseconds("firstSpawn"),
-                    c.Milliseconds("respawn"), c.Int("leashRadius"), c.OptionalBool("alignedToClock") ?? false);
+                    c.Milliseconds("respawn"), c.Int("leashRadius"), c.OptionalBool("alignedToClock") ?? false, variants, evolution);
                 c.RejectUnknown();
                 return camp;
             }).ToList();
@@ -145,6 +150,21 @@ namespace Dynasty.Content
             m.RejectUnknown();
             return map;
         }
+
+        private static List<IReadOnlyList<WaveEntry>> Compositions(Reader r, string field) =>
+            r.Read(field, v => v.Items.Select((items, i) =>
+            {
+                if (items.Kind != Dynasty.Core.Json.JsonKind.Array)
+                    throw r.Error(field + "[" + i + "]", "expected a list of creeps");
+                return CampCreeps(items.Items.Select((e, j) => new Reader(e, field + "[" + i + "][" + j + "]")));
+            }).ToList());
+
+        private static IReadOnlyList<WaveEntry> CampCreeps(IEnumerable<Reader> entries) => entries.Select(e =>
+        {
+            var entry = new WaveEntry(e.String("creep"), e.Int("count"));
+            e.RejectUnknown();
+            return entry;
+        }).ToList();
 
         private static MapTerrain ReadTerrain(Reader t)
         {
@@ -781,7 +801,7 @@ namespace Dynasty.Content
                 }
             }
 
-            private T Read<T>(string field, Func<JsonValue, T> read)
+            public T Read<T>(string field, Func<JsonValue, T> read)
             {
                 _read.Add(field);
                 JsonValue? value = _value.Get(field);

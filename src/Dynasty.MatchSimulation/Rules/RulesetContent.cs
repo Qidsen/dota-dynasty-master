@@ -1271,11 +1271,16 @@ namespace Dynasty.MatchSimulation.Rules
             ReportDuplicates(errors, "camp", Map.Camps.Select(c => c.Id));
             foreach (NeutralCampDefinition camp in Map.Camps)
             {
-                foreach (WaveEntry entry in camp.Creeps)
+                foreach (WaveEntry entry in camp.Creeps.Concat(camp.Variants.SelectMany(v => v)).Concat(camp.Evolution?.Stages.SelectMany(s => s) ?? Enumerable.Empty<WaveEntry>()))
                 {
                     if (FindCreepType(entry.CreepTypeId) == null || entry.Count <= 0)
                         errors.Add("Camp '" + camp.Id + "' uses unknown creep type '" + entry.CreepTypeId + "' or a non-positive count.");
                 }
+
+                if (camp.Evolution != null && (camp.Evolution.IntervalMs <= 0 || camp.Evolution.Stages.Count == 0 || camp.Evolution.Stages.Any(s => s.Count == 0)))
+                    errors.Add("Camp '" + camp.Id + "' needs a positive evolution interval and creeps in every stage.");
+                if (camp.Variants.Any(v => v.Count == 0))
+                    errors.Add("Camp '" + camp.Id + "' has a camp type without creeps.");
 
                 if (!IsInsideMap(camp.Position) || Map.Obstacles.Any(o => o.Contains(camp.Position, 0)))
                     errors.Add("Camp '" + camp.Id + "' must be inside the map and outside obstacles.");
