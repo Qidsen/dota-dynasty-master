@@ -528,7 +528,7 @@ namespace Dynasty.MatchSimulation.Systems
 
                 MatchUnit? target = state.Find(unit.TargetId);
                 if (target == null || !state.CanAttack(unit, target))
-                    target = unit.Lane != null && unit.NextWaypoint >= unit.Lane.Waypoints.Count ? NearestVulnerableStructure(state, unit) : null;
+                    target = unit.Lane != null && unit.NextWaypoint >= unit.WaypointCount ? NearestVulnerableStructure(state, unit) : null;
 
                 if (target != null)
                 {
@@ -582,7 +582,7 @@ namespace Dynasty.MatchSimulation.Systems
 
         private static bool FollowLane(MatchUnit unit)
         {
-            int count = unit.Lane!.Waypoints.Count;
+            int count = unit.WaypointCount;
             while (unit.NextWaypoint < count && unit.Position == unit.WaypointAt(unit.NextWaypoint))
                 unit.NextWaypoint++;
             if (unit.NextWaypoint >= count)

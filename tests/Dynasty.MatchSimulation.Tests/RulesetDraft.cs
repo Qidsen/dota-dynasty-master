@@ -58,6 +58,8 @@ public sealed class RulesetDraft
 
     public List<ElevationZone> Elevation { get; } = new();
 
+    public MapTerrain? Terrain { get; set; }
+
     public static UnitStats HeroStats(int hp = 600, int dmg = 50, int range = 150, int speed = 300, int intervalMs = 1500, int pointMs = 300) =>
         new(hp, Fixed.FromInt(2), speed, dmg, dmg + 4, range, intervalMs, pointMs, 800, 24, 25, visionRange: 1200);
 
@@ -165,7 +167,7 @@ public sealed class RulesetDraft
         new CombatRules(ArmorFactor, HeroAggro, AttackClasses, DotaStacking, MaxAttackSpeed, IllusionBuildingPercent, SummonBuildingPercent, Glyph, DotaAggro),
         Creeps,
         StructureTypes,
-        new MapDefinition(Width, Height, Lanes, Placements, Obstacles, fountains: Fountains, camps: Camps, elevation: Elevation),
+        new MapDefinition(Width, Height, Lanes, Placements, Obstacles, fountains: Fountains, camps: Camps, elevation: Elevation, terrain: Terrain),
         new WaveRules(FirstSpawnMs, IntervalMs, DawnWave, DuskWave, SuperUpgrades, CreepUpgrades),
         Heroes,
         BuildHeroRules(),

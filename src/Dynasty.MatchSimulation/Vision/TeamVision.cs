@@ -125,7 +125,7 @@ namespace Dynasty.MatchSimulation.Vision
             {
                 if (observer.Level >= targetLevel &&
                     FixedVector2.DistanceSquared(observer.Position, target.Position) <= observer.VisionSquared &&
-                    sight.HasClearLine(observer.Position, target.Position))
+                    sight.HasClearLine(observer.Position, target.Position, observer.Level))
                     return true;
             }
 

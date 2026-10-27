@@ -477,16 +477,27 @@ namespace Dynasty.MatchSimulation.Rules
 
     public sealed class LaneDefinition
     {
-        public LaneDefinition(string id, IReadOnlyList<FixedVector2> waypoints)
+        public LaneDefinition(string id, IReadOnlyList<FixedVector2> waypoints, IReadOnlyList<FixedVector2>? duskWaypoints = null)
         {
             Id = id;
             Waypoints = waypoints.ToArray();
+            DuskWaypoints = duskWaypoints?.ToArray();
         }
 
         public string Id { get; }
 
-        /// <summary>Ordered from the Dawn base to the Dusk base; Dusk creeps walk it in reverse.</summary>
+        /// <summary>Ordered from the Dawn base to the Dusk base; Dusk creeps walk it in reverse unless they have their own path.</summary>
         public IReadOnlyList<FixedVector2> Waypoints { get; }
+
+        /// <summary>
+        /// Dusk's own path of the lane, from the Dusk base to the Dawn base (Dota's map has one per side); null to walk
+        /// <see cref="Waypoints"/> backwards.
+        /// </summary>
+        public IReadOnlyList<FixedVector2>? DuskWaypoints { get; }
+
+        /// <summary>The waypoints a side's creeps walk, in walking order.</summary>
+        public IReadOnlyList<FixedVector2> PathOf(Team team) =>
+            team == Team.Dawn ? Waypoints : DuskWaypoints ?? Waypoints.Reverse().ToArray();
     }
 
     public enum ObstacleShape
@@ -568,8 +579,10 @@ namespace Dynasty.MatchSimulation.Rules
             int navClearance = 24,
             IReadOnlyList<FountainPlacement>? fountains = null,
             IReadOnlyList<NeutralCampDefinition>? camps = null,
-            IReadOnlyList<ElevationZone>? elevation = null)
+            IReadOnlyList<ElevationZone>? elevation = null,
+            MapTerrain? terrain = null)
         {
+            Terrain = terrain;
             Camps = (camps ?? Array.Empty<NeutralCampDefinition>()).ToArray();
             Elevation = (elevation ?? Array.Empty<ElevationZone>()).ToArray();
             Width = width;
@@ -598,6 +611,9 @@ namespace Dynasty.MatchSimulation.Rules
 
         /// <summary>Raised ground; units only see targets on their own level or below.</summary>
         public IReadOnlyList<ElevationZone> Elevation { get; }
+
+        /// <summary>The map cell by cell (Dota's map file), on top of the obstacles and elevation zones; null without one.</summary>
+        public MapTerrain? Terrain { get; }
 
         /// <summary>Side of a navigation grid cell in map units.</summary>
         public int NavCellSize { get; }
@@ -1074,6 +1090,9 @@ namespace Dynasty.MatchSimulation.Rules
                 writer.WriteInt64(lane.Waypoints.Count);
                 foreach (FixedVector2 point in lane.Waypoints)
                     writer.WriteVector(point);
+                writer.WriteInt64(lane.DuskWaypoints?.Count ?? -1);
+                foreach (FixedVector2 point in lane.DuskWaypoints ?? Array.Empty<FixedVector2>())
+                    writer.WriteVector(point);
             }
 
             writer.WriteInt64(Map.Structures.Count);
@@ -1099,6 +1118,8 @@ namespace Dynasty.MatchSimulation.Rules
             writer.WriteInt64(Map.Elevation.Count);
             foreach (ElevationZone zone in Map.Elevation)
                 zone.WriteCanonical(writer);
+            writer.WriteBool(Map.Terrain != null);
+            Map.Terrain?.WriteCanonical(writer);
 
             writer.WriteInt64(Map.Camps.Count);
             foreach (NeutralCampDefinition camp in Map.Camps)
@@ -1182,6 +1203,8 @@ namespace Dynasty.MatchSimulation.Rules
                     errors.Add("Lane '" + lane.Id + "' needs at least two waypoints.");
                 if (lane.Waypoints.Any(p => !IsInsideMap(p)))
                     errors.Add("Lane '" + lane.Id + "' has a waypoint outside the map.");
+                if (lane.DuskWaypoints != null && (lane.DuskWaypoints.Count < 2 || lane.DuskWaypoints.Any(p => !IsInsideMap(p))))
+                    errors.Add("Lane '" + lane.Id + "' needs a Dusk path of at least two waypoints inside the map.");
             }
 
             ReportDuplicates(errors, "structure placement", Map.Structures.Select(s => s.Id));
@@ -1234,6 +1257,12 @@ namespace Dynasty.MatchSimulation.Rules
 
             if (Map.NavCellSize <= 0 || Map.NavClearance < 0)
                 errors.Add("Navigation cell size must be positive and clearance non-negative.");
+            MapTerrain? terrain = Map.Terrain;
+            if (terrain != null && Map.NavCellSize > 0 &&
+                (!terrain.IsComplete || terrain.Columns != (Map.Width + Map.NavCellSize - 1) / Map.NavCellSize ||
+                 terrain.Rows != (Map.Height + Map.NavCellSize - 1) / Map.NavCellSize || terrain.TreeSize <= 0 ||
+                 terrain.Trees.Any(t => !IsInsideMap(t))))
+                errors.Add("The map terrain needs one value per navigation cell of the map in each layer, a positive tree size and trees inside the map.");
             ReportDuplicates(errors, "obstacle", Map.Obstacles.Select(o => o.Id));
             foreach (ObstacleDefinition obstacle in Map.Obstacles)
             {

@@ -501,12 +501,17 @@ namespace Dynasty.MatchSimulation
             AttackPointTicks = _rate.TicksFor(Stats.AttackPointMs * 100 / (100 + AttackSpeedBonus));
         }
 
-        /// <summary>Waypoint by walking order: Dawn walks the lane forward, Dusk in reverse.</summary>
+        /// <summary>Waypoint by walking order: Dawn walks the lane forward, Dusk its own path or the lane in reverse.</summary>
         internal FixedVector2 WaypointAt(int index)
         {
+            if (Team != Team.Dawn && Lane!.DuskWaypoints != null)
+                return Lane.DuskWaypoints[index];
             IReadOnlyList<FixedVector2> points = Lane!.Waypoints;
             return Team == Team.Dawn ? points[index] : points[points.Count - 1 - index];
         }
+
+        /// <summary>Number of waypoints on this unit's path of its lane.</summary>
+        internal int WaypointCount => Team != Team.Dawn && Lane!.DuskWaypoints != null ? Lane.DuskWaypoints.Count : Lane!.Waypoints.Count;
     }
 
     /// <summary>Runtime state of a neutral camp.</summary>
@@ -544,8 +549,8 @@ namespace Dynasty.MatchSimulation
             NextWaveTick = rate.TicksFor(ruleset.Waves.FirstSpawnMs);
             Nav = Navigation.NavGrid.FromMap(ruleset.Map);
             Pathfinder = new Navigation.Pathfinder(Nav);
-            SightGrid = Navigation.NavGrid.Build(ruleset.Map.Width, ruleset.Map.Height, ruleset.Map.NavCellSize, ruleset.Map.Obstacles, clearance: 0);
-            _elevation = BuildElevation(Nav, ruleset.Map.Elevation);
+            SightGrid = Navigation.NavGrid.SightOf(ruleset.Map);
+            _elevation = BuildElevation(Nav, ruleset.Map.Elevation, ruleset.Map.Terrain);
             if (ruleset.Boss != null)
                 NextBossSpawnTick = rate.TicksFor(ruleset.Boss.FirstSpawnMs);
             foreach (NeutralCampDefinition camp in ruleset.Map.Camps)
@@ -667,19 +672,22 @@ namespace Dynasty.MatchSimulation
             return tick % cycle >= day;
         }
 
-        /// <summary>Ground level at a point (0 = low ground): the highest zone covering its grid cell center.</summary>
+        /// <summary>Ground level at a point (0 = low ground): the map terrain's level of its cell, or the highest zone covering its center.</summary>
         public int ElevationAt(FixedVector2 point) => _elevation.Length == 0 ? 0 : _elevation[Nav.IndexOf(point)];
 
         private readonly int[] _elevation;
 
-        private static int[] BuildElevation(Navigation.NavGrid grid, IReadOnlyList<ElevationZone> zones)
+        private static int[] BuildElevation(Navigation.NavGrid grid, IReadOnlyList<ElevationZone> zones, MapTerrain? terrain)
         {
-            if (zones.Count == 0)
+            bool fromTerrain = terrain != null && terrain.HasLevels;
+            if (zones.Count == 0 && !fromTerrain)
                 return Array.Empty<int>();
 
             var levels = new int[grid.Columns * grid.Rows];
             for (int i = 0; i < levels.Length; i++)
             {
+                if (fromTerrain)
+                    levels[i] = terrain!.LevelOf(i);
                 FixedVector2 center = grid.CenterOf(i);
                 foreach (ElevationZone zone in zones)
                 {
