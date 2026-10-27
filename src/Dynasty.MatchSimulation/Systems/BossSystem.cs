@@ -17,9 +17,6 @@ namespace Dynasty.MatchSimulation.Systems
     /// </summary>
     internal sealed class NeutralSystem : ISimulationSystem<MatchState>
     {
-        /// <summary>Heroes this close to the boss provoke it even without attacking.</summary>
-        private const int BossProvokeRadius = 300;
-
         /// <summary>Idle neutrals stop this close to home (camp members push each other apart there).</summary>
         private const int HomeTolerance = 50;
 
@@ -31,6 +28,7 @@ namespace Dynasty.MatchSimulation.Systems
             long now = context.Tick.Value;
             SpawnBoss(context, state, now);
             Grow(context, state);
+            CastBossAbilities(context, state, now);
             foreach (CampState camp in state.Camps)
                 UpdateCamp(context, state, camp, now);
 
@@ -49,6 +47,73 @@ namespace Dynasty.MatchSimulation.Systems
                 else if (!Geometry.WithinRange(unit.Position, unit.NeutralHome, HomeTolerance))
                     unit.Position = FixedVector2.MoveTowards(unit.Position, unit.NeutralHome, unit.StepPerTick);
             }
+        }
+
+        /// <summary>
+        /// A boss's own spells: lands the one being cast once its cast point has passed, else starts the first ready one whose
+        /// trigger holds (disabled bosses cast only spells that ignore disables).
+        /// </summary>
+        private static void CastBossAbilities(SimulationContext<MatchState> context, MatchState state, long now)
+        {
+            BossDefinition? definition = state.Ruleset.Boss;
+            MatchUnit? boss = state.Boss;
+            if (definition == null || boss == null || !boss.IsAlive || definition.Abilities.Count == 0)
+                return;
+            boss.BossAbilityReadyTicks ??= new long[definition.Abilities.Count];
+
+            if (boss.BossCastingAbility >= 0)
+            {
+                if (now < boss.BossCastLandsTick)
+                    return;
+                Land(context, state, boss, definition, definition.Abilities[boss.BossCastingAbility], now);
+                boss.BossCastingAbility = -1;
+                return;
+            }
+
+            bool disabled = (boss.Flags & (ModifierFlags.Stunned | ModifierFlags.Silenced)) != 0;
+            for (int i = 0; i < definition.Abilities.Count; i++)
+            {
+                BossAbility ability = definition.Abilities[i];
+                if (now < boss.BossAbilityReadyTicks[i] || (disabled && !ability.IgnoresDisables) || !Triggered(state, boss, ability))
+                    continue;
+                boss.BossAbilityReadyTicks[i] = now + context.TickRate.TicksFor(ability.CooldownMs);
+                if (ability.DispelsSelf)
+                    Effects.Dispel(context, boss, boss, strong: true);
+                boss.BossCastingAbility = i;
+                boss.BossCastLandsTick = now + context.TickRate.TicksFor(ability.CastPointMs);
+                return;
+            }
+        }
+
+        private static bool Triggered(MatchState state, MatchUnit boss, BossAbility ability)
+        {
+            switch (ability.Trigger)
+            {
+                case BossAbilityTrigger.Engaged:
+                    return boss.TargetId.IsValid && state.Units.Any(u => u.Team != Team.Neutral && u.IsAlive && u.Kind != UnitKind.Structure && u.Kind != UnitKind.Rune &&
+                                                                         Geometry.WithinRange(u.Position, boss.Position, ability.Radius));
+                case BossAbilityTrigger.HitByLastKillersBelowHealth:
+                    return state.BossLastKillerTeam != Team.Neutral && state.Find(boss.LastAttackerId)?.Team == state.BossLastKillerTeam &&
+                           boss.Hp * Fixed.FromInt(100) < Fixed.FromInt(boss.MaxHp * ability.BelowHealthPercent);
+                default:
+                    return false;
+            }
+        }
+
+        private static void Land(SimulationContext<MatchState> context, MatchState state, MatchUnit boss, BossDefinition definition, BossAbility ability, long now)
+        {
+            int intervals = definition.Growth?.IntervalsAt(now * 1000 / context.TickRate.TicksPerSecond) ?? 0;
+            Fixed damage = Fixed.FromInt(ability.Damage + ability.DamagePerInterval * intervals);
+            foreach (MatchUnit unit in state.Units.Where(u => u.Team != Team.Neutral && u.IsAlive && u.Kind != UnitKind.Structure && u.Kind != UnitKind.Rune &&
+                                                              Geometry.WithinRange(u.Position, boss.Position, ability.Radius)).ToList())
+            {
+                Fixed amount = unit.Kind == UnitKind.Creep ? damage * Fixed.FromInt(ability.CreepDamagePercent) / Fixed.FromInt(100) : damage;
+                Damage.Deal(context, boss.Id, unit, amount, ability.DamageType);
+                foreach (ModifierSpec modifier in ability.Modifiers)
+                    Modifiers.Apply(context, unit, modifier, boss.Id);
+            }
+
+            context.Emit(new BossAbilityCast(boss.Id, ability.Id));
         }
 
         private static readonly System.Collections.Generic.Dictionary<(BossGrowth, int), ModifierSpec> GrowthSpecs =
@@ -162,10 +227,11 @@ namespace Dynasty.MatchSimulation.Systems
                 unit.LastAttackerId = EntityId.None;
             }
 
-            if (unit.Kind != UnitKind.Boss)
+            int provoke = state.Ruleset.Boss?.ProvokeRadius ?? 0;
+            if (unit.Kind != UnitKind.Boss || provoke <= 0)
                 return null;
             return state.Units
-                .Where(u => u.Kind == UnitKind.Hero && state.CanAttack(unit, u) && InLeash(unit, u) && Geometry.WithinRange(u.Position, unit.Position, BossProvokeRadius))
+                .Where(u => u.Kind == UnitKind.Hero && state.CanAttack(unit, u) && InLeash(unit, u) && Geometry.WithinRange(u.Position, unit.Position, provoke))
                 .OrderBy(u => FixedVector2.DistanceSquared(u.Position, unit.Position))
                 .FirstOrDefault();
         }
@@ -190,6 +256,7 @@ namespace Dynasty.MatchSimulation.Systems
             Team team = killer != null && killer.Team != Team.Neutral ? killer.Team : Team.Neutral;
             if (team != Team.Neutral)
             {
+                state.BossLastKillerTeam = team;
                 foreach (MatchUnit hero in state.Heroes.Where(h => h.Team == team).ToList())
                 {
                     if (hero.IsAlive && definition.Reward != null)

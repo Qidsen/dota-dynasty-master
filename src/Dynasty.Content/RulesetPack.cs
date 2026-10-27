@@ -209,9 +209,26 @@ namespace Dynasty.Content
 
             var boss = new BossDefinition(b.String("id"), b.String("creep"), baseBoss.Position, baseBoss.LeashRadius, b.OptionalMilliseconds("firstSpawn") ?? 0,
                 b.Milliseconds("respawnMin"), b.Milliseconds("respawnMax"), b.Int("teamGold"), null, killerGold[0], killerGold[1], b.OptionalInt("xp") ?? 0, growth,
-                b.OptionalObject("aegis") is Reader ae ? ReadModifier(ae) : null);
+                b.OptionalObject("aegis") is Reader ae ? ReadModifier(ae) : null, b.OptionalArray("abilities").Select(ReadBossAbility).ToList(),
+                b.OptionalInt("provokeRadius") ?? baseBoss.ProvokeRadius);
             b.RejectUnknown();
             return boss;
+        }
+
+        private static BossAbility ReadBossAbility(Reader a)
+        {
+            BossAbilityTrigger trigger = a.String("trigger") switch
+            {
+                "engaged" => BossAbilityTrigger.Engaged,
+                "hitByLastKillersBelowHealth" => BossAbilityTrigger.HitByLastKillersBelowHealth,
+                _ => throw a.Error("trigger", "expected engaged or hitByLastKillersBelowHealth"),
+            };
+            var ability = new BossAbility(a.String("id"), trigger, a.Milliseconds("cooldown"), a.OptionalMilliseconds("castPoint") ?? 0, a.Int("radius"),
+                ReadDamageType(a, "damageType"), a.Int("damage"), a.OptionalInt("damagePerInterval") ?? 0, a.OptionalInt("creepDamagePercent") ?? 100,
+                a.OptionalArray("modifiers").Select(ReadModifier).ToList(), a.OptionalInt("belowHealthPercent") ?? 100, a.OptionalBool("ignoresDisables") ?? false,
+                a.OptionalBool("dispelsSelf") ?? false);
+            a.RejectUnknown();
+            return ability;
         }
 
         private static DotaAggroRules ReadAggro(Reader a)

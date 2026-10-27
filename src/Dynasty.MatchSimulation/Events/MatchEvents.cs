@@ -147,6 +147,28 @@ namespace Dynasty.MatchSimulation.Events
         }
     }
 
+    /// <summary>The boss cast one of its own spells (Dota's Roshan: Slam, Roar of Retribution).</summary>
+    public sealed class BossAbilityCast : IDomainEvent
+    {
+        public BossAbilityCast(EntityId boss, string abilityId)
+        {
+            Boss = boss;
+            AbilityId = abilityId;
+        }
+
+        public EntityId Boss { get; }
+        public string AbilityId { get; }
+
+        public string Type => "match.boss_ability_cast";
+        public int SchemaVersion => 1;
+
+        public void WritePayload(ref Fnv1a64 hash)
+        {
+            hash.AddInt64(Boss.Value);
+            hash.AddString(AbilityId);
+        }
+    }
+
     /// <summary>A spell aimed at the unit was blocked (Dota's Linken's Sphere, Roshan's Spell Block).</summary>
     public sealed class SpellBlocked : IDomainEvent
     {

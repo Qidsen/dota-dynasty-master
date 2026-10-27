@@ -326,11 +326,14 @@ public class PackContentTests
     [Fact]
     public void TheBoss_IsReadWithDotasRewardsAndGrowth_InTheBasePit()
     {
-        RulesetContent rules = Apply(@"""boss"": { ""id"": ""roshan"", ""creep"": ""roshan"", ""firstSpawn"": 0, ""respawnMin"": 480, ""respawnMax"": 660,
+        RulesetContent rules = Apply(@"""boss"": { ""id"": ""roshan"", ""creep"": ""roshan"", ""firstSpawn"": 0, ""provokeRadius"": 0, ""respawnMin"": 480, ""respawnMax"": 660,
                 ""teamGold"": 135, ""killerGold"": [200, 290], ""xp"": 400,
                 ""growth"": { ""interval"": 60, ""health"": 130, ""armor"": 0.4, ""damage"": 7, ""xp"": 20, ""armorFromStart"": true },
                 ""aegis"": { ""key"": ""aegis"", ""duration"": 300, ""revives"": true, ""reviveDelay"": 5, ""consumedOnRevive"": true, ""dispellable"": false,
-                    ""expireModifier"": { ""key"": ""aegis_regen"", ""duration"": 5, ""healthRegenMaxPercent"": 20, ""manaRegenMaxPercent"": 20 } } },
+                    ""expireModifier"": { ""key"": ""aegis_regen"", ""duration"": 5, ""healthRegenMaxPercent"": 20, ""manaRegenMaxPercent"": 20 } },
+                ""abilities"": [ { ""id"": ""roshan_revengeroar"", ""trigger"": ""hitByLastKillersBelowHealth"", ""cooldown"": 60, ""castPoint"": 0.5, ""radius"": 600,
+                    ""damageType"": ""magical"", ""damage"": 50, ""damagePerInterval"": 10, ""belowHealthPercent"": 80, ""ignoresDisables"": true, ""dispelsSelf"": true,
+                    ""modifiers"": [ { ""key"": ""roshan_roar_disarm"", ""duration"": 2, ""flags"": [""disarmed""] } ] } ] },
             ""unitTypes"": [ { ""id"": ""roshan"", ""health"": 6000, ""armor"": 30, ""moveSpeed"": 270, ""visionRange"": 1400, ""attackDamageMin"": 75, ""attackDamageMax"": 75,
                 ""attackRange"": 150, ""baseAttackTime"": 2, ""modifiers"": [ { ""key"": ""roshan_immortal"", ""statusResistance"": 25, ""slowResistance"": 25,
                 ""spellBlockCooldown"": 15, ""illusionDamageTaken"": -80 } ] } ]", Hero("lion", "[]"));
@@ -340,6 +343,11 @@ public class PackContentTests
         Assert.Equal(("roshan", 480000, 660000, 135, 200, 290, 400), (boss.CreepTypeId, boss.RespawnMinMs, boss.RespawnMaxMs, boss.TeamGold, boss.KillerGoldMin, boss.KillerGoldMax, boss.Xp));
         Assert.Equal((baseBoss.Position, baseBoss.LeashRadius), (boss.Position, boss.LeashRadius));
         Assert.Null(boss.Reward);
+        Assert.Equal(0, boss.ProvokeRadius);
+        BossAbility roar = boss.Abilities.Single();
+        Assert.Equal((BossAbilityTrigger.HitByLastKillersBelowHealth, 60000, 500, 600, DamageType.Magical, 50, 10, 80, true, true, 1),
+            (roar.Trigger, roar.CooldownMs, roar.CastPointMs, roar.Radius, roar.DamageType, roar.Damage, roar.DamagePerInterval, roar.BelowHealthPercent,
+             roar.IgnoresDisables, roar.DispelsSelf, roar.Modifiers.Count));
         ModifierSpec immortal = rules.FindCreepType("roshan")!.Modifiers.Single();
         Assert.Equal((25, 25, 15000, -80), (immortal.StatusResistancePercent, immortal.SlowResistancePercent, immortal.SpellBlockCooldownMs, immortal.IllusionDamageTakenPercent));
         ModifierSpec aegis = boss.Aegis!;

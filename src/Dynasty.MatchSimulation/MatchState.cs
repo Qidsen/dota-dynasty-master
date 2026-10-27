@@ -87,6 +87,11 @@ namespace Dynasty.MatchSimulation
         /// <summary>Dota's aggro: whether this lane creep can be drawn (creeps spawned before 5:00 only near their tier 1).</summary>
         internal bool AggroUnlocked;
 
+        /// <summary>A boss's spells: when each is ready again, and the one being cast with the tick it lands.</summary>
+        internal long[]? BossAbilityReadyTicks;
+        internal int BossCastingAbility = -1;
+        internal long BossCastLandsTick;
+
         /// <summary>The boss growth intervals applied to it (Dota's Roshan).</summary>
         internal int BossGrowthIntervals = -1;
 
@@ -872,6 +877,9 @@ namespace Dynasty.MatchSimulation
             NextBossSpawnTick = -1;
             return unit;
         }
+
+        /// <summary>The team that last killed the boss (Dota's Roar of Retribution answers it); neutral before.</summary>
+        public Team BossLastKillerTeam { get; internal set; } = Team.Neutral;
 
         internal void Remove(MatchUnit unit)
         {

@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+using System.Linq;
 using Dynasty.Core.Hashing;
 using Dynasty.Core.Mathematics;
 using Dynasty.MatchSimulation.Combat;
@@ -12,8 +14,10 @@ namespace Dynasty.MatchSimulation.Rules
     {
         public BossDefinition(string id, string creepTypeId, FixedVector2 position, int leashRadius, int firstSpawnMs,
             int respawnMinMs, int respawnMaxMs, int teamGold, ModifierSpec? reward, int killerGoldMin = 0, int killerGoldMax = 0, int xp = 0,
-            BossGrowth? growth = null, ModifierSpec? aegis = null)
+            BossGrowth? growth = null, ModifierSpec? aegis = null, IReadOnlyList<BossAbility>? abilities = null, int provokeRadius = 300)
         {
+            ProvokeRadius = provokeRadius;
+            Abilities = (abilities ?? System.Array.Empty<BossAbility>()).ToArray();
             Aegis = aegis;
             KillerGoldMin = killerGoldMin;
             KillerGoldMax = killerGoldMax;
@@ -67,6 +71,12 @@ namespace Dynasty.MatchSimulation.Rules
         /// </summary>
         public ModifierSpec? Aegis { get; }
 
+        /// <summary>Heroes this close to the boss provoke it without attacking; 0 = only attackers (Dota's Roshan: «only attacking when aggroed»).</summary>
+        public int ProvokeRadius { get; }
+
+        /// <summary>Spells the boss casts by itself (Dota's Roshan: Slam, Roar of Retribution).</summary>
+        public IReadOnlyList<BossAbility> Abilities { get; }
+
         internal void WriteCanonical(CanonicalWriter w)
         {
             w.WriteString(Id);
@@ -95,6 +105,10 @@ namespace Dynasty.MatchSimulation.Rules
 
             w.WriteBool(Aegis != null);
             Aegis?.WriteCanonical(w);
+            w.WriteInt64(ProvokeRadius);
+            w.WriteInt64(Abilities.Count);
+            foreach (BossAbility ability in Abilities)
+                ability.WriteCanonical(w);
         }
     }
 
@@ -123,5 +137,77 @@ namespace Dynasty.MatchSimulation.Rules
 
         /// <summary>Whole intervals passed at this match time.</summary>
         public int IntervalsAt(long timeMs) => (int)(timeMs / IntervalMs);
+    }
+
+    /// <summary>When a boss casts a spell of its own.</summary>
+    public enum BossAbilityTrigger
+    {
+        /// <summary>While it fights and an enemy is within the spell's radius (Dota's Slam).</summary>
+        Engaged = 0,
+
+        /// <summary>When the team that last killed it hits it below a health percent (Dota's Roar of Retribution).</summary>
+        HitByLastKillersBelowHealth = 1,
+    }
+
+    /// <summary>
+    /// A boss's own area spell (game file `roshan_slam`, `roshan_revengeroar`): after its cast point it damages every
+    /// non-neutral unit within the radius (creeps by a percent of it) and applies its modifiers to them; the damage grows by
+    /// <see cref="DamagePerInterval"/> every growth interval of the boss.
+    /// </summary>
+    public sealed class BossAbility
+    {
+        public BossAbility(string id, BossAbilityTrigger trigger, int cooldownMs, int castPointMs, int radius, Combat.DamageType damageType, int damage,
+            int damagePerInterval = 0, int creepDamagePercent = 100, IReadOnlyList<ModifierSpec>? modifiers = null, int belowHealthPercent = 100,
+            bool ignoresDisables = false, bool dispelsSelf = false)
+        {
+            Id = id;
+            Trigger = trigger;
+            CooldownMs = cooldownMs;
+            CastPointMs = castPointMs;
+            Radius = radius;
+            DamageType = damageType;
+            Damage = damage;
+            DamagePerInterval = damagePerInterval;
+            CreepDamagePercent = creepDamagePercent;
+            Modifiers = (modifiers ?? System.Array.Empty<ModifierSpec>()).ToArray();
+            BelowHealthPercent = belowHealthPercent;
+            IgnoresDisables = ignoresDisables;
+            DispelsSelf = dispelsSelf;
+        }
+
+        public string Id { get; }
+        public BossAbilityTrigger Trigger { get; }
+        public int CooldownMs { get; }
+        public int CastPointMs { get; }
+        public int Radius { get; }
+        public Combat.DamageType DamageType { get; }
+        public int Damage { get; }
+        public int DamagePerInterval { get; }
+
+        /// <summary>Creeps take this percent of the damage (Dota's Slam: 200).</summary>
+        public int CreepDamagePercent { get; }
+
+        public IReadOnlyList<ModifierSpec> Modifiers { get; }
+
+        /// <summary>For <see cref="BossAbilityTrigger.HitByLastKillersBelowHealth"/>: below this percent of its health.</summary>
+        public int BelowHealthPercent { get; }
+
+        /// <summary>Cast even when stunned or silenced (Dota 7.39: the Roar).</summary>
+        public bool IgnoresDisables { get; }
+
+        /// <summary>The cast strongly dispels the boss (Dota 7.39: the Roar).</summary>
+        public bool DispelsSelf { get; }
+
+        internal void WriteCanonical(CanonicalWriter w)
+        {
+            w.WriteString(Id);
+            foreach (int value in new[] { (int)Trigger, CooldownMs, CastPointMs, Radius, (int)DamageType, Damage, DamagePerInterval, CreepDamagePercent, BelowHealthPercent })
+                w.WriteInt64(value);
+            w.WriteBool(IgnoresDisables);
+            w.WriteBool(DispelsSelf);
+            w.WriteInt64(Modifiers.Count);
+            foreach (ModifierSpec modifier in Modifiers)
+                modifier.WriteCanonical(w);
+        }
     }
 }

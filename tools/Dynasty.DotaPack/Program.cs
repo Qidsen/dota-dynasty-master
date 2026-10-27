@@ -214,7 +214,8 @@ var pack = new JsonObject
     // +7 damage, +20 XP.
     ["boss"] = new JsonObject
     {
-        ["id"] = "roshan", ["creep"] = "roshan", ["firstSpawn"] = 0, ["respawnMin"] = 480, ["respawnMax"] = 660,
+        // Roshan idles in his pit and fights only those who attack him (Fandom «Roshan»: «only attacking when aggroed»).
+        ["id"] = "roshan", ["creep"] = "roshan", ["firstSpawn"] = 0, ["respawnMin"] = 480, ["respawnMax"] = 660, ["provokeRadius"] = 0,
         ["teamGold"] = 135, ["killerGold"] = new JsonArray(200, 290), ["xp"] = 400,
         ["growth"] = new JsonObject { ["interval"] = 60, ["health"] = 130, ["armor"] = 0.4, ["damage"] = 7, ["xp"] = 20, ["armorFromStart"] = true },
         // The Aegis (game file item_aegis: reincarnate_time 5, disappear_time 300; Fandom «Aegis of the Immortal» 2024-11: unused or
@@ -224,6 +225,25 @@ var pack = new JsonObject
             ["key"] = "aegis", ["duration"] = 300, ["revives"] = true, ["reviveDelay"] = 5, ["consumedOnRevive"] = true, ["dispellable"] = false,
             ["expireModifier"] = new JsonObject { ["key"] = "aegis_regen", ["duration"] = 5, ["healthRegenMaxPercent"] = 20, ["manaRegenMaxPercent"] = 20 },
         },
+        // Roshan's spells (game file roshan_slam, roshan_revengeroar; Valve 7.35, 7.39): Slam while he fights — every 10 s, 0.47 s
+        // cast, 350, 70 + 10 a minute magical damage (creeps take +100%), 50% slow for 4 s; Roar of Retribution when the team
+        // that last killed him hits him below 80% — every 60 s, 0.5 s windup, 600, 50 + 10 a minute magical damage, the units
+        // take 25% more damage for 12 s and are disarmed for 2 s; cast even stunned or silenced, strongly dispels him (7.39).
+        ["abilities"] = new JsonArray(
+            new JsonObject
+            {
+                ["id"] = "roshan_slam", ["trigger"] = "engaged", ["cooldown"] = 10, ["castPoint"] = 0.47, ["radius"] = 350, ["damageType"] = "magical",
+                ["damage"] = 70, ["damagePerInterval"] = 10, ["creepDamagePercent"] = 200,
+                ["modifiers"] = new JsonArray(new JsonObject { ["key"] = "roshan_slam_slow", ["duration"] = 4, ["moveSpeedPercent"] = -50 }),
+            },
+            new JsonObject
+            {
+                ["id"] = "roshan_revengeroar", ["trigger"] = "hitByLastKillersBelowHealth", ["cooldown"] = 60, ["castPoint"] = 0.5, ["radius"] = 600,
+                ["damageType"] = "magical", ["damage"] = 50, ["damagePerInterval"] = 10, ["belowHealthPercent"] = 80, ["ignoresDisables"] = true, ["dispelsSelf"] = true,
+                ["modifiers"] = new JsonArray(
+                    new JsonObject { ["key"] = "roshan_roar_disarm", ["duration"] = 2, ["flags"] = new JsonArray("disarmed") },
+                    new JsonObject { ["key"] = "roshan_roar_amplify", ["duration"] = 12, ["incomingDamagePercent"] = 25 }),
+            }),
     },
     // Lane waves (Liquipedia «Lane Creeps», updated for 7.41): every 30 s from 0:00, 3 melee and 1 ranged; a siege creep from the
     // 11th wave every 10th; a flagbearer from the 5th wave every 2nd in place of a melee creep; +1 melee at 15:00, 30:00 and

@@ -391,7 +391,7 @@ namespace Dynasty.MatchSimulation.Systems
         }
 
         /// <summary>Allies lose their dispellable debuffs, enemies their dispellable buffs; stuns need a strong dispel.</summary>
-        private static void Dispel(SimulationContext<MatchState> context, MatchUnit caster, MatchUnit target, bool strong)
+        internal static void Dispel(SimulationContext<MatchState> context, MatchUnit caster, MatchUnit target, bool strong)
         {
             bool ally = target.Team == caster.Team;
             foreach (ActiveModifier modifier in target.Modifiers.ToList())
