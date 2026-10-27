@@ -771,8 +771,10 @@ namespace Dynasty.MatchSimulation.Rules
             BossDefinition? boss = null,
             RuneRules? runes = null,
             DayNightRules? dayNight = null,
-            DraftRules? draft = null)
+            DraftRules? draft = null,
+            MinibossDefinition? miniboss = null)
         {
+            Miniboss = miniboss;
             DayNight = dayNight;
             Draft = draft;
             Boss = boss;
@@ -792,6 +794,9 @@ namespace Dynasty.MatchSimulation.Rules
         }
 
         public IReadOnlyList<HeroDefinition> Heroes { get; }
+
+        /// <summary>Dota's Tormentor; null without one.</summary>
+        public MinibossDefinition? Miniboss { get; }
 
         /// <summary>Required when <see cref="Heroes"/> is not empty.</summary>
         public HeroRules? HeroRules { get; }
@@ -911,6 +916,18 @@ namespace Dynasty.MatchSimulation.Rules
                     errors.Add("Boss '" + Boss.Id + "' drops unknown item '" + drop.ItemId + "'.");
                 if (Boss.FirstSpawnMs < 0 || Boss.RespawnMinMs <= 0 || Boss.RespawnMinMs > Boss.RespawnMaxMs)
                     errors.Add("Boss '" + Boss.Id + "' has invalid spawn timings.");
+            }
+
+            if (Miniboss != null)
+            {
+                if (FindCreepType(Miniboss.CreepTypeId) == null)
+                    errors.Add("Miniboss '" + Miniboss.Id + "' uses unknown creep type '" + Miniboss.CreepTypeId + "'.");
+                if (Miniboss.RewardItemId != null && FindItem(Miniboss.RewardItemId) == null)
+                    errors.Add("Miniboss '" + Miniboss.Id + "' gives unknown item '" + Miniboss.RewardItemId + "'.");
+                if (!IsInsideMap(Miniboss.DayPosition) || !IsInsideMap(Miniboss.NightPosition))
+                    errors.Add("Miniboss '" + Miniboss.Id + "' must stand inside the map.");
+                if (Miniboss.RespawnMs <= 0 || Miniboss.ReflectIntervalMs <= 0 || Miniboss.ShiningIntervalMs <= 0 || Miniboss.GrowthIntervalMs <= 0)
+                    errors.Add("Miniboss '" + Miniboss.Id + "' needs positive respawn, reflect, burn and growth intervals.");
             }
 
             return errors;
@@ -1171,6 +1188,8 @@ namespace Dynasty.MatchSimulation.Rules
             Boss?.WriteCanonical(writer);
             writer.WriteBool(Runes != null);
             Runes?.WriteCanonical(writer);
+            writer.WriteBool(Miniboss != null);
+            Miniboss?.WriteCanonical(writer);
             writer.WriteBool(DayNight != null);
             DayNight?.WriteCanonical(writer);
             writer.WriteBool(Draft != null);

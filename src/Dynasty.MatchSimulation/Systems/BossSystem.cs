@@ -35,7 +35,7 @@ namespace Dynasty.MatchSimulation.Systems
 
             foreach (MatchUnit unit in state.Units)
             {
-                if (unit.Team != Team.Neutral || !unit.IsAlive || unit.Kind == UnitKind.Rune)
+                if (unit.Team != Team.Neutral || !unit.IsAlive || unit.Kind == UnitKind.Rune || unit.Kind == UnitKind.Miniboss)
                     continue;
 
                 MatchUnit? target = ChooseTarget(state, unit);

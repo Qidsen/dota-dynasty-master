@@ -21,6 +21,9 @@ namespace Dynasty.MatchSimulation
 
         /// <summary>A power-up lying on the map; picked up by walking onto it, never attacked.</summary>
         Rune = 5,
+
+        /// <summary>Neutral objective that neither moves nor attacks (see <see cref="MinibossDefinition"/>).</summary>
+        Miniboss = 6,
     }
 
     /// <summary>
@@ -94,6 +97,18 @@ namespace Dynasty.MatchSimulation
 
         /// <summary>The boss growth intervals applied to it (Dota's Roshan).</summary>
         internal int BossGrowthIntervals = -1;
+
+        /// <summary>A miniboss's barrier left (Dota's Tormentor: Unyielding Shield).</summary>
+        public Fixed MinibossBarrier { get; internal set; }
+
+        internal int MinibossIntervals;
+        internal long MinibossSpawnTick;
+        internal long MinibossLastHitTick = -1;
+        internal long MinibossRegenCarry;
+
+        /// <summary>Damage to reflect in the next wave, by damage type, and who dealt damage since the last wave.</summary>
+        internal Fixed[]? MinibossReflected;
+        internal readonly List<EntityId> MinibossDealers = new List<EntityId>();
 
         /// <summary>A boss's way to its other pit (Dota), around the terrain; null when not walking one.</summary>
         internal IReadOnlyList<FixedVector2>? BossPath;
@@ -563,6 +578,8 @@ namespace Dynasty.MatchSimulation
             _elevation = BuildElevation(Nav, ruleset.Map.Elevation, ruleset.Map.Terrain);
             if (ruleset.Boss != null)
                 NextBossSpawnTick = rate.TicksFor(ruleset.Boss.FirstSpawnMs);
+            if (ruleset.Miniboss != null)
+                NextMinibossSpawnTick = rate.TicksFor(ruleset.Miniboss.FirstSpawnMs);
             foreach (NeutralCampDefinition camp in ruleset.Map.Camps)
                 Camps.Add(new CampState(camp, rate.TicksFor(camp.FirstSpawnMs)));
             if (ruleset.Runes != null)
@@ -665,6 +682,12 @@ namespace Dynasty.MatchSimulation
 
         /// <summary>The living boss, if the ruleset has one and it is up.</summary>
         public MatchUnit? Boss { get; internal set; }
+
+        /// <summary>The living miniboss (Dota's Tormentor); null when there is none.</summary>
+        public MatchUnit? Miniboss { get; internal set; }
+
+        /// <summary>Tick of the miniboss's next spawn; -1 while it lives or without one.</summary>
+        public long NextMinibossSpawnTick { get; internal set; } = -1;
 
         /// <summary>Tick the boss (re)spawns; -1 when it is alive or the ruleset has none.</summary>
         public long NextBossSpawnTick { get; internal set; } = -1;
@@ -914,6 +937,18 @@ namespace Dynasty.MatchSimulation
             return unit;
         }
 
+        internal MatchUnit SpawnMiniboss(EntityId id, MinibossDefinition miniboss, FixedVector2 position)
+        {
+            CreepType type = Ruleset.FindCreepType(miniboss.CreepTypeId)!;
+            var unit = new MatchUnit(id, Team.Neutral, UnitKind.Miniboss, type.Id, type.Stats, position, Rate) { NeutralHome = position };
+            foreach (ModifierSpec spec in type.Modifiers)
+                unit.AddModifier(new ActiveModifier(spec, id, 0, -1, 0));
+            Add(unit);
+            Miniboss = unit;
+            NextMinibossSpawnTick = -1;
+            return unit;
+        }
+
         internal MatchUnit SpawnBoss(EntityId id, BossDefinition boss, FixedVector2 pit)
         {
             CreepType type = Ruleset.FindCreepType(boss.CreepTypeId)!;
@@ -940,6 +975,8 @@ namespace Dynasty.MatchSimulation
         {
             if (unit == Boss)
                 Boss = null;
+            if (unit == Miniboss)
+                Miniboss = null;
             _units.Remove(unit);
             if (unit.Hero != null)
                 _heroes.Remove(unit);

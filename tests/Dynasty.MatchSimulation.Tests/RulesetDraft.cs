@@ -76,6 +76,8 @@ public sealed class RulesetDraft
 
     public BossDefinition? Boss { get; set; }
 
+    public MinibossDefinition? Miniboss { get; set; }
+
     public RuneRules? Runes { get; set; }
 
     public DayNightRules? DayNight { get; set; }
@@ -178,7 +180,8 @@ public sealed class RulesetDraft
         Boss,
         Runes,
         DayNight,
-        Draft);
+        Draft,
+        Miniboss);
 
     /// <summary>Starts a match with the given heroes; each pick is (heroId, laneId).</summary>
     public Dynasty.Core.Kernel.SimulationKernel<MatchState> StartWithHeroes(

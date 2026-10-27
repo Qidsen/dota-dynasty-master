@@ -1007,6 +1007,13 @@ namespace Dynasty.MatchSimulation.Systems
                     BossRewards.BossDied(context, unit);
                     continue;
                 }
+
+                if (unit.Kind == UnitKind.Miniboss)
+                {
+                    context.Emit(new UnitKilled(unit.Id, unit.Team, unit.TypeId, unit.LastAttackerId));
+                    MinibossSystem.Died(context, unit);
+                    continue;
+                }
                 if (unit.Placement == null)
                 {
                     context.Emit(new UnitKilled(unit.Id, unit.Team, unit.TypeId, unit.LastAttackerId));

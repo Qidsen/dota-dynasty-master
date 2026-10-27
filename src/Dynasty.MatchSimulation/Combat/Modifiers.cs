@@ -771,6 +771,15 @@ namespace Dynasty.MatchSimulation.Combat
                 amount = amount * Fixed.FromInt(10000 + target.IncomingDamageHundredths) / Fixed.FromInt(10000);
             else if (target.IncomingDamageHundredths != 0)
                 amount = amount * Fixed.FromInt(100 + target.IncomingDamageHundredths / 100) / Fixed.FromInt(100);
+            if (target.Kind == UnitKind.Miniboss && context.State.Ruleset.Miniboss != null)
+            {
+                // Dota's Tormentor: reflects part of the damage as taken, before any reduction; its barrier takes the damage first.
+                Systems.MinibossSystem.Took(context, target, from, rawAmount, type);
+                Fixed absorbed = Fixed.Min(amount, target.MinibossBarrier);
+                target.MinibossBarrier -= absorbed;
+                amount -= absorbed;
+            }
+
             amount = Absorb(context, target, amount);
             if ((target.Flags & ModifierFlags.CannotDie) != 0)
                 amount = Fixed.Max(Fixed.Zero, Fixed.Min(amount, target.Hp - Fixed.One));

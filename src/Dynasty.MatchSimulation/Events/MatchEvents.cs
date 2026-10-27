@@ -710,6 +710,57 @@ namespace Dynasty.MatchSimulation.Events
         }
     }
 
+    public sealed class MinibossSpawned : IDomainEvent
+    {
+        public MinibossSpawned(EntityId miniboss, string minibossId)
+        {
+            Miniboss = miniboss;
+            MinibossId = minibossId;
+        }
+
+        public EntityId Miniboss { get; }
+        public string MinibossId { get; }
+
+        public string Type => "match.miniboss_spawned";
+        public int SchemaVersion => 1;
+
+        public void WritePayload(ref Fnv1a64 hash)
+        {
+            hash.AddInt64(Miniboss.Value);
+            hash.AddString(MinibossId);
+        }
+    }
+
+    public sealed class MinibossKilled : IDomainEvent
+    {
+        public MinibossKilled(EntityId miniboss, Team team, EntityId killer, long respawnTick)
+        {
+            Miniboss = miniboss;
+            Team = team;
+            Killer = killer;
+            RespawnTick = respawnTick;
+        }
+
+        public EntityId Miniboss { get; }
+
+        /// <summary>Team credited with the kill (the last attacker's team); Neutral when nobody earned it.</summary>
+        public Team Team { get; }
+
+        public EntityId Killer { get; }
+        public long RespawnTick { get; }
+
+        public string Type => "match.miniboss_killed";
+        public int SchemaVersion => 1;
+
+        public void WritePayload(ref Fnv1a64 hash)
+        {
+            hash.AddInt64(Miniboss.Value);
+            hash.AddInt64((int)Team);
+            hash.AddInt64(Killer.Value);
+            hash.AddInt64(RespawnTick);
+        }
+    }
+
     public sealed class BossKilled : IDomainEvent
     {
         public BossKilled(EntityId boss, Team team, EntityId killer, long respawnTick)
