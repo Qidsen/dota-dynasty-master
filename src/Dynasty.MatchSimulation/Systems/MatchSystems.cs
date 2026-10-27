@@ -397,10 +397,15 @@ namespace Dynasty.MatchSimulation.Systems
         public void Tick(SimulationContext<MatchState> context)
         {
             MatchState state = context.State;
+            DotaAggroRules? dota = state.Ruleset.Combat.DotaAggro;
+            if (dota != null)
+                DotaAggro.Tick(context, dota);
             foreach (MatchUnit unit in state.Units)
             {
-                // Heroes get targets from orders, neutrals from the neutral system.
+                // Heroes get targets from orders, neutrals from the neutral system; with Dota's aggro, lane creeps and buildings too.
                 if (!unit.CanAttackAtAll || !unit.IsAlive || unit.Kind == UnitKind.Hero || unit.Team == Team.Neutral)
+                    continue;
+                if (dota != null && ((unit.Kind == UnitKind.Creep && unit.Lane != null) || unit.Kind == UnitKind.Structure))
                     continue;
 
                 int searchRange = unit.Kind == UnitKind.Structure ? unit.AttackRange : unit.AcquisitionRange;
@@ -631,6 +636,8 @@ namespace Dynasty.MatchSimulation.Systems
                 return;
 
             unit.PendingTargetId = target.Id;
+            unit.AttackStartTick = now;
+            unit.AttackStartTarget = target.Id;
             unit.PendingAttackTick = now + unit.AttackPointTicks;
             unit.NextAttackTick = now + unit.AttackIntervalTicks;
             unit.LastActiveTick = now;

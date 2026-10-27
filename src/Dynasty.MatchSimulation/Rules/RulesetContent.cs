@@ -250,6 +250,42 @@ namespace Dynasty.MatchSimulation.Rules
     }
 
     /// <summary>
+    /// Dota's lane aggro (Liquipedia «Lane Creeps» and «Buildings», 7.41): an attack order on an enemy hero draws the enemy
+    /// lane creeps within <see cref="DrawRadius"/> of the attacker to chase it for <see cref="ForcedMs"/> (once per
+    /// <see cref="CooldownMs"/> per hero), a started attack on a hero draws them without the chase; creeps spawned before
+    /// <see cref="LockedUntilMs"/> cannot be drawn until within <see cref="UnlockRadius"/> of their team's tier 1 tower on their
+    /// lane; towers turn on a hero within <see cref="TowerProtectRadius"/> of them attacking a hero, and weigh threats within
+    /// <see cref="TowerThreatRadius"/>.
+    /// </summary>
+    public sealed class DotaAggroRules
+    {
+        public DotaAggroRules(int drawRadius, int forcedMs, int cooldownMs, int lockedUntilMs, int unlockRadius, string unlockStructureTypeId,
+            int towerProtectRadius, int towerThreatRadius)
+        {
+            DrawRadius = drawRadius;
+            ForcedMs = forcedMs;
+            CooldownMs = cooldownMs;
+            LockedUntilMs = lockedUntilMs;
+            UnlockRadius = unlockRadius;
+            UnlockStructureTypeId = unlockStructureTypeId;
+            TowerProtectRadius = towerProtectRadius;
+            TowerThreatRadius = towerThreatRadius;
+        }
+
+        public int DrawRadius { get; }
+        public int ForcedMs { get; }
+        public int CooldownMs { get; }
+        public int LockedUntilMs { get; }
+        public int UnlockRadius { get; }
+
+        /// <summary>The structure type of the tier 1 towers (found on a lane by the placement id «team.lane.…»).</summary>
+        public string UnlockStructureTypeId { get; }
+
+        public int TowerProtectRadius { get; }
+        public int TowerThreatRadius { get; }
+    }
+
+    /// <summary>
     /// Dota's Glyph of Fortification (Liquipedia «Buildings», 7.41f): a team action that makes its buildings take no damage
     /// for a while and its lane creeps for a shorter while; first usable after the initial cooldown from the horn.
     /// </summary>
@@ -637,9 +673,10 @@ namespace Dynasty.MatchSimulation.Rules
     public sealed class CombatRules
     {
         public CombatRules(Fixed armorFactor, bool heroAggro = false, AttackClassTable? attackClasses = null, bool dotaStacking = false,
-            int maxAttackSpeed = 0, int illusionBuildingPercent = 0, int summonBuildingPercent = 0, GlyphRules? glyph = null)
+            int maxAttackSpeed = 0, int illusionBuildingPercent = 0, int summonBuildingPercent = 0, GlyphRules? glyph = null, DotaAggroRules? dotaAggro = null)
         {
             Glyph = glyph;
+            DotaAggro = dotaAggro;
             DotaStacking = dotaStacking;
             MaxAttackSpeed = maxAttackSpeed;
             IllusionBuildingPercent = illusionBuildingPercent;
@@ -677,6 +714,9 @@ namespace Dynasty.MatchSimulation.Rules
 
         /// <summary>Dota's Glyph of Fortification; null = none.</summary>
         public GlyphRules? Glyph { get; }
+
+        /// <summary>Dota's lane aggro for lane creeps and buildings (replaces <see cref="HeroAggro"/>); null = the engine's rule.</summary>
+        public DotaAggroRules? DotaAggro { get; }
     }
 
     /// <summary>
@@ -973,6 +1013,15 @@ namespace Dynasty.MatchSimulation.Rules
                 GlyphRules glyph = Combat.Glyph;
                 foreach (int value in new[] { glyph.CooldownMs, glyph.InitialCooldownMs, glyph.BuildingDurationMs, glyph.CreepDurationMs, glyph.ResetDelayMs })
                     writer.WriteInt64(value);
+            }
+
+            writer.WriteBool(Combat.DotaAggro != null);
+            if (Combat.DotaAggro != null)
+            {
+                DotaAggroRules aggro = Combat.DotaAggro;
+                foreach (int value in new[] { aggro.DrawRadius, aggro.ForcedMs, aggro.CooldownMs, aggro.LockedUntilMs, aggro.UnlockRadius, aggro.TowerProtectRadius, aggro.TowerThreatRadius })
+                    writer.WriteInt64(value);
+                writer.WriteString(aggro.UnlockStructureTypeId);
             }
 
             writer.WriteInt64(CreepTypes.Count);

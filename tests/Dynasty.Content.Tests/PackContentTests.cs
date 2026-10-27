@@ -279,8 +279,13 @@ public class PackContentTests
     public void Combat_ReadsDotaStackingAndCaps()
     {
         RulesetContent rules = Apply(@"""combat"": { ""dotaStacking"": true, ""maxAttackSpeed"": 700, ""illusionBuildingPercent"": 60, ""summonBuildingPercent"": 90,
-            ""glyph"": { ""cooldown"": 300, ""initialCooldown"": 180, ""buildingDuration"": 7, ""creepDuration"": 3, ""resetDelay"": 1 } }", Hero("lion", "[]"));
+            ""glyph"": { ""cooldown"": 300, ""initialCooldown"": 180, ""buildingDuration"": 7, ""creepDuration"": 3, ""resetDelay"": 1 },
+            ""aggro"": { ""drawRadius"": 500, ""forced"": 2.3, ""cooldown"": 3, ""lockedUntil"": 300, ""unlockRadius"": 1500, ""unlockStructureType"": ""tower.t1"",
+                ""towerProtectRadius"": 500, ""towerThreatRadius"": 700 } }", Hero("lion", "[]"));
 
+        DotaAggroRules aggro = rules.Combat.DotaAggro!;
+        Assert.Equal((500, 2300, 3000, 300000, 1500, "tower.t1", 500, 700), (aggro.DrawRadius, aggro.ForcedMs, aggro.CooldownMs, aggro.LockedUntilMs,
+            aggro.UnlockRadius, aggro.UnlockStructureTypeId, aggro.TowerProtectRadius, aggro.TowerThreatRadius));
         GlyphRules glyph = rules.Combat.Glyph!;
         Assert.Equal((300000, 180000, 7000, 3000, 1000), (glyph.CooldownMs, glyph.InitialCooldownMs, glyph.BuildingDurationMs, glyph.CreepDurationMs, glyph.ResetDelayMs));
         Assert.Equal((true, 700, 60, 90), (rules.Combat.DotaStacking, rules.Combat.MaxAttackSpeed, rules.Combat.IllusionBuildingPercent, rules.Combat.SummonBuildingPercent));

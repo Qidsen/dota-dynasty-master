@@ -57,7 +57,8 @@ namespace Dynasty.Content
             {
                 combat = new CombatRules(combat.ArmorFactor, combat.HeroAggro, combat.AttackClasses, c.OptionalBool("dotaStacking") ?? combat.DotaStacking,
                     c.OptionalInt("maxAttackSpeed") ?? combat.MaxAttackSpeed, c.OptionalInt("illusionBuildingPercent") ?? combat.IllusionBuildingPercent,
-                    c.OptionalInt("summonBuildingPercent") ?? combat.SummonBuildingPercent, c.OptionalObject("glyph") is Reader g ? ReadGlyph(g) : combat.Glyph);
+                    c.OptionalInt("summonBuildingPercent") ?? combat.SummonBuildingPercent, c.OptionalObject("glyph") is Reader g ? ReadGlyph(g) : combat.Glyph,
+                    c.OptionalObject("aggro") is Reader ag ? ReadAggro(ag) : combat.DotaAggro);
                 c.RejectUnknown();
             }
             List<CreepType> unitTypes = reader.OptionalArray("unitTypes").Select(u => ReadUnitType(u, baseRules)).ToList();
@@ -189,6 +190,14 @@ namespace Dynasty.Content
                 composition, composition, baseWaves.SuperUpgrades, upgrades);
             w.RejectUnknown();
             return waves;
+        }
+
+        private static DotaAggroRules ReadAggro(Reader a)
+        {
+            var aggro = new DotaAggroRules(a.Int("drawRadius"), a.Milliseconds("forced"), a.Milliseconds("cooldown"), a.Milliseconds("lockedUntil"),
+                a.Int("unlockRadius"), a.String("unlockStructureType"), a.Int("towerProtectRadius"), a.Int("towerThreatRadius"));
+            a.RejectUnknown();
+            return aggro;
         }
 
         private static GlyphRules ReadGlyph(Reader g)

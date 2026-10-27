@@ -198,6 +198,14 @@ var pack = new JsonObject
         // Glyph of Fortification (Liquipedia «Buildings», 7.41f): cooldown 300 s, first usable at 3:00, buildings 7 s, lane creeps
         // 3 s (Fandom 2024: 4 — older), the cooldown reset to 1 s by the first tier 1, tier 2 and melee barracks lost.
         ["glyph"] = new JsonObject { ["cooldown"] = 300, ["initialCooldown"] = 180, ["buildingDuration"] = 7, ["creepDuration"] = 3, ["resetDelay"] = 1 },
+        // Lane aggro (Liquipedia «Lane Creeps» and «Buildings», 7.41): an attack order on an enemy hero draws the enemy lane creeps
+        // within 500 of the attacker for 2.3 s, once per 3 s per hero; creeps spawned before 5:00 cannot be drawn until within
+        // 1500 of their tier 1 tower; a tower turns on a hero within 500 of it attacking a hero, and weighs threats within 700.
+        ["aggro"] = new JsonObject
+        {
+            ["drawRadius"] = 500, ["forced"] = 2.3, ["cooldown"] = 3, ["lockedUntil"] = 300, ["unlockRadius"] = 1500, ["unlockStructureType"] = "tower.t1",
+            ["towerProtectRadius"] = 500, ["towerThreatRadius"] = 700,
+        },
     },
     ["heroes"] = packHeroes,
     // Lane waves (Liquipedia «Lane Creeps», updated for 7.41): every 30 s from 0:00, 3 melee and 1 ranged; a siege creep from the

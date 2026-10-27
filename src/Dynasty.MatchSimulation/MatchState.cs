@@ -76,6 +76,17 @@ namespace Dynasty.MatchSimulation
         /// <summary>The modifiers giving critical strikes, from the strongest multiplier down (each keeps its pseudo-random tries).</summary>
         internal IReadOnlyList<ActiveModifier> CritModifiers { get; private set; } = Array.Empty<ActiveModifier>();
 
+        /// <summary>The tick it last started an attack, and on whom (Dota's aggro reads it the next tick).</summary>
+        internal long AttackStartTick = -1;
+        internal EntityId AttackStartTarget;
+
+        /// <summary>Dota's aggro: the hero an attack order made this creep chase, and until when.</summary>
+        internal EntityId ForcedTargetId;
+        internal long ForcedUntilTick;
+
+        /// <summary>Dota's aggro: whether this lane creep can be drawn (creeps spawned before 5:00 only near their tier 1).</summary>
+        internal bool AggroUnlocked;
+
         /// <summary>Gold its killer gets on top of its type's bounty (Dota's creep upgrades).</summary>
         internal Fixed BountyGoldBonus;
 

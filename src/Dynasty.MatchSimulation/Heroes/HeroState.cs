@@ -96,6 +96,13 @@ namespace Dynasty.MatchSimulation.Heroes
 
         public HeroOrder Order { get; internal set; }
 
+        /// <summary>Attack orders issued (Dota's aggro: a new one on an enemy hero draws creeps), and those already seen.</summary>
+        internal int AttackOrders;
+        internal int AttackOrdersSeen;
+
+        /// <summary>Dota's aggro: the tick until which this hero's attack orders draw no creeps.</summary>
+        internal long AggroCooldownUntilTick;
+
         public IReadOnlyList<ItemSlot> Inventory => InventorySlots;
 
         internal List<ItemSlot> InventorySlots { get; } = new List<ItemSlot>();
@@ -258,6 +265,8 @@ namespace Dynasty.MatchSimulation.Heroes
         {
             HeroState state = hero.Hero!;
             state.Order = order;
+            if (order.Kind == HeroOrderKind.Attack)
+                state.AttackOrders++;
             state.Path = null;
             state.CastEndTick = -1;
             hero.TargetId = order.Kind == HeroOrderKind.Attack ? order.Target : EntityId.None;
