@@ -2,6 +2,8 @@ using Dynasty.Core.Ids;
 using Dynasty.Core.Kernel;
 using Dynasty.Core.Mathematics;
 using Dynasty.MatchSimulation.Combat;
+using Dynasty.MatchSimulation.Events;
+using Dynasty.MatchSimulation.Heroes;
 using Dynasty.MatchSimulation.Rules;
 using Dynasty.MatchSimulation.Tests.Abilities;
 using static Dynasty.MatchSimulation.Tests.RulesetDraft;
@@ -306,5 +308,105 @@ public class DotaStructureTests
         kernel.RunTicks(5);
 
         Assert.Equal((Fixed.FromInt(100), Fixed.FromInt(50)), (barracks, tower));
+    }
+
+    /// <summary>
+    /// Glyph of Fortification (Liquipedia «Buildings», 7.41f): the team's buildings take no damage for a while (7 s), its lane
+    /// creeps for less (3 s), towers of tier 2 and up attack 5 more enemies at once; cooldown 300 s, first usable at 3:00; the
+    /// first tier 1, tier 2 and melee barracks lost each reset the cooldown to 1 s. Shortened times here.
+    /// </summary>
+    private static SimulationKernel<MatchState> GlyphArena(Action<RulesetDraft>? configure = null)
+    {
+        RulesetDraft draft = TestAbilities.Draft().WithoutWaves();
+        draft.Glyph = new GlyphRules(cooldownMs: 10000, initialCooldownMs: 1000, buildingDurationMs: 2000, creepDurationMs: 1000, resetDelayMs: 1000);
+        draft.StructureTypes.Clear();
+        draft.StructureTypes.Add(new StructureType("tower", TowerStats(dmg: 0), resetsGlyphOnFirstLoss: true));
+        draft.StructureTypes.Add(new StructureType("tower.t2", TowerStats(dmg: 50), glyphExtraTargets: 5, resetsGlyphOnFirstLoss: true));
+        draft.StructureTypes.Add(new StructureType("ancient", AncientStats()));
+        draft.Placements.Add(new StructurePlacement("dusk.top.t1", Team.Dusk, "tower", P(7000, 8500), false, Array.Empty<string>(), VulnerabilityRule.AnyProtectorDestroyed));
+        draft.Placements.Add(new StructurePlacement("dusk.bot.t2", Team.Dusk, "tower.t2", P(8000, 1500), false, Array.Empty<string>(), VulnerabilityRule.AnyProtectorDestroyed));
+        configure?.Invoke(draft);
+        var kernel = draft.StartWithHeroes(new[] { ("alpha", "mid"), ("gamma", "mid") }, new[] { ("beta", "mid") });
+        At(kernel, 0, ctx =>
+        {
+            H(ctx.State, "alpha").Position = P(5000, 3000);
+            H(ctx.State, "gamma").Position = P(5000, 3200);
+            H(ctx.State, "beta").Position = P(5000, 8000);
+        });
+        return kernel;
+    }
+
+    [Fact]
+    public void Glyph_IsNotUsableEarly_ThenBuildingsAndLaneCreepsTakeNoDamageForAWhile()
+    {
+        var kernel = GlyphArena();
+        Fixed early = Fixed.Zero, building = Fixed.Zero, creep = Fixed.Zero, creepLater = Fixed.Zero, buildingLater = Fixed.Zero;
+        MatchUnit? duskCreep = null;
+        EntityId Alpha(MatchState s) => H(s, "alpha").Id;
+        At(kernel, 2, ctx => TeamActions.QueueGlyph(ctx.State, Team.Dusk));          // before 1 s: not yet
+        At(kernel, 4, ctx => early = Hit(ctx, Alpha(ctx.State), "dusk.mid.t1", 100));
+        At(kernel, 40, ctx =>
+        {
+            duskCreep = ctx.State.SpawnCreep(ctx.Ids.Allocate(), Team.Dusk, ctx.State.Ruleset.CreepTypes.First(), ctx.State.Ruleset.Map.Lanes[0], ctx.Tick.Value);
+            duskCreep.Position = P(5000, 5000);
+            TeamActions.QueueGlyph(ctx.State, Team.Dusk);
+        });
+        At(kernel, 43, ctx =>
+        {
+            building = Hit(ctx, Alpha(ctx.State), "dusk.mid.t1", 100);
+            Fixed before = duskCreep!.Hp;
+            Damage.Deal(ctx, Alpha(ctx.State), duskCreep, Fixed.FromInt(10), DamageType.Pure);
+            creep = before - duskCreep.Hp;
+        });
+        At(kernel, 80, ctx =>   // after the creeps' 1 s, within the buildings' 2 s
+        {
+            Fixed before = duskCreep!.Hp;
+            Damage.Deal(ctx, Alpha(ctx.State), duskCreep, Fixed.FromInt(10), DamageType.Pure);
+            creepLater = before - duskCreep.Hp;
+            building += Hit(ctx, Alpha(ctx.State), "dusk.mid.t1", 100);
+        });
+        At(kernel, 110, ctx => buildingLater = Hit(ctx, Alpha(ctx.State), "dusk.mid.t1", 100));
+        kernel.RunTicks(112);
+
+        Assert.Equal(Fixed.FromInt(100), early);
+        Assert.Equal((Fixed.Zero, Fixed.Zero), (building, creep));
+        Assert.Equal((Fixed.FromInt(10), Fixed.FromInt(100)), (creepLater, buildingLater));
+        Assert.Single(kernel.EventsOf<GlyphUsed>());
+    }
+
+    [Fact]
+    public void Glyph_HasACooldown_ResetByTheFirstTowerOfATierLost_OnlyOnce()
+    {
+        var kernel = GlyphArena();
+        foreach (long tick in new long[] { 40, 50, 140, 250 })
+            At(kernel, tick, ctx => TeamActions.QueueGlyph(ctx.State, Team.Dusk));
+        // Each kill after the glyph's 2 s on the buildings: the first T1 resets the cooldown to 1 s, the second does not.
+        At(kernel, 105, ctx => Damage.Deal(ctx, H(ctx.State, "alpha").Id, S(ctx.State, "dusk.mid.t1"), Fixed.FromInt(99999), DamageType.Pure));
+        At(kernel, 210, ctx => Damage.Deal(ctx, H(ctx.State, "alpha").Id, S(ctx.State, "dusk.top.t1"), Fixed.FromInt(99999), DamageType.Pure));
+        kernel.RunTicks(260);
+
+        Assert.Equal(new long[] { 41, 141 }, kernel.TimedEventsOf<GlyphUsed>().Where(g => g.Event.Team == Team.Dusk).Select(g => g.Tick).ToArray());
+    }
+
+    [Fact]
+    public void AGlyphedTier2Tower_AttacksSeveralEnemiesAtOnce()
+    {
+        var kernel = GlyphArena();
+        At(kernel, 0, ctx =>
+        {
+            H(ctx.State, "alpha").Position = P(7500, 1500);
+            H(ctx.State, "gamma").Position = P(7500, 1800);
+        });
+        At(kernel, 100, ctx => TeamActions.QueueGlyph(ctx.State, Team.Dusk));
+        kernel.RunTicks(100);
+        EntityId tower = S(kernel.State, "dusk.bot.t2").Id;
+        int TargetsHit(IEnumerable<DamageDealt> hits) => hits.Where(d => d.Attacker == tower).Select(d => d.Target).Distinct().Count();
+        int before = TargetsHit(kernel.EventsOf<DamageDealt>());
+        int seen = kernel.EventsOf<DamageDealt>().Count();
+
+        kernel.RunTicks(60);
+
+        Assert.Equal(1, before);
+        Assert.Equal(2, TargetsHit(kernel.EventsOf<DamageDealt>().Skip(seen)));
     }
 }

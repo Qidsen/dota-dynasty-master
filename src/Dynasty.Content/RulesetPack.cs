@@ -57,7 +57,7 @@ namespace Dynasty.Content
             {
                 combat = new CombatRules(combat.ArmorFactor, combat.HeroAggro, combat.AttackClasses, c.OptionalBool("dotaStacking") ?? combat.DotaStacking,
                     c.OptionalInt("maxAttackSpeed") ?? combat.MaxAttackSpeed, c.OptionalInt("illusionBuildingPercent") ?? combat.IllusionBuildingPercent,
-                    c.OptionalInt("summonBuildingPercent") ?? combat.SummonBuildingPercent);
+                    c.OptionalInt("summonBuildingPercent") ?? combat.SummonBuildingPercent, c.OptionalObject("glyph") is Reader g ? ReadGlyph(g) : combat.Glyph);
                 c.RejectUnknown();
             }
             List<CreepType> unitTypes = reader.OptionalArray("unitTypes").Select(u => ReadUnitType(u, baseRules)).ToList();
@@ -157,6 +157,14 @@ namespace Dynasty.Content
             return rules;
         }
 
+        private static GlyphRules ReadGlyph(Reader g)
+        {
+            var glyph = new GlyphRules(g.Milliseconds("cooldown"), g.Milliseconds("initialCooldown"), g.Milliseconds("buildingDuration"),
+                g.Milliseconds("creepDuration"), g.Milliseconds("resetDelay"));
+            g.RejectUnknown();
+            return glyph;
+        }
+
         private static StructureType ReadStructureType(Reader s, RulesetContent baseRules)
         {
             string id = s.String("id");
@@ -200,8 +208,10 @@ namespace Dynasty.Content
                 d.RejectUnknown();
             }
 
+            int glyphTargets = s.OptionalInt("glyphExtraTargets") ?? 0;
+            bool resetsGlyph = s.OptionalBool("resetsGlyphOnFirstLoss") ?? false;
             s.RejectUnknown();
-            return new StructureType(id, stats, bounty, deny, modifiers, reinforcement, backdoor);
+            return new StructureType(id, stats, bounty, deny, modifiers, reinforcement, backdoor, glyphTargets, resetsGlyph);
         }
 
         private static CreepType ReadUnitType(Reader u, RulesetContent? baseRules = null)

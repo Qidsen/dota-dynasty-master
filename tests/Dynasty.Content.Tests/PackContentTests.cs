@@ -278,8 +278,11 @@ public class PackContentTests
     [Fact]
     public void Combat_ReadsDotaStackingAndCaps()
     {
-        RulesetContent rules = Apply(@"""combat"": { ""dotaStacking"": true, ""maxAttackSpeed"": 700, ""illusionBuildingPercent"": 60, ""summonBuildingPercent"": 90 }", Hero("lion", "[]"));
+        RulesetContent rules = Apply(@"""combat"": { ""dotaStacking"": true, ""maxAttackSpeed"": 700, ""illusionBuildingPercent"": 60, ""summonBuildingPercent"": 90,
+            ""glyph"": { ""cooldown"": 300, ""initialCooldown"": 180, ""buildingDuration"": 7, ""creepDuration"": 3, ""resetDelay"": 1 } }", Hero("lion", "[]"));
 
+        GlyphRules glyph = rules.Combat.Glyph!;
+        Assert.Equal((300000, 180000, 7000, 3000, 1000), (glyph.CooldownMs, glyph.InitialCooldownMs, glyph.BuildingDurationMs, glyph.CreepDurationMs, glyph.ResetDelayMs));
         Assert.Equal((true, 700, 60, 90), (rules.Combat.DotaStacking, rules.Combat.MaxAttackSpeed, rules.Combat.IllusionBuildingPercent, rules.Combat.SummonBuildingPercent));
         Assert.Equal(BaseRuleset.Create().Combat.ArmorFactor, rules.Combat.ArmorFactor);
     }
@@ -292,6 +295,7 @@ public class PackContentTests
                 ""nightVision"": 800, ""attackClass"": ""reinforced"", ""denyHealthPercent"": 10,
                 ""bounty"": { ""teamGold"": 90, ""lastHitGold"": [110, 130], ""lastHitterGetsTeamGold"": true, ""deniedEnemyGoldPercent"": 50, ""deniedOwnGoldPercent"": 50 },
                 ""backdoor"": { ""radius"": 4000, ""aroundAncient"": true, ""damageReduction"": 50, ""summonDamageReduction"": 75, ""healPerSecond"": 180, ""reactivation"": 15.5 },
+                ""glyphExtraTargets"": 5, ""resetsGlyphOnFirstLoss"": true,
                 ""armorPerStandingBarracks"": 4, ""modifiers"": [ { ""key"": ""tower_aura_source"", ""aura"": { ""radius"": 900, ""team"": ""ally"", ""heroesOnly"": true,
                     ""modifier"": { ""key"": ""tower_aura"", ""duration"": 0.5, ""armor"": 3, ""healthRegen"": 1, ""unique"": true } } } ] } ]", Hero("lion", "[]"));
 
@@ -306,6 +310,7 @@ public class PackContentTests
         Assert.Null(rules.FindStructureType("tower.t2")!.Bounty);
         StructureType tower = rules.FindStructureType("tower.t1")!;
         ModifierSpec aura = tower.Modifiers.Single().Aura!.Modifier;
+        Assert.Equal((5, true), (tower.GlyphExtraTargets, tower.ResetsGlyphOnFirstLoss));
         BackdoorProtection backdoor = tower.Backdoor!;
         Assert.Equal((4000, true, 50, 75, 180, 15500), (backdoor.Radius, backdoor.AroundAncient, backdoor.DamageReductionPercent, backdoor.SummonDamageReductionPercent,
             backdoor.HealPerSecond, backdoor.ReactivationMs));

@@ -192,7 +192,13 @@ var pack = new JsonObject
     // Dota's combat rules in 7.41f (docs/DOTA_RULES_AUDIT.md): magic resistance multiplies, evasion stacks diminishingly, critical strikes
     // roll from the strongest multiplier (dota2.fandom «Magic resistance», «Critical strike»; Liquipedia «Evasion»); attack speed 20…700
     // (fandom «Attack speed»); illusions 60% and summons 90% against buildings (Liquipedia «Attack Damage», D-051).
-    ["combat"] = new JsonObject { ["dotaStacking"] = true, ["maxAttackSpeed"] = 700, ["illusionBuildingPercent"] = 60, ["summonBuildingPercent"] = 90 },
+    ["combat"] = new JsonObject
+    {
+        ["dotaStacking"] = true, ["maxAttackSpeed"] = 700, ["illusionBuildingPercent"] = 60, ["summonBuildingPercent"] = 90,
+        // Glyph of Fortification (Liquipedia «Buildings», 7.41f): cooldown 300 s, first usable at 3:00, buildings 7 s, lane creeps
+        // 3 s (Fandom 2024: 4 — older), the cooldown reset to 1 s by the first tier 1, tier 2 and melee barracks lost.
+        ["glyph"] = new JsonObject { ["cooldown"] = 300, ["initialCooldown"] = 180, ["buildingDuration"] = 7, ["creepDuration"] = 3, ["resetDelay"] = 1 },
+    },
     ["heroes"] = packHeroes,
     // Lane creeps and structures from the game's npc_units.txt, replacing the base rules' ones of the same id (the map is still the base one:
     // one barracks per lane, so it gets the melee barracks; B-131).
@@ -273,6 +279,11 @@ static JsonObject StructureRules(JsonObject structure)
 
     if (id == "tower.t4")
         structure["armorPerStandingBarracks"] = 4;
+    // Glyph: towers of tier 2 and up strike 5 more enemies per attack; the first tier 1, tier 2 and melee barracks lost reset it.
+    if (id is "tower.t2" or "tower.t3" or "tower.t4")
+        structure["glyphExtraTargets"] = 5;
+    if (id is "tower.t1" or "tower.t2" or "barracks")
+        structure["resetsGlyphOnFirstLoss"] = true;
     structure["denyHealthPercent"] = 10;
     structure["bounty"] = new JsonObject
     {

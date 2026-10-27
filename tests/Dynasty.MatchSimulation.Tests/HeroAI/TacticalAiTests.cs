@@ -203,6 +203,37 @@ public class TacticalAiTests
     }
 
     /// <summary>
+    /// The glyph is pressed to save a building about to fall to a dive: ready, the building low (below 35%) and at least two
+    /// enemy heroes seen at it. Not for a lone hero, nor for a building still healthy.
+    /// </summary>
+    [Theory]
+    [InlineData(2, 30, true)]
+    [InlineData(1, 30, false)]
+    [InlineData(2, 60, false)]
+    public void Glyph_IsUsedToSaveABuildingFromADive(int enemies, int hpPercent, bool expected)
+    {
+        var draft = TestAbilities.Draft().WithoutWaves();
+        draft.Glyph = new GlyphRules(cooldownMs: 300000, initialCooldownMs: 1000, buildingDurationMs: 7000, creepDurationMs: 3000, resetDelayMs: 1000);
+        var settings = new HeroAiSettings { ReactionJitterTicks = 0, MisjudgementPercent = 0 };
+        foreach (string hero in new[] { "beta", "delta" })
+            settings.Uncontrolled.Add(hero);
+        var kernel = draft.StartWithHeroes(new[] { ("alpha", "mid") }, new[] { ("beta", "mid"), ("delta", "mid") });
+        At(kernel, 0, ctx =>
+        {
+            H(ctx.State, "alpha").Position = P(1000, 9000);
+            H(ctx.State, "beta").Position = P(3300, 5000);
+            H(ctx.State, "delta").Position = enemies >= 2 ? P(3300, 5200) : P(9000, 9000);
+            MatchUnit tower = ctx.State.FindStructure("dawn.mid.t1")!;
+            tower.Hp = Fixed.FromInt(tower.MaxHp * hpPercent / 100);
+        });
+        HeroAi.Attach(kernel, settings);
+
+        kernel.RunTicks(90);
+
+        Assert.Equal(expected, kernel.EventsOf<GlyphUsed>().Any(g => g.Team == Team.Dawn));
+    }
+
+    /// <summary>
     /// A target that runs away just as fast cannot be caught: after a short chase without closing in the
     /// heroes give it up instead of following it across the map (nothing slows or holds it).
     /// </summary>

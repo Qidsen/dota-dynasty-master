@@ -115,6 +115,31 @@ namespace Dynasty.HeroAI
         }
 
         /// <summary>An own structure with a visible enemy hero in or near its attack range.</summary>
+        private const int GlyphBelowHpPercent = 35;
+        private const int GlyphDivers = 2;
+
+        /// <summary>
+        /// Presses the glyph to save a building about to fall to a dive: ready, the building vulnerable and below 35% health,
+        /// at least two enemy heroes seen within its reach. Only what the team sees (its own buildings, visible heroes).
+        /// </summary>
+        public void ConsiderGlyph(MatchState state, long now)
+        {
+            if (state.Ruleset.Combat.Glyph == null || now < state.GlyphReadyTick(Team))
+                return;
+            foreach (MatchUnit structure in state.Units)
+            {
+                if (structure.Kind != UnitKind.Structure || structure.Team != Team || !structure.IsAlive || !state.IsVulnerable(structure) ||
+                    structure.Hp * Fixed.FromInt(100) >= Fixed.FromInt(structure.MaxHp * GlyphBelowHpPercent))
+                    continue;
+                int reach = Math.TowerReach(structure) + 300;
+                int divers = state.Heroes.Count(h => h.Team != Team && h.IsAlive && state.IsVisibleTo(Team, h) && Math.Within(h.Position, structure.Position, reach));
+                if (divers < GlyphDivers)
+                    continue;
+                TeamActions.QueueGlyph(state, Team);
+                return;
+            }
+        }
+
         private MatchUnit? FindThreatenedStructure(MatchState state)
         {
             MatchUnit? best = null;
@@ -229,6 +254,9 @@ namespace Dynasty.HeroAI
                 _dawn.UpdatePlan(state, now, ticksPerMinute, _settings);
                 _dusk.UpdatePlan(state, now, ticksPerMinute, _settings);
             }
+
+            _dawn.ConsiderGlyph(state, now);
+            _dusk.ConsiderGlyph(state, now);
 
             DeterministicRandom random = context.Random("ai");
             foreach (MatchUnit hero in state.Units)

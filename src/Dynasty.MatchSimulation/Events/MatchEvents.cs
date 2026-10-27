@@ -147,6 +147,25 @@ namespace Dynasty.MatchSimulation.Events
         }
     }
 
+    /// <summary>A team used its Glyph of Fortification.</summary>
+    public sealed class GlyphUsed : IDomainEvent
+    {
+        public GlyphUsed(Team team)
+        {
+            Team = team;
+        }
+
+        public Team Team { get; }
+
+        public string Type => "match.glyph_used";
+        public int SchemaVersion => 1;
+
+        public void WritePayload(ref Fnv1a64 hash)
+        {
+            hash.AddInt64((int)Team);
+        }
+    }
+
     public sealed class StructureDestroyed : IDomainEvent
     {
         public StructureDestroyed(EntityId structure, string placementId, Team team, EntityId killer)

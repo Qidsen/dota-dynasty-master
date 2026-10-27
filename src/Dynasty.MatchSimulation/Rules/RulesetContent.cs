@@ -148,9 +148,12 @@ namespace Dynasty.MatchSimulation.Rules
     public sealed class StructureType
     {
         public StructureType(string id, UnitStats stats, StructureBounty? bounty = null, int denyHealthPercent = 0,
-            IReadOnlyList<ModifierSpec>? modifiers = null, int armorPerStandingBarracks = 0, BackdoorProtection? backdoor = null)
+            IReadOnlyList<ModifierSpec>? modifiers = null, int armorPerStandingBarracks = 0, BackdoorProtection? backdoor = null,
+            int glyphExtraTargets = 0, bool resetsGlyphOnFirstLoss = false)
         {
             Backdoor = backdoor;
+            GlyphExtraTargets = glyphExtraTargets;
+            ResetsGlyphOnFirstLoss = resetsGlyphOnFirstLoss;
             Id = id;
             Stats = stats;
             Bounty = bounty;
@@ -171,6 +174,12 @@ namespace Dynasty.MatchSimulation.Rules
 
         /// <summary>Dota's Backdoor Protection; null = none (Dota: tier 1 towers).</summary>
         public BackdoorProtection? Backdoor { get; }
+
+        /// <summary>Under the glyph, each of its attacks also strikes this many other enemies in range (Dota: 5 for towers of tier 2 and up).</summary>
+        public int GlyphExtraTargets { get; }
+
+        /// <summary>Losing the team's first building of this type resets the glyph's cooldown (Dota: tier 1, tier 2, melee barracks).</summary>
+        public bool ResetsGlyphOnFirstLoss { get; }
 
         public string Id { get; }
         public UnitStats Stats { get; }
@@ -205,7 +214,34 @@ namespace Dynasty.MatchSimulation.Rules
                     writer.WriteInt64(value);
                 writer.WriteBool(Backdoor.AroundAncient);
             }
+
+            writer.WriteInt64(GlyphExtraTargets);
+            writer.WriteBool(ResetsGlyphOnFirstLoss);
         }
+    }
+
+    /// <summary>
+    /// Dota's Glyph of Fortification (Liquipedia «Buildings», 7.41f): a team action that makes its buildings take no damage
+    /// for a while and its lane creeps for a shorter while; first usable after the initial cooldown from the horn.
+    /// </summary>
+    public sealed class GlyphRules
+    {
+        public GlyphRules(int cooldownMs, int initialCooldownMs, int buildingDurationMs, int creepDurationMs, int resetDelayMs)
+        {
+            CooldownMs = cooldownMs;
+            InitialCooldownMs = initialCooldownMs;
+            BuildingDurationMs = buildingDurationMs;
+            CreepDurationMs = creepDurationMs;
+            ResetDelayMs = resetDelayMs;
+        }
+
+        public int CooldownMs { get; }
+        public int InitialCooldownMs { get; }
+        public int BuildingDurationMs { get; }
+        public int CreepDurationMs { get; }
+
+        /// <summary>The cooldown left after a reset (losing a first building of a resetting type).</summary>
+        public int ResetDelayMs { get; }
     }
 
     /// <summary>
@@ -493,8 +529,9 @@ namespace Dynasty.MatchSimulation.Rules
     public sealed class CombatRules
     {
         public CombatRules(Fixed armorFactor, bool heroAggro = false, AttackClassTable? attackClasses = null, bool dotaStacking = false,
-            int maxAttackSpeed = 0, int illusionBuildingPercent = 0, int summonBuildingPercent = 0)
+            int maxAttackSpeed = 0, int illusionBuildingPercent = 0, int summonBuildingPercent = 0, GlyphRules? glyph = null)
         {
+            Glyph = glyph;
             DotaStacking = dotaStacking;
             MaxAttackSpeed = maxAttackSpeed;
             IllusionBuildingPercent = illusionBuildingPercent;
@@ -529,6 +566,9 @@ namespace Dynasty.MatchSimulation.Rules
         /// <summary>Attack damage percent of illusions and of summons against buildings (Dota: 60 and 90); 0 = by attack class.</summary>
         public int IllusionBuildingPercent { get; }
         public int SummonBuildingPercent { get; }
+
+        /// <summary>Dota's Glyph of Fortification; null = none.</summary>
+        public GlyphRules? Glyph { get; }
     }
 
     /// <summary>
@@ -819,6 +859,13 @@ namespace Dynasty.MatchSimulation.Rules
             writer.WriteInt64(Combat.MaxAttackSpeed);
             writer.WriteInt64(Combat.IllusionBuildingPercent);
             writer.WriteInt64(Combat.SummonBuildingPercent);
+            writer.WriteBool(Combat.Glyph != null);
+            if (Combat.Glyph != null)
+            {
+                GlyphRules glyph = Combat.Glyph;
+                foreach (int value in new[] { glyph.CooldownMs, glyph.InitialCooldownMs, glyph.BuildingDurationMs, glyph.CreepDurationMs, glyph.ResetDelayMs })
+                    writer.WriteInt64(value);
+            }
 
             writer.WriteInt64(CreepTypes.Count);
             foreach (CreepType creep in CreepTypes)

@@ -117,6 +117,8 @@ public sealed class RulesetDraft
     public int IllusionBuildingPercent { get; set; }
     public int SummonBuildingPercent { get; set; }
 
+    public GlyphRules? Glyph { get; set; }
+
     /// <summary>Dota's economy (null: the simple one).</summary>
     public EconomyRules? Economy { get; set; }
     public int AttributeBonusPerLevel { get; set; }
@@ -156,7 +158,7 @@ public sealed class RulesetDraft
         Id,
         Version,
         TicksPerSecond,
-        new CombatRules(ArmorFactor, HeroAggro, AttackClasses, DotaStacking, MaxAttackSpeed, IllusionBuildingPercent, SummonBuildingPercent),
+        new CombatRules(ArmorFactor, HeroAggro, AttackClasses, DotaStacking, MaxAttackSpeed, IllusionBuildingPercent, SummonBuildingPercent, Glyph),
         Creeps,
         StructureTypes,
         new MapDefinition(Width, Height, Lanes, Placements, Obstacles, fountains: Fountains, camps: Camps, elevation: Elevation),

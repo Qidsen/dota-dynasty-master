@@ -146,6 +146,69 @@ namespace Dynasty.MatchSimulation.Systems
         }
     }
 
+    /// <summary>
+    /// Dota's Glyph of Fortification: a team's request, once off cooldown, gives its buildings and lane creeps a modifier that
+    /// takes away all damage (towers with <see cref="StructureType.GlyphExtraTargets"/> also strike more enemies per attack).
+    /// </summary>
+    internal sealed class GlyphSystem : ISimulationSystem<MatchState>
+    {
+        private readonly Dictionary<int, ModifierSpec> _buildingSpecs = new Dictionary<int, ModifierSpec>();
+        private ModifierSpec? _creepSpec;
+
+        public string Name => "glyph";
+
+        public void Tick(SimulationContext<MatchState> context)
+        {
+            MatchState state = context.State;
+            GlyphRules? glyph = state.Ruleset.Combat.Glyph;
+            if (glyph == null)
+                return;
+            long now = context.Tick.Value;
+            if (now == 0)
+            {
+                foreach (Team team in new[] { Team.Dawn, Team.Dusk })
+                    state.SetGlyphReadyTick(team, context.TickRate.TicksFor(glyph.InitialCooldownMs));
+            }
+
+            foreach (Team team in new[] { Team.Dawn, Team.Dusk })
+            {
+                if (!state.TakeGlyphRequest(team) || now < state.GlyphReadyTick(team))
+                    continue;
+                state.SetGlyphReadyTick(team, now + context.TickRate.TicksFor(glyph.CooldownMs));
+                _creepSpec ??= new ModifierSpec("glyph", glyph.CreepDurationMs, incomingDamagePercent: -100);
+                foreach (MatchUnit unit in state.Units.Where(u => u.Team == team && u.IsAlive).ToList())
+                {
+                    if (unit.Kind == UnitKind.Structure)
+                        Modifiers.Apply(context, unit, BuildingSpec(glyph, state.Ruleset.FindStructureType(unit.TypeId)?.GlyphExtraTargets ?? 0), unit.Id);
+                    else if (unit.Kind == UnitKind.Creep && unit.LaneId != null)
+                        Modifiers.Apply(context, unit, _creepSpec, unit.Id);
+                }
+
+                context.Emit(new GlyphUsed(team));
+            }
+        }
+
+        private ModifierSpec BuildingSpec(GlyphRules glyph, int extraTargets)
+        {
+            if (!_buildingSpecs.TryGetValue(extraTargets, out ModifierSpec? spec))
+                _buildingSpecs[extraTargets] = spec = new ModifierSpec("glyph", glyph.BuildingDurationMs, incomingDamagePercent: -100,
+                    extraTargets: extraTargets, extraTargetRadiusFromAttackRange: extraTargets > 0, extraTargetDamagePercent: 100);
+            return spec;
+        }
+
+        /// <summary>Losing the team's first building of a resetting type sets its glyph's cooldown to the reset delay.</summary>
+        internal static void StructureLost(SimulationContext<MatchState> context, MatchUnit structure)
+        {
+            GlyphRules? glyph = context.State.Ruleset.Combat.Glyph;
+            if (glyph == null || context.State.Ruleset.FindStructureType(structure.TypeId)?.ResetsGlyphOnFirstLoss != true ||
+                !context.State.FirstLossOf(structure.Team, structure.TypeId))
+                return;
+            long reset = context.Tick.Value + context.TickRate.TicksFor(glyph.ResetDelayMs);
+            if (context.State.GlyphReadyTick(structure.Team) > reset)
+                context.State.SetGlyphReadyTick(structure.Team, reset);
+        }
+    }
+
     /// <summary>Pulses ground zones in creation order and removes expired ones; a zone whose source is gone ends.</summary>
     internal sealed class ZoneSystem : ISimulationSystem<MatchState>
     {
@@ -815,6 +878,7 @@ namespace Dynasty.MatchSimulation.Systems
 
                 context.Emit(new StructureDestroyed(unit.Id, unit.Placement.Id, unit.Team, unit.LastAttackerId));
                 Rewards.StructureDestroyed(context, unit);
+                GlyphSystem.StructureLost(context, unit);
                 if (unit.Placement.BarracksLane != null)
                     state.UpdateBarracksReinforcement();
                 if (unit.Placement.IsAncient && fallenAncient == null)

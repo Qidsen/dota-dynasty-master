@@ -684,6 +684,43 @@ namespace Dynasty.MatchSimulation
             }
         }
 
+        private long _dawnGlyphReadyTick, _duskGlyphReadyTick;
+        private bool _dawnGlyphRequested, _duskGlyphRequested;
+        private readonly HashSet<string> _glyphResetsUsed = new HashSet<string>();   // "team/structure type"; membership only
+
+        /// <summary>The tick from which the team's glyph can be used (<see cref="CombatRules.Glyph"/>).</summary>
+        public long GlyphReadyTick(Team team) => team == Team.Dawn ? _dawnGlyphReadyTick : _duskGlyphReadyTick;
+
+        internal void SetGlyphReadyTick(Team team, long tick)
+        {
+            if (team == Team.Dawn)
+                _dawnGlyphReadyTick = tick;
+            else
+                _duskGlyphReadyTick = tick;
+        }
+
+        internal void RequestGlyph(Team team)
+        {
+            if (team == Team.Dawn)
+                _dawnGlyphRequested = true;
+            else if (team == Team.Dusk)
+                _duskGlyphRequested = true;
+        }
+
+        /// <summary>Takes the team's pending glyph request.</summary>
+        internal bool TakeGlyphRequest(Team team)
+        {
+            bool requested = team == Team.Dawn ? _dawnGlyphRequested : _duskGlyphRequested;
+            if (team == Team.Dawn)
+                _dawnGlyphRequested = false;
+            else
+                _duskGlyphRequested = false;
+            return requested;
+        }
+
+        /// <summary>Whether this is the team's first loss of a building of this type (and records it).</summary>
+        internal bool FirstLossOf(Team team, string structureTypeId) => _glyphResetsUsed.Add((int)team + "/" + structureTypeId);
+
         internal MatchUnit SpawnStructure(EntityId id, StructurePlacement placement, StructureType type)
         {
             var unit = new MatchUnit(id, placement.Team, UnitKind.Structure, type.Id, type.Stats, placement.Position, Rate)
