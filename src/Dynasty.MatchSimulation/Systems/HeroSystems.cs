@@ -574,7 +574,7 @@ namespace Dynasty.MatchSimulation.Systems
         /// Living heroes of the receiving team within the share radius split the XP equally (remainder dropped);
         /// a hero killer always shares, wherever it stands.
         /// </summary>
-        private static void ShareXp(SimulationContext<MatchState> context, MatchUnit dead, Team? receivingTeam, int xp, MatchUnit? killer = null)
+        internal static void ShareXp(SimulationContext<MatchState> context, MatchUnit dead, Team? receivingTeam, int xp, MatchUnit? killer = null)
         {
             int radius = context.State.Ruleset.HeroRules!.XpShareRadius;
             // A null team: heroes of both teams (Dota's neutral creeps).

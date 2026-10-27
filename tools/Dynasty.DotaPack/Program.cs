@@ -208,6 +208,16 @@ var pack = new JsonObject
         },
     },
     ["heroes"] = packHeroes,
+    // Roshan (game file npc_dota_roshan; Liquipedia «Roshan»; Valve 7.38 respawn 8–11 min; D-051 growth): in the base map's pit until
+    // the Dota map's two pits come (B-131); every hero of the killing team 135 gold, the last hitter 200–290 more, 400 XP to the
+    // killing team's heroes around; every minute from the horn, alive or dead, +130 health, +0.4 armor (already at 0:00),
+    // +7 damage, +20 XP.
+    ["boss"] = new JsonObject
+    {
+        ["id"] = "roshan", ["creep"] = "roshan", ["firstSpawn"] = 0, ["respawnMin"] = 480, ["respawnMax"] = 660,
+        ["teamGold"] = 135, ["killerGold"] = new JsonArray(200, 290), ["xp"] = 400,
+        ["growth"] = new JsonObject { ["interval"] = 60, ["health"] = 130, ["armor"] = 0.4, ["damage"] = 7, ["xp"] = 20, ["armorFromStart"] = true },
+    },
     // Lane waves (Liquipedia «Lane Creeps», updated for 7.41): every 30 s from 0:00, 3 melee and 1 ranged; a siege creep from the
     // 11th wave every 10th; a flagbearer from the 5th wave every 2nd in place of a melee creep; +1 melee at 15:00, 30:00 and
     // 45:00, +1 ranged at 40:00, +1 siege at 30:00 (7.41: was 35:00) and at 60:00 (new in 7.41).
@@ -238,8 +248,8 @@ var pack = new JsonObject
             {
                 ("melee", "npc_dota_creep_goodguys_melee"), ("ranged", "npc_dota_creep_goodguys_ranged"), ("siege", "npc_dota_goodguys_siege"),
                 ("melee_super", "npc_dota_creep_goodguys_melee_upgraded"), ("ranged_super", "npc_dota_creep_goodguys_ranged_upgraded"),
-                ("flagbearer", "npc_dota_creep_goodguys_flagbearer"),
-            }.Select(c => (JsonNode)Flagbearer(Abilities.GameUnit(c.Id, c.Game, gameUnits))))
+                ("flagbearer", "npc_dota_creep_goodguys_flagbearer"), ("roshan", "npc_dota_roshan"),
+            }.Select(c => (JsonNode)Roshan(Flagbearer(Abilities.GameUnit(c.Id, c.Game, gameUnits)))))
         .ToArray()),
     ["structureTypes"] = new JsonArray(new (string Id, string Game)[]
         {
@@ -396,3 +406,20 @@ static JsonObject FlagbearerStep()
 
 static JsonObject UpgradeStep(string creep, int health, int damage, decimal gold, int xp) =>
     new() { ["creep"] = creep, ["health"] = health, ["damage"] = damage, ["gold"] = gold, ["xp"] = xp };
+
+// Roshan's Bash (game file roshan_bash: 15%, +50 physical damage added to the attack, 1.65 s stun; pseudo-random like every bash).
+// Slam, Roar of Retribution, Spell Block, slow resistance and the illusion damage reduction are not carried over yet (B-148).
+static JsonObject Roshan(JsonObject unit)
+{
+    if (unit["id"]!.GetValue<string>() != "roshan")
+        return unit;
+    unit.Remove("bounty");   // the boss's rewards are its own (the "boss" section)
+    unit["modifiers"] = new JsonArray(new JsonObject
+    {
+        ["key"] = "roshan_bash", ["onHitChance"] = 15, ["pseudoRandom"] = true,
+        ["onHit"] = new JsonArray(
+            new JsonObject { ["kind"] = "modifier", ["modifiers"] = new JsonArray(new JsonObject { ["key"] = "roshan_bash_stun", ["duration"] = 1.65, ["flags"] = new JsonArray("stunned") }) },
+            new JsonObject { ["kind"] = "damage", ["damageType"] = "physical", ["amounts"] = new JsonArray(50) }),
+    });
+    return unit;
+}

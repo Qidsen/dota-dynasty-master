@@ -324,6 +324,23 @@ public class PackContentTests
     }
 
     [Fact]
+    public void TheBoss_IsReadWithDotasRewardsAndGrowth_InTheBasePit()
+    {
+        RulesetContent rules = Apply(@"""boss"": { ""id"": ""roshan"", ""creep"": ""roshan"", ""firstSpawn"": 0, ""respawnMin"": 480, ""respawnMax"": 660,
+                ""teamGold"": 135, ""killerGold"": [200, 290], ""xp"": 400,
+                ""growth"": { ""interval"": 60, ""health"": 130, ""armor"": 0.4, ""damage"": 7, ""xp"": 20, ""armorFromStart"": true } },
+            ""unitTypes"": [ { ""id"": ""roshan"", ""health"": 6000, ""armor"": 30, ""moveSpeed"": 270, ""visionRange"": 1400, ""attackDamageMin"": 75, ""attackDamageMax"": 75,
+                ""attackRange"": 150, ""baseAttackTime"": 2 } ]", Hero("lion", "[]"));
+
+        BossDefinition boss = rules.Boss!;
+        BossDefinition baseBoss = BaseRuleset.Create().Boss!;
+        Assert.Equal(("roshan", 480000, 660000, 135, 200, 290, 400), (boss.CreepTypeId, boss.RespawnMinMs, boss.RespawnMaxMs, boss.TeamGold, boss.KillerGoldMin, boss.KillerGoldMax, boss.Xp));
+        Assert.Equal((baseBoss.Position, baseBoss.LeashRadius), (boss.Position, boss.LeashRadius));
+        Assert.Null(boss.Reward);
+        Assert.Equal((60000, 130, 7, 20, true), (boss.Growth!.IntervalMs, boss.Growth.Health, boss.Growth.Damage, boss.Growth.Xp, boss.Growth.ArmorFromStart));
+    }
+
+    [Fact]
     public void Waves_AreRead_WithTheirSchedule()
     {
         RulesetContent rules = Apply(@"""waves"": { ""interval"": 30, ""composition"": [ { ""creep"": ""melee"", ""count"": 3 },

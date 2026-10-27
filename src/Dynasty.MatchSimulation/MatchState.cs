@@ -87,6 +87,9 @@ namespace Dynasty.MatchSimulation
         /// <summary>Dota's aggro: whether this lane creep can be drawn (creeps spawned before 5:00 only near their tier 1).</summary>
         internal bool AggroUnlocked;
 
+        /// <summary>The boss growth intervals applied to it (Dota's Roshan).</summary>
+        internal int BossGrowthIntervals = -1;
+
         /// <summary>Gold its killer gets on top of its type's bounty (Dota's creep upgrades).</summary>
         internal Fixed BountyGoldBonus;
 
@@ -831,6 +834,8 @@ namespace Dynasty.MatchSimulation
                 NeutralHome = boss.Position,
                 LeashRadius = boss.LeashRadius,
             };
+            foreach (ModifierSpec spec in type.Modifiers)
+                unit.AddModifier(new ActiveModifier(spec, id, 0, -1, 0));
             Add(unit);
             Boss = unit;
             NextBossSpawnTick = -1;

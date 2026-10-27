@@ -67,6 +67,7 @@ namespace Dynasty.Content
             IReadOnlyList<AbilityDefinition> abilities = reader.Has("abilities") ? reader.Array("abilities").Select(ReadAbility).ToList() : baseRules.Abilities;
             IReadOnlyList<ItemDefinition> items = reader.Has("items") ? reader.Array("items").Select(ReadItem).ToList() : baseRules.Items;
             WaveRules waves = reader.OptionalObject("waves") is Reader w ? ReadWaves(w, baseRules.Waves) : baseRules.Waves;
+            BossDefinition? boss = reader.OptionalObject("boss") is Reader bo ? ReadBoss(bo, baseRules.Boss) : baseRules.Boss;
             reader.RejectUnknown();
 
             var unitIds = new HashSet<string>(unitTypes.Select(u => u.Id));
@@ -78,7 +79,7 @@ namespace Dynasty.Content
             foreach (string unknown in structureOverrides.Keys.Where(k => k != StructureType.FountainId && baseRules.StructureTypes.All(s => s.Id != k)))
                 throw new RulesetPackException("structureTypes: \"" + unknown + "\" is not a structure type of the base rules.");
             var content = new RulesetContent(id, version, baseRules.TicksPerSecond, combat, creepTypes, structureTypes,
-                baseRules.Map, waves, heroes, heroRules, abilities, items, baseRules.Boss, baseRules.Runes,
+                baseRules.Map, waves, heroes, heroRules, abilities, items, boss, baseRules.Runes,
                 baseRules.DayNight, baseRules.Draft);
             IReadOnlyList<string> errors = content.Validate();
             if (errors.Count > 0)
@@ -190,6 +191,26 @@ namespace Dynasty.Content
                 composition, composition, baseWaves.SuperUpgrades, upgrades);
             w.RejectUnknown();
             return waves;
+        }
+
+        /// <summary>The boss of the base map's pit (its place and leash stay the base ones) with Dota's stats, rewards and growth.</summary>
+        private static BossDefinition ReadBoss(Reader b, BossDefinition? baseBoss)
+        {
+            if (baseBoss == null)
+                throw b.Error("boss", "the base rules have no boss pit");
+            IReadOnlyList<int> killerGold = b.OptionalInts("killerGold") ?? new[] { 0, 0 };
+            BossGrowth? growth = null;
+            if (b.OptionalObject("growth") is Reader g)
+            {
+                growth = new BossGrowth(g.Milliseconds("interval"), g.OptionalInt("health") ?? 0, g.OptionalFixed("armor") ?? Dynasty.Core.Mathematics.Fixed.Zero,
+                    g.OptionalInt("damage") ?? 0, g.OptionalInt("xp") ?? 0, g.OptionalBool("armorFromStart") ?? false);
+                g.RejectUnknown();
+            }
+
+            var boss = new BossDefinition(b.String("id"), b.String("creep"), baseBoss.Position, baseBoss.LeashRadius, b.OptionalMilliseconds("firstSpawn") ?? 0,
+                b.Milliseconds("respawnMin"), b.Milliseconds("respawnMax"), b.Int("teamGold"), null, killerGold[0], killerGold[1], b.OptionalInt("xp") ?? 0, growth);
+            b.RejectUnknown();
+            return boss;
         }
 
         private static DotaAggroRules ReadAggro(Reader a)

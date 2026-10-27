@@ -30,6 +30,7 @@ namespace Dynasty.MatchSimulation.Systems
             MatchState state = context.State;
             long now = context.Tick.Value;
             SpawnBoss(context, state, now);
+            Grow(context, state);
             foreach (CampState camp in state.Camps)
                 UpdateCamp(context, state, camp, now);
 
@@ -48,6 +49,38 @@ namespace Dynasty.MatchSimulation.Systems
                 else if (!Geometry.WithinRange(unit.Position, unit.NeutralHome, HomeTolerance))
                     unit.Position = FixedVector2.MoveTowards(unit.Position, unit.NeutralHome, unit.StepPerTick);
             }
+        }
+
+        private static readonly System.Collections.Generic.Dictionary<(BossGrowth, int), ModifierSpec> GrowthSpecs =
+            new System.Collections.Generic.Dictionary<(BossGrowth, int), ModifierSpec>();
+
+        /// <summary>Dota's Roshan: the growth of the intervals passed so far; the health gained heals too.</summary>
+        private static void Grow(SimulationContext<MatchState> context, MatchState state)
+        {
+            BossGrowth? growth = state.Ruleset.Boss?.Growth;
+            MatchUnit? boss = state.Boss;
+            if (growth == null || boss == null || !boss.IsAlive)
+                return;
+            int intervals = growth.IntervalsAt(context.Tick.Value * 1000 / context.TickRate.TicksPerSecond);
+            if (intervals == boss.BossGrowthIntervals)
+                return;
+
+            ModifierSpec spec;
+            lock (GrowthSpecs)
+            {
+                if (!GrowthSpecs.TryGetValue((growth, intervals), out spec!))
+                    GrowthSpecs[(growth, intervals)] = spec = new ModifierSpec("boss_growth", -1, dispellable: false, maxHpBonus: growth.Health * intervals,
+                        damageBonus: growth.Damage * intervals, armorBonus: growth.Armor * Fixed.FromInt(intervals + (growth.ArmorFromStart ? 1 : 0)));
+            }
+
+            int oldMax = boss.MaxHp;
+            Fixed hp = boss.Hp;   // read before the old growth comes off (that clamps the health)
+            ActiveModifier? old = boss.FindModifier("boss_growth", boss.Id);
+            if (old != null)
+                boss.RemoveModifier(old);
+            boss.AddModifier(new ActiveModifier(spec, boss.Id, 0, -1, 0));
+            boss.Hp = Fixed.Min(Fixed.FromInt(boss.MaxHp), hp + Fixed.FromInt(boss.MaxHp - oldMax));
+            boss.BossGrowthIntervals = intervals;
         }
 
         private static void SpawnBoss(SimulationContext<MatchState> context, MatchState state, long now)
@@ -145,11 +178,18 @@ namespace Dynasty.MatchSimulation.Systems
             {
                 foreach (MatchUnit hero in state.Heroes.Where(h => h.Team == team).ToList())
                 {
-                    if (hero.IsAlive)
+                    if (hero.IsAlive && definition.Reward != null)
                         Modifiers.Apply(context, hero, definition.Reward, boss.Id);
                     if (definition.TeamGold > 0)
                         HeroProgression.GrantGold(context, hero, definition.TeamGold, "boss");
                 }
+
+                // Dota: more gold for the hero that landed the last hit; XP for the killing team's heroes around.
+                if (killer!.Hero != null && definition.KillerGoldMax > 0)
+                    HeroProgression.GrantGold(context, killer, context.Random("economy").NextInt(definition.KillerGoldMin, definition.KillerGoldMax + 1), "boss_last_hit");
+                int xp = definition.Xp + (definition.Growth?.Xp ?? 0) * (definition.Growth?.IntervalsAt(now * 1000 / context.TickRate.TicksPerSecond) ?? 0);
+                if (xp > 0 && state.Ruleset.HeroRules != null)
+                    Rewards.ShareXp(context, boss, team, xp, killer.Hero != null ? killer : null);
             }
 
             context.Emit(new BossKilled(boss.Id, team, boss.LastAttackerId, respawn));
