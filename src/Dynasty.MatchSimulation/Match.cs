@@ -31,6 +31,7 @@ namespace Dynasty.MatchSimulation
 
             foreach (StructurePlacement placement in ruleset.Map.Structures)
                 state.SpawnStructure(kernel.Ids.Allocate(), placement, ruleset.FindStructureType(placement.StructureTypeId)!);
+            state.UpdateBarracksReinforcement();
 
             SpawnHeroes(kernel, state, Team.Dawn, lineup.Dawn);
             SpawnHeroes(kernel, state, Team.Dusk, lineup.Dusk);

@@ -125,4 +125,82 @@ public class DotaStructureTests
 
         Assert.Equal(new[] { 155d, 155d, 0d, 0d }, new[] { gains["alpha"], gains["gamma"], gains["beta"], gains["delta"] });
     }
+
+    /// <summary>Tower Protection: +armor and +regen to allied heroes within 900, lingering 0.5 s; the same aura does not stack.</summary>
+    private static ModifierSpec TowerAura(int armor, int regen) => new("tower_aura_source", -1,
+        aura: new AuraSpec(900, TargetTeam.Ally, heroesOnly: true,
+            new ModifierSpec("tower_aura", 500, armorBonus: Fixed.FromInt(armor), hpRegenBonus: Fixed.FromInt(regen), unique: true)));
+
+    private static SimulationKernel<MatchState> AuraArena(Action<RulesetDraft> configure)
+    {
+        RulesetDraft draft = TestAbilities.Draft();
+        configure(draft);
+        var kernel = draft.StartWithHeroes(new[] { ("alpha", "mid"), ("gamma", "mid") }, new[] { ("beta", "mid"), ("delta", "mid") });
+        At(kernel, 0, ctx =>
+        {
+            H(ctx.State, "alpha").Position = P(3000, 5500);   // 500 from the Dawn tower
+            H(ctx.State, "gamma").Position = P(3000, 6200);   // 1200 away
+            H(ctx.State, "beta").Position = P(3000, 4500);    // an enemy near the Dawn tower
+            H(ctx.State, "delta").Position = P(5000, 8000);
+        });
+        return kernel;
+    }
+
+    private static Fixed BonusArmor(MatchState state, string hero) => H(state, hero).Armor - H(state, hero).Stats.Armor;
+
+    [Fact]
+    public void TowerAura_GivesArmorAndRegenToAlliedHeroesNearby_Only()
+    {
+        var kernel = AuraArena(draft =>
+        {
+            draft.StructureTypes.Clear();
+            draft.StructureTypes.Add(new StructureType("tower", TowerStats(dmg: 0), modifiers: new[] { TowerAura(3, 1) }));
+            draft.StructureTypes.Add(new StructureType("ancient", AncientStats()));
+        });
+        kernel.RunTicks(30);
+
+        Assert.Equal(Fixed.FromInt(3), BonusArmor(kernel.State, "alpha"));
+        Assert.Equal(Fixed.Zero, BonusArmor(kernel.State, "gamma"));
+        Assert.Equal(Fixed.Zero, BonusArmor(kernel.State, "beta"));
+        Assert.Contains(H(kernel.State, "alpha").Modifiers, m => m.Spec.Key == "tower_aura" && m.Spec.HpRegenBonus == Fixed.One);
+    }
+
+    [Fact]
+    public void TheSameAuraFromTwoTowers_DoesNotStack_TheStrongerCounts()
+    {
+        var kernel = AuraArena(draft =>
+        {
+            draft.StructureTypes.Clear();
+            draft.StructureTypes.Add(new StructureType("tower", TowerStats(dmg: 0), modifiers: new[] { TowerAura(3, 1) }));
+            draft.StructureTypes.Add(new StructureType("tower.t2", TowerStats(dmg: 0), modifiers: new[] { TowerAura(5, 3) }));
+            draft.StructureTypes.Add(new StructureType("ancient", AncientStats()));
+            draft.Placements.Add(new StructurePlacement("dawn.mid.t2", Team.Dawn, "tower.t2", P(2300, 5500), false, Array.Empty<string>(), VulnerabilityRule.AnyProtectorDestroyed));
+            draft.Placements.Add(new StructurePlacement("dawn.mid.t2b", Team.Dawn, "tower.t2", P(2300, 5600), false, Array.Empty<string>(), VulnerabilityRule.AnyProtectorDestroyed));
+        });
+        kernel.RunTicks(30);
+
+        Assert.Equal(Fixed.FromInt(5), BonusArmor(kernel.State, "alpha"));
+    }
+
+    [Fact]
+    public void ATier4Tower_GetsArmorForEachStandingBarracks()
+    {
+        var kernel = AuraArena(draft =>
+        {
+            draft.StructureTypes.Add(new StructureType("tower.t4", TowerStats(dmg: 0), armorPerStandingBarracks: 4));
+            draft.StructureTypes.Add(new StructureType("barracks", AncientStats()));
+            draft.Placements.Add(new StructurePlacement("dusk.base.t4", Team.Dusk, "tower.t4", P(8500, 6000), false, Array.Empty<string>(), VulnerabilityRule.AnyProtectorDestroyed));
+            draft.Placements.Add(new StructurePlacement("dusk.top.barracks", Team.Dusk, "barracks", P(8500, 7000), false, Array.Empty<string>(), VulnerabilityRule.AnyProtectorDestroyed, barracksLane: "mid"));
+            draft.Placements.Add(new StructurePlacement("dusk.bot.barracks", Team.Dusk, "barracks", P(8500, 3000), false, Array.Empty<string>(), VulnerabilityRule.AnyProtectorDestroyed, barracksLane: "mid"));
+            draft.Placements.Add(new StructurePlacement("dawn.bot.barracks", Team.Dawn, "barracks", P(1500, 3000), false, Array.Empty<string>(), VulnerabilityRule.AnyProtectorDestroyed, barracksLane: "mid"));
+        });
+        Fixed before = Fixed.Zero, after = Fixed.Zero;
+        At(kernel, 1, ctx => before = S(ctx.State, "dusk.base.t4").Armor);
+        At(kernel, 2, ctx => Damage.Deal(ctx, H(ctx.State, "alpha").Id, S(ctx.State, "dusk.top.barracks"), Fixed.FromInt(99999), DamageType.Pure));
+        At(kernel, 4, ctx => after = S(ctx.State, "dusk.base.t4").Armor);
+        kernel.RunTicks(5);
+
+        Fixed baseArmor = S(kernel.State, "dusk.base.t4").Stats.Armor;
+        Assert.Equal((baseArmor + Fixed.FromInt(8), baseArmor + Fixed.FromInt(4)), (before, after));
+    }
 }

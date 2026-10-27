@@ -147,13 +147,26 @@ namespace Dynasty.MatchSimulation.Rules
 
     public sealed class StructureType
     {
-        public StructureType(string id, UnitStats stats, StructureBounty? bounty = null, int denyHealthPercent = 0)
+        public StructureType(string id, UnitStats stats, StructureBounty? bounty = null, int denyHealthPercent = 0,
+            IReadOnlyList<ModifierSpec>? modifiers = null, int armorPerStandingBarracks = 0)
         {
             Id = id;
             Stats = stats;
             Bounty = bounty;
             DenyHealthPercent = denyHealthPercent;
+            Modifiers = (modifiers ?? Array.Empty<ModifierSpec>()).ToArray();
+            ArmorPerStandingBarracks = armorPerStandingBarracks;
+            if (armorPerStandingBarracks > 0)
+                BarracksReinforcement = new ModifierSpec("barracks_reinforcement", -1, armorBonus: Fixed.FromInt(armorPerStandingBarracks), maxStacks: 100);
         }
+
+        /// <summary>Its own modifiers from the start (Dota: Tower Protection, an aura).</summary>
+        public IReadOnlyList<ModifierSpec> Modifiers { get; }
+
+        /// <summary>Armor for each standing barracks of its team (Dota 7.40: 4 on tier 4 towers); 0 = none.</summary>
+        public int ArmorPerStandingBarracks { get; }
+
+        internal ModifierSpec? BarracksReinforcement { get; }
 
         public string Id { get; }
         public UnitStats Stats { get; }
@@ -177,6 +190,10 @@ namespace Dynasty.MatchSimulation.Rules
             }
 
             writer.WriteInt64(DenyHealthPercent);
+            writer.WriteInt64(Modifiers.Count);
+            foreach (ModifierSpec modifier in Modifiers)
+                modifier.WriteCanonical(writer);
+            writer.WriteInt64(ArmorPerStandingBarracks);
         }
     }
 

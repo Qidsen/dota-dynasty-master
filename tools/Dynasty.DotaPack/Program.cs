@@ -243,6 +243,25 @@ static JsonObject StructureRules(JsonObject structure)
     };
     if (bounty is not { } b)
         return structure;
+    // Tower Protection (Liquipedia «Buildings», 7.41f): allied heroes within 900 get +3/5/5/5 armor and +1/3/3/3 regeneration
+    // (T1–T4), lingering 0.5 s; the same aura does not stack. Tier 4: +4 armor per standing barracks (Valve 7.40).
+    string id = structure["id"]!.GetValue<string>();
+    if (id.StartsWith("tower.", StringComparison.Ordinal))
+    {
+        bool t1 = id == "tower.t1";
+        structure["modifiers"] = new JsonArray(new JsonObject
+        {
+            ["key"] = "tower_protection",
+            ["aura"] = new JsonObject
+            {
+                ["radius"] = 900, ["team"] = "ally", ["heroesOnly"] = true,
+                ["modifier"] = new JsonObject { ["key"] = "tower_protection_aura", ["duration"] = 0.5, ["armor"] = t1 ? 3 : 5, ["healthRegen"] = t1 ? 1 : 3, ["unique"] = true },
+            },
+        });
+    }
+
+    if (id == "tower.t4")
+        structure["armorPerStandingBarracks"] = 4;
     structure["denyHealthPercent"] = 10;
     structure["bounty"] = new JsonObject
     {

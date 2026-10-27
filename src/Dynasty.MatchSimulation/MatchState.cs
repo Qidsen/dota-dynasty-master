@@ -194,6 +194,30 @@ namespace Dynasty.MatchSimulation
             return null;
         }
 
+        /// <summary>Whether another instance of this unique modifier's key counts instead (<see cref="ModifierSpec.Unique"/>).</summary>
+        private bool OutrankedUnique(ActiveModifier modifier)
+        {
+            ModifierSpec spec = modifier.Spec;
+            bool before = true;   // an equal instance counts only if it was applied first
+            foreach (ActiveModifier other in _modifiers)
+            {
+                if (other == modifier)
+                {
+                    before = false;
+                    continue;
+                }
+
+                if (!other.Spec.Unique || other.Spec.Key != spec.Key)
+                    continue;
+                int byArmor = other.Spec.ArmorBonus.CompareTo(spec.ArmorBonus);
+                int byRegen = other.Spec.HpRegenBonus.CompareTo(spec.HpRegenBonus);
+                if (byArmor > 0 || (byArmor == 0 && (byRegen > 0 || (byRegen == 0 && before))))
+                    return true;
+            }
+
+            return false;
+        }
+
         internal void AddModifier(ActiveModifier modifier)
         {
             _modifiers.Add(modifier);
@@ -249,6 +273,8 @@ namespace Dynasty.MatchSimulation
             foreach (ActiveModifier modifier in _modifiers)
             {
                 ModifierSpec spec = modifier.Spec;
+                if (spec.Unique && OutrankedUnique(modifier))
+                    continue;
                 // Simplification: only the highest crit chance (with its multiplier) counts. In Dota every source rolls,
                 // from the highest multiplier down, and the first that procs wins (docs/DOTA_RULES_AUDIT.md).
                 if (spec.CritChanceHundredths > critChance)
@@ -622,12 +648,38 @@ namespace Dynasty.MatchSimulation
             return unit;
         }
 
+        /// <summary>
+        /// Dota's Barracks Reinforcement: each building with <see cref="StructureType.ArmorPerStandingBarracks"/> gets that
+        /// armor for every standing barracks of its team. Called once the structures are placed and when one falls.
+        /// </summary>
+        internal void UpdateBarracksReinforcement()
+        {
+            foreach (MatchUnit unit in _units)
+            {
+                if (unit.Kind != UnitKind.Structure || !unit.IsAlive)
+                    continue;
+                StructureType? type = Ruleset.FindStructureType(unit.TypeId);
+                if (type?.BarracksReinforcement == null)
+                    continue;
+                int barracks = _units.Count(u => u.Kind == UnitKind.Structure && u.IsAlive && u.Team == unit.Team && u.Placement?.BarracksLane != null);
+                ActiveModifier? current = unit.FindModifier(type.BarracksReinforcement.Key, unit.Id);
+                if (current != null && current.Stacks == barracks)
+                    continue;
+                if (current != null)
+                    unit.RemoveModifier(current);
+                if (barracks > 0)
+                    unit.AddModifier(new ActiveModifier(type.BarracksReinforcement, unit.Id, 0, -1, 0) { Stacks = barracks });
+            }
+        }
+
         internal MatchUnit SpawnStructure(EntityId id, StructurePlacement placement, StructureType type)
         {
             var unit = new MatchUnit(id, placement.Team, UnitKind.Structure, type.Id, type.Stats, placement.Position, Rate)
             {
                 Placement = placement,
             };
+            foreach (ModifierSpec spec in type.Modifiers)
+                unit.AddModifier(new ActiveModifier(spec, id, 0, -1, 0));
             Add(unit);
             _structures.Add(placement.Id, unit);
             return unit;

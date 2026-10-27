@@ -190,8 +190,10 @@ namespace Dynasty.Content
             }
 
             int deny = s.OptionalInt("denyHealthPercent") ?? 0;
+            var modifiers = s.OptionalArray("modifiers").Select(ReadModifier).ToList();
+            int reinforcement = s.OptionalInt("armorPerStandingBarracks") ?? 0;
             s.RejectUnknown();
-            return new StructureType(id, stats, bounty, deny);
+            return new StructureType(id, stats, bounty, deny, modifiers, reinforcement);
         }
 
         private static CreepType ReadUnitType(Reader u, RulesetContent? baseRules = null)
@@ -427,7 +429,8 @@ namespace Dynasty.Content
                 extraTargetDamagePercent: m.OptionalInt("extraTargetDamagePercent") ?? 100 - (m.OptionalInt("extraTargetDamageReduction") ?? 0), onKillHeroesOnly: m.OptionalBool("onKillHeroesOnly") ?? false,
                 revives: m.OptionalBool("revives") ?? false, attackCharges: m.OptionalInt("attackCharges") ?? 0,
                 extraTargetRadiusFromAttackRange: m.OptionalBool("extraTargetRadiusFromAttackRange") ?? false,
-                extraTargetChancePercent: m.OptionalInt("extraTargetChance") ?? 100, pseudoRandom: m.OptionalBool("pseudoRandom") ?? false);
+                extraTargetChancePercent: m.OptionalInt("extraTargetChance") ?? 100, pseudoRandom: m.OptionalBool("pseudoRandom") ?? false,
+                unique: m.OptionalBool("unique") ?? false);
             m.RejectUnknown();
             return spec;
         }

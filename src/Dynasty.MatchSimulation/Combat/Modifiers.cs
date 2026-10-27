@@ -149,9 +149,11 @@ namespace Dynasty.MatchSimulation.Combat
             int onHitChanceHundredths = 0,
             int whenAttackedChanceHundredths = 0,
             int incomingDamageHundredths = 0,
-            bool pseudoRandom = false)
+            bool pseudoRandom = false,
+            bool unique = false)
         {
             PseudoRandom = pseudoRandom;
+            Unique = unique;
             IncomingDamageHundredths = incomingDamagePercent * 100 + incomingDamageHundredths;
             // Percents Dota gives with decimals (2.5% per stack, 33.33%) are kept in hundredths: the whole percent plus the fraction.
             MoveSpeedHundredths = moveSpeedPercent * 100 + moveSpeedHundredths;
@@ -280,6 +282,12 @@ namespace Dynasty.MatchSimulation.Combat
 
         /// <summary>Its on-hit and on-attacked chances use Dota's pseudo-random distribution (Bash, Counter Helix: dota2.fandom «Random Distribution»).</summary>
         public bool PseudoRandom { get; }
+
+        /// <summary>
+        /// Instances of it from several sources do not stack (Dota: the same aura, Tower Protection): only the strongest
+        /// counts for the bearer's stats — the most armor, then the most health regeneration, then the first applied.
+        /// </summary>
+        public bool Unique { get; }
 
         /// <summary>On-hit effects run only when the attacked unit is a hero (Essence Shift).</summary>
         public bool OnHitHeroesOnly { get; }
@@ -453,6 +461,7 @@ namespace Dynasty.MatchSimulation.Combat
             w.WriteBool(OnKillHeroesOnly);
             w.WriteBool(Revives);
             w.WriteBool(PseudoRandom);
+            w.WriteBool(Unique);
             w.WriteInt64(AttackCharges);
             w.WriteBool(ExtraTargetRadiusFromAttackRange);
             w.WriteInt64(ExtraTargetChancePercent);

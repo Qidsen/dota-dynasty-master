@@ -761,6 +761,8 @@ namespace Dynasty.MatchSimulation.Systems
 
                 context.Emit(new StructureDestroyed(unit.Id, unit.Placement.Id, unit.Team, unit.LastAttackerId));
                 Rewards.StructureDestroyed(context, unit);
+                if (unit.Placement.BarracksLane != null)
+                    state.UpdateBarracksReinforcement();
                 if (unit.Placement.IsAncient && fallenAncient == null)
                     fallenAncient = unit.Placement;
             }
