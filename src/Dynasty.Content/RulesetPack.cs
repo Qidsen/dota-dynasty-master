@@ -177,7 +177,8 @@ namespace Dynasty.Content
                 upgrades = new CreepUpgradeRules(u.Milliseconds("interval"), u.Int("maxStatCycles"), u.Array("steps").Select(st =>
                 {
                     var step = new CreepUpgradeStep(st.String("creep"), st.OptionalInt("health") ?? 0, st.OptionalInt("damage") ?? 0,
-                        st.OptionalHundredth("gold") ?? 0, st.OptionalInt("xp") ?? 0);
+                        st.OptionalHundredth("gold") ?? 0, st.OptionalInt("xp") ?? 0, st.OptionalInt("auraMagicResist") ?? 0, st.OptionalInt("auraMaxCycles") ?? 0,
+                        st.OptionalInt("auraRadius") ?? 0);
                     st.RejectUnknown();
                     return step;
                 }).ToList());
@@ -273,7 +274,14 @@ namespace Dynasty.Content
                 b.RejectUnknown();
             }
 
-            var type = new CreepType(u.String("id"), stats, bounty);
+            AreaBounty? area = null;
+            if (u.OptionalObject("areaBounty") is Reader a)
+            {
+                area = new AreaBounty(a.Int("gold"), a.Int("bountyPercent"), a.Int("radius"));
+                a.RejectUnknown();
+            }
+
+            var type = new CreepType(u.String("id"), stats, bounty, u.OptionalArray("modifiers").Select(ReadModifier).ToList(), area);
             u.RejectUnknown();
             return type;
         }
@@ -489,7 +497,8 @@ namespace Dynasty.Content
 
         private static AuraSpec ReadAura(Reader a)
         {
-            var aura = new AuraSpec(a.Int("radius"), ReadTeam(a, "team"), a.OptionalBool("heroesOnly") ?? false, ReadModifier(a.OptionalObject("modifier") ?? throw a.Error("modifier", "missing")));
+            var aura = new AuraSpec(a.Int("radius"), ReadTeam(a, "team"), a.OptionalBool("heroesOnly") ?? false, ReadModifier(a.OptionalObject("modifier") ?? throw a.Error("modifier", "missing")),
+                a.OptionalBool("creepsOnly") ?? false);
             a.RejectUnknown();
             return aura;
         }

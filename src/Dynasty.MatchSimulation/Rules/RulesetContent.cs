@@ -131,11 +131,13 @@ namespace Dynasty.MatchSimulation.Rules
 
     public sealed class CreepType
     {
-        public CreepType(string id, UnitStats stats, Bounty? bounty = null)
+        public CreepType(string id, UnitStats stats, Bounty? bounty = null, IReadOnlyList<ModifierSpec>? modifiers = null, AreaBounty? areaBounty = null)
         {
             Id = id;
             Stats = stats;
             Bounty = bounty ?? Bounty.None;
+            Modifiers = (modifiers ?? Array.Empty<ModifierSpec>()).ToArray();
+            AreaBounty = areaBounty;
         }
 
         public string Id { get; }
@@ -143,6 +145,30 @@ namespace Dynasty.MatchSimulation.Rules
 
         /// <summary>Gold to the hero landing the last hit; XP shared by nearby enemy heroes.</summary>
         public Bounty Bounty { get; }
+
+        /// <summary>Its own modifiers from the start (Dota's flagbearer: Inspiration Aura).</summary>
+        public IReadOnlyList<ModifierSpec> Modifiers { get; }
+
+        /// <summary>Gold its death gives the enemy heroes around (Dota's flagbearer); null = none.</summary>
+        public AreaBounty? AreaBounty { get; }
+    }
+
+    /// <summary>
+    /// Dota's flagbearer bounty (Liquipedia «Lane Creeps», 7.40–7.41): killed by an enemy, it gives the killing player (always,
+    /// even through a summon) and every enemy hero within the radius the base gold plus a percent of its bounty; denied, nothing.
+    /// </summary>
+    public sealed class AreaBounty
+    {
+        public AreaBounty(int baseGold, int bountyPercent, int radius)
+        {
+            BaseGold = baseGold;
+            BountyPercent = bountyPercent;
+            Radius = radius;
+        }
+
+        public int BaseGold { get; }
+        public int BountyPercent { get; }
+        public int Radius { get; }
     }
 
     public sealed class StructureType
@@ -388,8 +414,12 @@ namespace Dynasty.MatchSimulation.Rules
     /// <summary>One creep type's upgrade per interval; gold in hundredths (Dota's super melee creeps: +1.5).</summary>
     public sealed class CreepUpgradeStep
     {
-        public CreepUpgradeStep(string creepTypeId, int health, int damage, int goldHundredths, int xp)
+        public CreepUpgradeStep(string creepTypeId, int health, int damage, int goldHundredths, int xp,
+            int auraMagicResistPerCycle = 0, int auraMaxCycles = 0, int auraRadius = 0)
         {
+            AuraMagicResistPerCycle = auraMagicResistPerCycle;
+            AuraMaxCycles = auraMaxCycles;
+            AuraRadius = auraRadius;
             CreepTypeId = creepTypeId;
             Health = health;
             Damage = damage;
@@ -402,6 +432,11 @@ namespace Dynasty.MatchSimulation.Rules
         public int Damage { get; }
         public int GoldHundredths { get; }
         public int Xp { get; }
+
+        /// <summary>Dota's flagbearer: allied creeps within <see cref="AuraRadius"/> get this magic resistance per cycle, up to <see cref="AuraMaxCycles"/> cycles.</summary>
+        public int AuraMagicResistPerCycle { get; }
+        public int AuraMaxCycles { get; }
+        public int AuraRadius { get; }
     }
 
     public sealed class LaneDefinition
@@ -948,6 +983,16 @@ namespace Dynasty.MatchSimulation.Rules
                 writer.WriteInt64(creep.Bounty.GoldMin);
                 writer.WriteInt64(creep.Bounty.GoldMax);
                 writer.WriteInt64(creep.Bounty.Xp);
+                writer.WriteInt64(creep.Modifiers.Count);
+                foreach (ModifierSpec modifier in creep.Modifiers)
+                    modifier.WriteCanonical(writer);
+                writer.WriteBool(creep.AreaBounty != null);
+                if (creep.AreaBounty != null)
+                {
+                    writer.WriteInt64(creep.AreaBounty.BaseGold);
+                    writer.WriteInt64(creep.AreaBounty.BountyPercent);
+                    writer.WriteInt64(creep.AreaBounty.Radius);
+                }
             }
 
             writer.WriteInt64(StructureTypes.Count);
@@ -1034,7 +1079,7 @@ namespace Dynasty.MatchSimulation.Rules
                 foreach (CreepUpgradeStep step in Waves.Upgrades.Steps)
                 {
                     writer.WriteString(step.CreepTypeId);
-                    foreach (int value in new[] { step.Health, step.Damage, step.GoldHundredths, step.Xp })
+                    foreach (int value in new[] { step.Health, step.Damage, step.GoldHundredths, step.Xp, step.AuraMagicResistPerCycle, step.AuraMaxCycles, step.AuraRadius })
                         writer.WriteInt64(value);
                 }
             }

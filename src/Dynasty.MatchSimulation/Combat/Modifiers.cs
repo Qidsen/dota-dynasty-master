@@ -57,8 +57,9 @@ namespace Dynasty.MatchSimulation.Combat
     /// </summary>
     public sealed class AuraSpec
     {
-        public AuraSpec(int radius, Rules.TargetTeam team, bool heroesOnly, ModifierSpec modifier)
+        public AuraSpec(int radius, Rules.TargetTeam team, bool heroesOnly, ModifierSpec modifier, bool creepsOnly = false)
         {
+            CreepsOnly = creepsOnly;
             Radius = radius;
             Team = team;
             HeroesOnly = heroesOnly;
@@ -68,6 +69,10 @@ namespace Dynasty.MatchSimulation.Combat
         public int Radius { get; }
         public Rules.TargetTeam Team { get; }
         public bool HeroesOnly { get; }
+
+        /// <summary>Only creeps (Dota's flagbearer: not heroes, illusions or summons).</summary>
+        public bool CreepsOnly { get; }
+
         public ModifierSpec Modifier { get; }
 
         internal void WriteCanonical(Dynasty.Core.Hashing.CanonicalWriter w)
@@ -75,6 +80,7 @@ namespace Dynasty.MatchSimulation.Combat
             w.WriteInt64(Radius);
             w.WriteInt64((int)Team);
             w.WriteBool(HeroesOnly);
+            w.WriteBool(CreepsOnly);
             Modifier.WriteCanonical(w);
         }
     }

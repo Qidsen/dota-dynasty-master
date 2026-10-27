@@ -219,7 +219,7 @@ var pack = new JsonObject
         {
             ["interval"] = 450, ["maxStatCycles"] = 30,
             ["steps"] = new JsonArray(
-                UpgradeStep("melee", 12, 1, 1, 0), UpgradeStep("ranged", 12, 2, 3, 8), UpgradeStep("flagbearer", 12, 1, 1, 0),
+                UpgradeStep("melee", 12, 1, 1, 0), UpgradeStep("ranged", 12, 2, 3, 8), FlagbearerStep(),
                 UpgradeStep("melee_super", 19, 2, 1.5m, 0), UpgradeStep("ranged_super", 18, 3, 6, 0)),
         },
     },
@@ -353,12 +353,37 @@ static JsonObject Wave(string creep, int count, int firstWave = 1, int every = 1
     return entry;
 }
 
-// The flagbearer's XP: BountyXP 57 in the unit file plus its aura ability's bonus_xp 3 = 60, as in Valve's 7.41 notes ("57 → 60").
+// The flagbearer (game file: flagbearer_creep_aura_effect; Liquipedia «Lane Creeps», 7.40–7.41): XP 57 in the unit file plus
+// the aura ability's bonus_xp 3 = 60, as in Valve's 7.41 notes ("57 → 60"); Inspiration Aura: allied creeps (not heroes,
+// illusions or creep-heroes) within 700 get +3 health regeneration (0.5 s linger) and 4% magic resistance per upgrade cycle,
+// at most 15; killed by an enemy, 10 gold + 100% of its bounty to the killing player and to the enemy heroes within 1500.
 static JsonObject Flagbearer(JsonObject unit)
 {
-    if (unit["id"]!.GetValue<string>() == "flagbearer" && unit["bounty"] is JsonObject bounty)
+    if (unit["id"]!.GetValue<string>() != "flagbearer")
+        return unit;
+    if (unit["bounty"] is JsonObject bounty)
         bounty["xp"] = bounty["xp"]!.GetValue<decimal>() + 3;
+    unit["areaBounty"] = new JsonObject { ["gold"] = 10, ["bountyPercent"] = 100, ["radius"] = 1500 };
+    unit["modifiers"] = new JsonArray(new JsonObject
+    {
+        ["key"] = "flagbearer_inspiration",
+        ["aura"] = new JsonObject
+        {
+            ["radius"] = 700, ["team"] = "ally", ["creepsOnly"] = true,
+            ["modifier"] = new JsonObject { ["key"] = "flagbearer_inspiration_regen", ["duration"] = 0.5, ["healthRegen"] = 3, ["unique"] = true },
+        },
+    });
     return unit;
+}
+
+// The flagbearer upgrades as a melee creep, and its aura's magic resistance by 4% per cycle (at most 15).
+static JsonObject FlagbearerStep()
+{
+    JsonObject step = UpgradeStep("flagbearer", 12, 1, 1, 0);
+    step["auraMagicResist"] = 4;
+    step["auraMaxCycles"] = 15;
+    step["auraRadius"] = 700;
+    return step;
 }
 
 static JsonObject UpgradeStep(string creep, int health, int damage, decimal gold, int xp) =>

@@ -52,7 +52,7 @@ namespace Dynasty.MatchSimulation.Systems
         private static readonly Dictionary<(string, int), ModifierSpec> UpgradeSpecs = new Dictionary<(string, int), ModifierSpec>();
 
         /// <summary>Dota's creep upgrades: the steps of the intervals passed so far (health and damage up to the limit).</summary>
-        private static void Upgrade(MatchUnit creep, CreepUpgradeRules? upgrades, long timeMs)
+        internal static void Upgrade(MatchUnit creep, CreepUpgradeRules? upgrades, long timeMs)
         {
             CreepUpgradeStep? step = upgrades?.StepFor(creep.TypeId);
             if (step == null)
@@ -77,6 +77,22 @@ namespace Dynasty.MatchSimulation.Systems
 
             creep.BountyGoldBonus = Fixed.FromRatio((long)step.GoldHundredths * cycles, 100);
             creep.BountyXpBonus = step.Xp * cycles;
+
+            // Dota's flagbearer: its aura's magic resistance grows with the cycles.
+            int resist = step.AuraMagicResistPerCycle * System.Math.Min(cycles, step.AuraMaxCycles);
+            if (resist > 0)
+            {
+                ModifierSpec aura;
+                lock (UpgradeSpecs)
+                {
+                    if (!UpgradeSpecs.TryGetValue((creep.TypeId + "/aura/" + step.AuraRadius, resist), out aura!))
+                        UpgradeSpecs[(creep.TypeId + "/aura/" + step.AuraRadius, resist)] = aura = new ModifierSpec(creep.TypeId + "_aura_magic_resist", -1,
+                            dispellable: false, aura: new AuraSpec(step.AuraRadius, TargetTeam.Ally, heroesOnly: false,
+                                new ModifierSpec(creep.TypeId + "_aura_magic_resist_bonus", 500, magicResistBonus: resist, unique: true), creepsOnly: true));
+                }
+
+                creep.AddModifier(new ActiveModifier(aura, creep.Id, 0, -1, 0));
+            }
         }
 
         /// <summary>
@@ -144,7 +160,7 @@ namespace Dynasty.MatchSimulation.Systems
                     for (int j = 0; j < count; j++)
                     {
                         MatchUnit unit = units[j];
-                        if ((aura.HeroesOnly && unit.Kind != UnitKind.Hero) || !Effects.Matches(state, bearer, unit, aura.Team) ||
+                        if ((aura.HeroesOnly && unit.Kind != UnitKind.Hero) || (aura.CreepsOnly && unit.Kind != UnitKind.Creep) || !Effects.Matches(state, bearer, unit, aura.Team) ||
                             !Geometry.WithinRange(unit.Position, bearer.Position, aura.Radius))
                             continue;
                         Modifiers.Apply(context, unit, aura.Modifier, bearer.Id);

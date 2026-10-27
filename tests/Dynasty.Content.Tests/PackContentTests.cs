@@ -325,7 +325,11 @@ public class PackContentTests
                 { ""creep"": ""siege"", ""count"": 1, ""firstWave"": 11, ""everyWaves"": 10, ""from"": 1800 },
                 { ""creep"": ""ranged"", ""count"": 1, ""firstWave"": 5, ""everyWaves"": 2, ""replaces"": ""melee"" } ],
             ""upgrades"": { ""interval"": 450, ""maxStatCycles"": 30, ""steps"": [ { ""creep"": ""melee_super"", ""health"": 19, ""damage"": 2, ""gold"": 1.5 },
-                { ""creep"": ""ranged"", ""health"": 12, ""damage"": 2, ""gold"": 3, ""xp"": 8 } ] } }", Hero("lion", "[]"));
+                { ""creep"": ""ranged"", ""health"": 12, ""damage"": 2, ""gold"": 3, ""xp"": 8, ""auraMagicResist"": 4, ""auraMaxCycles"": 15, ""auraRadius"": 700 } ] } },
+            ""unitTypes"": [ { ""id"": ""flagbearer"", ""health"": 550, ""armor"": 2, ""moveSpeed"": 325, ""visionRange"": 750, ""bounty"": { ""goldMin"": 34, ""goldMax"": 39, ""xp"": 60 },
+                ""areaBounty"": { ""gold"": 10, ""bountyPercent"": 100, ""radius"": 1500 },
+                ""modifiers"": [ { ""key"": ""inspiration"", ""aura"": { ""radius"": 700, ""team"": ""ally"", ""creepsOnly"": true,
+                    ""modifier"": { ""key"": ""inspiration_regen"", ""duration"": 0.5, ""healthRegen"": 3, ""unique"": true } } } ] } ]", Hero("lion", "[]"));
 
         WaveEntry siege = rules.Waves.DawnComposition[1];
         Assert.Equal((11, 10, 1800000), (siege.FirstWave, siege.EveryWaves, siege.FromMs));
@@ -334,6 +338,10 @@ public class PackContentTests
         CreepUpgradeStep super = upgrades.StepFor("melee_super")!, ranged = upgrades.StepFor("ranged")!;
         Assert.Equal((450000, 30, 19, 2, 150, 0), (upgrades.IntervalMs, upgrades.MaxStatCycles, super.Health, super.Damage, super.GoldHundredths, super.Xp));
         Assert.Equal((12, 2, 300, 8), (ranged.Health, ranged.Damage, ranged.GoldHundredths, ranged.Xp));
+        Assert.Equal((4, 15, 700), (ranged.AuraMagicResistPerCycle, ranged.AuraMaxCycles, ranged.AuraRadius));
+        CreepType flag = rules.FindCreepType("flagbearer")!;
+        Assert.Equal((10, 100, 1500), (flag.AreaBounty!.BaseGold, flag.AreaBounty.BountyPercent, flag.AreaBounty.Radius));
+        Assert.True(flag.Modifiers.Single().Aura!.CreepsOnly);
         Assert.Equal((30000, BaseRuleset.Create().Waves.SuperUpgrades.Count), (rules.Waves.IntervalMs, rules.Waves.SuperUpgrades.Count));
     }
 

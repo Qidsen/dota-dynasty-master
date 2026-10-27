@@ -280,6 +280,7 @@ namespace Dynasty.MatchSimulation.Systems
 
             MatchUnit? killer = state.Find(creep.LastAttackerId);
             bool denied = killer != null && killer.Team == creep.Team;
+            Fixed rolled = Fixed.Zero;
             if (killer?.Hero != null)
             {
                 if (denied)
@@ -291,11 +292,18 @@ namespace Dynasty.MatchSimulation.Systems
                     killer.Hero.LastHits++;
                     Bounty bounty = type?.Bounty ?? Bounty.None;
                     if (bounty.GoldMax > 0 && creep.BountyGoldBonus > Fixed.Zero)
-                        HeroProgression.GrantGold(context, killer, Fixed.FromInt(context.Random("economy").NextInt(bounty.GoldMin, bounty.GoldMax + 1)) + creep.BountyGoldBonus, "last_hit");
+                        HeroProgression.GrantGold(context, killer, rolled = Fixed.FromInt(context.Random("economy").NextInt(bounty.GoldMin, bounty.GoldMax + 1)) + creep.BountyGoldBonus, "last_hit");
                     else if (bounty.GoldMax > 0)
-                        HeroProgression.GrantGold(context, killer, context.Random("economy").NextInt(bounty.GoldMin, bounty.GoldMax + 1), "last_hit");
+                    {
+                        int gold = context.Random("economy").NextInt(bounty.GoldMin, bounty.GoldMax + 1);
+                        rolled = Fixed.FromInt(gold);
+                        HeroProgression.GrantGold(context, killer, gold, "last_hit");
+                    }
                 }
             }
+
+            if (type?.AreaBounty != null && killer != null && !denied && killer.Team != Team.Neutral)
+                AreaBountyPaid(context, creep, type, killer, rolled);
 
             if (type == null || type.Bounty.Xp <= 0)
                 return;
@@ -496,6 +504,24 @@ namespace Dynasty.MatchSimulation.Systems
             victim.PendingAttackTick = -1;
             victim.ClearTemporaryModifiers();
             context.Emit(new HeroKilled(victim.Id, victim.LastAttackerId, assists, bounty, hero.RespawnTick));
+        }
+
+        /// <summary>
+        /// Dota's flagbearer: the killing player (the hero, or a summon's owner; always) and every enemy hero within the radius
+        /// get the base gold plus a percent of its bounty (the rolled one when a hero took it, else the middle of its range).
+        /// </summary>
+        private static void AreaBountyPaid(SimulationContext<MatchState> context, MatchUnit creep, CreepType type, MatchUnit killer, Fixed rolled)
+        {
+            AreaBounty area = type.AreaBounty!;
+            if (rolled == Fixed.Zero)
+                rolled = Fixed.FromRatio(type.Bounty.GoldMin + type.Bounty.GoldMax, 2) + creep.BountyGoldBonus;
+            Fixed gold = Fixed.FromInt(area.BaseGold) + rolled * Fixed.FromInt(area.BountyPercent) / Fixed.FromInt(100);
+            MatchUnit? player = killer.Hero != null ? killer : context.State.Find(killer.Owner);
+            foreach (MatchUnit hero in context.State.Heroes.Where(h => h.Team == killer.Team && h.IsAlive && h.IllusionOf.IsValid == false).ToList())
+            {
+                if (hero == player || Geometry.WithinRange(hero.Position, creep.Position, area.Radius))
+                    HeroProgression.GrantGold(context, hero, gold, "creep_area_bounty");
+            }
         }
 
         public static void StructureDestroyed(SimulationContext<MatchState> context, MatchUnit structure)

@@ -229,7 +229,8 @@ namespace Dynasty.MatchSimulation
                     continue;
                 int byArmor = other.Spec.ArmorBonus.CompareTo(spec.ArmorBonus);
                 int byRegen = other.Spec.HpRegenBonus.CompareTo(spec.HpRegenBonus);
-                if (byArmor > 0 || (byArmor == 0 && (byRegen > 0 || (byRegen == 0 && before))))
+                int byResist = other.Spec.MagicResistBonus.CompareTo(spec.MagicResistBonus);
+                if (byArmor > 0 || (byArmor == 0 && (byRegen > 0 || (byRegen == 0 && (byResist > 0 || (byResist == 0 && before))))))
                     return true;
             }
 
@@ -757,6 +758,8 @@ namespace Dynasty.MatchSimulation
             unit.Position = unit.WaypointAt(0);
             unit.StartPosition = unit.Position;
             unit.NextWaypoint = 1;
+            foreach (ModifierSpec spec in type.Modifiers)
+                unit.AddModifier(new ActiveModifier(spec, id, 0, -1, 0));
             Add(unit);
             return unit;
         }

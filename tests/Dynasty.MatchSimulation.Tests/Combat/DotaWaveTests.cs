@@ -1,6 +1,8 @@
 using Dynasty.Core.Kernel;
 using Dynasty.MatchSimulation.Tests.Abilities;
+using Dynasty.MatchSimulation.Combat;
 using Dynasty.MatchSimulation.Events;
+using Dynasty.MatchSimulation.Systems;
 using Dynasty.MatchSimulation.Rules;
 using static Dynasty.MatchSimulation.Tests.RulesetDraft;
 
@@ -119,5 +121,110 @@ public class DotaWaveTests
         Assert.Equal(spawned[4].MaxHp, spawnHp[4]);   // spawned at full health
         Assert.Equal(40 + 4, lastHitGold);                                  // 40 + 3 × 1.5 = 44.5
         Assert.Equal(60 + 24, H(kernel.State, "alpha").Hero!.Xp - xpBefore);   // the type's 60 + 3 × 8
+    }
+
+    /// <summary>
+    /// The flagbearer (Liquipedia «Lane Creeps», 7.41; game file `flagbearer_creep_aura_effect`): its aura gives allied creeps
+    /// within 700 +3 health regeneration and 4% magic resistance per upgrade cycle (at most 15), not heroes; killed by an enemy
+    /// it gives the killer and every enemy hero within 1500 10 gold plus its bounty again, denied it gives none.
+    /// </summary>
+    private static SimulationKernel<MatchState> Flagbearers(int cycleMs = 2000)
+    {
+        var draft = TestAbilities.Draft();
+        var aura = new ModifierSpec("inspiration", -1, aura: new AuraSpec(700, TargetTeam.Ally, heroesOnly: false,
+            new ModifierSpec("inspiration_regen", 500, hpRegenBonus: Dynasty.Core.Mathematics.Fixed.FromInt(3), unique: true), creepsOnly: true));
+        draft.Creeps.Add(new CreepType("flagbearer", MeleeStats(), new Bounty(40, 40, 60), modifiers: new[] { aura },
+            areaBounty: new AreaBounty(baseGold: 10, bountyPercent: 100, radius: 1500)));
+        draft.CreepUpgrades = new CreepUpgradeRules(cycleMs, maxStatCycles: 30, new[]
+        {
+            new CreepUpgradeStep("flagbearer", 0, 0, 0, 0, auraMagicResistPerCycle: 4, auraMaxCycles: 15, auraRadius: 700),
+        });
+        var kernel = draft.StartWithHeroes(new[] { ("alpha", "mid"), ("gamma", "mid") }, new[] { ("beta", "mid"), ("delta", "mid") });
+        At(kernel, 0, ctx =>
+        {
+            foreach (string hero in new[] { "alpha", "gamma", "beta", "delta" })
+                H(ctx.State, hero).Position = P(5000, 9000);
+        });
+        return kernel;
+    }
+
+    private static MatchUnit Spawn(SimulationContext<MatchState> ctx, Team team, string type, Dynasty.Core.Mathematics.FixedVector2 at)
+    {
+        MatchUnit creep = ctx.State.SpawnCreep(ctx.Ids.Allocate(), team, ctx.State.Ruleset.FindCreepType(type)!, ctx.State.Ruleset.Map.Lanes[0], ctx.Tick.Value);
+        WaveSpawnSystem.Upgrade(creep, ctx.State.Ruleset.Waves.Upgrades, ctx.Tick.Value * 1000 / 30);
+        creep.Position = at;
+        return creep;
+    }
+
+    [Fact]
+    public void TheFlagbearersAura_GivesAlliedCreepsRegenAndMagicResistanceGrowingWithTheCycles()
+    {
+        var kernel = Flagbearers();
+        MatchUnit? near = null, far = null, enemy = null;
+        At(kernel, 4 * 30, ctx =>   // two cycles in: +8% magic resistance
+        {
+            Spawn(ctx, Team.Dawn, "flagbearer", P(5000, 5000));
+            near = Spawn(ctx, Team.Dawn, "melee", P(5300, 5000));
+            far = Spawn(ctx, Team.Dawn, "melee", P(6000, 5000));
+            enemy = Spawn(ctx, Team.Dusk, "melee", P(5000, 5300));
+            H(ctx.State, "alpha").Position = P(4800, 5000);
+        });
+        kernel.RunTicks(4 * 30 + 15);
+
+        Assert.Equal(near!.Stats.MagicResistPercent + 8, near.MagicResistPercent);
+        Assert.Contains(near.Modifiers, m => m.Spec.Key == "inspiration_regen");
+        Assert.DoesNotContain(far!.Modifiers, m => m.Spec.Key.StartsWith("inspiration"));
+        Assert.DoesNotContain(enemy!.Modifiers, m => m.Spec.Key.StartsWith("inspiration"));
+        Assert.DoesNotContain(H(kernel.State, "alpha").Modifiers, m => m.Spec.Key.StartsWith("inspiration"));
+    }
+
+    [Fact]
+    public void AKilledFlagbearer_GivesTheKillerAndNearbyEnemyHeroesBonusGold_ButNotWhenDenied()
+    {
+        var kernel = Flagbearers(cycleMs: 600000);
+        MatchUnit? flag = null, denied = null;
+        Dictionary<string, double> before = new(), mid = new();
+        Dictionary<string, double> Gold(MatchState s) => new[] { "alpha", "gamma", "beta", "delta" }.ToDictionary(h => h, h => H(s, h).Hero!.Gold.ToDouble());
+        At(kernel, 2, ctx =>
+        {
+            flag = Spawn(ctx, Team.Dusk, "flagbearer", P(5000, 5000));
+            denied = Spawn(ctx, Team.Dusk, "flagbearer", P(5000, 1000));
+            H(ctx.State, "alpha").Position = P(5000, 7000);   // 2000 away: the killer gets it anyway
+            H(ctx.State, "gamma").Position = P(5000, 6000);   // within 1500
+            H(ctx.State, "beta").Position = P(5000, 1200);    // the denier
+            before = Gold(ctx.State);
+        });
+        At(kernel, 3, ctx => Dynasty.MatchSimulation.Combat.Damage.Deal(ctx, H(ctx.State, "alpha").Id, flag!, Dynasty.Core.Mathematics.Fixed.FromInt(99999), Dynasty.MatchSimulation.Combat.DamageType.Pure));
+        At(kernel, 5, ctx =>
+        {
+            mid = Gold(ctx.State);
+            denied!.Hp = Dynasty.Core.Mathematics.Fixed.FromInt(10);
+            Dynasty.MatchSimulation.Combat.Damage.Deal(ctx, H(ctx.State, "beta").Id, denied, Dynasty.Core.Mathematics.Fixed.FromInt(99999), Dynasty.MatchSimulation.Combat.DamageType.Pure);
+        });
+        kernel.RunTicks(7);
+
+        Dictionary<string, double> after = Gold(kernel.State);
+        Assert.Equal(40 + 10 + 40, System.Math.Floor(mid["alpha"] - before["alpha"]));   // bounty + area gold
+        Assert.Equal(10 + 40, System.Math.Floor(mid["gamma"] - before["gamma"]));
+        Assert.Equal(0, System.Math.Floor(after["gamma"] - mid["gamma"]));                // a deny: nothing
+        Assert.Equal(0, System.Math.Floor(after["alpha"] - mid["alpha"]));
+        Assert.Equal((0d, 0d), (System.Math.Floor(after["beta"] - mid["beta"]), System.Math.Floor(after["delta"] - mid["delta"])));
+    }
+
+    [Fact]
+    public void TwoFlagbearers_DoNotStackTheirAuras_TheStrongerCounts()
+    {
+        var kernel = Flagbearers();
+        MatchUnit? near = null, first = null;
+        At(kernel, 2 * 30, ctx => first = Spawn(ctx, Team.Dawn, "flagbearer", P(5000, 5000)));   // one cycle: 4%
+        At(kernel, 6 * 30, ctx =>
+        {
+            first!.Position = P(5000, 5000);                                                       // back by the others
+            Spawn(ctx, Team.Dawn, "flagbearer", P(5100, 5000));                                    // three cycles: 12%
+            near = Spawn(ctx, Team.Dawn, "melee", P(5300, 5000));
+        });
+        kernel.RunTicks(6 * 30 + 15);
+
+        Assert.Equal(near!.Stats.MagicResistPercent + 12, near.MagicResistPercent);
     }
 }
