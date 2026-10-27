@@ -156,7 +156,7 @@ sealed class DotaMap
             structures.Add(Building($"{team}.base.t4a", "tower.t4", Origin($"dota_{side}guys_tower4_top"), tier3));
             structures.Add(Building($"{team}.base.t4b", "tower.t4", Origin($"dota_{side}guys_tower4_bot"), tier3));
             // Effigy buildings (7 a side as of 7.41f; the map: invuln_count 1): which fall opens them is not in the map's data
-            // nor in the wikis' texts — as the tier 4 towers here, any tier 3 (B-156).
+            // nor in the wikis' texts — for now as the tier 4 towers, any tier 3 (the project owner's decision, B-156).
             foreach (var (name, _) in named.Where(n => n.Name.StartsWith(side + "_filler_", StringComparison.Ordinal)).OrderBy(n => n.Name, StringComparer.Ordinal))
                 structures.Add(Building($"{team}.base.effigy{name[(side + "_filler_").Length..]}", "effigy", Origin(name), tier3));
             var ancient = Building($"{team}.ancient", "ancient", Origin($"dota_{side}guys_fort"), new[] { $"{team}.base.t4a", $"{team}.base.t4b" }, "allProtectorsDestroyed");
