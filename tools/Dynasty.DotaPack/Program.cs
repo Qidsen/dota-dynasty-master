@@ -415,13 +415,18 @@ static JsonObject UpgradeStep(string creep, int health, int damage, decimal gold
     new() { ["creep"] = creep, ["health"] = health, ["damage"] = damage, ["gold"] = gold, ["xp"] = xp };
 
 // Roshan's Bash (game file roshan_bash: 15%, +50 physical damage added to the attack, 1.65 s stun; pseudo-random like every bash).
-// Slam, Roar of Retribution, Spell Block, slow resistance and the illusion damage reduction are not carried over yet (B-148).
+// Spell Block (roshan_spell_block: cooldown 15, status_resistance 25), Devotion (roshan_devotion: slow_resistance 25) and illusions
+// dealing 80% less (Fandom «Roshan», Strength of the Immortal; not in the file).
 static JsonObject Roshan(JsonObject unit)
 {
     if (unit["id"]!.GetValue<string>() != "roshan")
         return unit;
     unit.Remove("bounty");   // the boss's rewards are its own (the "boss" section)
     unit["modifiers"] = new JsonArray(new JsonObject
+    {
+        ["key"] = "roshan_immortal", ["statusResistance"] = 25, ["slowResistance"] = 25, ["spellBlockCooldown"] = 15, ["illusionDamageTaken"] = -80,
+        ["dispellable"] = false,
+    }, new JsonObject
     {
         ["key"] = "roshan_bash", ["onHitChance"] = 15, ["pseudoRandom"] = true,
         ["onHit"] = new JsonArray(

@@ -147,6 +147,31 @@ namespace Dynasty.MatchSimulation.Events
         }
     }
 
+    /// <summary>A spell aimed at the unit was blocked (Dota's Linken's Sphere, Roshan's Spell Block).</summary>
+    public sealed class SpellBlocked : IDomainEvent
+    {
+        public SpellBlocked(EntityId unit, EntityId caster, string abilityId)
+        {
+            Unit = unit;
+            Caster = caster;
+            AbilityId = abilityId;
+        }
+
+        public EntityId Unit { get; }
+        public EntityId Caster { get; }
+        public string AbilityId { get; }
+
+        public string Type => "match.spell_blocked";
+        public int SchemaVersion => 1;
+
+        public void WritePayload(ref Fnv1a64 hash)
+        {
+            hash.AddInt64(Unit.Value);
+            hash.AddInt64(Caster.Value);
+            hash.AddString(AbilityId);
+        }
+    }
+
     /// <summary>A team used its Glyph of Fortification.</summary>
     public sealed class GlyphUsed : IDomainEvent
     {

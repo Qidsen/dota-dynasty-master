@@ -137,6 +137,15 @@ namespace Dynasty.MatchSimulation.Systems
 
             // Acting reveals the caster first, so a smoke being cast is not broken by its own cast.
             Modifiers.BreakOnAction(context, caster);
+            // Dota: a ready spell block on an enemy target stops a spell aimed at it (simplified: at the cast, not when the spell lands).
+            ActiveModifier? block = definition.Targeting == AbilityTargeting.Unit && target.Team != caster.Team ? target.SpellBlocker : null;
+            if (block != null && now >= block.NextProcTick)
+            {
+                block.NextProcTick = now + context.TickRate.TicksFor(block.Spec.SpellBlockCooldownMs);
+                context.Emit(new SpellBlocked(target.Id, caster.Id, definition.Id));
+                return;
+            }
+
             FixedVector2 point = definition.Targeting == AbilityTargeting.Point ? order.Point : target.Position;
             Effects.Run(context, caster, definition.Effects, ability.Level, target, point);
             foreach (ActiveModifier modifier in caster.Modifiers.Where(m => m.Spec.OnCast.Count > 0).ToList())

@@ -163,8 +163,16 @@ namespace Dynasty.MatchSimulation.Combat
             bool consumedOnRevive = false,
             ModifierSpec? expireModifier = null,
             Fixed healPerSecondMaxHealthPercent = default,
-            Fixed manaPerSecondMaxManaPercent = default)
+            Fixed manaPerSecondMaxManaPercent = default,
+            int statusResistancePercent = 0,
+            int slowResistancePercent = 0,
+            int spellBlockCooldownMs = 0,
+            int illusionDamageTakenPercent = 0)
         {
+            StatusResistancePercent = statusResistancePercent;
+            SlowResistancePercent = slowResistancePercent;
+            SpellBlockCooldownMs = spellBlockCooldownMs;
+            IllusionDamageTakenPercent = illusionDamageTakenPercent;
             ReviveDelayMs = reviveDelayMs;
             ConsumedOnRevive = consumedOnRevive;
             ExpireModifier = expireModifier;
@@ -357,6 +365,21 @@ namespace Dynasty.MatchSimulation.Combat
         public Fixed HealPerSecondMaxHealthPercent { get; }
         public Fixed ManaPerSecondMaxManaPercent { get; }
 
+        /// <summary>
+        /// Shortens enemy debuffs on the bearer by this percent (Dota's status resistance; sources multiply). Damage over time
+        /// keeps its full duration (Dota ticks it faster instead, so the total stays).
+        /// </summary>
+        public int StatusResistancePercent { get; }
+
+        /// <summary>Scales percentage slows of the bearer's movement speed down by this percent (Dota; sources multiply).</summary>
+        public int SlowResistancePercent { get; }
+
+        /// <summary>Blocks an enemy spell targeted at the bearer, then not again for this long (Dota's Linken's Sphere, Roshan); 0 = none.</summary>
+        public int SpellBlockCooldownMs { get; }
+
+        /// <summary>Changes the damage illusions deal to the bearer by this percent (Dota's Roshan: −80).</summary>
+        public int IllusionDamageTakenPercent { get; }
+
         /// <summary><see cref="OnKill"/> runs only for hero victims (Flesh Heap).</summary>
         public bool OnKillHeroesOnly { get; }
 
@@ -511,6 +534,10 @@ namespace Dynasty.MatchSimulation.Combat
             ExpireModifier?.WriteCanonical(w);
             w.WriteFixed(HealPerSecondMaxHealthPercent);
             w.WriteFixed(ManaPerSecondMaxManaPercent);
+            w.WriteInt64(StatusResistancePercent);
+            w.WriteInt64(SlowResistancePercent);
+            w.WriteInt64(SpellBlockCooldownMs);
+            w.WriteInt64(IllusionDamageTakenPercent);
             w.WriteInt64(AttackCharges);
             w.WriteBool(ExtraTargetRadiusFromAttackRange);
             w.WriteInt64(ExtraTargetChancePercent);
@@ -576,7 +603,11 @@ namespace Dynasty.MatchSimulation.Combat
             if (spec.IsDebuff && (target.Flags & ModifierFlags.DebuffImmune) != 0 && context.State.Find(source)?.Team != target.Team)
                 return null;
             long now = context.Tick.Value;
-            long expires = spec.DurationMs < 0 ? -1 : now + context.TickRate.TicksFor(spec.DurationMs);
+            int durationMs = spec.DurationMs;
+            // Dota: status resistance shortens enemy debuffs (not damage over time: its total stays).
+            if (durationMs > 0 && spec.IsDebuff && !spec.IsPeriodic && target.StatusResistanceHundredths > 0 && context.State.Find(source)?.Team is Rules.Team from && from != target.Team)
+                durationMs = (int)((long)durationMs * (10000 - target.StatusResistanceHundredths) / 10000);
+            long expires = spec.DurationMs < 0 ? -1 : now + context.TickRate.TicksFor(durationMs);
 
             ActiveModifier? existing = target.FindModifier(spec.Key, source);
             if (existing != null && !ReferenceEquals(existing.Spec, spec))
@@ -675,6 +706,8 @@ namespace Dynasty.MatchSimulation.Combat
                     : DamageMath.Mitigate(rawAmount, type, target.Armor, target.MagicResistPercent, context.State.Ruleset.Combat.ArmorFactor);
             // A whole percent keeps its old formula (same fixed-point result); a fractional one works in hundredths.
             MatchUnit? from = attacker.IsValid ? context.State.Find(attacker) : null;
+            if (from != null && from.IllusionOf.IsValid && target.IllusionDamageTakenPercent != 0)
+                amount = amount * Fixed.FromInt(Math.Max(0, 100 + target.IllusionDamageTakenPercent)) / Fixed.FromInt(100);
             if (target.BackdoorActive)
             {
                 // Dota: adds to the other incoming damage changes; even less from illusions and summons.

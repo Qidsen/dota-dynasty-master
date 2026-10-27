@@ -108,6 +108,18 @@ namespace Dynasty.MatchSimulation
         /// <summary>Enemy damage its Backdoor Protection has still to heal.</summary>
         internal Fixed BackdoorHealLeft;
 
+        /// <summary>Dota's status resistance in hundredths of a percent (enemy debuffs last that much less).</summary>
+        public int StatusResistanceHundredths { get; private set; }
+
+        /// <summary>Dota's slow resistance in hundredths of a percent.</summary>
+        public int SlowResistanceHundredths { get; private set; }
+
+        /// <summary>Percent change of the damage illusions deal to it.</summary>
+        public int IllusionDamageTakenPercent { get; private set; }
+
+        /// <summary>The modifier that blocks enemy targeted spells (<see cref="ModifierSpec.SpellBlockCooldownMs"/>), if any.</summary>
+        internal ActiveModifier? SpellBlocker { get; private set; }
+
         /// <summary>Attacks taken since the last evasion (Dota: evasion is pseudo-random).</summary>
         internal int EvasionTries;
         public int AttackDamageMin { get; private set; }
@@ -303,6 +315,9 @@ namespace Dynasty.MatchSimulation
             long evasionLeft = 10000;          // Dota: the chance not to evade, multiplied by every source
             Fixed magicTakenFactor = Fixed.One; // Dota: the part of magic damage taken after the bonus sources
             List<ActiveModifier>? crits = null;
+            long statusLeft = 10000, slowLeft = 10000;   // Dota: the parts left after status and slow resistance, every source multiplied
+            int moveSlow = 0, illusionTaken = 0;
+            SpellBlocker = null;
             foreach (ActiveModifier modifier in _modifiers)
             {
                 ModifierSpec spec = modifier.Spec;
@@ -330,7 +345,17 @@ namespace Dynasty.MatchSimulation
                     magicResist += spec.MagicResistBonus * n;
                 damageBonus += spec.DamageBonus * n;
                 attackSpeed += spec.AttackSpeedBonus * n;
-                movePercent += spec.MoveSpeedHundredths * n;
+                if (spec.MoveSpeedHundredths < 0)
+                    moveSlow += spec.MoveSpeedHundredths * n;
+                else
+                    movePercent += spec.MoveSpeedHundredths * n;
+                for (int i = 0; i < n && spec.StatusResistancePercent != 0; i++)
+                    statusLeft = statusLeft * (100 - spec.StatusResistancePercent) / 100;
+                for (int i = 0; i < n && spec.SlowResistancePercent != 0; i++)
+                    slowLeft = slowLeft * (100 - spec.SlowResistancePercent) / 100;
+                illusionTaken += spec.IllusionDamageTakenPercent * n;
+                if (spec.SpellBlockCooldownMs > 0 && SpellBlocker == null)
+                    SpellBlocker = modifier;
                 moveFlat += spec.MoveSpeedBonus * n;
                 incomingDamage += spec.IncomingDamageHundredths * n;
                 attackDamagePercent += spec.AttackDamagePercent * n;
@@ -423,6 +448,12 @@ namespace Dynasty.MatchSimulation
             CritMultiplierPercent = critMultiplier;
             StructureDamagePercent = structurePercent;
             LifestealPercent = lifesteal;
+
+            // Dota: slow resistance scales the percentage slows (whole numbers keep the old result without resistance).
+            movePercent += slowLeft == 10000 ? moveSlow : (int)(moveSlow * slowLeft / 10000);
+            StatusResistanceHundredths = (int)(10000 - statusLeft);
+            SlowResistanceHundredths = (int)(10000 - slowLeft);
+            IllusionDamageTakenPercent = illusionTaken;
 
             // Dota: flat bonuses first, then percentages; at least 100 (or the base, if lower), at most 550.
             int speed = Math.Min((Stats.MoveSpeed + moveFlat) * (10000 + movePercent) / 10000, MaxMoveSpeed);   // movePercent in hundredths
