@@ -31,6 +31,7 @@ namespace Dynasty.MatchSimulation.Systems
             CastBossAbilities(context, state, now);
             foreach (CampState camp in state.Camps)
                 UpdateCamp(context, state, camp, now);
+            MovePit(state, now);
 
             foreach (MatchUnit unit in state.Units)
             {
@@ -44,6 +45,8 @@ namespace Dynasty.MatchSimulation.Systems
 
                 if (target != null)
                     MovementSystem.Approach(unit, target, unit.AttackRange);
+                else if (unit.BossPath != null)
+                    WalkPath(unit);
                 else if (!Geometry.WithinRange(unit.Position, unit.NeutralHome, HomeTolerance))
                     unit.Position = FixedVector2.MoveTowards(unit.Position, unit.NeutralHome, unit.StepPerTick);
             }
@@ -167,9 +170,38 @@ namespace Dynasty.MatchSimulation.Systems
                     }
                 }
 
-                MatchUnit spawned = state.SpawnBoss(context.Ids.Allocate(), definition);
+                MatchUnit spawned = state.SpawnBoss(context.Ids.Allocate(), definition, definition.PitAt(state.IsNight(now)));
                 context.Emit(new BossSpawned(spawned.Id, definition.Id));
             }
+        }
+
+        /// <summary>Dota's Roshan: at every change of day and night his home becomes the other pit, reached along a path.</summary>
+        private static void MovePit(MatchState state, long now)
+        {
+            BossDefinition? definition = state.Ruleset.Boss;
+            MatchUnit? boss = state.Boss;
+            if (definition?.NightPosition == null || boss == null || !boss.IsAlive)
+                return;
+            FixedVector2 pit = definition.PitAt(state.IsNight(now));
+            if (pit == boss.NeutralHome)
+                return;
+            boss.NeutralHome = pit;
+            boss.BossPath = state.Pathfinder.FindPath(boss.Position, pit);
+            boss.BossPathIndex = 0;
+        }
+
+        private static void WalkPath(MatchUnit boss)
+        {
+            System.Collections.Generic.IReadOnlyList<FixedVector2> path = boss.BossPath!;
+            while (boss.BossPathIndex < path.Count && boss.Position == path[boss.BossPathIndex])
+                boss.BossPathIndex++;
+            if (boss.BossPathIndex >= path.Count)
+            {
+                boss.BossPath = null;
+                return;
+            }
+
+            boss.Position = FixedVector2.MoveTowards(boss.Position, path[boss.BossPathIndex], boss.StepPerTick);
         }
 
         private static void UpdateCamp(SimulationContext<MatchState> context, MatchState state, CampState camp, long now)

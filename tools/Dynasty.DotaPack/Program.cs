@@ -214,13 +214,14 @@ var pack = new JsonObject
     // Dota's map of 7.41f (D-053, DotaMap.cs).
     ["map"] = dotaMap.Map,
     ["runes"] = Runes(dotaMap.PowerSpots, dotaMap.BountySpots),
-    // Roshan (game file npc_dota_roshan; Liquipedia «Roshan»; Valve 7.38 respawn 8–11 min; D-051 growth): in the upper pit until the
-    // pits alternate (B-148); every hero of the killing team 135 gold, the last hitter 200–290 more, 400 XP to the
+    // Roshan (game file npc_dota_roshan; Liquipedia «Roshan»; Valve 7.38 respawn 8–11 min; D-051 growth): the top pit by day, the
+    // bottom one by night (Valve 7.38, 7.41), changing at every change of day and night from the start (the project owner); every hero of the killing team 135 gold, the last hitter 200–290 more, 400 XP to the
     // killing team's heroes around; every minute from the horn, alive or dead, +130 health, +0.4 armor (already at 0:00),
     // +7 damage, +20 XP.
     ["boss"] = new JsonObject
     {
         ["position"] = new JsonObject { ["x"] = dotaMap.RoshanTop.X, ["y"] = dotaMap.RoshanTop.Y },
+        ["nightPosition"] = new JsonObject { ["x"] = dotaMap.RoshanBottom.X, ["y"] = dotaMap.RoshanBottom.Y },
         // Roshan idles in his pit and fights only those who attack him (Fandom «Roshan»: «only attacking when aggroed»).
         ["id"] = "roshan", ["creep"] = "roshan", ["firstSpawn"] = 0, ["respawnMin"] = 480, ["respawnMax"] = 660, ["provokeRadius"] = 0,
         ["teamGold"] = 135, ["killerGold"] = new JsonArray(200, 290), ["xp"] = 400,

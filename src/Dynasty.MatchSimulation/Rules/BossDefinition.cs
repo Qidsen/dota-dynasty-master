@@ -14,8 +14,10 @@ namespace Dynasty.MatchSimulation.Rules
     {
         public BossDefinition(string id, string creepTypeId, FixedVector2 position, int leashRadius, int firstSpawnMs,
             int respawnMinMs, int respawnMaxMs, int teamGold, ModifierSpec? reward, int killerGoldMin = 0, int killerGoldMax = 0, int xp = 0,
-            BossGrowth? growth = null, ModifierSpec? aegis = null, IReadOnlyList<BossAbility>? abilities = null, int provokeRadius = 300, IReadOnlyList<BossDrop>? drops = null)
+            BossGrowth? growth = null, ModifierSpec? aegis = null, IReadOnlyList<BossAbility>? abilities = null, int provokeRadius = 300, IReadOnlyList<BossDrop>? drops = null,
+            FixedVector2? nightPosition = null)
         {
+            NightPosition = nightPosition;
             Drops = (drops ?? System.Array.Empty<BossDrop>()).ToArray();
             ProvokeRadius = provokeRadius;
             Abilities = (abilities ?? System.Array.Empty<BossAbility>()).ToArray();
@@ -42,6 +44,15 @@ namespace Dynasty.MatchSimulation.Rules
 
         /// <summary>Center of the pit; the boss spawns and returns here.</summary>
         public FixedVector2 Position { get; }
+
+        /// <summary>
+        /// Dota's second pit (Valve 7.38, 7.41): the boss lives in <see cref="Position"/> by day and here by night, walks to the other
+        /// at every change and respawns in the pit of the time; null for one pit.
+        /// </summary>
+        public FixedVector2? NightPosition { get; }
+
+        /// <summary>The pit of the time of day.</summary>
+        public FixedVector2 PitAt(bool night) => night && NightPosition is FixedVector2 pit ? pit : Position;
 
         /// <summary>The boss never follows a target beyond this distance from its pit.</summary>
         public int LeashRadius { get; }
@@ -86,6 +97,9 @@ namespace Dynasty.MatchSimulation.Rules
             w.WriteString(Id);
             w.WriteString(CreepTypeId);
             w.WriteVector(Position);
+            w.WriteBool(NightPosition != null);
+            if (NightPosition is FixedVector2 night)
+                w.WriteVector(night);
             w.WriteInt64(LeashRadius);
             w.WriteInt64(FirstSpawnMs);
             w.WriteInt64(RespawnMinMs);

@@ -16,8 +16,10 @@ sealed class DotaMap
     /// <summary>Fountain aura (Fandom «Fountain»): heals within 1200; the fountain's shop is the same circle here (B-157).</summary>
     private const int FountainRadius = 1200;
 
-    private DotaMap(JsonObject map, (int X, int Y)[] powerSpots, (int X, int Y)[] bountySpots, (int X, int Y) roshanTop, IReadOnlyList<string> warnings)
+    private DotaMap(JsonObject map, (int X, int Y)[] powerSpots, (int X, int Y)[] bountySpots, (int X, int Y) roshanTop, (int X, int Y) roshanBottom,
+        IReadOnlyList<string> warnings)
     {
+        RoshanBottom = roshanBottom;
         Map = map;
         PowerSpots = powerSpots;
         BountySpots = bountySpots;
@@ -29,8 +31,10 @@ sealed class DotaMap
     public (int X, int Y)[] PowerSpots { get; }
     public (int X, int Y)[] BountySpots { get; }
 
-    /// <summary>The upper Roshan pit: his place until the pits alternate (from 20:00, B-148).</summary>
+    /// <summary>Roshan's pits: the top one by day, the bottom one by night (Valve 7.41).</summary>
     public (int X, int Y) RoshanTop { get; }
+
+    public (int X, int Y) RoshanBottom { get; }
 
     /// <summary>Points that are not on walkable ground (lane corners, camps, runes): printed by the generator.</summary>
     public IReadOnlyList<string> Warnings { get; }
@@ -233,7 +237,7 @@ sealed class DotaMap
             },
             ["lanes"] = lanes, ["structures"] = structures, ["fountains"] = fountains, ["camps"] = camps,
         };
-        (int X, int Y) roshanTop = data["npc_dota_roshan_spawner"]!.AsArray().Select(p => Point(p!)).OrderByDescending(p => p.Y).First();
-        return new DotaMap(map, Spots("dota_item_rune_spawner_powerup"), Spots("dota_item_rune_spawner_bounty"), roshanTop, warnings);
+        var pits = data["npc_dota_roshan_spawner"]!.AsArray().Select(p => Point(p!)).OrderByDescending(p => p.Y).ToArray();
+        return new DotaMap(map, Spots("dota_item_rune_spawner_powerup"), Spots("dota_item_rune_spawner_bounty"), pits[0], pits[1], warnings);
     }
 }

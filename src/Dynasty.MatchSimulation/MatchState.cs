@@ -95,6 +95,10 @@ namespace Dynasty.MatchSimulation
         /// <summary>The boss growth intervals applied to it (Dota's Roshan).</summary>
         internal int BossGrowthIntervals = -1;
 
+        /// <summary>A boss's way to its other pit (Dota), around the terrain; null when not walking one.</summary>
+        internal IReadOnlyList<FixedVector2>? BossPath;
+        internal int BossPathIndex;
+
         /// <summary>Gold its killer gets on top of its type's bounty (Dota's creep upgrades).</summary>
         internal Fixed BountyGoldBonus;
 
@@ -910,12 +914,12 @@ namespace Dynasty.MatchSimulation
             return unit;
         }
 
-        internal MatchUnit SpawnBoss(EntityId id, BossDefinition boss)
+        internal MatchUnit SpawnBoss(EntityId id, BossDefinition boss, FixedVector2 pit)
         {
             CreepType type = Ruleset.FindCreepType(boss.CreepTypeId)!;
-            var unit = new MatchUnit(id, Team.Neutral, UnitKind.Boss, type.Id, type.Stats, boss.Position, Rate)
+            var unit = new MatchUnit(id, Team.Neutral, UnitKind.Boss, type.Id, type.Stats, pit, Rate)
             {
-                NeutralHome = boss.Position,
+                NeutralHome = pit,
                 LeashRadius = boss.LeashRadius,
             };
             foreach (ModifierSpec spec in type.Modifiers)

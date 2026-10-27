@@ -905,6 +905,8 @@ namespace Dynasty.MatchSimulation.Rules
                     errors.Add("Boss '" + Boss.Id + "' uses unknown creep type '" + Boss.CreepTypeId + "'.");
                 if (!IsInsideMap(Boss.Position) || Boss.LeashRadius <= 0)
                     errors.Add("Boss '" + Boss.Id + "' needs a pit inside the map and a positive leash radius.");
+                if (Boss.NightPosition is FixedVector2 nightPit && !IsInsideMap(nightPit))
+                    errors.Add("Boss '" + Boss.Id + "' needs its night pit inside the map.");
                 foreach (BossDrop drop in Boss.Drops.Where(d => FindItem(d.ItemId) == null))
                     errors.Add("Boss '" + Boss.Id + "' drops unknown item '" + drop.ItemId + "'.");
                 if (Boss.FirstSpawnMs < 0 || Boss.RespawnMinMs <= 0 || Boss.RespawnMinMs > Boss.RespawnMaxMs)

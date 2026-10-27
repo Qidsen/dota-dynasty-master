@@ -343,6 +343,13 @@ namespace Dynasty.Content
                 p.RejectUnknown();
             }
 
+            FixedVector2? nightPosition = null;
+            if (b.OptionalObject("nightPosition") is Reader n)
+            {
+                nightPosition = FixedVector2.FromInts(n.Int("x"), n.Int("y"));
+                n.RejectUnknown();
+            }
+
             var boss = new BossDefinition(b.String("id"), b.String("creep"), position, b.OptionalInt("leashRadius") ?? baseBoss.LeashRadius, b.OptionalMilliseconds("firstSpawn") ?? 0,
                 b.Milliseconds("respawnMin"), b.Milliseconds("respawnMax"), b.Int("teamGold"), null, killerGold[0], killerGold[1], b.OptionalInt("xp") ?? 0, growth,
                 b.OptionalObject("aegis") is Reader ae ? ReadModifier(ae) : null, b.OptionalArray("abilities").Select(ReadBossAbility).ToList(),
@@ -351,7 +358,7 @@ namespace Dynasty.Content
                     var drop = new BossDrop(d.String("item"), d.Int("fromDeath"));
                     d.RejectUnknown();
                     return drop;
-                }).ToList());
+                }).ToList(), nightPosition);
             b.RejectUnknown();
             return boss;
         }
