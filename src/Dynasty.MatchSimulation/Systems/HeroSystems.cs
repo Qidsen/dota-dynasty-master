@@ -290,7 +290,9 @@ namespace Dynasty.MatchSimulation.Systems
                 {
                     killer.Hero.LastHits++;
                     Bounty bounty = type?.Bounty ?? Bounty.None;
-                    if (bounty.GoldMax > 0)
+                    if (bounty.GoldMax > 0 && creep.BountyGoldBonus > Fixed.Zero)
+                        HeroProgression.GrantGold(context, killer, Fixed.FromInt(context.Random("economy").NextInt(bounty.GoldMin, bounty.GoldMax + 1)) + creep.BountyGoldBonus, "last_hit");
+                    else if (bounty.GoldMax > 0)
                         HeroProgression.GrantGold(context, killer, context.Random("economy").NextInt(bounty.GoldMin, bounty.GoldMax + 1), "last_hit");
                 }
             }
@@ -304,11 +306,12 @@ namespace Dynasty.MatchSimulation.Systems
                 if (creep.Team == Team.Neutral)
                 {
                     if (killer != null && killer.Team != Team.Neutral)
-                        ShareXp(context, creep, null, type.Bounty.Xp);
+                        ShareXp(context, creep, null, type.Bounty.Xp + creep.BountyXpBonus);
                 }
                 else
                 {
-                    ShareXp(context, creep, creep.Team.Opponent(), denied ? type.Bounty.Xp * economy.DeniedCreepXpPercent / 100 : type.Bounty.Xp);
+                    int xp = type.Bounty.Xp + creep.BountyXpBonus;
+                    ShareXp(context, creep, creep.Team.Opponent(), denied ? xp * economy.DeniedCreepXpPercent / 100 : xp);
                 }
 
                 return;
@@ -318,9 +321,9 @@ namespace Dynasty.MatchSimulation.Systems
             if (denied)
                 return;
             if (creep.Team != Team.Neutral)
-                ShareXp(context, creep, creep.Team.Opponent(), type.Bounty.Xp);
+                ShareXp(context, creep, creep.Team.Opponent(), type.Bounty.Xp + creep.BountyXpBonus);
             else if (killer != null && killer.Team != Team.Neutral)
-                ShareXp(context, creep, killer.Team, type.Bounty.Xp);
+                ShareXp(context, creep, killer.Team, type.Bounty.Xp + creep.BountyXpBonus);
         }
 
         public static void HeroDied(SimulationContext<MatchState> context, MatchUnit victim)

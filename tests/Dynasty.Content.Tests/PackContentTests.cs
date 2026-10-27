@@ -323,11 +323,17 @@ public class PackContentTests
     {
         RulesetContent rules = Apply(@"""waves"": { ""interval"": 30, ""composition"": [ { ""creep"": ""melee"", ""count"": 3 },
                 { ""creep"": ""siege"", ""count"": 1, ""firstWave"": 11, ""everyWaves"": 10, ""from"": 1800 },
-                { ""creep"": ""ranged"", ""count"": 1, ""firstWave"": 5, ""everyWaves"": 2, ""replaces"": ""melee"" } ] }", Hero("lion", "[]"));
+                { ""creep"": ""ranged"", ""count"": 1, ""firstWave"": 5, ""everyWaves"": 2, ""replaces"": ""melee"" } ],
+            ""upgrades"": { ""interval"": 450, ""maxStatCycles"": 30, ""steps"": [ { ""creep"": ""melee_super"", ""health"": 19, ""damage"": 2, ""gold"": 1.5 },
+                { ""creep"": ""ranged"", ""health"": 12, ""damage"": 2, ""gold"": 3, ""xp"": 8 } ] } }", Hero("lion", "[]"));
 
         WaveEntry siege = rules.Waves.DawnComposition[1];
         Assert.Equal((11, 10, 1800000), (siege.FirstWave, siege.EveryWaves, siege.FromMs));
         Assert.Equal("melee", rules.Waves.DuskComposition[2].ReplacesCreepTypeId);
+        CreepUpgradeRules upgrades = rules.Waves.Upgrades!;
+        CreepUpgradeStep super = upgrades.StepFor("melee_super")!, ranged = upgrades.StepFor("ranged")!;
+        Assert.Equal((450000, 30, 19, 2, 150, 0), (upgrades.IntervalMs, upgrades.MaxStatCycles, super.Health, super.Damage, super.GoldHundredths, super.Xp));
+        Assert.Equal((12, 2, 300, 8), (ranged.Health, ranged.Damage, ranged.GoldHundredths, ranged.Xp));
         Assert.Equal((30000, BaseRuleset.Create().Waves.SuperUpgrades.Count), (rules.Waves.IntervalMs, rules.Waves.SuperUpgrades.Count));
     }
 

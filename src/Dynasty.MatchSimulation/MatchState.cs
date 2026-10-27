@@ -76,6 +76,12 @@ namespace Dynasty.MatchSimulation
         /// <summary>The modifiers giving critical strikes, from the strongest multiplier down (each keeps its pseudo-random tries).</summary>
         internal IReadOnlyList<ActiveModifier> CritModifiers { get; private set; } = Array.Empty<ActiveModifier>();
 
+        /// <summary>Gold its killer gets on top of its type's bounty (Dota's creep upgrades).</summary>
+        internal Fixed BountyGoldBonus;
+
+        /// <summary>XP on top of its type's bounty (Dota's creep upgrades).</summary>
+        public int BountyXpBonus { get; internal set; }
+
         /// <summary>A building's Backdoor Protection (<see cref="StructureType.Backdoor"/>); null = none.</summary>
         internal BackdoorProtection? Backdoor { get; set; }
 

@@ -365,6 +365,45 @@ namespace Dynasty.MatchSimulation.Rules
         public string ToCreepTypeId { get; }
     }
 
+    /// <summary>
+    /// Dota's lane creep upgrades (Liquipedia «Lane Creeps», 7.41): a creep spawned after n whole intervals of the match gets n
+    /// times its type's step — health and damage for at most <see cref="MaxStatCycles"/> intervals, gold and XP without limit.
+    /// </summary>
+    public sealed class CreepUpgradeRules
+    {
+        public CreepUpgradeRules(int intervalMs, int maxStatCycles, IReadOnlyList<CreepUpgradeStep> steps)
+        {
+            IntervalMs = intervalMs;
+            MaxStatCycles = maxStatCycles;
+            Steps = steps.ToArray();
+        }
+
+        public int IntervalMs { get; }
+        public int MaxStatCycles { get; }
+        public IReadOnlyList<CreepUpgradeStep> Steps { get; }
+
+        public CreepUpgradeStep? StepFor(string creepTypeId) => Steps.FirstOrDefault(s => s.CreepTypeId == creepTypeId);
+    }
+
+    /// <summary>One creep type's upgrade per interval; gold in hundredths (Dota's super melee creeps: +1.5).</summary>
+    public sealed class CreepUpgradeStep
+    {
+        public CreepUpgradeStep(string creepTypeId, int health, int damage, int goldHundredths, int xp)
+        {
+            CreepTypeId = creepTypeId;
+            Health = health;
+            Damage = damage;
+            GoldHundredths = goldHundredths;
+            Xp = xp;
+        }
+
+        public string CreepTypeId { get; }
+        public int Health { get; }
+        public int Damage { get; }
+        public int GoldHundredths { get; }
+        public int Xp { get; }
+    }
+
     public sealed class LaneDefinition
     {
         public LaneDefinition(string id, IReadOnlyList<FixedVector2> waypoints)
@@ -536,8 +575,9 @@ namespace Dynasty.MatchSimulation.Rules
     public sealed class WaveRules
     {
         public WaveRules(int firstSpawnMs, int intervalMs, IReadOnlyList<WaveEntry> dawnComposition, IReadOnlyList<WaveEntry> duskComposition,
-            IReadOnlyList<CreepUpgrade>? superUpgrades = null)
+            IReadOnlyList<CreepUpgrade>? superUpgrades = null, CreepUpgradeRules? upgrades = null)
         {
+            Upgrades = upgrades;
             SuperUpgrades = (superUpgrades ?? Array.Empty<CreepUpgrade>()).ToArray();
             FirstSpawnMs = firstSpawnMs;
             IntervalMs = intervalMs;
@@ -554,6 +594,9 @@ namespace Dynasty.MatchSimulation.Rules
 
         /// <summary>Creep replacements for waves on lanes where the enemy barracks are destroyed.</summary>
         public IReadOnlyList<CreepUpgrade> SuperUpgrades { get; }
+
+        /// <summary>Dota's periodic creep upgrades; null = none.</summary>
+        public CreepUpgradeRules? Upgrades { get; }
     }
 
     public sealed class CombatRules
@@ -982,6 +1025,20 @@ namespace Dynasty.MatchSimulation.Rules
             writer.WriteInt64(Waves.IntervalMs);
             WriteComposition(writer, Waves.DawnComposition);
             WriteComposition(writer, Waves.DuskComposition);
+            writer.WriteBool(Waves.Upgrades != null);
+            if (Waves.Upgrades != null)
+            {
+                writer.WriteInt64(Waves.Upgrades.IntervalMs);
+                writer.WriteInt64(Waves.Upgrades.MaxStatCycles);
+                writer.WriteInt64(Waves.Upgrades.Steps.Count);
+                foreach (CreepUpgradeStep step in Waves.Upgrades.Steps)
+                {
+                    writer.WriteString(step.CreepTypeId);
+                    foreach (int value in new[] { step.Health, step.Damage, step.GoldHundredths, step.Xp })
+                        writer.WriteInt64(value);
+                }
+            }
+
             writer.WriteInt64(Waves.SuperUpgrades.Count);
             foreach (CreepUpgrade upgrade in Waves.SuperUpgrades)
             {

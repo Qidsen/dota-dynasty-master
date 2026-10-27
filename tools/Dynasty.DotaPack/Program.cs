@@ -212,6 +212,16 @@ var pack = new JsonObject
             Wave("melee", 1, from: 15 * 60), Wave("melee", 1, from: 30 * 60), Wave("melee", 1, from: 45 * 60),
             Wave("ranged", 1, from: 40 * 60),
             Wave("siege", 1, firstWave: 11, every: 10, from: 30 * 60), Wave("siege", 1, firstWave: 11, every: 10, from: 60 * 60)),
+        // Every 7:30 (Liquipedia «Lane Creeps», 7.41; Valve 7.39–7.40 for the gold): health and damage up to 30 times, gold and XP
+        // without limit. The flagbearer follows the melee creep; siege creeps get nothing (their +16 damage after the lane's
+        // ranged barracks falls waits for the second barracks with the Dota map, B-131).
+        ["upgrades"] = new JsonObject
+        {
+            ["interval"] = 450, ["maxStatCycles"] = 30,
+            ["steps"] = new JsonArray(
+                UpgradeStep("melee", 12, 1, 1, 0), UpgradeStep("ranged", 12, 2, 3, 8), UpgradeStep("flagbearer", 12, 1, 1, 0),
+                UpgradeStep("melee_super", 19, 2, 1.5m, 0), UpgradeStep("ranged_super", 18, 3, 6, 0)),
+        },
     },
     // Lane creeps and structures from the game's npc_units.txt, replacing the base rules' ones of the same id (the map is still the base one:
     // one barracks per lane, so it gets the melee barracks; B-131).
@@ -350,3 +360,6 @@ static JsonObject Flagbearer(JsonObject unit)
         bounty["xp"] = bounty["xp"]!.GetValue<decimal>() + 3;
     return unit;
 }
+
+static JsonObject UpgradeStep(string creep, int health, int damage, decimal gold, int xp) =>
+    new() { ["creep"] = creep, ["health"] = health, ["damage"] = damage, ["gold"] = gold, ["xp"] = xp };

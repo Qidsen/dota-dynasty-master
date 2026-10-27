@@ -38,6 +38,7 @@ namespace Dynasty.MatchSimulation.Systems
                         for (int i = 0; i < count; i++)
                         {
                             MatchUnit creep = state.SpawnCreep(context.Ids.Allocate(), team, type, lane, now);
+                            Upgrade(creep, waves.Upgrades, timeMs);
                             context.Emit(new CreepSpawned(creep.Id, team, type.Id, lane.Id));
                         }
                     }
@@ -46,6 +47,36 @@ namespace Dynasty.MatchSimulation.Systems
 
             state.WavesSpawned = wave;
             state.NextWaveTick += state.Rate.TicksFor(waves.IntervalMs);
+        }
+
+        private static readonly Dictionary<(string, int), ModifierSpec> UpgradeSpecs = new Dictionary<(string, int), ModifierSpec>();
+
+        /// <summary>Dota's creep upgrades: the steps of the intervals passed so far (health and damage up to the limit).</summary>
+        private static void Upgrade(MatchUnit creep, CreepUpgradeRules? upgrades, long timeMs)
+        {
+            CreepUpgradeStep? step = upgrades?.StepFor(creep.TypeId);
+            if (step == null)
+                return;
+            int cycles = (int)(timeMs / upgrades!.IntervalMs);
+            if (cycles <= 0)
+                return;
+            int statCycles = System.Math.Min(cycles, upgrades.MaxStatCycles);
+            if (statCycles > 0 && (step.Health != 0 || step.Damage != 0))
+            {
+                ModifierSpec spec;
+                lock (UpgradeSpecs)
+                {
+                    if (!UpgradeSpecs.TryGetValue((creep.TypeId + "/" + step.Health + "/" + step.Damage, statCycles), out spec!))
+                        UpgradeSpecs[(creep.TypeId + "/" + step.Health + "/" + step.Damage, statCycles)] = spec = new ModifierSpec("creep_upgrade", -1,
+                            maxHpBonus: step.Health * statCycles, damageBonus: step.Damage * statCycles, dispellable: false);
+                }
+
+                creep.AddModifier(new ActiveModifier(spec, creep.Id, 0, -1, 0));
+                creep.Hp = Fixed.FromInt(creep.MaxHp);
+            }
+
+            creep.BountyGoldBonus = Fixed.FromRatio((long)step.GoldHundredths * cycles, 100);
+            creep.BountyXpBonus = step.Xp * cycles;
         }
 
         /// <summary>

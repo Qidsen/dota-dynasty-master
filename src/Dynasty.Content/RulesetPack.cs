@@ -171,8 +171,21 @@ namespace Dynasty.Content
                 e.RejectUnknown();
                 return entry;
             }).ToList();
+            CreepUpgradeRules? upgrades = null;
+            if (w.OptionalObject("upgrades") is Reader u)
+            {
+                upgrades = new CreepUpgradeRules(u.Milliseconds("interval"), u.Int("maxStatCycles"), u.Array("steps").Select(st =>
+                {
+                    var step = new CreepUpgradeStep(st.String("creep"), st.OptionalInt("health") ?? 0, st.OptionalInt("damage") ?? 0,
+                        st.OptionalHundredth("gold") ?? 0, st.OptionalInt("xp") ?? 0);
+                    st.RejectUnknown();
+                    return step;
+                }).ToList());
+                u.RejectUnknown();
+            }
+
             var waves = new WaveRules(w.OptionalMilliseconds("firstSpawn") ?? baseWaves.FirstSpawnMs, w.OptionalMilliseconds("interval") ?? baseWaves.IntervalMs,
-                composition, composition, baseWaves.SuperUpgrades);
+                composition, composition, baseWaves.SuperUpgrades, upgrades);
             w.RejectUnknown();
             return waves;
         }
