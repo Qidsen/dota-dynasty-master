@@ -120,4 +120,152 @@ public class RulesetPackTests
         Assert.True(am.MaxHp >= 120 + 22 * 21);   // attributes in play
         Assert.Contains(kernel.State.Heroes, h => h.Hero!.LastHits > 0);
     }
+
+    /// <summary>
+    /// A pack may bring its own map (Dota's, D-053): the size, the map cell by cell, each side's path of every lane, the buildings
+    /// with their protectors, the fountains, the camps, and the boss pit; its structure types may then be new ones.
+    /// 160×160 cells of 64: walkable but cell 0, cell 1 at level 2, cell 2 blocks sight, one tree.
+    /// </summary>
+    private static string MapSection(string extra = "")
+    {
+        var walkable = new byte[160 * 160 / 8];
+        Array.Fill(walkable, (byte)0xFF);
+        walkable[0] = 0xFE;
+        var levels = new byte[160 * 160];
+        levels[1] = 2;
+        var blockers = new byte[160 * 160 / 8];
+        blockers[0] = 0x04;
+        return @"""map"": {
+            ""width"": 10240, ""height"": 10240, ""navCellSize"": 64, ""navClearance"": 0,
+            ""terrain"": { ""columns"": 160, ""rows"": 160, ""walkable"": """ + Convert.ToBase64String(walkable) + @""",
+                ""visionBlockers"": """ + Convert.ToBase64String(blockers) + @""", ""levels"": """ + Convert.ToBase64String(levels) + @""",
+                ""treeSize"": 128, ""trees"": [640, 640] },
+            ""lanes"": [ { ""id"": ""mid"", ""dawn"": [500, 500, 9700, 9700], ""dusk"": [9700, 9500, 500, 300] } ],
+            ""structures"": [
+                { ""id"": ""dawn.mid.t1"", ""team"": ""dawn"", ""type"": ""tower.t1"", ""x"": 3000, ""y"": 3000 },
+                { ""id"": ""dawn.mid.ranged_rax"", ""team"": ""dawn"", ""type"": ""barracks.ranged"", ""x"": 1500, ""y"": 1400,
+                  ""protectedBy"": [""dawn.mid.t1""], ""barracksLane"": ""mid"" },
+                { ""id"": ""dawn.ancient"", ""team"": ""dawn"", ""type"": ""ancient"", ""x"": 1000, ""y"": 1000, ""ancient"": true,
+                  ""protectedBy"": [""dawn.mid.t1""], ""vulnerability"": ""allProtectorsDestroyed"" },
+                { ""id"": ""dusk.mid.t1"", ""team"": ""dusk"", ""type"": ""tower.t1"", ""x"": 7200, ""y"": 7200 },
+                { ""id"": ""dusk.ancient"", ""team"": ""dusk"", ""type"": ""ancient"", ""x"": 9200, ""y"": 9200, ""ancient"": true,
+                  ""protectedBy"": [""dusk.mid.t1""], ""vulnerability"": ""allProtectorsDestroyed"" } ],
+            ""fountains"": [ { ""team"": ""dawn"", ""x"": 300, ""y"": 300, ""radius"": 1200 }, { ""team"": ""dusk"", ""x"": 9900, ""y"": 9900, ""radius"": 1200 } ],
+            ""camps"": [ { ""id"": ""camp.dawn.small"", ""x"": 4000, ""y"": 2000, ""creeps"": [ { ""creep"": ""jungle_small"", ""count"": 2 } ],
+                ""firstSpawn"": 60, ""respawn"": 60, ""leashRadius"": 600, ""alignedToClock"": true } ]" + extra + @" },
+        ""structureTypes"": [ { ""id"": ""barracks.ranged"", ""health"": 1300, ""armor"": 9, ""visionRange"": 900, ""nightVision"": 600,
+            ""upgradesCreeps"": [""ranged""] } ],
+        ""boss"": { ""id"": ""colossus"", ""creep"": ""colossus"", ""respawnMin"": 480, ""respawnMax"": 660, ""teamGold"": 200,
+            ""position"": { ""x"": 5000, ""y"": 4000 }, ""leashRadius"": 900 },";
+    }
+
+    private static string PackWith(string sections) => Pack(Hero1).Replace(@"""heroes"": [", sections + @"""heroes"": [");
+
+    [Fact]
+    public void Map_FromThePack_ReplacesTheBaseMap()
+    {
+        RulesetContent pack = Apply(PackWith(MapSection()));
+        MapDefinition map = pack.Map;
+
+        Assert.Equal((10240, 10240, 64, 0), (map.Width, map.Height, map.NavCellSize, map.NavClearance));
+        MapTerrain terrain = map.Terrain!;
+        Assert.Equal((160, 160), (terrain.Columns, terrain.Rows));
+        Assert.Equal((false, true, true), (terrain.IsWalkable(0), terrain.IsWalkable(1), terrain.IsWalkable(160 * 160 - 1)));
+        Assert.Equal((0, 2), (terrain.LevelOf(0), terrain.LevelOf(1)));
+        Assert.Equal((false, true), (terrain.BlocksSight(1), terrain.BlocksSight(2)));
+        Assert.Equal(new[] { FixedVector2.FromInts(640, 640) }, terrain.Trees);
+        Assert.Equal(128, terrain.TreeSize);
+
+        LaneDefinition lane = Assert.Single(map.Lanes);
+        Assert.Equal(new[] { FixedVector2.FromInts(500, 500), FixedVector2.FromInts(9700, 9700) }, lane.PathOf(Team.Dawn));
+        Assert.Equal(new[] { FixedVector2.FromInts(9700, 9500), FixedVector2.FromInts(500, 300) }, lane.PathOf(Team.Dusk));
+
+        Assert.Equal(new[] { "dawn.mid.t1", "dawn.mid.ranged_rax", "dawn.ancient", "dusk.mid.t1", "dusk.ancient" }, map.Structures.Select(s => s.Id));
+        StructurePlacement rax = map.Structures[1];
+        Assert.Equal((Team.Dawn, "barracks.ranged", FixedVector2.FromInts(1500, 1400), false, "mid", VulnerabilityRule.AnyProtectorDestroyed),
+            (rax.Team, rax.StructureTypeId, rax.Position, rax.IsAncient, rax.BarracksLane, rax.Vulnerability));
+        Assert.Equal(new[] { "dawn.mid.t1" }, rax.ProtectedBy);
+        StructurePlacement ancient = map.Structures[2];
+        Assert.Equal((true, VulnerabilityRule.AllProtectorsDestroyed), (ancient.IsAncient, ancient.Vulnerability));
+        Assert.Equal(new[] { "ranged" }, pack.FindStructureType("barracks.ranged")!.UpgradesCreepTypeIds);
+
+        Assert.Equal(new[] { (Team.Dawn, FixedVector2.FromInts(300, 300), 1200), (Team.Dusk, FixedVector2.FromInts(9900, 9900), 1200) },
+            map.Fountains.Select(f => (f.Team, f.Position, f.Radius)));
+        NeutralCampDefinition camp = Assert.Single(map.Camps);
+        Assert.Equal(("camp.dawn.small", FixedVector2.FromInts(4000, 2000), 60000, 60000, 600, true), (camp.Id, camp.Position, camp.FirstSpawnMs, camp.RespawnMs, camp.LeashRadius, camp.AlignedToClock));
+        Assert.Equal(("jungle_small", 2), (camp.Creeps[0].CreepTypeId, camp.Creeps[0].Count));
+        Assert.Equal((FixedVector2.FromInts(5000, 4000), 900), (pack.Boss!.Position, pack.Boss.LeashRadius));
+    }
+
+    [Fact]
+    public void Map_FromThePack_Plays()
+    {
+        RulesetContent pack = Apply(PackWith(MapSection()));
+        var kernel = Match.Create(pack, 7);
+
+        kernel.RunTicks(30 * 10);
+
+        // Dusk walks its own path, 200 below Dawn's diagonal (creeps spread a little around their paths).
+        Assert.Contains(kernel.State.Units, u => u.Kind == UnitKind.Creep && u.Team == Team.Dusk && u.Position.X - u.Position.Y > Fixed.FromInt(150));
+        Assert.Contains(kernel.State.Units, u => u.Kind == UnitKind.Creep && u.Team == Team.Dawn && Fixed.Abs(u.Position.X - u.Position.Y) < Fixed.FromInt(50));
+    }
+
+    [Fact]
+    public void Waves_MayGiveTheSuperAndMegaCreeps()
+    {
+        string waves = @"""waves"": { ""composition"": [ { ""creep"": ""melee"", ""count"": 3 } ],
+            ""superUpgrades"": [ { ""from"": ""melee"", ""to"": ""melee_super"" } ], ""megaUpgrades"": [ { ""from"": ""melee"", ""to"": ""ranged_super"" } ] },";
+
+        WaveRules rules = Apply(PackWith(waves)).Waves;
+
+        Assert.Equal(new[] { ("melee", "melee_super") }, rules.SuperUpgrades.Select(u => (u.FromCreepTypeId, u.ToCreepTypeId)));
+        Assert.Equal(new[] { ("melee", "ranged_super") }, rules.MegaUpgrades.Select(u => (u.FromCreepTypeId, u.ToCreepTypeId)));
+    }
+
+    [Fact]
+    public void Map_FromThePack_NeedsTheBossPitPlaced()
+    {
+        string json = PackWith(MapSection());
+        int start = json.IndexOf(@"""boss"": {", StringComparison.Ordinal);
+        int end = json.IndexOf(@"""leashRadius"": 900 },", start, StringComparison.Ordinal) + @"""leashRadius"": 900 },".Length;
+
+        var e = Assert.Throws<RulesetPackException>(() => Apply(json.Remove(start, end - start)));
+        Assert.Contains("boss", e.Message);
+    }
+
+    [Fact]
+    public void WithoutItsOwnMap_APackCannotAddStructureTypes()
+    {
+        string types = @"""structureTypes"": [ { ""id"": ""barracks.ranged"", ""health"": 1300, ""armor"": 9, ""visionRange"": 900 } ],";
+
+        var e = Assert.Throws<RulesetPackException>(() => Apply(PackWith(types)));
+        Assert.Contains("barracks.ranged", e.Message);
+    }
+
+    [Theory]
+    [InlineData(@"""alignedToClock"": true }", @"""alignedToClock"": true, ""weather"": 1 }", "map.camps[0].weather")]
+    [InlineData(@"""dawn"": [500, 500, 9700, 9700]", @"""dawn"": [500, 500, 9700]", "map.lanes[0].dawn")]
+    [InlineData(@"""team"": ""dawn"", ""type"": ""tower.t1""", @"""team"": ""dawning"", ""type"": ""tower.t1""", "map.structures[0].team")]
+    [InlineData(@"""vulnerability"": ""allProtectorsDestroyed""", @"""vulnerability"": ""someday""", "map.structures[2].vulnerability")]
+    [InlineData(@"""walkable"": """, @"""walkable"": ""!!", "map.terrain.walkable")]
+    public void Map_Mistakes_AreReportedWithTheirPath(string from, string to, string path)
+    {
+        string json = PackWith(MapSection());
+        Assert.Contains(from, json);
+
+        var e = Assert.Throws<RulesetPackException>(() => Apply(json.Replace(from, to)));
+        Assert.Contains(path, e.Message);
+    }
+
+    [Theory]
+    [InlineData(@"""columns"": 160", @"""columns"": 150", "map.terrain.walkable:")]                              // layers longer than the cells
+    [InlineData(@"""height"": 10240,", @"""height"": 10304,", "map.terrain: The pack makes an invalid ruleset")]   // cells not covering the map
+    public void Map_TerrainOfTheWrongSize_IsRejected(string from, string to, string error)
+    {
+        string json = PackWith(MapSection());
+        Assert.Contains(from, json);
+
+        var e = Assert.Throws<RulesetPackException>(() => Apply(json.Replace(from, to)));
+        Assert.Contains(error, e.Message);
+    }
 }

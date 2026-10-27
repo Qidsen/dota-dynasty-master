@@ -62,31 +62,131 @@ namespace Dynasty.Content
                 c.RejectUnknown();
             }
             List<CreepType> unitTypes = reader.OptionalArray("unitTypes").Select(u => ReadUnitType(u, baseRules)).ToList();
+            MapDefinition? packMap = reader.OptionalObject("map") is Reader mp ? ReadMap(mp) : null;
             // Structure types replace the base ones of the same id; a structure keeps its base size (the map stays the base one).
             var structureOverrides = reader.OptionalArray("structureTypes").Select(s => ReadStructureType(s, baseRules)).ToDictionary(s => s.Id);
             IReadOnlyList<AbilityDefinition> abilities = reader.Has("abilities") ? reader.Array("abilities").Select(ReadAbility).ToList() : baseRules.Abilities;
             IReadOnlyList<ItemDefinition> items = reader.Has("items") ? reader.Array("items").Select(ReadItem).ToList() : baseRules.Items;
             WaveRules waves = reader.OptionalObject("waves") is Reader w ? ReadWaves(w, baseRules.Waves) : baseRules.Waves;
             BossDefinition? boss = reader.OptionalObject("boss") is Reader bo ? ReadBoss(bo, baseRules.Boss) : baseRules.Boss;
+            if (packMap != null && !reader.Has("boss") && boss != null)
+                throw reader.Error("boss", "a pack with its own map must place the boss pit (the base one is on the base map)");
             RuneRules? runes = reader.OptionalObject("runes") is Reader ru ? ReadRunes(ru, baseRules.Runes) : baseRules.Runes;
             reader.RejectUnknown();
 
             var unitIds = new HashSet<string>(unitTypes.Select(u => u.Id));
             IReadOnlyList<CreepType> creepTypes = baseRules.CreepTypes.Where(c => !unitIds.Contains(c.Id)).Concat(unitTypes).ToList();
             IReadOnlyList<StructureType> structureTypes = baseRules.StructureTypes.Select(s => structureOverrides.TryGetValue(s.Id, out StructureType? o) ? o : s).ToList();
-            // The fountains' type may be added (each fountain then becomes a building); other new ids are typos.
-            if (structureOverrides.TryGetValue(StructureType.FountainId, out StructureType? fountain) && baseRules.FindStructureType(StructureType.FountainId) == null)
-                structureTypes = structureTypes.Append(fountain).ToList();
-            foreach (string unknown in structureOverrides.Keys.Where(k => k != StructureType.FountainId && baseRules.StructureTypes.All(s => s.Id != k)))
-                throw new RulesetPackException("structureTypes: \"" + unknown + "\" is not a structure type of the base rules.");
+            // The fountains' type may be added (each fountain then becomes a building); with the pack's own map any new type may,
+            // otherwise other new ids are typos.
+            foreach (StructureType added in structureOverrides.Values.Where(o => baseRules.StructureTypes.All(s => s.Id != o.Id)))
+            {
+                if (packMap == null && added.Id != StructureType.FountainId)
+                    throw new RulesetPackException("structureTypes: \"" + added.Id + "\" is not a structure type of the base rules.");
+                structureTypes = structureTypes.Append(added).ToList();
+            }
             var content = new RulesetContent(id, version, baseRules.TicksPerSecond, combat, creepTypes, structureTypes,
-                baseRules.Map, waves, heroes, heroRules, abilities, items, boss, runes,
+                packMap ?? baseRules.Map, waves, heroes, heroRules, abilities, items, boss, runes,
                 baseRules.DayNight, baseRules.Draft);
             IReadOnlyList<string> errors = content.Validate();
             if (errors.Count > 0)
-                throw new RulesetPackException("The pack makes an invalid ruleset: " + string.Join("; ", errors));
+                throw new RulesetPackException((errors.Any(e => e.Contains("terrain")) ? "map.terrain: " : "") + "The pack makes an invalid ruleset: " + string.Join("; ", errors));
             return content;
         }
+
+        /// <summary>
+        /// The pack's own map (Dota's, D-053): its size and navigation cells, the map cell by cell, each side's path of every lane,
+        /// the buildings, fountains and camps. Points are flat lists [x, y, x, y, ...]; cell layers are base64, row by row from y = 0.
+        /// </summary>
+        private static MapDefinition ReadMap(Reader m)
+        {
+            MapTerrain? terrain = m.OptionalObject("terrain") is Reader t ? ReadTerrain(t) : null;
+            var lanes = m.Array("lanes").Select(l =>
+            {
+                var lane = new LaneDefinition(l.String("id"), Points(l, "dawn"), l.Has("dusk") ? Points(l, "dusk") : null);
+                l.RejectUnknown();
+                return lane;
+            }).ToList();
+            var structures = m.Array("structures").Select(s =>
+            {
+                VulnerabilityRule rule = s.OptionalString("vulnerability") switch
+                {
+                    null or "anyProtectorDestroyed" => VulnerabilityRule.AnyProtectorDestroyed,
+                    "allProtectorsDestroyed" => VulnerabilityRule.AllProtectorsDestroyed,
+                    "never" => VulnerabilityRule.Never,
+                    _ => throw s.Error("vulnerability", "expected anyProtectorDestroyed, allProtectorsDestroyed or never"),
+                };
+                var placement = new StructurePlacement(s.String("id"), ReadTeam(s), s.String("type"), FixedVector2.FromInts(s.Int("x"), s.Int("y")),
+                    s.OptionalBool("ancient") ?? false, s.OptionalStrings("protectedBy") ?? System.Array.Empty<string>(), rule, s.OptionalString("barracksLane"));
+                s.RejectUnknown();
+                return placement;
+            }).ToList();
+            var fountains = m.Array("fountains").Select(f =>
+            {
+                var fountain = new FountainPlacement(ReadTeam(f), FixedVector2.FromInts(f.Int("x"), f.Int("y")), f.Int("radius"));
+                f.RejectUnknown();
+                return fountain;
+            }).ToList();
+            var camps = m.OptionalArray("camps").Select(c =>
+            {
+                var creeps = c.Array("creeps").Select(e =>
+                {
+                    var entry = new WaveEntry(e.String("creep"), e.Int("count"));
+                    e.RejectUnknown();
+                    return entry;
+                }).ToList();
+                var camp = new NeutralCampDefinition(c.String("id"), FixedVector2.FromInts(c.Int("x"), c.Int("y")), creeps, c.Milliseconds("firstSpawn"),
+                    c.Milliseconds("respawn"), c.Int("leashRadius"), c.OptionalBool("alignedToClock") ?? false);
+                c.RejectUnknown();
+                return camp;
+            }).ToList();
+            var map = new MapDefinition(m.Int("width"), m.Int("height"), lanes, structures, null, m.Int("navCellSize"), m.OptionalInt("navClearance") ?? 0,
+                fountains, camps, null, terrain);
+            m.RejectUnknown();
+            return map;
+        }
+
+        private static MapTerrain ReadTerrain(Reader t)
+        {
+            int columns = t.Int("columns");
+            int rows = t.Int("rows");
+            int cells = columns * rows;
+            bool[] walkable = Bits(t, "walkable", cells);
+            bool[]? blockers = t.Has("visionBlockers") ? Bits(t, "visionBlockers", cells) : null;
+            int[]? levels = t.Has("levels") ? t.Base64("levels").Select(b => (int)b).ToArray() : null;
+            if (levels != null && levels.Length != cells)
+                throw t.Error("levels", "expected " + cells + " bytes, found " + levels.Length);
+            var terrain = new MapTerrain(columns, rows, walkable, blockers, levels, t.Has("trees") ? Points(t, "trees") : null, t.OptionalInt("treeSize") ?? 128);
+            t.RejectUnknown();
+            return terrain;
+        }
+
+        /// <summary>One bit per cell, the lowest bit of each byte first.</summary>
+        private static bool[] Bits(Reader r, string field, int cells)
+        {
+            byte[] bytes = r.Base64(field);
+            if (bytes.Length != (cells + 7) / 8)
+                throw r.Error(field, "expected " + (cells + 7) / 8 + " bytes for " + cells + " cells, found " + bytes.Length);
+            var bits = new bool[cells];
+            for (int i = 0; i < cells; i++)
+                bits[i] = (bytes[i >> 3] & (1 << (i & 7))) != 0;
+            return bits;
+        }
+
+        private static IReadOnlyList<FixedVector2> Points(Reader r, string field)
+        {
+            IReadOnlyList<int> flat = r.Ints(field);
+            if (flat.Count % 2 != 0)
+                throw r.Error(field, "expected pairs x, y");
+            return Enumerable.Range(0, flat.Count / 2).Select(i => FixedVector2.FromInts(flat[2 * i], flat[2 * i + 1])).ToList();
+        }
+
+        private static Team ReadTeam(Reader r) => r.String("team") switch
+        {
+            "dawn" => Team.Dawn,
+            "dusk" => Team.Dusk,
+            _ => throw r.Error("team", "expected dawn or dusk"),
+        };
 
         private static HeroDefinition ReadHero(Reader h)
         {
@@ -164,7 +264,7 @@ namespace Dynasty.Content
             return rules;
         }
 
-        /// <summary>Lane waves, the same for both teams; the super creeps of destroyed barracks stay the base rules' ones.</summary>
+        /// <summary>Lane waves, the same for both teams; the super and mega creeps of destroyed barracks are the base rules' ones unless given.</summary>
         private static WaveRules ReadWaves(Reader w, WaveRules baseWaves)
         {
             var composition = w.Array("composition").Select(e =>
@@ -189,10 +289,18 @@ namespace Dynasty.Content
             }
 
             var waves = new WaveRules(w.OptionalMilliseconds("firstSpawn") ?? baseWaves.FirstSpawnMs, w.OptionalMilliseconds("interval") ?? baseWaves.IntervalMs,
-                composition, composition, baseWaves.SuperUpgrades, upgrades);
+                composition, composition, w.Has("superUpgrades") ? CreepUpgrades(w, "superUpgrades") : baseWaves.SuperUpgrades, upgrades,
+                w.Has("megaUpgrades") ? CreepUpgrades(w, "megaUpgrades") : baseWaves.MegaUpgrades);
             w.RejectUnknown();
             return waves;
         }
+
+        private static IReadOnlyList<CreepUpgrade> CreepUpgrades(Reader w, string field) => w.Array(field).Select(u =>
+        {
+            var upgrade = new CreepUpgrade(u.String("from"), u.String("to"));
+            u.RejectUnknown();
+            return upgrade;
+        }).ToList();
 
         /// <summary>The boss of the base map's pit (its place and leash stay the base ones) with Dota's stats, rewards and growth.</summary>
         private static BossDefinition ReadBoss(Reader b, BossDefinition? baseBoss)
@@ -208,7 +316,14 @@ namespace Dynasty.Content
                 g.RejectUnknown();
             }
 
-            var boss = new BossDefinition(b.String("id"), b.String("creep"), baseBoss.Position, baseBoss.LeashRadius, b.OptionalMilliseconds("firstSpawn") ?? 0,
+            FixedVector2 position = baseBoss.Position;
+            if (b.OptionalObject("position") is Reader p)
+            {
+                position = FixedVector2.FromInts(p.Int("x"), p.Int("y"));
+                p.RejectUnknown();
+            }
+
+            var boss = new BossDefinition(b.String("id"), b.String("creep"), position, b.OptionalInt("leashRadius") ?? baseBoss.LeashRadius, b.OptionalMilliseconds("firstSpawn") ?? 0,
                 b.Milliseconds("respawnMin"), b.Milliseconds("respawnMax"), b.Int("teamGold"), null, killerGold[0], killerGold[1], b.OptionalInt("xp") ?? 0, growth,
                 b.OptionalObject("aegis") is Reader ae ? ReadModifier(ae) : null, b.OptionalArray("abilities").Select(ReadBossAbility).ToList(),
                 b.OptionalInt("provokeRadius") ?? baseBoss.ProvokeRadius, b.OptionalArray("drops").Select(d =>
@@ -338,8 +453,9 @@ namespace Dynasty.Content
 
             int glyphTargets = s.OptionalInt("glyphExtraTargets") ?? 0;
             bool resetsGlyph = s.OptionalBool("resetsGlyphOnFirstLoss") ?? false;
+            IReadOnlyList<string>? upgrades = s.OptionalStrings("upgradesCreeps");
             s.RejectUnknown();
-            return new StructureType(id, stats, bounty, deny, modifiers, reinforcement, backdoor, glyphTargets, resetsGlyph);
+            return new StructureType(id, stats, bounty, deny, modifiers, reinforcement, backdoor, glyphTargets, resetsGlyph, upgrades);
         }
 
         private static CreepType ReadUnitType(Reader u, RulesetContent? baseRules = null)
@@ -682,6 +798,19 @@ namespace Dynasty.Content
             }
 
             public string String(string field) => Read(field, v => v.AsString());
+
+            public byte[] Base64(string field)
+            {
+                string text = String(field);
+                try
+                {
+                    return Convert.FromBase64String(text);
+                }
+                catch (FormatException)
+                {
+                    throw Error(field, "expected base64");
+                }
+            }
             public int Int(string field) => Read(field, v => v.AsInt());
             public Fixed Fixed(string field) => Read(field, v => v.AsFixed());
 
