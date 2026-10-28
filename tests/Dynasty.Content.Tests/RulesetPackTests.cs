@@ -280,6 +280,16 @@ public class RulesetPackTests
     }
 
     [Fact]
+    public void TheStashAndCourier_AreRead()
+    {
+        string rules = @"{ ""stash"": { ""backpackSlots"": 3, ""stashSlots"": 6, ""courierSpeed"": 290, ""courierSpeedPerLevel"": 10, ""courierFliesFromLevel"": 4 } }";
+
+        StashRules stash = Apply(Pack(Hero1, rules)).HeroRules!.Stash!;
+
+        Assert.Equal((3, 6, 290, 10, 4), (stash.BackpackSlots, stash.StashSlots, stash.CourierSpeed, stash.CourierSpeedPerLevel, stash.CourierFliesFromLevel));
+    }
+
+    [Fact]
     public void TwinGates_AreRead()
     {
         string gates = @"""twinGates"": { ""positions"": [1000, 2000, 9000, 8000], ""radius"": 200, ""channel"": 4, ""manaCost"": 30 },";

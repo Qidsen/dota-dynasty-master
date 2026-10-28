@@ -160,6 +160,11 @@ var pack = new JsonObject
     },
     ["heroRules"] = new JsonObject
     {
+        // Backpack 3 slots, stash 6 (Fandom «Inventory»); the courier: 290 + 10 per hero level, flying from level 4 (Fandom «Courier»).
+        ["stash"] = new JsonObject
+        {
+            ["backpackSlots"] = 3, ["stashSlots"] = 6, ["courierSpeed"] = 290, ["courierSpeedPerLevel"] = 10, ["courierFliesFromLevel"] = 4,
+        },
         // dotaconstants' table, except level 30: 64400 (8000 from level 29, Liquipedia «Experience»; dotaconstants has 63900) —
         // Valve's last word is 7.32 «Changed XP required per level» without numbers; decided by the project owner (D-051).
         ["xpForLevel"] = new JsonArray(xpLevels.Select((x, i) => (JsonNode)JsonValue.Create(i == 29 ? 64400 : x!.GetValue<int>())!).ToArray()),

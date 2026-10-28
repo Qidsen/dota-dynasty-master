@@ -65,7 +65,7 @@ namespace Dynasty.MatchSimulation.Heroes
         internal int RespawnPenaltyMs { get; set; }
 
         /// <summary>Gold plus the cost of the items carried.</summary>
-        public Fixed NetWorth => Gold + Fixed.FromInt(InventorySlots.Sum(s => s.Definition.Cost));
+        public Fixed NetWorth => Gold + Fixed.FromInt(InventorySlots.Concat(BackpackSlots).Concat(StashSlots).Concat(CourierSlots).Sum(s => s.Definition.Cost));
 
         /// <summary>Spends gold, unreliable first (or reliable first, for a buyback); reliable gold never exceeds the total.</summary>
         internal void Spend(Fixed amount, bool reliableFirst = false)
@@ -109,6 +109,27 @@ namespace Dynasty.MatchSimulation.Heroes
         public IReadOnlyList<ItemSlot> Inventory => InventorySlots;
 
         internal List<ItemSlot> InventorySlots { get; } = new List<ItemSlot>();
+
+        /// <summary>Dota's backpack: carried items that give nothing and cannot be used.</summary>
+        public IReadOnlyList<ItemSlot> Backpack => BackpackSlots;
+
+        internal List<ItemSlot> BackpackSlots { get; } = new List<ItemSlot>();
+
+        /// <summary>Dota's stash at the base: what was bought away from it, waiting for the courier.</summary>
+        public IReadOnlyList<ItemSlot> Stash => StashSlots;
+
+        internal List<ItemSlot> StashSlots { get; } = new List<ItemSlot>();
+
+        /// <summary>What the courier is bringing.</summary>
+        public IReadOnlyList<ItemSlot> CourierCarrying => CourierSlots;
+
+        internal List<ItemSlot> CourierSlots { get; } = new List<ItemSlot>();
+
+        /// <summary>When the courier reaches the hero; -1 when it is not on its way.</summary>
+        internal long CourierArriveTick { get; set; } = -1;
+
+        /// <summary>When the courier is back at the base and free again.</summary>
+        internal long CourierHomeTick { get; set; }
 
         internal List<ShopRequest> ShopRequests { get; } = new List<ShopRequest>();
 

@@ -334,6 +334,36 @@ namespace Dynasty.MatchSimulation.Rules
     }
 
     /// <summary>Hero progression and match economy. All values are ruleset data, never hard-coded.</summary>
+    /// <summary>
+    /// Dota's backpack, stash and courier (Fandom «Inventory», «Courier»): <see cref="BackpackSlots"/> more carried items that give
+    /// nothing, a stash of <see cref="StashSlots"/> at the base for what is bought elsewhere, and a courier bringing the stash to the
+    /// hero at <see cref="CourierSpeed"/> + <see cref="CourierSpeedPerLevel"/> per hero level, along the ground until the hero reaches
+    /// <see cref="CourierFliesFromLevel"/>, then straight.
+    /// </summary>
+    public sealed class StashRules
+    {
+        public StashRules(int backpackSlots, int stashSlots, int courierSpeed, int courierSpeedPerLevel, int courierFliesFromLevel)
+        {
+            BackpackSlots = backpackSlots;
+            StashSlots = stashSlots;
+            CourierSpeed = courierSpeed;
+            CourierSpeedPerLevel = courierSpeedPerLevel;
+            CourierFliesFromLevel = courierFliesFromLevel;
+        }
+
+        public int BackpackSlots { get; }
+        public int StashSlots { get; }
+        public int CourierSpeed { get; }
+        public int CourierSpeedPerLevel { get; }
+        public int CourierFliesFromLevel { get; }
+
+        internal void WriteCanonical(CanonicalWriter w)
+        {
+            foreach (int value in new[] { BackpackSlots, StashSlots, CourierSpeed, CourierSpeedPerLevel, CourierFliesFromLevel })
+                w.WriteInt64(value);
+        }
+    }
+
     public sealed class HeroRules
     {
         public HeroRules(
@@ -360,8 +390,10 @@ namespace Dynasty.MatchSimulation.Rules
             IReadOnlyList<int>? talentPointLevels = null,
             int attributeBonusLevels = 0,
             int attributeBonusPerLevel = 0,
-            EconomyRules? economy = null)
+            EconomyRules? economy = null,
+            StashRules? stash = null)
         {
+            Stash = stash;
             Economy = economy;
             SkillPointLevels = skillPointLevels?.ToArray();
             TalentPointLevels = (talentPointLevels ?? Array.Empty<int>()).ToArray();
@@ -457,6 +489,9 @@ namespace Dynasty.MatchSimulation.Rules
         /// <summary>Dota's economy; null for the simple one (gold per minute, fixed kill gold, respawn by formula).</summary>
         public EconomyRules? Economy { get; }
 
+        /// <summary>Dota's backpack, stash and courier; null for the shop at the fountain only and six slots.</summary>
+        public StashRules? Stash { get; }
+
         /// <summary>The attribute bonus modifier (each level adds a stack); null without an attribute bonus.</summary>
         public Combat.ModifierSpec? AttributeBonus { get; }
 
@@ -494,6 +529,8 @@ namespace Dynasty.MatchSimulation.Rules
             w.WriteInt64(AttributeBonusPerLevel);
             w.WriteBool(Economy != null);
             Economy?.WriteCanonical(w);
+            w.WriteBool(Stash != null);
+            Stash?.WriteCanonical(w);
         }
     }
 

@@ -1658,8 +1658,9 @@ namespace Dynasty.HeroAI
             if (_h.IsDead && TryBuyback())
                 return;
 
+            // With Dota's stash and courier the shop is everywhere (what is bought away from the base is brought).
             FountainPlacement? fountain = _state.Ruleset.Map.FountainOf(_hero.Team);
-            bool inShop = _h.IsDead || (fountain != null && Math.Within(_hero.Position, fountain.Position, fountain.Radius));
+            bool inShop = _h.IsDead || _state.Ruleset.HeroRules?.Stash != null || (fountain != null && Math.Within(_hero.Position, fountain.Position, fountain.Radius));
             if (!inShop)
                 return;
 
@@ -1675,7 +1676,8 @@ namespace Dynasty.HeroAI
                 i.ActiveAbilityId != null && Math.IsSmoke(_state.Ruleset.FindAbility(i.ActiveAbilityId)!));
             bool isSupport = _h.Definition.Roles.Contains("support") || _h.Definition.Roles.Contains("healer");
             HeroDecision me = this;
-            bool teamHasSmoke = smokeItem != null && _state.Heroes.Any(h => h.Team == me._hero.Team && h.Hero!.Inventory.Any(i => i.Definition.Id == smokeItem.Id));
+            bool teamHasSmoke = smokeItem != null && _state.Heroes.Any(h => h.Team == me._hero.Team &&
+                h.Hero!.Inventory.Concat(h.Hero.Backpack).Concat(h.Hero.Stash).Concat(h.Hero.CourierCarrying).Any(i => i.Definition.Id == smokeItem.Id));
             if (smokeItem != null && isSupport && !teamHasSmoke && _h.Inventory.Count < HeroShop.InventorySize && CanSpend(smokeItem.Cost))
             {
                 HeroShop.QueuePurchase(_hero, smokeItem.Id);
@@ -1685,7 +1687,7 @@ namespace Dynasty.HeroAI
             // In the laning phase every hero carries a healing consumable.
             ItemDefinition? potionItem = _state.Ruleset.Items.FirstOrDefault(i =>
                 i.ActiveAbilityId != null && Math.IsHealingConsumable(i, _state.Ruleset.FindAbility(i.ActiveAbilityId)));
-            if (potionItem != null && _now / _ticksPerMinute < _settings.LaningPhaseFor(_hero.Team) && _h.Inventory.Count(i => i.Definition.Id == potionItem.Id) < ConsumablesCarried &&
+            if (potionItem != null && _now / _ticksPerMinute < _settings.LaningPhaseFor(_hero.Team) && Owned().Count(i => i == potionItem.Id) < ConsumablesCarried &&
                 _h.Inventory.Count < HeroShop.InventorySize && CanSpend(potionItem.Cost))
             {
                 HeroShop.QueuePurchase(_hero, potionItem.Id);
@@ -1695,7 +1697,7 @@ namespace Dynasty.HeroAI
             // Every hero keeps one teleport scroll.
             ItemDefinition? scroll = _state.Ruleset.Items.FirstOrDefault(i =>
                 i.ActiveAbilityId != null && Math.IsTeleport(_state.Ruleset.FindAbility(i.ActiveAbilityId)!));
-            if (scroll != null && _h.Inventory.All(i => i.Definition.Id != scroll.Id) && _h.Inventory.Count < HeroShop.InventorySize && CanSpend(scroll.Cost))
+            if (scroll != null && !Owned().Contains(scroll.Id) && _h.Inventory.Count < HeroShop.InventorySize && CanSpend(scroll.Cost))
             {
                 HeroShop.QueuePurchase(_hero, scroll.Id);
                 return;
@@ -1706,8 +1708,8 @@ namespace Dynasty.HeroAI
             if (item == null)
                 return;
 
-            HeroDecision self = this;
-            int ownedComponentCost = item.Components.Where(c => self._h.Inventory.Any(slot => slot.Definition.Id == c)).Sum(c => self._state.Ruleset.FindItem(c)!.Cost);
+            List<string> ownedIds = Owned();
+            int ownedComponentCost = item.Components.Where(c => ownedIds.Remove(c)).Sum(c => _state.Ruleset.FindItem(c)!.Cost);
             if (CanSpend(item.Cost - ownedComponentCost))
                 HeroShop.QueuePurchase(_hero, item.Id);
         }
@@ -1742,16 +1744,20 @@ namespace Dynasty.HeroAI
         {
             if (!_h.Definition.Roles.Contains("support") && !_h.Definition.Roles.Contains("healer"))
                 return false;
-            if (_h.Inventory.Any(i => i.Definition == wardItem) || _h.Inventory.Count >= HeroShop.InventorySize)
+            if (Owned().Contains(wardItem.Id) || _h.Inventory.Count >= HeroShop.InventorySize)
                 return false;
             HeroDecision self = this;
             string wardType = Math.WardUnitType(_state.Ruleset, wardItem)!;
             return _state.Units.Count(u => u.Team == self._hero.Team && u.TypeId == wardType && u.IsAlive) < 2;
         }
 
+        /// <summary>What the hero owns: carried (inventory, backpack), in the stash or on the courier.</summary>
+        private List<string> Owned() =>
+            _h.Inventory.Concat(_h.Backpack).Concat(_h.Stash).Concat(_h.CourierCarrying).Select(s => s.Definition.Id).ToList();
+
         private string? NextBuildItem()
         {
-            var owned = _h.Inventory.Select(s => s.Definition.Id).ToList();
+            var owned = Owned();
             foreach (string itemId in _h.Definition.ItemBuild)
             {
                 if (owned.Remove(itemId))
@@ -1768,7 +1774,7 @@ namespace Dynasty.HeroAI
             if (target == null)
                 return null;
 
-            var owned = _h.Inventory.Select(s => s.Definition.Id).ToList();
+            var owned = Owned();
             foreach (string componentId in target.Components)
             {
                 if (owned.Remove(componentId))

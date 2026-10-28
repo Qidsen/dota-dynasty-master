@@ -324,8 +324,16 @@ namespace Dynasty.Content
                 r.OptionalInt("heroKillXpPercentOfVictim") ?? b.HeroKillXpPercentOfVictim, b.Attributes,
                 r.OptionalInts("skillPointLevels") ?? b.SkillPointLevels, r.OptionalInts("talentPointLevels") ?? b.TalentPointLevels,
                 r.OptionalInt("attributeBonusLevels") ?? b.AttributeBonusLevels, r.OptionalInt("attributeBonusPerLevel") ?? b.AttributeBonusPerLevel,
-                r.OptionalObject("economy") is Reader economy ? ReadEconomy(economy) : b.Economy);
+                r.OptionalObject("economy") is Reader economy ? ReadEconomy(economy) : b.Economy,
+                r.OptionalObject("stash") is Reader stash ? ReadStash(stash) : b.Stash);
             r.RejectUnknown();
+            return rules;
+        }
+
+        private static StashRules ReadStash(Reader s)
+        {
+            var rules = new StashRules(s.Int("backpackSlots"), s.Int("stashSlots"), s.Int("courierSpeed"), s.Int("courierSpeedPerLevel"), s.Int("courierFliesFromLevel"));
+            s.RejectUnknown();
             return rules;
         }
 
