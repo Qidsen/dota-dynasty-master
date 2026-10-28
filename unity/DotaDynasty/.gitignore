@@ -25,3 +25,6 @@
 /Assets/Plugins/Dynasty.meta
 /Assets/StreamingAssets/determinism-reference.txt
 /Assets/StreamingAssets/determinism-reference.txt.meta
+# The Dota ruleset pack is generated locally and never committed (D-048); sync-unity.ps1 copies it here.
+/Assets/StreamingAssets/dota-*.json
+/Assets/StreamingAssets/dota-*.json.meta

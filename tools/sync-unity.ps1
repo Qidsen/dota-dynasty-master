@@ -19,6 +19,10 @@ foreach ($name in 'Dynasty.Core', 'Dynasty.MatchSimulation', 'Dynasty.Players', 
     Copy-Item (Join-Path $output "$name.xml") $plugins -Force
 }
 
+# The Dota pack (generated locally, never committed, D-048): the viewer plays it when it is in StreamingAssets.
+$pack = Join-Path $root 'packs/dota-7.41f.json'
+if (Test-Path $pack) { Copy-Item $pack $streaming -Force } else { Remove-Item (Join-Path $streaming 'dota-7.41f.json') -ErrorAction SilentlyContinue }
+
 dotnet run --project (Join-Path $root 'tools/Dynasty.MatchLab/Dynasty.MatchLab.csproj') -c Release -- probe (Join-Path $streaming 'determinism-reference.txt') | Out-Null
 if ($LASTEXITCODE -ne 0) { throw 'Determinism reference run failed.' }
 

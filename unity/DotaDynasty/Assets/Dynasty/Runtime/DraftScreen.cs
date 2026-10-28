@@ -27,12 +27,15 @@ namespace Dynasty.Unity
         private GUIStyle? _title;
         private GUIStyle? _panel;
 
-        public static DraftScreen Create(ulong seed)
+        public static DraftScreen Create(ulong seed) => Create(seed, BaseRuleset.Create());
+
+        /// <summary>The draft on the given rules (the base ruleset or a pack applied over it).</summary>
+        public static DraftScreen Create(ulong seed, RulesetContent ruleset)
         {
             var go = new GameObject("Draft Screen");
             var screen = go.AddComponent<DraftScreen>();
             screen._seed = seed;
-            screen._ruleset = BaseRuleset.Create();
+            screen._ruleset = ruleset;
             screen._watch = DraftWatch.Start(screen._ruleset, seed, 1.0);
             var camera = new GameObject("Draft Camera").AddComponent<Camera>();
             camera.clearFlags = CameraClearFlags.SolidColor;

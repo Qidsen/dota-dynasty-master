@@ -35,6 +35,19 @@ namespace Dynasty.Unity
         public static MatchViewer Create(ulong seed) =>
             Create(MatchSession.Start(BaseRuleset.Create(), seed, DemoMatch.Lineup));
 
+        /// <summary>
+        /// A match on the given rules without watching the draft: the base rules play the demo line-ups; on a pack (its heroes are
+        /// not the demo line-ups' base heroes) the two demo teams draft at once.
+        /// </summary>
+        public static MatchViewer Create(ulong seed, RulesetContent ruleset)
+        {
+            if (ruleset.FindHero(DemoMatch.Lineup.Dawn[0].HeroId) != null)
+                return Create(MatchSession.Start(ruleset, seed, DemoMatch.Lineup));
+            DraftWatch draft = DraftWatch.Start(ruleset, seed, 1.0);
+            draft.Finish();
+            return Create(draft.StartMatch(seed));
+        }
+
         /// <summary>Watches a prepared session, e.g. one started from a draft.</summary>
         public static MatchViewer Create(MatchSession session)
         {
