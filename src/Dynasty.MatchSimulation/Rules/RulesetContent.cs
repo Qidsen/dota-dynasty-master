@@ -775,8 +775,10 @@ namespace Dynasty.MatchSimulation.Rules
             MinibossDefinition? miniboss = null,
             ShrineRules? shrines = null,
             LotusPoolRules? lotusPools = null,
-            WatcherRules? watchers = null)
+            WatcherRules? watchers = null,
+            OutpostRules? outposts = null)
         {
+            Outposts = outposts;
             Watchers = watchers;
             LotusPools = lotusPools;
             Shrines = shrines;
@@ -800,6 +802,9 @@ namespace Dynasty.MatchSimulation.Rules
         }
 
         public IReadOnlyList<HeroDefinition> Heroes { get; }
+
+        /// <summary>Dota's Outposts; null without them.</summary>
+        public OutpostRules? Outposts { get; }
 
         /// <summary>Dota's Watchers; null without them.</summary>
         public WatcherRules? Watchers { get; }
@@ -951,6 +956,9 @@ namespace Dynasty.MatchSimulation.Rules
             if (Watchers != null && (Watchers.Positions.Count == 0 || Watchers.Positions.Any(p => !IsInsideMap(p)) || Watchers.Radius <= 0 || Watchers.ChannelMs <= 0 ||
                                      Watchers.OnMs <= 0 || Watchers.OffMs <= 0 || Watchers.DayVision < 0 || Watchers.NightVision < 0))
                 errors.Add("Watchers need places inside the map, a positive radius and times.");
+            if (Outposts != null && (Outposts.Positions.Count == 0 || Outposts.Positions.Any(p => !IsInsideMap(p)) || Outposts.Owners.Count != Outposts.Positions.Count ||
+                                     Outposts.Owners.Any(o => o == Team.Neutral) || Outposts.Radius <= 0 || Outposts.CaptureMs <= 0))
+                errors.Add("Outposts need places inside the map, a team owning each, a positive radius and capture time.");
             if (LotusPools != null)
             {
                 if (FindItem(LotusPools.ItemId) == null)
@@ -1227,6 +1235,8 @@ namespace Dynasty.MatchSimulation.Rules
             LotusPools?.WriteCanonical(writer);
             writer.WriteBool(Watchers != null);
             Watchers?.WriteCanonical(writer);
+            writer.WriteBool(Outposts != null);
+            Outposts?.WriteCanonical(writer);
             writer.WriteBool(DayNight != null);
             DayNight?.WriteCanonical(writer);
             writer.WriteBool(Draft != null);

@@ -43,6 +43,9 @@ sealed class DotaMap
 
     public (int X, int Y) TormentorBottom { get; }
 
+    /// <summary>The Outposts (the map's watch towers) and the side each starts with: the one whose fountain is nearer.</summary>
+    public ((int X, int Y) At, string Owner)[] Outposts { get; private set; } = Array.Empty<((int X, int Y), string)>();
+
     /// <summary>The Watchers (the map's lanterns).</summary>
     public (int X, int Y)[] Watchers { get; private set; } = Array.Empty<(int X, int Y)>();
 
@@ -258,10 +261,18 @@ sealed class DotaMap
         foreach ((int X, int Y) p in tormentors)
             MustWalk("tormentor", p);
         var shrines = Spots("npc_dota_xp_fountain");
+        var fountainOf = fountains.ToDictionary(f => f!["team"]!.GetValue<string>(), f => (X: f!["x"]!.GetValue<int>(), Y: f["y"]!.GetValue<int>()));
+        string Nearer((int X, int Y) p)
+        {
+            long Square((int X, int Y) f) => (long)(f.X - p.X) * (f.X - p.X) + (long)(f.Y - p.Y) * (f.Y - p.Y);
+            return Square(fountainOf["dawn"]) <= Square(fountainOf["dusk"]) ? "dawn" : "dusk";
+        }
+
         return new DotaMap(map, Spots("dota_item_rune_spawner_powerup"), Spots("dota_item_rune_spawner_bounty"), pits[0], pits[1], tormentors[0], tormentors[1], warnings)
         {
             Shrines = shrines,
             Watchers = Spots("npc_dota_lantern"),
+            Outposts = Spots("npc_dota_watch_tower").Select(p => (p, Nearer(p))).ToArray(),
             // The pool is a building in the middle of its water: its own spot is not walkable, the heroes stand around it.
             LotusPools = data["npc_dota_lotus_pool"]!.AsArray().Select(p => Point(p!)).OrderBy(p => p.Y).ToArray(),
         };

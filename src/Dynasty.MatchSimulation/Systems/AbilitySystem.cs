@@ -246,7 +246,7 @@ namespace Dynasty.MatchSimulation.Systems
         {
             if (!unit.IsAlive || unit.Kind == UnitKind.Rune)
                 return false;
-            if (unit.Kind == UnitKind.Structure)
+            if (unit.Kind == UnitKind.Structure || unit.Kind == UnitKind.Outpost)
                 return allowAlliedStructures && unit.Team == caster.Team && team != TargetTeam.Enemy;
             switch (team)
             {

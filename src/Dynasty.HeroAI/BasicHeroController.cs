@@ -504,6 +504,8 @@ namespace Dynasty.HeroAI
                 return;
             if (Decided(TakeWatcher(), "TakeWatcher"))
                 return;
+            if (Decided(CaptureOutpost(), "CaptureOutpost"))
+                return;
             if (Decided(FarmJungle(), "FarmJungle"))
                 return;
             Trace("Lane");
@@ -686,6 +688,25 @@ namespace Dynasty.HeroAI
             }
 
             return false;
+        }
+
+        private const int OutpostDetour = 1500;
+
+        /// <summary>An enemy Outpost within a short detour is captured by a healthy hero while no enemy hero is seen near it.</summary>
+        private bool CaptureOutpost()
+        {
+            if (_state.Ruleset.Outposts == null || Math.HpPercent(_hero) < 40)
+                return false;
+            HeroDecision self = this;
+            MatchUnit? outpost = _state.Units
+                .Where(u => u.Kind == UnitKind.Outpost && u.Team != self._hero.Team && Math.Within(u.Position, self._hero.Position, OutpostDetour) &&
+                            !self.UnderEnemyTower(u.Position) && self.VisibleEnemyHeroes(u.Position, ShrineEnemyWithin).Count == 0)
+                .OrderBy(u => FixedVector2.DistanceSquared(u.Position, self._hero.Position)).ThenBy(u => u.Id.Value)
+                .FirstOrDefault();
+            if (outpost == null)
+                return false;
+            Issue(HeroOrder.Move(outpost.Position));
+            return true;
         }
 
         private const int LotusPickerWithin = 4000;
@@ -1324,7 +1345,7 @@ namespace Dynasty.HeroAI
         /// <summary>Channels a carried teleport onto an allied structure.</summary>
         private bool TryTeleportTo(MatchUnit structure)
         {
-            if (structure.Kind != UnitKind.Structure || structure.Team != _hero.Team)
+            if ((structure.Kind != UnitKind.Structure && structure.Kind != UnitKind.Outpost) || structure.Team != _hero.Team)
                 return false;
             AbilityState? teleport = _h.Inventory
                 .Where(i => i.Active != null && Math.IsTeleport(i.Active.Definition))
@@ -1414,8 +1435,9 @@ namespace Dynasty.HeroAI
             if (!Math.Within(_hero.Position, Home, AtBaseRange) || Math.Within(_hero.Position, front, TeleportWorthDistance))
                 return false;
             HeroDecision self = this;
+            // An own tower, or an own Outpost (Dota), away from the base.
             MatchUnit? tower = _state.Units
-                .Where(u => u.Kind == UnitKind.Structure && u.Team == self._hero.Team && u.IsAlive && u.CanAttackAtAll &&
+                .Where(u => ((u.Kind == UnitKind.Structure && u.CanAttackAtAll) || u.Kind == UnitKind.Outpost) && u.Team == self._hero.Team && u.IsAlive &&
                             !Math.Within(u.Position, self.Home, TeleportWorthDistance))
                 .OrderBy(u => FixedVector2.DistanceSquared(u.Position, front))
                 .FirstOrDefault();

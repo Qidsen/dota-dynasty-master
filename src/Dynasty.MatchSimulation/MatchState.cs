@@ -24,6 +24,9 @@ namespace Dynasty.MatchSimulation
 
         /// <summary>Neutral objective that neither moves nor attacks (see <see cref="MinibossDefinition"/>).</summary>
         Miniboss = 6,
+
+        /// <summary>A building of a team that cannot be attacked, captured by enemy heroes standing at it (see <see cref="OutpostRules"/>).</summary>
+        Outpost = 7,
     }
 
     /// <summary>
@@ -51,7 +54,8 @@ namespace Dynasty.MatchSimulation
         }
 
         public EntityId Id { get; }
-        public Team Team { get; }
+        /// <summary>The unit's side; only an Outpost changes it (captured).</summary>
+        public Team Team { get; internal set; }
         public UnitKind Kind { get; }
         public string TypeId { get; }
 
@@ -533,6 +537,20 @@ namespace Dynasty.MatchSimulation
         internal int WaypointCount => Team != Team.Dawn && Lane!.DuskWaypoints != null ? Lane.DuskWaypoints.Count : Lane!.Waypoints.Count;
     }
 
+    /// <summary>Runtime state of an Outpost (Dota).</summary>
+    internal sealed class OutpostState
+    {
+        public OutpostState(MatchUnit unit)
+        {
+            Unit = unit;
+        }
+
+        public MatchUnit Unit { get; }
+
+        /// <summary>Hero-ticks of each team's capture (Dawn, Dusk).</summary>
+        public long[] Progress { get; } = new long[2];
+    }
+
     /// <summary>Runtime state of a Watcher (Dota).</summary>
     internal sealed class WatcherState
     {
@@ -735,6 +753,17 @@ namespace Dynasty.MatchSimulation
         /// <summary>The living boss, if the ruleset has one and it is up.</summary>
         public MatchUnit? Boss { get; internal set; }
 
+        /// <summary>The Outposts, as in the rules (put on the map at the first tick).</summary>
+        internal List<OutpostState> Outposts { get; } = new List<OutpostState>();
+
+        internal MatchUnit SpawnOutpost(EntityId id, Team owner, FixedVector2 position, UnitStats stats)
+        {
+            var unit = new MatchUnit(id, owner, UnitKind.Outpost, "outpost", stats, position, Rate);
+            Add(unit);
+            Outposts.Add(new OutpostState(unit));
+            return unit;
+        }
+
         /// <summary>The Watchers, as in the rules.</summary>
         internal List<WatcherState> Watchers { get; } = new List<WatcherState>();
 
@@ -819,6 +848,8 @@ namespace Dynasty.MatchSimulation
         /// <summary>Creeps are always vulnerable; structures follow their placement's protection rule.</summary>
         public bool IsVulnerable(MatchUnit unit)
         {
+            if (unit.Kind == UnitKind.Outpost)
+                return false;
             StructurePlacement? placement = unit.Placement;
             if (placement?.Vulnerability == VulnerabilityRule.Never)
                 return false;

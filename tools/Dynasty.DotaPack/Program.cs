@@ -212,6 +212,15 @@ var pack = new JsonObject
     },
     ["heroes"] = packHeroes,
     ["miniboss"] = Tormentor(dotaMap, gameAbilities),
+    // Outposts (game file ability_capture: base_capture_time 6, within 300; Valve 7.24: they start owned by their side, here the side whose
+    // fountain is nearer — B-166; 7.33: no experience and no vision; the owner's heroes teleport to them).
+    ["outposts"] = new JsonObject
+    {
+        ["positions"] = new JsonArray(dotaMap.Outposts.SelectMany(o => new JsonNode[] { o.At.X, o.At.Y }).ToArray()),
+        ["owners"] = new JsonArray(dotaMap.Outposts.Select(o => (JsonNode)o.Owner).ToArray()),
+        ["radius"] = DotaData.Number(gameAbilities["ability_capture"]!["AbilityCastRange"]).DeepClone(),
+        ["capture"] = DotaData.Number(gameAbilities["ability_capture"]!["AbilityValues"]!["base_capture_time"]).DeepClone(),
+    },
     // Watchers (game file ability_lamp_use: within 200 — 7.39c —, 1 s channel — 7.40 —, on 420 s, off 120 s; npc_dota_lantern: vision 800
     // by day, 450 by night — 7.40; Fandom «Watcher»: a ready one turns on for the team, one on for the other team turns off).
     ["watchers"] = new JsonObject

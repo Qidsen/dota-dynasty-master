@@ -280,6 +280,18 @@ public class RulesetPackTests
     }
 
     [Fact]
+    public void Outposts_AreRead()
+    {
+        string outposts = @"""outposts"": { ""positions"": [1000, 2000, 3000, 4000], ""owners"": [""dawn"", ""dusk""], ""radius"": 300, ""capture"": 6 },";
+
+        OutpostRules rules = Apply(PackWith(outposts)).Outposts!;
+
+        Assert.Equal(new[] { FixedVector2.FromInts(1000, 2000), FixedVector2.FromInts(3000, 4000) }, rules.Positions);
+        Assert.Equal(new[] { Team.Dawn, Team.Dusk }, rules.Owners);
+        Assert.Equal((300, 6000), (rules.Radius, rules.CaptureMs));
+    }
+
+    [Fact]
     public void Watchers_AreRead()
     {
         string watchers = @"""watchers"": { ""positions"": [1000, 2000, 3000, 4000], ""radius"": 200, ""channel"": 1, ""on"": 420, ""off"": 120, ""dayVision"": 800, ""nightVision"": 450 },";

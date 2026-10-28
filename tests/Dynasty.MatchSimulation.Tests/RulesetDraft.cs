@@ -84,6 +84,8 @@ public sealed class RulesetDraft
 
     public WatcherRules? Watchers { get; set; }
 
+    public OutpostRules? Outposts { get; set; }
+
     public RuneRules? Runes { get; set; }
 
     public DayNightRules? DayNight { get; set; }
@@ -190,7 +192,8 @@ public sealed class RulesetDraft
         Miniboss,
         Shrines,
         LotusPools,
-        Watchers);
+        Watchers,
+        Outposts);
 
     /// <summary>Starts a match with the given heroes; each pick is (heroId, laneId).</summary>
     public Dynasty.Core.Kernel.SimulationKernel<MatchState> StartWithHeroes(

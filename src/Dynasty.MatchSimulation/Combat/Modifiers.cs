@@ -747,7 +747,7 @@ namespace Dynasty.MatchSimulation.Combat
     {
         public static Fixed Deal(SimulationContext<MatchState> context, EntityId attacker, MatchUnit target, Fixed rawAmount, DamageType type, bool isCritical = false)
         {
-            if (!target.IsAlive)
+            if (!target.IsAlive || target.Kind == UnitKind.Outpost)
                 return Fixed.Zero;
 
             Fixed amount = type == DamageType.Physical && (target.Flags & ModifierFlags.PhysicalImmune) != 0 ? Fixed.Zero

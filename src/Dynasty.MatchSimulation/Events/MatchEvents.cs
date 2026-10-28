@@ -710,6 +710,29 @@ namespace Dynasty.MatchSimulation.Events
         }
     }
 
+    public sealed class OutpostCaptured : IDomainEvent
+    {
+        public OutpostCaptured(int outpost, Team team)
+        {
+            Outpost = outpost;
+            Team = team;
+        }
+
+        /// <summary>Index of the Outpost in the rules.</summary>
+        public int Outpost { get; }
+
+        public Team Team { get; }
+
+        public string Type => "match.outpost_captured";
+        public int SchemaVersion => 1;
+
+        public void WritePayload(ref Fnv1a64 hash)
+        {
+            hash.AddInt64(Outpost);
+            hash.AddInt64((int)Team);
+        }
+    }
+
     public sealed class WatcherTaken : IDomainEvent
     {
         public WatcherTaken(int watcher, Team team)
