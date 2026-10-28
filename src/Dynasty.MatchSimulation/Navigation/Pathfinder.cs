@@ -150,18 +150,36 @@ namespace Dynasty.MatchSimulation.Navigation
             if (_grid.IsWalkableIndex(index))
                 return index;
 
+            // Rings of cells around the point's cell, nearest first; the nearest center wins, ties to the lowest index (as a scan of
+            // the whole grid would pick). A ring r is at least (r - 1) cells away, so the search stops once that is beyond the best.
             int best = -1;
             Fixed bestDistance = Fixed.Zero;
-            int count = _grid.Columns * _grid.Rows;
-            for (int i = 0; i < count; i++)
+            int column0 = index % _grid.Columns, row0 = index / _grid.Columns;
+            int maxRing = System.Math.Max(_grid.Columns, _grid.Rows);
+            for (int ring = 1; ring <= maxRing; ring++)
             {
-                if (!_grid.IsWalkableIndex(i))
-                    continue;
-                Fixed distance = FixedVector2.DistanceSquared(point, _grid.CenterOf(i));
-                if (best < 0 || distance < bestDistance)
+                if (best >= 0)
                 {
-                    best = i;
-                    bestDistance = distance;
+                    Fixed gap = Fixed.FromInt((ring - 1) * _grid.CellSize);
+                    if (gap * gap > bestDistance)
+                        break;
+                }
+
+                for (int row = row0 - ring; row <= row0 + ring; row++)
+                {
+                    bool edgeRow = row == row0 - ring || row == row0 + ring;
+                    for (int column = column0 - ring; column <= column0 + ring; column += edgeRow ? 1 : 2 * ring)
+                    {
+                        if (!_grid.IsWalkableCell(column, row))
+                            continue;
+                        int i = row * _grid.Columns + column;
+                        Fixed distance = FixedVector2.DistanceSquared(point, _grid.CenterOf(i));
+                        if (best < 0 || distance < bestDistance || (distance == bestDistance && i < best))
+                        {
+                            best = i;
+                            bestDistance = distance;
+                        }
+                    }
                 }
             }
 
