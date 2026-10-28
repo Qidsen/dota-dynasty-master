@@ -374,6 +374,8 @@ static class Abilities
         ability["effects"] = new JsonArray((entry["effects"] as JsonArray ?? new JsonArray()).Select(e => (JsonNode)ResolveEffect(e!.AsObject(), values, levels)).ToArray());
         if (entry["passive"] is JsonObject passive)
             ability["passive"] = Modifiers(passive, values, levels);
+        if (entry["toggle"] is JsonObject toggle)
+            ability["toggle"] = Modifiers(toggle, values, levels);
         if (entry["channel"] is JsonObject channel)
         {
             var resolved = new JsonObject

@@ -511,6 +511,8 @@ namespace Dynasty.HeroAI
                 return;
             }
 
+            if (Decided(ManageToggles(), "ManageToggles"))
+                return;
             if (Decided(DenyBuilding(), "DenyBuilding"))
                 return;
             if (Decided(TakeAegis(), "TakeAegis"))
@@ -1916,8 +1918,38 @@ namespace Dynasty.HeroAI
         {
             HeroDecision self = this;
             return _h.Abilities.Concat(_h.Inventory.Where(i => i.Active != null && i.Definition.Charges == 0).Select(i => i.Active!))
-                .Where(a => a.Definition.Targeting != AbilityTargeting.Passive && a.IsReady(self._now) &&
+                .Where(a => a.Definition.Targeting != AbilityTargeting.Passive && !a.Definition.IsToggle && a.IsReady(self._now) &&
                             self._h.Mana >= Fixed.FromInt(a.Definition.ManaCostAt(a.Level)));
+        }
+
+        /// <summary>Mana a toggle may still run on: below this share of the hero's mana it is turned off.</summary>
+        private const int ToggleKeepManaPercent = 10;
+
+        /// <summary>
+        /// Toggled abilities (Pulse Nova): on while an enemy hero, or a few enemy creeps, are within the reach of the toggle's
+        /// aura, off otherwise or when the mana runs low (it drains mana every second).
+        /// </summary>
+        private bool ManageToggles()
+        {
+            foreach (AbilityState ability in _h.Abilities.Where(a => a.Definition.IsToggle && a.Level > 0))
+            {
+                AbilityDefinition def = ability.Definition;
+                ModifierSpec spec = def.Toggle[System.Math.Min(ability.Level, def.Toggle.Count) - 1];
+                bool on = _hero.Modifiers.Any(m => def.Toggle.Any(t => t.Key == m.Spec.Key));
+                int reach = (spec.Aura?.Radius ?? 600) + 100;
+                HeroDecision self = this;
+                int creeps = _state.Units.Count(u => u.Team == self._hero.Team.Opponent() && u.Kind == UnitKind.Creep && u.IsAlive && self.Sees(u) &&
+                                                     Math.Within(self._hero.Position, u.Position, reach));
+                bool enemies = VisibleEnemyHeroes(_hero.Position, reach).Count > 0 || creeps >= 3;
+                bool mana = _h.Mana * Fixed.FromInt(100) >= Fixed.FromInt(_h.MaxMana * ToggleKeepManaPercent);
+                bool want = enemies && mana;
+                if (on == want || (!on && (!ability.IsReady(_now) || _h.Mana < Fixed.FromInt(def.ManaCostAt(ability.Level)))))
+                    continue;
+                Issue(HeroOrder.CastNoTarget(def.Id));
+                return true;
+            }
+
+            return false;
         }
 
         private List<MatchUnit> VisibleEnemyHeroes(FixedVector2 around, int range)

@@ -347,6 +347,18 @@ namespace Dynasty.MatchSimulation.Systems
                     if (spec.IsPeriodic && now >= modifier.NextPeriodTick)
                     {
                         Fixed periodFraction = Fixed.FromRatio(spec.PeriodMs, 1000) * Fixed.FromInt(modifier.Stacks);
+                        if (spec.ManaCostPerSecond > Fixed.Zero && unit.Hero != null)
+                        {
+                            // A toggle's upkeep: paid every period; off when the bearer cannot pay.
+                            Fixed upkeep = spec.ManaCostPerSecond * periodFraction;
+                            if (unit.Hero.Mana < upkeep)
+                            {
+                                Modifiers.Remove(context, unit, modifier, "out_of_mana");
+                                continue;
+                            }
+
+                            unit.Hero.Mana -= upkeep;
+                        }
                         if (spec.DamagePerSecond > Fixed.Zero)
                             Damage.Deal(context, modifier.Source, unit, spec.DamagePerSecond * periodFraction, spec.DamageType);
                         if (spec.DamagePerSecondMaxHealthPercent > Fixed.Zero)

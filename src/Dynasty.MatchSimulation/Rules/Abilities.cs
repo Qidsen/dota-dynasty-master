@@ -459,9 +459,11 @@ namespace Dynasty.MatchSimulation.Rules
             IReadOnlyList<int>? maxCharges = null,
             IReadOnlyList<int>? chargeRestoreMs = null,
             IReadOnlyList<AbilityVariant>? variants = null,
-            ChannelSpec? channel = null)
+            ChannelSpec? channel = null,
+            IReadOnlyList<ModifierSpec>? toggle = null)
         {
             Channel = channel;
+            Toggle = (toggle ?? Array.Empty<ModifierSpec>()).ToArray();
             Variants = (variants ?? Array.Empty<AbilityVariant>()).ToArray();
             MaxCharges = (maxCharges ?? Array.Empty<int>()).ToArray();
             ChargeRestoreMs = (chargeRestoreMs ?? Array.Empty<int>()).ToArray();
@@ -494,6 +496,14 @@ namespace Dynasty.MatchSimulation.Rules
 
         public int MaxLevel => RequiredHeroLevel.Count;
         public IReadOnlyList<EffectDefinition> Effects { get; }
+
+        /// <summary>
+        /// A toggled ability's modifier per level (Dota's Pulse Nova): casting puts it on the caster, for the cast's mana and
+        /// cooldown; casting again takes it off, free and even on cooldown. Empty for abilities that are not toggled.
+        /// </summary>
+        public IReadOnlyList<ModifierSpec> Toggle { get; }
+
+        public bool IsToggle => Toggle.Count > 0;
 
         /// <summary>The channel the ability starts after its effects; null for abilities that are not channelled.</summary>
         public ChannelSpec? Channel { get; }
@@ -571,6 +581,9 @@ namespace Dynasty.MatchSimulation.Rules
             w.WriteBool(Innate);
             w.WriteBool(Channel != null);
             Channel?.WriteCanonical(w);
+            w.WriteInt64(Toggle.Count);
+            foreach (ModifierSpec modifier in Toggle)
+                modifier.WriteCanonical(w);
             w.WriteInt64(Variants.Count);
             foreach (AbilityVariant variant in Variants)
             {

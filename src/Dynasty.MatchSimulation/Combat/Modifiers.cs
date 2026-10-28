@@ -203,8 +203,10 @@ namespace Dynasty.MatchSimulation.Combat
             int sideAngle = 0,
             int backAngle = 0,
             string? releaseAbilityId = null,
-            int releaseThreshold = 0)
+            int releaseThreshold = 0,
+            Fixed manaCostPerSecond = default)
         {
+            ManaCostPerSecond = manaCostPerSecond;
             SideReductionPercent = sideReductionPercent;
             BackReductionPercent = backReductionPercent;
             SideAngle = sideAngle;
@@ -541,6 +543,12 @@ namespace Dynasty.MatchSimulation.Combat
 
         public int ReleaseThreshold { get; }
 
+        /// <summary>
+        /// Mana the bearer pays every period for keeping it (a toggled ability's upkeep: Pulse Nova drains mana with each pulse); the
+        /// modifier ends when the bearer cannot pay.
+        /// </summary>
+        public Fixed ManaCostPerSecond { get; }
+
         /// <summary><see cref="OnKill"/> runs only for hero victims (Flesh Heap).</summary>
         public bool OnKillHeroesOnly { get; }
 
@@ -623,7 +631,7 @@ namespace Dynasty.MatchSimulation.Combat
             DamagePerSecond > Fixed.Zero;
 
         public bool IsPeriodic => DamagePerSecond > Fixed.Zero || HealPerSecond > Fixed.Zero || DamagePerSecondMaxHealthPercent > Fixed.Zero ||
-                                  HealPerSecondMaxHealthPercent > Fixed.Zero || ManaPerSecondMaxManaPercent > Fixed.Zero;
+                                  HealPerSecondMaxHealthPercent > Fixed.Zero || ManaPerSecondMaxManaPercent > Fixed.Zero || ManaCostPerSecond > Fixed.Zero;
 
         public bool IsPermanent => DurationMs < 0;
 
@@ -717,6 +725,7 @@ namespace Dynasty.MatchSimulation.Combat
                                           SideReductionPercent, BackReductionPercent, SideAngle, BackAngle, ReleaseThreshold })
                 w.WriteInt64(value);
             w.WriteString(ReleaseAbilityId ?? "");
+            w.WriteFixed(ManaCostPerSecond);
         }
 
         public static ModifierSpec Status(string key, int durationMs, ModifierFlags flags) => new ModifierSpec(key, durationMs, flags);

@@ -68,6 +68,22 @@ public class PackContentTests
             ""end"": [ { ""kind"": ""refreshCooldowns"", ""abilitiesOnly"": true } ],
             ""whileModifier"": { ""key"": ""phase"", ""flags"": [""invulnerable""] } } }";
 
+    private const string Nova = @"{
+        ""id"": ""nova"", ""name"": ""Nova"", ""targeting"": ""noTarget"", ""targetTeam"": ""enemy"", ""castRange"": 0, ""castPoint"": 0,
+        ""cooldown"": [1], ""manaCost"": [50], ""requiredLevels"": [1], ""effects"": [],
+        ""toggle"": [ { ""key"": ""nova"", ""manaCostPerSecond"": 20,
+            ""aura"": { ""radius"": 500, ""team"": ""enemy"", ""modifier"": { ""key"": ""nova_burn"", ""duration"": 1, ""damagePerSecond"": 80 } } } ] }";
+
+    [Fact]
+    public void Toggles_AreRead()
+    {
+        RulesetContent rules = Apply(@"""unitTypes"": " + Units + @", ""abilities"": [" + Spike + "," + WardPlace + "," + Nova + @"], ""items"": " + Items);
+
+        AbilityDefinition nova = rules.FindAbility("nova")!;
+        Assert.True(nova.IsToggle);
+        Assert.Equal((Fixed.FromInt(20), 500), (nova.Toggle[0].ManaCostPerSecond, nova.Toggle[0].Aura!.Radius));
+    }
+
     [Fact]
     public void Channels_AreRead()
     {

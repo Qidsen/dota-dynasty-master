@@ -617,7 +617,7 @@ namespace Dynasty.Content
                 a.OptionalArray("passive").Select(ReadModifier).ToList(), a.OptionalBool("targetsStructures") ?? false, a.OptionalBool("innate") ?? false,
                 a.OptionalInts("charges"), a.Has("charges") ? a.Seconds("chargeRestore") : null,
                 a.OptionalArray("variants").Select(v => new AbilityVariant(v.Strings("upgrades"), ReadAbility(v))).ToList(),
-                a.OptionalObject("channel") is Reader c ? ReadChannel(c) : null);
+                a.OptionalObject("channel") is Reader c ? ReadChannel(c) : null, a.OptionalArray("toggle").Select(ReadModifier).ToList());
             a.RejectUnknown();
             return ability;
         }
@@ -851,7 +851,8 @@ namespace Dynasty.Content
                 layerReductionPercent: m.OptionalInt("layerReduction") ?? 0, layerRecoveryMs: m.OptionalMilliseconds("layerRecovery") ?? 0,
                 layerMinimumDamage: m.OptionalInt("layerMinimumDamage") ?? 0, sideReductionPercent: m.OptionalInt("sideReduction") ?? 0,
                 backReductionPercent: m.OptionalInt("backReduction") ?? 0, sideAngle: m.OptionalInt("sideAngle") ?? 0, backAngle: m.OptionalInt("backAngle") ?? 0,
-                releaseAbilityId: m.OptionalString("releaseAbility"), releaseThreshold: m.OptionalInt("releaseThreshold") ?? 0);
+                releaseAbilityId: m.OptionalString("releaseAbility"), releaseThreshold: m.OptionalInt("releaseThreshold") ?? 0,
+                manaCostPerSecond: m.OptionalFixed("manaCostPerSecond") ?? Fixed.Zero);
             m.RejectUnknown();
             return spec;
         }

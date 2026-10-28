@@ -88,6 +88,8 @@ namespace Dynasty.MatchSimulation.Systems
                 return "not_learned";
             if ((caster.StartFlags & ModifierFlags.Silenced) != 0)
                 return "silenced";
+            if (ToggledOn(caster, ability.Definition) != null)
+                return null;   // turning a toggle off: free, even on cooldown
             if (!ability.IsReady(now))
                 return "cooldown";
             if (hero.Mana < ManaCost(caster, ability))
@@ -127,6 +129,15 @@ namespace Dynasty.MatchSimulation.Systems
                 return;
             }
 
+            if (ToggledOn(caster, definition) is ActiveModifier on)
+            {
+                hero.CastEndTick = -1;
+                HeroOrders.Issue(caster, HeroOrder.Idle);
+                Modifiers.Remove(context, caster, on, "toggled_off");
+                context.Emit(new AbilityCast(caster.Id, definition.Id, ability.Level, EntityId.None, order.Point));
+                return;
+            }
+
             hero.Mana -= ManaCost(caster, ability);
             ability.CooldownReadyTick = now + context.TickRate.TicksFor((int)((long)definition.CooldownAt(ability.Level) * caster.CooldownLeftHundredths / 10000));
             ability.SpendCharge(now, context.TickRate);
@@ -152,7 +163,13 @@ namespace Dynasty.MatchSimulation.Systems
                 Effects.Run(context, caster, modifier.Spec.OnCast, 1, target, point);
             if (definition.Channel != null && caster.IsAlive)
                 ChannelSystem.Start(context, caster, hero, definition, ability.Level, target, point);
+            if (definition.IsToggle && caster.IsAlive)
+                Modifiers.Apply(context, caster, definition.Toggle[System.Math.Min(ability.Level, definition.Toggle.Count) - 1], caster.Id);
         }
+
+        /// <summary>The modifier of a toggled ability that is on; null when it is off or the ability is not toggled.</summary>
+        internal static ActiveModifier? ToggledOn(MatchUnit caster, AbilityDefinition definition) =>
+            definition.IsToggle ? caster.Modifiers.FirstOrDefault(m => definition.Toggle.Any(t => t.Key == m.Spec.Key)) : null;
 
         /// <summary>Using a consumable item's active spends a charge; the item is gone at zero.</summary>
         private static void ConsumeCharge(SimulationContext<MatchState> context, MatchUnit caster, HeroState hero, AbilityState ability)
