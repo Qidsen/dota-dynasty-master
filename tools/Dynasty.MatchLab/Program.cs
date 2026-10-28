@@ -707,8 +707,10 @@ if (mode == "xpdiag")
 
 if (mode == "probe")
 {
-    // Reference checksums for the runtime determinism check (tools/sync-unity.ps1 writes them into the Unity project).
-    string report = Dynasty.Presentation.DeterminismProbe.Format(Dynasty.Presentation.DeterminismProbe.RunDefault());
+    // Reference checksums for the runtime determinism check (tools/sync-unity.ps1 writes them into the Unity project);
+    // probe FILE PACK adds the runs on a ruleset pack (the Dota pack the viewer plays).
+    RulesetContent? probePack = args.Length > 2 ? Dynasty.Presentation.RulesetSource.Load(args[2]) : null;
+    string report = Dynasty.Presentation.DeterminismProbe.Format(Dynasty.Presentation.DeterminismProbe.RunDefault(probePack));
     if (args.Length > 1)
         File.WriteAllText(args[1], report);
     Console.Write(report);

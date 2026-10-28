@@ -23,7 +23,7 @@ foreach ($name in 'Dynasty.Core', 'Dynasty.MatchSimulation', 'Dynasty.Players', 
 $pack = Join-Path $root 'packs/dota-7.41f.json'
 if (Test-Path $pack) { Copy-Item $pack $streaming -Force } else { Remove-Item (Join-Path $streaming 'dota-7.41f.json') -ErrorAction SilentlyContinue }
 
-dotnet run --project (Join-Path $root 'tools/Dynasty.MatchLab/Dynasty.MatchLab.csproj') -c Release -- probe (Join-Path $streaming 'determinism-reference.txt') | Out-Null
+dotnet run --project (Join-Path $root 'tools/Dynasty.MatchLab/Dynasty.MatchLab.csproj') -c Release -- probe (Join-Path $streaming 'determinism-reference.txt') $(if (Test-Path $pack) { $pack }) | Out-Null
 if ($LASTEXITCODE -ne 0) { throw 'Determinism reference run failed.' }
 
 Write-Host "Core copied to $plugins; reference checksums written to $streaming"

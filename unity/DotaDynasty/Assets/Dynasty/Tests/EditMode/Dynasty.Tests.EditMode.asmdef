@@ -19,7 +19,8 @@
         "Dynasty.HeroAI.dll",
         "Dynasty.Players.dll",
         "Dynasty.Drafting.dll",
-        "Dynasty.Presentation.dll"
+        "Dynasty.Presentation.dll",
+        "Dynasty.Content.dll"
     ],
     "autoReferenced": false,
     "defineConstraints": [

@@ -61,14 +61,18 @@ namespace Dynasty.Unity
         public const string DotaPackFile = "dota-7.41f.json";
 
         /// <summary>The pack to play: the one named on the command line, else the Dota pack in StreamingAssets if present, else none.</summary>
-        private static string? PackPath(string[] args)
+        private static string? PackPath(string[] args) => Value(args, "-dynasty-pack") ?? BundledPackPath();
+
+        /// <summary>The Dota pack in StreamingAssets; null when it is not there.</summary>
+        public static string? BundledPackPath()
         {
-            string? named = Value(args, "-dynasty-pack");
-            if (named != null)
-                return named;
             string bundled = Path.Combine(Application.streamingAssetsPath, DotaPackFile);
             return File.Exists(bundled) ? bundled : null;
         }
+
+        /// <summary>The bundled Dota pack's rules for the determinism checks; null without it.</summary>
+        public static Dynasty.MatchSimulation.Rules.RulesetContent? BundledPack() =>
+            BundledPackPath() is string path ? RulesetSource.Load(path) : null;
 
         private static bool Has(string[] args, string name) => System.Array.IndexOf(args, name) >= 0;
 

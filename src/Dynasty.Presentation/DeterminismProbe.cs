@@ -96,8 +96,11 @@ namespace Dynasty.Presentation
         public const long DefaultTicks = 9000;   // five minutes: laning, fights, first objectives
         private const long MatchCap = 60L * 60 * 30;
 
-        /// <summary>Three five-minute demo matches, two full demo matches, two drafted matches with players.</summary>
-        public static List<ProbeResult> RunDefault()
+        /// <summary>
+        /// Three five-minute demo matches, two full demo matches, two drafted matches with players; with a ruleset pack (the Dota
+        /// pack the viewer plays) also a five-minute and a full drafted match on it.
+        /// </summary>
+        public static List<ProbeResult> RunDefault(RulesetContent? pack = null)
         {
             var results = new List<ProbeResult>();
             foreach (ulong seed in DefaultSeeds)
@@ -106,15 +109,23 @@ namespace Dynasty.Presentation
             results.Add(Run(ProbeKind.Full, 5, MatchCap));
             results.Add(Run(ProbeKind.Drafted, 6, MatchCap));
             results.Add(Run(ProbeKind.Drafted, 7, MatchCap));
+            if (pack != null)
+            {
+                results.Add(Run(ProbeKind.Drafted, 8, DefaultTicks, pack));
+                results.Add(Run(ProbeKind.Drafted, 9, MatchCap, pack));
+            }
+
             return results;
         }
 
         public static ProbeResult Run(ulong seed, long ticks) => Run(ProbeKind.Demo, seed, ticks);
 
         /// <summary>Plays one run for at most <paramref name="ticks"/> ticks (a match may end earlier).</summary>
-        public static ProbeResult Run(ProbeKind kind, ulong seed, long ticks)
+        public static ProbeResult Run(ProbeKind kind, ulong seed, long ticks) => Run(kind, seed, ticks, BaseRuleset.Create());
+
+        /// <summary>Plays one run on the given rules (a pack has no demo line-ups: only <see cref="ProbeKind.Drafted"/> fits it).</summary>
+        public static ProbeResult Run(ProbeKind kind, ulong seed, long ticks, RulesetContent ruleset)
         {
-            RulesetContent ruleset = BaseRuleset.Create();
             SimulationKernel<MatchState> kernel;
             ulong draftChecksum = 0;
             if (kind == ProbeKind.Drafted)
@@ -136,7 +147,21 @@ namespace Dynasty.Presentation
         }
 
         /// <summary>Plays a reference result again (same kind, seed and tick count).</summary>
-        public static ProbeResult Replay(ProbeResult reference) => Run(reference.Kind, reference.Seed, reference.Ticks);
+        public static ProbeResult Replay(ProbeResult reference) => Replay(reference, null);
+
+        /// <summary>
+        /// Plays a reference result again on the rules it names: the base rules or <paramref name="pack"/>. Rules not at hand are an
+        /// error, never a quiet replay on other rules.
+        /// </summary>
+        public static ProbeResult Replay(ProbeResult reference, RulesetContent? pack)
+        {
+            RulesetContent baseRules = BaseRuleset.Create();
+            if (reference.Ruleset == baseRules.ToDescriptor().ToString())
+                return Run(reference.Kind, reference.Seed, reference.Ticks, baseRules);
+            if (pack != null && reference.Ruleset == pack.ToDescriptor().ToString())
+                return Run(reference.Kind, reference.Seed, reference.Ticks, pack);
+            throw new InvalidOperationException("The reference was played on rules not at hand: " + reference.Ruleset);
+        }
 
         /// <summary>One line per result: kind, seed, ticks, checksum (hex), ruleset.</summary>
         public static string Format(IEnumerable<ProbeResult> results)

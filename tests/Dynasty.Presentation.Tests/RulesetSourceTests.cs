@@ -19,7 +19,7 @@ public class RulesetSourceTests
         ""heroes"": [" + Hero + string.Concat(Enumerable.Range(1, 18).Select(i => "," + Hero.Replace(@"""antimage""", @"""filler" + i + @""""))) + "] }";
 
     /// <summary>A pack of 30 heroes, six played on each position (its position shares), none of the base heroes.</summary>
-    private static string PositionedPack() => @"{
+    internal static string PositionedPack() => @"{
         ""format"": ""dynasty.ruleset-pack"", ""formatVersion"": 1, ""id"": ""dota"", ""version"": 7410,
         ""heroes"": [" + string.Join(",", Enumerable.Range(0, 30).Select(i => Hero
             .Replace(@"""antimage""", @"""hero" + i + @"""")

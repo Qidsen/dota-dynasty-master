@@ -25,7 +25,7 @@ namespace Dynasty.Unity
             int exitCode = 0;
             try
             {
-                File.WriteAllText(output, DeterminismProbe.Format(DeterminismProbe.RunDefault()));
+                File.WriteAllText(output, DeterminismProbe.Format(DeterminismProbe.RunDefault(ViewerBootstrap.BundledPack())));
                 Debug.Log("Determinism probe written to " + output);
             }
             catch (Exception exception)
