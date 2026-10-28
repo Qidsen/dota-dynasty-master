@@ -11709,5 +11709,18 @@
         }
       }
     ]
+  },
+  "visage_gravekeepers_cloak": {
+    "status": "simplified",
+    "note": "no protection of the Familiars (they are not carried over); Break does not stop new layers (no Break in the engine); the minimum damage is compared after the layers' cut",
+    "targeting": "passive",
+    "targetTeam": "ally",
+    "passive": {
+      "key": "visage_gravekeepers_cloak",
+      "layers": "$max_layers",
+      "layerReduction": "$damage_reduction",
+      "layerRecovery": "$recovery_time",
+      "layerMinimumDamage": "$minimum_damage"
+    }
   }
 }

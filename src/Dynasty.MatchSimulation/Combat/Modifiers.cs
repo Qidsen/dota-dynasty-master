@@ -193,8 +193,16 @@ namespace Dynasty.MatchSimulation.Combat
             int cleanseThreshold = 0,
             int cleanseWindowMs = 0,
             int absorbInstances = 0,
-            int absorbBarrier = 0)
+            int absorbBarrier = 0,
+            int layers = 0,
+            int layerReductionPercent = 0,
+            int layerRecoveryMs = 0,
+            int layerMinimumDamage = 0)
         {
+            Layers = layers;
+            LayerReductionPercent = layerReductionPercent;
+            LayerRecoveryMs = layerRecoveryMs;
+            LayerMinimumDamage = layerMinimumDamage;
             ReflectHundredths = reflectHundredths;
             ReflectFullRadius = reflectFullRadius;
             ReflectRadius = reflectRadius;
@@ -492,6 +500,16 @@ namespace Dynasty.MatchSimulation.Combat
 
         public int AbsorbBarrier { get; }
 
+        /// <summary>
+        /// Dota's Gravekeeper's Cloak: layers, each cutting damage taken by <see cref="LayerReductionPercent"/>; damage from a player's
+        /// unit (not the bearer's own) over <see cref="LayerMinimumDamage"/> after the cut takes one off, back after <see cref="LayerRecoveryMs"/>.
+        /// </summary>
+        public int Layers { get; }
+
+        public int LayerReductionPercent { get; }
+        public int LayerRecoveryMs { get; }
+        public int LayerMinimumDamage { get; }
+
         /// <summary><see cref="OnKill"/> runs only for hero victims (Flesh Heap).</summary>
         public bool OnKillHeroesOnly { get; }
 
@@ -664,7 +682,7 @@ namespace Dynasty.MatchSimulation.Combat
                     effect.WriteCanonical(w);
             }
             foreach (int value in new[] { ReflectHundredths, ReflectFullRadius, ReflectRadius, ReturnPercent, DamageBlock, DamageBlockCreepPercent,
-                                          CleanseThreshold, CleanseWindowMs, AbsorbInstances, AbsorbBarrier })
+                                          CleanseThreshold, CleanseWindowMs, AbsorbInstances, AbsorbBarrier, Layers, LayerReductionPercent, LayerRecoveryMs, LayerMinimumDamage })
                 w.WriteInt64(value);
         }
 
@@ -697,6 +715,16 @@ namespace Dynasty.MatchSimulation.Combat
         internal int InstancesLeft { get; set; }
 
         internal int InstanceBarrierLeft { get; set; }
+
+        /// <summary>When each lost layer of <see cref="ModifierSpec.Layers"/> comes back, in order.</summary>
+        internal List<long> LayerReturns { get; } = new List<long>();
+
+        /// <summary>Layers of <see cref="ModifierSpec.Layers"/> on at the tick, counting those back by then.</summary>
+        internal int LayersAt(long tick)
+        {
+            LayerReturns.RemoveAll(t => t <= tick);
+            return Spec.Layers - LayerReturns.Count;
+        }
 
         public ModifierSpec Spec { get; }
 
@@ -871,6 +899,7 @@ namespace Dynasty.MatchSimulation.Combat
             }
 
             bool byPlayer = from != null && from.Team != target.Team && (from.Kind == UnitKind.Hero || from.Kind == UnitKind.Summon || from.IllusionOf.IsValid);
+            amount = ThroughLayers(context, target, from, amount);
             ActiveModifier? returning = null;
             Fixed returned = Fixed.Zero;
             if (!reflected && byPlayer && amount > Fixed.Zero)
@@ -948,6 +977,24 @@ namespace Dynasty.MatchSimulation.Combat
             }
 
             return reflections;
+        }
+
+        /// <summary>Gravekeeper's Cloak: the layers cut the damage; a player's damage over the minimum takes one off.</summary>
+        private static Fixed ThroughLayers(SimulationContext<MatchState> context, MatchUnit target, MatchUnit? from, Fixed amount)
+        {
+            if (target.Modifiers.Count == 0 || amount <= Fixed.Zero)
+                return amount;
+            long now = context.Tick.Value;
+            foreach (ActiveModifier cloak in target.Modifiers.Where(m => m.Spec.Layers > 0))
+            {
+                int layers = cloak.LayersAt(now);
+                amount = amount * Fixed.FromInt(System.Math.Max(0, 100 - layers * cloak.Spec.LayerReductionPercent)) / Fixed.FromInt(100);
+                bool player = from != null && from != target && (from.Kind == UnitKind.Hero || from.Kind == UnitKind.Summon || from.IllusionOf.IsValid);
+                if (player && layers > 0 && amount > Fixed.FromInt(cloak.Spec.LayerMinimumDamage))
+                    cloak.LayerReturns.Add(now + context.TickRate.TicksFor(cloak.Spec.LayerRecoveryMs));
+            }
+
+            return amount;
         }
 
         /// <summary>Refraction: the instance is swallowed whole while charges last; one it cannot hold uses up a charge.</summary>

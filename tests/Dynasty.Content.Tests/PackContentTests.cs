@@ -39,6 +39,26 @@ public class PackContentTests
         ""effects"": [ { ""kind"": ""slashes"", ""radius"": 425, ""amounts"": [140],
             ""modifiers"": [ { ""key"": ""omni"", ""duration"": 3, ""damage"": 25, ""flags"": [""invulnerable"", ""busy""] } ] } ] }";
 
+    private const string Shells = @"{
+        ""id"": ""shells"", ""name"": ""Shells"", ""targeting"": ""noTarget"", ""targetTeam"": ""ally"", ""castRange"": 0, ""castPoint"": 0,
+        ""cooldown"": [10], ""requiredLevels"": [1],
+        ""effects"": [ { ""kind"": ""modifier"", ""modifiers"": [ { ""key"": ""shells"", ""duration"": 5,
+            ""reflect"": 9.5, ""reflectFullRadius"": 350, ""reflectRadius"": 700, ""returnPercent"": 140,
+            ""onReturn"": [ { ""kind"": ""modifier"", ""modifiers"": [ { ""key"": ""stun"", ""duration"": 1, ""flags"": [""stunned""] } ] } ],
+            ""damageBlock"": 30, ""damageBlockCreepReduction"": 50, ""cleanseThreshold"": 600, ""cleanseWindow"": 7,
+            ""absorbInstances"": 3, ""absorbBarrier"": 30, ""layers"": 4, ""layerReduction"": 8, ""layerRecovery"": 7, ""layerMinimumDamage"": 40 } ] } ] }";
+
+    [Fact]
+    public void DamageTakenResponses_AreRead()
+    {
+        RulesetContent rules = Apply(@"""unitTypes"": " + Units + @", ""abilities"": [" + Spike + "," + WardPlace + "," + Shells + @"], ""items"": " + Items);
+
+        ModifierSpec m = rules.FindAbility("shells")!.Effects.Single().ModifierAt(1);
+        Assert.Equal((950, 350, 700, 140, "stun"), (m.ReflectHundredths, m.ReflectFullRadius, m.ReflectRadius, m.ReturnPercent, m.OnReturn.Single().ModifierAt(1).Key));
+        Assert.Equal((30, 50, 600, 7000, 3, 30), (m.DamageBlock, m.DamageBlockCreepPercent, m.CleanseThreshold, m.CleanseWindowMs, m.AbsorbInstances, m.AbsorbBarrier));
+        Assert.Equal((4, 8, 7000, 40), (m.Layers, m.LayerReductionPercent, m.LayerRecoveryMs, m.LayerMinimumDamage));
+    }
+
     [Fact]
     public void Slashes_AreRead()
     {

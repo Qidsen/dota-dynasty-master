@@ -834,7 +834,9 @@ namespace Dynasty.Content
                 onReturn: m.OptionalArray("onReturn").Select(ReadEffect).ToList(), damageBlock: m.OptionalInt("damageBlock") ?? 0,
                 damageBlockCreepPercent: m.OptionalInt("damageBlockCreepPercent") ?? 100 - (m.OptionalInt("damageBlockCreepReduction") ?? 0), cleanseThreshold: m.OptionalInt("cleanseThreshold") ?? 0,
                 cleanseWindowMs: m.OptionalMilliseconds("cleanseWindow") ?? 0, absorbInstances: m.OptionalInt("absorbInstances") ?? 0,
-                absorbBarrier: m.OptionalInt("absorbBarrier") ?? 0);
+                absorbBarrier: m.OptionalInt("absorbBarrier") ?? 0, layers: m.OptionalInt("layers") ?? 0,
+                layerReductionPercent: m.OptionalInt("layerReduction") ?? 0, layerRecoveryMs: m.OptionalMilliseconds("layerRecovery") ?? 0,
+                layerMinimumDamage: m.OptionalInt("layerMinimumDamage") ?? 0);
             m.RejectUnknown();
             return spec;
         }

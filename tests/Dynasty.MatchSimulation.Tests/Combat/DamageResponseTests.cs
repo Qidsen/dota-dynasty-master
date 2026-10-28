@@ -149,6 +149,32 @@ public class DamageResponseTests
         Assert.DoesNotContain(H(kernel.State, "alpha").Modifiers, m => m.Spec.Key == "slow");   // 200 + 150 within the window
     }
 
+    /// <summary>
+    /// Gravekeeper's Cloak: each layer cuts damage by its share; a player's damage over the minimum (after the cut) takes a layer off,
+    /// which comes back after the recovery time; smaller hits leave the layers.
+    /// </summary>
+    [Fact]
+    public void Layers_CutDamage_ALayerLostPerBigHit_BackAfterTheRecovery()
+    {
+        var kernel = Arena(("alpha", 5000, 5000), ("beta", 5300, 5000), ("delta", 9000, 9000), ("gamma", 3000, 5000));
+        Give(kernel, "alpha", new ModifierSpec("cloak", -1, layers: 4, layerReductionPercent: 20, layerRecoveryMs: 4000, layerMinimumDamage: 40));
+        var lost = new List<Fixed>();
+        void Hit(long tick, int damage) => At(kernel, tick, ctx =>
+        {
+            Fixed before = H(ctx.State, "alpha").Hp;
+            Damage.Deal(ctx, H(ctx.State, "beta").Id, H(ctx.State, "alpha"), Fixed.FromInt(damage), DamageType.Pure);
+            lost.Add(before - H(ctx.State, "alpha").Hp);
+        });
+        Hit(2, 100);            // 4 layers: 80% off -> 20 taken, under the minimum: no layer lost
+        Hit(3, 500);            // still 4 layers: 100 taken, a layer lost
+        Hit(4, 500);            // 3 layers: 200 taken, a layer lost
+        Hit(3 + 4 * 30, 100);   // the first lost layer is back (lost at tick 3), the second not yet: 3 layers -> 40 taken, not over the minimum
+
+        kernel.RunTicks(7 + 4 * 30);
+
+        Assert.Equal(new[] { Fixed.FromInt(20), Fixed.FromInt(100), Fixed.FromInt(200), Fixed.FromInt(40) }, lost);
+    }
+
     [Fact]
     public void AbsorbInstances_SwallowWholeHits_UntilTheChargesAreGone()
     {
