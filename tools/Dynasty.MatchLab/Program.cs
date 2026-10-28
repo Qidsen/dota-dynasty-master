@@ -82,7 +82,7 @@ if (mode == "quality")
         foreach (var r in k.Events.Records)
             if (r.Event is UnitKilled uk && r.Tick.Value >= 10 * 1800 && r.Tick.Value < 20 * 1800 && uk.VictimTypeId != "" && !heroIdsAll.Contains(uk.Victim))
             {
-                if (uk.VictimTeam == Team.Neutral) { if (uk.VictimTypeId.StartsWith("jungle")) neutralsDied += 0.5; continue; }
+                if (uk.VictimTeam == Team.Neutral) { if (uk.VictimTypeId.StartsWith("jungle") || uk.VictimTypeId.StartsWith("neutral_")) neutralsDied += 0.5; continue; }
                 if (!(uk.VictimTypeId.StartsWith("melee") || uk.VictimTypeId.StartsWith("ranged") || uk.VictimTypeId.StartsWith("siege"))) continue;
                 laneDied += 0.5;
                 if (heroIdsAll.Contains(uk.Killer)) laneByHeroes += 0.5;
