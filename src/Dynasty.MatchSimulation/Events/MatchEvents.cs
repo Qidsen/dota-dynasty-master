@@ -710,6 +710,53 @@ namespace Dynasty.MatchSimulation.Events
         }
     }
 
+    public sealed class WatcherTaken : IDomainEvent
+    {
+        public WatcherTaken(int watcher, Team team)
+        {
+            Watcher = watcher;
+            Team = team;
+        }
+
+        /// <summary>Index of the Watcher in the rules.</summary>
+        public int Watcher { get; }
+
+        public Team Team { get; }
+
+        public string Type => "match.watcher_taken";
+        public int SchemaVersion => 1;
+
+        public void WritePayload(ref Fnv1a64 hash)
+        {
+            hash.AddInt64(Watcher);
+            hash.AddInt64((int)Team);
+        }
+    }
+
+    public sealed class WatcherTurnedOff : IDomainEvent
+    {
+        public WatcherTurnedOff(int watcher, Team team)
+        {
+            Watcher = watcher;
+            Team = team;
+        }
+
+        /// <summary>Index of the Watcher in the rules.</summary>
+        public int Watcher { get; }
+
+        /// <summary>The team that turned it off.</summary>
+        public Team Team { get; }
+
+        public string Type => "match.watcher_turned_off";
+        public int SchemaVersion => 1;
+
+        public void WritePayload(ref Fnv1a64 hash)
+        {
+            hash.AddInt64(Watcher);
+            hash.AddInt64((int)Team);
+        }
+    }
+
     public sealed class LotusPicked : IDomainEvent
     {
         public LotusPicked(int pool, EntityId hero)

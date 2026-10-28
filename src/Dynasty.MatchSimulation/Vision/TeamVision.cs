@@ -91,6 +91,16 @@ namespace Dynasty.MatchSimulation.Vision
                     _observers.Add(new Observer(unit.Position, Square(range), Square(unit.Stats.TrueSightRange), state.ElevationAt(unit.Position)));
             }
 
+            // Dota's Watchers on for the team: their ground vision, no True Sight.
+            Rules.WatcherRules? watchers = state.Ruleset.Watchers;
+            for (int i = 0; i < state.Watchers.Count; i++)
+            {
+                if (state.Watchers[i].Owner != knowledge.Team)
+                    continue;
+                FixedVector2 at = watchers!.Positions[i];
+                _observers.Add(new Observer(at, Square(night ? watchers.NightVision : watchers.DayVision), Fixed.Zero, state.ElevationAt(at)));
+            }
+
             knowledge.Reset();
             foreach (MatchUnit unit in state.Units)
             {

@@ -212,6 +212,18 @@ var pack = new JsonObject
     },
     ["heroes"] = packHeroes,
     ["miniboss"] = Tormentor(dotaMap, gameAbilities),
+    // Watchers (game file ability_lamp_use: within 200 — 7.39c —, 1 s channel — 7.40 —, on 420 s, off 120 s; npc_dota_lantern: vision 800
+    // by day, 450 by night — 7.40; Fandom «Watcher»: a ready one turns on for the team, one on for the other team turns off).
+    ["watchers"] = new JsonObject
+    {
+        ["positions"] = new JsonArray(dotaMap.Watchers.SelectMany(p => new JsonNode[] { p.X, p.Y }).ToArray()),
+        ["radius"] = DotaData.Number(gameAbilities["ability_lamp_use"]!["AbilityCastRange"]).DeepClone(),
+        ["channel"] = DotaData.Number(gameAbilities["ability_lamp_use"]!["AbilityChannelTime"]).DeepClone(),
+        ["on"] = DotaData.Number(gameAbilities["ability_lamp_use"]!["AbilityValues"]!["active_duration"]).DeepClone(),
+        ["off"] = DotaData.Number(gameAbilities["ability_lamp_use"]!["AbilityValues"]!["inactive_duration"]).DeepClone(),
+        ["dayVision"] = int.Parse(gameUnits["npc_dota_lantern"]["VisionDaytimeRange"]),
+        ["nightVision"] = int.Parse(gameUnits["npc_dota_lantern"]["VisionNighttimeRange"]),
+    },
     // Lotus Pools (Fandom «Lotus Pool» and «Healing Lotus»: a lotus every 3 minutes, at most 6; Valve 7.38: the first picked in 1.5 s,
     // each next one in a row 30% faster; game file ability_lotus_pool: radius 350, min 0.3 s; 7.41: contested countdowns run back).
     // Great and Greater Lotuses come with the neutral items' tiers 4 and 5 — not carried over (B-164).

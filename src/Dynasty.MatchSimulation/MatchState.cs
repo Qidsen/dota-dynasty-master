@@ -533,6 +533,21 @@ namespace Dynasty.MatchSimulation
         internal int WaypointCount => Team != Team.Dawn && Lane!.DuskWaypoints != null ? Lane.DuskWaypoints.Count : Lane!.Waypoints.Count;
     }
 
+    /// <summary>Runtime state of a Watcher (Dota).</summary>
+    internal sealed class WatcherState
+    {
+        /// <summary>The team it is on for; Neutral when ready or off.</summary>
+        public Team Owner { get; set; } = Team.Neutral;
+
+        public bool Off { get; set; }
+
+        /// <summary>When it turns ready again (from on or off); -1 when ready.</summary>
+        public long UntilTick { get; set; } = -1;
+
+        /// <summary>Ticks of each team's channel (Dawn, Dusk).</summary>
+        public long[] Progress { get; } = new long[2];
+    }
+
     /// <summary>Runtime state of a Lotus Pool (Dota).</summary>
     internal sealed class LotusPoolState
     {
@@ -615,6 +630,8 @@ namespace Dynasty.MatchSimulation
                 Shrines.Add(new ShrineState());
             foreach (FixedVector2 _ in ruleset.LotusPools?.Positions ?? Array.Empty<FixedVector2>())
                 LotusPools.Add(new LotusPoolState());
+            foreach (FixedVector2 _ in ruleset.Watchers?.Positions ?? Array.Empty<FixedVector2>())
+                Watchers.Add(new WatcherState());
             foreach (NeutralCampDefinition camp in ruleset.Map.Camps)
                 Camps.Add(new CampState(camp, rate.TicksFor(camp.FirstSpawnMs)));
             if (ruleset.Runes != null)
@@ -717,6 +734,15 @@ namespace Dynasty.MatchSimulation
 
         /// <summary>The living boss, if the ruleset has one and it is up.</summary>
         public MatchUnit? Boss { get; internal set; }
+
+        /// <summary>The Watchers, as in the rules.</summary>
+        internal List<WatcherState> Watchers { get; } = new List<WatcherState>();
+
+        /// <summary>The team a Watcher is on for (public: its state shows), Neutral when ready or off.</summary>
+        public Team WatcherOwner(int watcher) => Watchers[watcher].Owner;
+
+        /// <summary>Whether a Watcher is off (nobody can take it).</summary>
+        public bool WatcherOff(int watcher) => Watchers[watcher].Off;
 
         /// <summary>The Lotus Pools, as in the rules.</summary>
         internal List<LotusPoolState> LotusPools { get; } = new List<LotusPoolState>();

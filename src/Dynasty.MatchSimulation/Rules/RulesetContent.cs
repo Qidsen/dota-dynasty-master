@@ -774,8 +774,10 @@ namespace Dynasty.MatchSimulation.Rules
             DraftRules? draft = null,
             MinibossDefinition? miniboss = null,
             ShrineRules? shrines = null,
-            LotusPoolRules? lotusPools = null)
+            LotusPoolRules? lotusPools = null,
+            WatcherRules? watchers = null)
         {
+            Watchers = watchers;
             LotusPools = lotusPools;
             Shrines = shrines;
             Miniboss = miniboss;
@@ -798,6 +800,9 @@ namespace Dynasty.MatchSimulation.Rules
         }
 
         public IReadOnlyList<HeroDefinition> Heroes { get; }
+
+        /// <summary>Dota's Watchers; null without them.</summary>
+        public WatcherRules? Watchers { get; }
 
         /// <summary>Dota's Lotus Pools; null without them.</summary>
         public LotusPoolRules? LotusPools { get; }
@@ -943,6 +948,9 @@ namespace Dynasty.MatchSimulation.Rules
             if (Shrines != null && (Shrines.Positions.Count == 0 || Shrines.Positions.Any(p => !IsInsideMap(p)) || Shrines.IntervalMs <= 0 ||
                                     Shrines.FirstMs < 0 || Shrines.Radius <= 0 || Shrines.CaptureMs <= 0))
                 errors.Add("Shrines of Wisdom need places inside the map, a positive interval, radius and capture time.");
+            if (Watchers != null && (Watchers.Positions.Count == 0 || Watchers.Positions.Any(p => !IsInsideMap(p)) || Watchers.Radius <= 0 || Watchers.ChannelMs <= 0 ||
+                                     Watchers.OnMs <= 0 || Watchers.OffMs <= 0 || Watchers.DayVision < 0 || Watchers.NightVision < 0))
+                errors.Add("Watchers need places inside the map, a positive radius and times.");
             if (LotusPools != null)
             {
                 if (FindItem(LotusPools.ItemId) == null)
@@ -1217,6 +1225,8 @@ namespace Dynasty.MatchSimulation.Rules
             Shrines?.WriteCanonical(writer);
             writer.WriteBool(LotusPools != null);
             LotusPools?.WriteCanonical(writer);
+            writer.WriteBool(Watchers != null);
+            Watchers?.WriteCanonical(writer);
             writer.WriteBool(DayNight != null);
             DayNight?.WriteCanonical(writer);
             writer.WriteBool(Draft != null);

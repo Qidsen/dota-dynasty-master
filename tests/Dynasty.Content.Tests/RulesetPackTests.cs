@@ -280,6 +280,17 @@ public class RulesetPackTests
     }
 
     [Fact]
+    public void Watchers_AreRead()
+    {
+        string watchers = @"""watchers"": { ""positions"": [1000, 2000, 3000, 4000], ""radius"": 200, ""channel"": 1, ""on"": 420, ""off"": 120, ""dayVision"": 800, ""nightVision"": 450 },";
+
+        WatcherRules rules = Apply(PackWith(watchers)).Watchers!;
+
+        Assert.Equal(new[] { FixedVector2.FromInts(1000, 2000), FixedVector2.FromInts(3000, 4000) }, rules.Positions);
+        Assert.Equal((200, 1000, 420000, 120000, 800, 450), (rules.Radius, rules.ChannelMs, rules.OnMs, rules.OffMs, rules.DayVision, rules.NightVision));
+    }
+
+    [Fact]
     public void Shrines_AreRead()
     {
         string shrines = @"""shrines"": { ""positions"": [1000, 2000, 9000, 8000], ""first"": 420, ""interval"": 420, ""radius"": 300, ""capture"": 3, ""xp"": 200, ""xpPerInterval"": 300 },";

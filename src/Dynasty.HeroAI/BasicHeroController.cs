@@ -502,6 +502,8 @@ namespace Dynasty.HeroAI
                 return;
             if (Decided(PickLotuses(), "PickLotuses"))
                 return;
+            if (Decided(TakeWatcher(), "TakeWatcher"))
+                return;
             if (Decided(FarmJungle(), "FarmJungle"))
                 return;
             Trace("Lane");
@@ -656,6 +658,30 @@ namespace Dynasty.HeroAI
                 if (nearest != _hero)
                     continue;
                 Issue(HeroOrder.Move(shrine));
+                return true;
+            }
+
+            return false;
+        }
+
+        private const int WatcherDetour = 1000;
+
+        /// <summary>
+        /// A Watcher within a short detour (Dota: its state shows) is taken when ready, or turned off when on for the enemy, by a healthy
+        /// hero with no enemy hero seen near it.
+        /// </summary>
+        private bool TakeWatcher()
+        {
+            WatcherRules? rules = _state.Ruleset.Watchers;
+            if (rules == null || Math.HpPercent(_hero) < 40)
+                return false;
+            for (int i = 0; i < rules.Positions.Count; i++)
+            {
+                FixedVector2 watcher = rules.Positions[i];
+                if (_state.WatcherOff(i) || _state.WatcherOwner(i) == _hero.Team || !Math.Within(_hero.Position, watcher, WatcherDetour) || UnderEnemyTower(watcher) ||
+                    VisibleEnemyHeroes(watcher, ShrineEnemyWithin).Count > 0)
+                    continue;
+                Issue(HeroOrder.Move(watcher));
                 return true;
             }
 
