@@ -282,7 +282,9 @@ namespace Dynasty.Content
                 hpPerLevel: 0, armorPerLevel: Fixed.Zero, damagePerLevel: 0, baseMana: h.Int("baseMana"), manaPerLevel: 0,
                 hpRegenPerSecond: h.Fixed("baseHealthRegen"), manaRegenPerSecond: h.Fixed("baseManaRegen"),
                 abilityIds: h.OptionalStrings("abilities"), itemBuild: h.OptionalStrings("itemBuild"), attributes: attributes,
-                talents: h.OptionalArray("talents").Select(ReadTalent).ToList());
+                talents: h.OptionalArray("talents").Select(ReadTalent).ToList(), positionShares: h.OptionalInts("positions"));
+            if (hero.PositionShares.Count != 0 && hero.PositionShares.Count != 5)
+                throw h.Error("positions", "expected five shares, for positions 1 to 5");
             h.RejectUnknown();
             return hero;
         }

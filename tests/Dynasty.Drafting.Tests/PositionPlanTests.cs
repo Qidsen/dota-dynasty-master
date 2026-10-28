@@ -8,6 +8,25 @@ public class PositionPlanTests
 {
     private static readonly RulesetContent Ruleset = BaseRuleset.Create();
 
+    /// <summary>
+    /// A hero with known position shares (Dota pack: how often pros play it on each position) fits by them, not by its role tags:
+    /// its main position fits fully, the others as far as they are played, an unplayed one not at all.
+    /// </summary>
+    [Fact]
+    public void PositionShares_DecideTheFit_OverRoles()
+    {
+        HeroDefinition baseHero = Ruleset.FindHero("ironvow")!;   // a carry by its roles
+        var hero = new HeroDefinition("pudge", "Pudge", baseHero.Roles, baseHero.BaseStats, 0, baseHero.ArmorPerLevel, 0, 0, 0,
+            baseHero.HpRegenPerSecond, baseHero.ManaRegenPerSecond, positionShares: new[] { 0, 2, 30, 48, 20 });
+
+        Assert.Equal(-5, PositionPlan.Fit(hero, 1));
+        Assert.Equal(-5, PositionPlan.Fit(hero, 2));
+        Assert.Equal(6, PositionPlan.Fit(hero, 3));
+        Assert.Equal(10, PositionPlan.Fit(hero, 4));
+        Assert.Equal(4, PositionPlan.Fit(hero, 5));
+        Assert.Equal(10, PositionPlan.Fit(baseHero, 1));   // without shares: by roles
+    }
+
     [Fact]
     public void ClassicFive_GoToTheirNaturalPositionsAndLanes()
     {

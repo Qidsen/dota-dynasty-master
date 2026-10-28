@@ -215,8 +215,10 @@ namespace Dynasty.MatchSimulation.Rules
             IReadOnlyList<string>? itemBuild = null,
             int attackSpeedPerLevel = 0,
             HeroAttributes? attributes = null,
-            IReadOnlyList<TalentDefinition>? talents = null)
+            IReadOnlyList<TalentDefinition>? talents = null,
+            IReadOnlyList<int>? positionShares = null)
         {
+            PositionShares = (positionShares ?? Array.Empty<int>()).ToArray();
             Talents = (talents ?? Array.Empty<TalentDefinition>()).ToArray();
             Attributes = attributes;
             AttackSpeedPerLevel = attackSpeedPerLevel;
@@ -261,6 +263,12 @@ namespace Dynasty.MatchSimulation.Rules
         public string Id { get; }
 
         public string Name { get; }
+
+        /// <summary>
+        /// Percent of games played on positions 1–5 (the Dota pack: pro matches of the patch); empty when unknown, then the role
+        /// tags decide where the hero fits.
+        /// </summary>
+        public IReadOnlyList<int> PositionShares { get; }
 
         /// <summary>Role tags, e.g. "carry", "mid", "offlane", "support".</summary>
         public IReadOnlyList<string> Roles { get; }
@@ -330,6 +338,9 @@ namespace Dynasty.MatchSimulation.Rules
             w.WriteInt64(Talents.Count);
             foreach (TalentDefinition talent in Talents)
                 talent.WriteCanonical(w);
+            w.WriteInt64(PositionShares.Count);
+            foreach (int share in PositionShares)
+                w.WriteInt64(share);
         }
     }
 

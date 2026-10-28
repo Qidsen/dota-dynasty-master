@@ -73,6 +73,13 @@ namespace Dynasty.Drafting
         /// <summary>How well a hero's role tags suit a position.</summary>
         public static int Fit(HeroDefinition hero, int position)
         {
+            if (hero.PositionShares.Count == 5)
+            {
+                // By how often it is played there: its main position fully, the others in proportion, a rare one not at all.
+                int share = hero.PositionShares[position - 1];
+                return share < RarePositionShare ? -5 : share * 10 / hero.PositionShares.Max();
+            }
+
             bool Has(string role) => hero.Roles.Contains(role);
             switch (position)
             {
@@ -83,6 +90,9 @@ namespace Dynasty.Drafting
                 default: return (Has("support") ? 10 : 0) + (Has("healer") ? 2 : 0) - (Has("carry") ? 8 : 0);
             }
         }
+
+        /// <summary>A position played in fewer games than this percent is not one the hero fits.</summary>
+        private const int RarePositionShare = 5;
 
         private static IEnumerable<int[]> Permutations(int n)
         {

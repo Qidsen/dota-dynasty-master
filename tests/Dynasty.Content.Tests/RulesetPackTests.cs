@@ -37,6 +37,16 @@ public class RulesetPackTests
     private static RulesetContent Apply(string json) => RulesetPack.Apply(BaseRuleset.Create(), json);
 
     [Fact]
+    public void Apply_ReadsPositionShares()
+    {
+        RulesetContent pack = Apply(Pack(Hero1.Replace(@"""roles"":", @"""positions"": [70, 20, 6, 2, 2], ""roles"":") + "," + Hero2));
+
+        Assert.Equal(new[] { 70, 20, 6, 2, 2 }, pack.Heroes[0].PositionShares);
+        Assert.Empty(pack.Heroes[1].PositionShares);
+        Assert.Throws<RulesetPackException>(() => Apply(Pack(Hero1.Replace(@"""roles"":", @"""positions"": [70, 30], ""roles"":"))));
+    }
+
+    [Fact]
     public void Apply_ReplacesTheHeroes_AndKeepsTheBaseMap()
     {
         RulesetContent baseRules = BaseRuleset.Create();
