@@ -141,10 +141,30 @@ namespace Dynasty.HeroAI
                 dps += hit * Fixed.FromInt(1000 * (100 + hero.AttackSpeedBonus)) / Fixed.FromInt(100 * hero.Stats.AttackIntervalMs);
             }
 
+            // The ready spells' damage (against its magic resistance) comes off the barrier at once.
+            Fixed burst = Fixed.Zero;
+            foreach (MatchUnit hero in heroes)
+            {
+                Fixed mana = hero.Hero!.Mana;
+                foreach (AbilityState ability in hero.Hero.Abilities.Where(a => a.Level > 0 && a.Definition.Targeting != AbilityTargeting.Passive && a.IsReady(now)))
+                {
+                    int cost = ability.Definition.ManaCostAt(ability.Level);
+                    int damage = Math.SpellDamage(ability.Definition, ability.Level);
+                    if (damage == 0 || mana < Fixed.FromInt(cost))
+                        continue;
+                    mana -= Fixed.FromInt(cost);
+                    bool magical = ability.Definition.Effects.Any(e => e.DamageType == Dynasty.MatchSimulation.Combat.DamageType.Magical);
+                    burst += Fixed.FromInt(magical ? damage * (100 - miniboss.MagicResistPercent) / 100 : damage);
+                }
+            }
+
             Fixed regen = rules.BarrierRegen + rules.BarrierRegenPerInterval * Fixed.FromInt(intervals);
+            Fixed barrier = Fixed.Max(Fixed.Zero, miniboss.MinibossBarrier - burst);
+            if (barrier == Fixed.Zero)
+                return true;
             if (dps * Fixed.FromInt(2) <= regen * Fixed.FromInt(3))
                 return false;
-            Fixed seconds = miniboss.MinibossBarrier / (dps - regen);
+            Fixed seconds = barrier / (dps - regen);
             Fixed burn = rules.ShiningDamage + rules.ShiningDamagePerInterval * Fixed.FromInt(intervals);
             Fixed reflected = dps * (rules.ReflectPercent + rules.ReflectPercentPerInterval * Fixed.FromInt(intervals)) / Fixed.FromInt(100 * heroes.Count);
             Fixed health = heroes.Aggregate(Fixed.Zero, (sum, h) => sum + h.Hp) / Fixed.FromInt(heroes.Count);
@@ -1241,7 +1261,10 @@ namespace Dynasty.HeroAI
                 HeroDecision self = this;
                 int gathered = _state.Heroes.Count(h => h.Team == self._hero.Team && h.IsAlive && Math.Within(h.Position, objective.Position, MinibossGatherRange));
                 if (gathered >= MinibossTogether && Sees(objective) && Math.Within(_hero.Position, objective.Position, MinibossGatherRange))
-                    Issue(HeroOrder.Attack(objective.Id));
+                {
+                    if (!CastOnObjective(objective))
+                        Issue(HeroOrder.Attack(objective.Id));
+                }
                 else
                     Issue(HeroOrder.Move(objective.Position));
                 return true;
@@ -1252,7 +1275,10 @@ namespace Dynasty.HeroAI
                 if (Math.HpPercent(_hero) < 50)
                     return false;
                 if (Sees(objective) && Math.Within(_hero.Position, objective.Position, 1500))
-                    Issue(HeroOrder.Attack(objective.Id));
+                {
+                    if (!CastOnObjective(objective))
+                        Issue(HeroOrder.Attack(objective.Id));
+                }
                 else
                     Issue(HeroOrder.Move(objective.Position));
                 return true;
@@ -1765,6 +1791,34 @@ namespace Dynasty.HeroAI
                 HeroOrders.Issue(_hero, HeroOrder.Idle);
         }
 
+        /// <summary>
+        /// A ready damaging spell or item active of the hero thrown at a neutral objective it is taking (the boss, the miniboss):
+        /// on it, at its place, or around the hero when it is within the area. Not while already casting.
+        /// </summary>
+        private bool CastOnObjective(MatchUnit objective)
+        {
+            if ((_hero.Flags & ModifierFlags.Silenced) != 0 || _h.IsCasting || _h.Order.Kind == HeroOrderKind.Cast)
+                return false;
+            foreach (AbilityState ability in ReadyAbilities().Where(a => Math.SpellDamage(a.Definition, a.Level) > 0))
+            {
+                AbilityDefinition def = ability.Definition;
+                int reach = def.CastRange + 200;
+                HeroOrder? order = def.Targeting switch
+                {
+                    AbilityTargeting.Unit when def.TargetTeam != TargetTeam.Ally && Math.Within(_hero.Position, objective.Position, reach) => HeroOrder.Cast(def.Id, objective.Id),
+                    AbilityTargeting.Point when Math.Within(_hero.Position, objective.Position, reach) => HeroOrder.CastAtPoint(def.Id, objective.Position),
+                    AbilityTargeting.NoTarget when Math.Within(_hero.Position, objective.Position, Math.AreaRadius(def)) => HeroOrder.CastNoTarget(def.Id),
+                    _ => null,
+                };
+                if (order == null)
+                    continue;
+                Issue(order);
+                return true;
+            }
+
+            return false;
+        }
+
         private IEnumerable<AbilityState> ReadyAbilities()
         {
             HeroDecision self = this;
@@ -1959,6 +2013,12 @@ namespace Dynasty.HeroAI
         private static bool Disables(EffectDefinition effect) =>
             (effect.Kind == EffectKind.ApplyModifier && effect.Modifiers.Any(m => (m.Flags & (ModifierFlags.Stunned | ModifierFlags.Rooted)) != 0)) ||
             effect.Inner.Any(Disables);
+
+        /// <summary>The flat damage a cast deals to one target at a level (inner effects too; scaled damage not counted).</summary>
+        public static int SpellDamage(AbilityDefinition ability, int level) => ability.Effects.Sum(e => EffectDamage(e, level));
+
+        private static int EffectDamage(EffectDefinition effect, int level) =>
+            (effect.Kind == EffectKind.Damage && effect.Scaling == DamageScaling.Flat ? effect.AmountAt(level) : 0) + effect.Inner.Sum(i => EffectDamage(i, level));
 
         public static int AreaRadius(AbilityDefinition ability) =>
             ability.Effects.Where(e => e.Kind == EffectKind.Area).Select(e => e.Radius).DefaultIfEmpty(250).First();
