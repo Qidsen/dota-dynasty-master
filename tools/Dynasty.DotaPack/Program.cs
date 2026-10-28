@@ -73,6 +73,35 @@ foreach (var chunk in heroes.Select(h => h.Value!["id"]!.GetValue<int>()).Chunk(
     }
 }
 
+// Where each hero is played (the project owner on 2026-10-28: OpenDota pro matches; Valve's roles have no mid or offlane): pro
+// matches since 7.41f, a player's position from its lane (lane_role 1 safe, 2 mid, 3 off) and gold within the lane of its team —
+// the richer one on the lane is the core (1, 2, 3), the other the support (5 on the safe lane, 4 on the off lane); jungle and
+// second mid players are left out. Shares in percent, for heroes with at least MinProGames such games; others keep their roles.
+var positionGames = new Dictionary<int, int[]>();
+foreach (JsonNode? row in data.Explorer("positions_7.41f",
+             "SELECT hero_id, pos, count(*) n FROM (SELECT pm.hero_id, pm.lane_role, row_number() OVER (PARTITION BY pm.match_id, pm.player_slot < 128, pm.lane_role " +
+             "ORDER BY pm.gold_per_min DESC) rk FROM player_matches pm JOIN matches m USING(match_id) " +
+             $"WHERE m.start_time >= {Since} AND m.leagueid > 0 AND pm.lane_role IS NOT NULL) t, LATERAL (SELECT CASE WHEN lane_role = 1 AND rk = 1 THEN 1 " +
+             "WHEN lane_role = 2 AND rk = 1 THEN 2 WHEN lane_role = 3 AND rk = 1 THEN 3 WHEN lane_role = 3 THEN 4 WHEN lane_role = 1 THEN 5 ELSE 0 END pos) p " +
+             "WHERE pos > 0 GROUP BY 1, 2"))
+{
+    int hero = row!["hero_id"]!.GetValue<int>();
+    (positionGames.TryGetValue(hero, out int[]? games) ? games : positionGames[hero] = new int[5])[row["pos"]!.GetValue<int>() - 1] = int.Parse(row["n"]!.ToString());
+}
+
+var positionSources = new List<string>();
+
+JsonNode? Positions(int heroId, string hero)
+{
+    if (!positionGames.TryGetValue(heroId, out int[]? games) || games.Sum() < MinProGames)
+    {
+        positionSources.Add(hero + ": roles");
+        return null;
+    }
+    positionSources.Add(hero + ": " + games.Sum());
+    return new JsonArray(games.Select(g => (JsonNode)JsonValue.Create((int)System.Math.Round(g * 100.0 / games.Sum()))!).ToArray());
+}
+
 JsonObject gameAbilities = data.GameAbilities();
 var talentCoverage = new List<string>();
 var talentSources = new List<string>();
@@ -124,6 +153,8 @@ foreach (var (_, node) in heroes.OrderBy(h => h.Value!["id"]!.GetValue<int>()))
             data.GameHero(h["name"]!.GetValue<string>()), TalentPicks(h["id"]!.GetValue<int>(), id), talentCoverage),
         ["itemBuild"] = Builds.For(data, h["id"]!.GetValue<int>(), itemIds, shopData, items.Ids),
     });
+    if (Positions(h["id"]!.GetValue<int>(), id) is JsonNode positions)
+        packHeroes[packHeroes.Count - 1]!["positions"] = positions;
 }
 
 IReadOnlyDictionary<string, int> TalentPicks(int heroId, string hero)
@@ -156,6 +187,7 @@ var pack = new JsonObject
         ["source"] = "https://github.com/odota/dotaconstants", ["commit"] = DotaData.Commit, ["patch"] = Patch,
         ["builds"] = "OpenDota /heroes/{id}/itemPopularity, " + DateTime.UtcNow.ToString("yyyy-MM-dd"),
         ["gameFiles"] = "https://github.com/SteamDatabase/GameTracking-Dota2 " + DotaData.GameFilesCommit,
+        ["positions"] = $"pro matches since 7.41f (OpenDota explorer; lane_role and gold within the lane; at least {MinProGames} games), else the roles: " + string.Join("; ", positionSources),
         ["talentPicks"] = $"pro matches since 7.41f (OpenDota explorer, at least {MinProGames} games), else Divine-Immortal (STRATZ), else Valve's bot build: " + string.Join("; ", talentSources),
     },
     ["heroRules"] = new JsonObject

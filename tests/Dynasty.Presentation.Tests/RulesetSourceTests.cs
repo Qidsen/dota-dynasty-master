@@ -18,6 +18,43 @@ public class RulesetSourceTests
         ""format"": ""dynasty.ruleset-pack"", ""formatVersion"": 1, ""id"": ""dota"", ""version"": 7410,
         ""heroes"": [" + Hero + string.Concat(Enumerable.Range(1, 18).Select(i => "," + Hero.Replace(@"""antimage""", @"""filler" + i + @""""))) + "] }";
 
+    /// <summary>A pack of 30 heroes, six played on each position (its position shares), none of the base heroes.</summary>
+    private static string PositionedPack() => @"{
+        ""format"": ""dynasty.ruleset-pack"", ""formatVersion"": 1, ""id"": ""dota"", ""version"": 7410,
+        ""heroes"": [" + string.Join(",", Enumerable.Range(0, 30).Select(i => Hero
+            .Replace(@"""antimage""", @"""hero" + i + @"""")
+            .Replace(@"""roles"":", @"""positions"": [" + string.Join(", ", Enumerable.Range(0, 5).Select(p => p == i % 5 ? 100 : 0)) + @"], ""roles"":"))) + "] }";
+
+    /// <summary>
+    /// On a pack's rules the demo teams' players have pools over the pack's heroes, and two AI teams draft them and play the match
+    /// (the viewer's draft and match on the Dota pack, B-118).
+    /// </summary>
+    [Fact]
+    public void OnAPack_TheDemoTeamsDraftAndPlayThePacksHeroes()
+    {
+        string path = Path.Combine(Path.GetTempPath(), "dynasty-pack-" + Guid.NewGuid().ToString("N") + ".json");
+        File.WriteAllText(path, PositionedPack());
+        try
+        {
+            RulesetContent rules = RulesetSource.Load(path);
+            var heroes = rules.Heroes.Select(h => h.Id).ToHashSet();
+
+            var (dawn, dusk) = DemoMatch.Players(rules);
+            Assert.All(dawn.Concat(dusk), p => Assert.All(p.HeroPool, h => Assert.Contains(h.HeroId, heroes)));
+
+            var watch = DraftWatch.Start(rules, seed: 1, secondsPerStep: 0.5);
+            Assert.All(watch.DawnRoster.Players.Concat(watch.DuskRoster.Players), p => Assert.All(p.Pool, e => Assert.Contains(e.HeroId, heroes)));
+            watch.Finish();
+            MatchSession match = watch.StartMatch(1);
+            match.Kernel.RunTicks(300);
+            Assert.All(match.Kernel.State.Heroes, h => Assert.Contains(h.Hero!.Definition.Id, heroes));
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
     [Fact]
     public void NoPack_GivesTheBaseRules()
     {

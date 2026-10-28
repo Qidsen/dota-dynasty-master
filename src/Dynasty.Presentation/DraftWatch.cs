@@ -40,8 +40,8 @@ namespace Dynasty.Presentation
         {
             if (secondsPerStep <= 0)
                 throw new ArgumentOutOfRangeException(nameof(secondsPerStep));
-            var (dawn, dusk) = DemoMatch.Rosters();
-            var (dawnPlayers, duskPlayers) = DemoMatch.Players();
+            var (dawn, dusk) = DemoMatch.Rosters(ruleset);
+            var (dawnPlayers, duskPlayers) = DemoMatch.Players(ruleset);
             Team firstPick = seed % 2 == 0 ? Team.Dusk : Team.Dawn;   // the coin flip
             var session = DraftSession.Start(ruleset, firstPick);
             var dawnAi = new DraftAi(ruleset, Team.Dawn, dawn, dusk, new DraftAiSettings(), seed * 2 + 1);

@@ -24,16 +24,19 @@ namespace Dynasty.Presentation
         /// one per position, each with a hero pool over the heroes that suit the position and one
         /// signature hero (mastery 90+). Deterministic.
         /// </summary>
-        public static (IReadOnlyList<PlayerProfile> Dawn, IReadOnlyList<PlayerProfile> Dusk) Players()
-        {
-            RulesetContent ruleset = BaseRuleset.Create();
-            return (Team(ruleset, "northwind", DawnHandles, 15, 11), Team(ruleset, "emberpact", DuskHandles, 12, 23));
-        }
+        public static (IReadOnlyList<PlayerProfile> Dawn, IReadOnlyList<PlayerProfile> Dusk) Players() => Players(BaseRuleset.Create());
+
+        /// <summary>The demo teams with pools over the heroes of <paramref name="ruleset"/> (a ruleset pack's heroes).</summary>
+        public static (IReadOnlyList<PlayerProfile> Dawn, IReadOnlyList<PlayerProfile> Dusk) Players(RulesetContent ruleset) =>
+            (Team(ruleset, "northwind", DawnHandles, 15, 11), Team(ruleset, "emberpact", DuskHandles, 12, 23));
 
         /// <summary>The demo teams as the draft sees them.</summary>
-        public static (TeamRoster Dawn, TeamRoster Dusk) Rosters()
+        public static (TeamRoster Dawn, TeamRoster Dusk) Rosters() => Rosters(BaseRuleset.Create());
+
+        /// <summary>The demo teams as the draft sees them, over the heroes of <paramref name="ruleset"/>.</summary>
+        public static (TeamRoster Dawn, TeamRoster Dusk) Rosters(RulesetContent ruleset)
         {
-            var (dawn, dusk) = Players();
+            var (dawn, dusk) = Players(ruleset);
             return (new TeamRoster("Northwind", dawn.Select((p, i) => RosterPlayer.From(p, i + 1)).ToList()),
                     new TeamRoster("Ember Pact", dusk.Select((p, i) => RosterPlayer.From(p, i + 1)).ToList()));
         }
