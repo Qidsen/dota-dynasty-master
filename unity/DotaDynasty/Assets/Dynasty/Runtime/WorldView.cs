@@ -147,8 +147,20 @@ namespace Dynasty.Unity
                     halfHeight = ancient ? 2f : barracks ? 0.8f : 2.2f;
                     break;
                 case UnitKind.Boss:
-                    body = Primitive(PrimitiveType.Sphere, "Boss", new Color(0.55f, 0.35f, 0.75f), new Vector3(3f, 3f, 3f));
+                    body = Primitive(PrimitiveType.Sphere, "Boss", Palette.Boss, new Vector3(3f, 3f, 3f));
                     halfHeight = 1.5f;
+                    break;
+                case UnitKind.Miniboss:
+                    body = Primitive(PrimitiveType.Cube, "Tormentor", Palette.Tormentor, new Vector3(2.4f, 2.4f, 2.4f));
+                    halfHeight = 1.2f;
+                    break;
+                case UnitKind.Outpost:
+                    body = Primitive(PrimitiveType.Cylinder, "Outpost", color, new Vector3(1.2f, 2.6f, 1.2f));
+                    halfHeight = 2.6f;
+                    break;
+                case UnitKind.GroundItem:
+                    body = Primitive(PrimitiveType.Sphere, "Aegis", Palette.Aegis, new Vector3(0.9f, 0.9f, 0.9f));
+                    halfHeight = 0.45f;
                     break;
                 case UnitKind.Rune:
                     body = Primitive(PrimitiveType.Sphere, "Rune", color, new Vector3(0.8f, 0.8f, 0.8f));
@@ -163,7 +175,7 @@ namespace Dynasty.Unity
             }
 
             body.SetParent(_root, true);
-            HealthBar? bar = unit.Kind == UnitKind.Hero || unit.Kind == UnitKind.Structure || unit.Kind == UnitKind.Boss
+            HealthBar? bar = unit.Kind == UnitKind.Hero || unit.Kind == UnitKind.Structure || unit.Kind == UnitKind.Boss || unit.Kind == UnitKind.Miniboss
                 ? new HealthBar(body, halfHeight * 2f + 0.5f, _material, _block)
                 : null;
             return new UnitVisual(body, halfHeight, bar, _material, _block, color);
@@ -223,6 +235,19 @@ namespace Dynasty.Unity
                     Transform t = Primitive(PrimitiveType.Cube, "Trees", Palette.Tree,
                         new Vector3((tree.MaxX - tree.MinX) / Palette.MapUnitsPerMetre, 3f, (tree.MaxY - tree.MinY) / Palette.MapUnitsPerMetre));
                     t.position = Palette.World(tree.CenterX, tree.CenterY, 1.5f);
+                }
+            }
+
+            foreach (MapMarker marker in map.Markers)
+            {
+                // A flat coloured disc for each place (the units on it — Roshan, the Tormentor — are drawn by themselves).
+                float d = marker.Kind == MapMarkerKind.BossPit || marker.Kind == MapMarkerKind.Tormentor ? 7f : 3.5f;
+                Transform disc = Primitive(PrimitiveType.Cylinder, marker.Kind.ToString(), Palette.Of(marker.Kind), new Vector3(d, 0.06f, d));
+                disc.position = Palette.World(marker.X, marker.Y, 0.08f);
+                if (marker.Kind == MapMarkerKind.Watcher || marker.Kind == MapMarkerKind.Shrine || marker.Kind == MapMarkerKind.TwinGate)
+                {
+                    Transform pillar = Primitive(PrimitiveType.Cylinder, marker.Kind + " pillar", Palette.Of(marker.Kind), new Vector3(0.6f, 1.6f, 0.6f));
+                    pillar.position = Palette.World(marker.X, marker.Y, 1.6f);
                 }
             }
 

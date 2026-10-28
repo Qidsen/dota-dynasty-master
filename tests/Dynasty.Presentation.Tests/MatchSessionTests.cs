@@ -34,6 +34,23 @@ public class MatchSessionTests
         Assert.Equal(29, session.Previous.Tick);
     }
 
+    /// <summary>
+    /// A frame computes the match only within its time budget: at a speed the computer cannot keep up with, the ticks it has no
+    /// time for are dropped (the match runs slower, smoothly), not run in one long frame that skips a minute of the match.
+    /// </summary>
+    [Fact]
+    public void Update_RunsOnlyWhatFitsTheFrameBudget_AndDropsTheRest()
+    {
+        MatchSession session = Start();
+        session.Clock.SetSpeed(64);
+
+        session.Update(1.0, budgetMilliseconds: 0);   // no time at all: still one tick, so the match moves
+        Assert.Equal(1, session.Current.Tick);
+
+        session.Update(1.0 / 60);   // the dropped ticks do not come back in the next frame
+        Assert.Equal(1 + 32, session.Current.Tick);
+    }
+
     [Fact]
     public void WatchingDoesNotChangeTheMatch_WhateverTheFrameSizesAndSpeeds()
     {

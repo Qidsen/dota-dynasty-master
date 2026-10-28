@@ -17,6 +17,9 @@ namespace Dynasty.Unity
     public sealed class MatchViewer : MonoBehaviour
     {
         private static readonly int[] Speeds = { 1, 2, 4, 8, 16, 64 };
+        /// <summary>Real time a frame may spend computing the match; at higher speeds the match runs as fast as this allows.</summary>
+        private const double FrameBudgetMilliseconds = 25;
+
         private static readonly Viewpoint[] Viewpoints = { Viewpoint.Observer, Viewpoint.Dawn, Viewpoint.Dusk };
 
         private readonly List<FeedItem> _feed = new List<FeedItem>();
@@ -84,7 +87,7 @@ namespace Dynasty.Unity
         private void Update()
         {
             ReadInput();
-            _session.Update(Time.unscaledDeltaTime);
+            _session.Update(Time.unscaledDeltaTime, FrameBudgetMilliseconds);
             _feed.AddRange(_session.TakeFeed());
             _statisticsAge += Time.unscaledDeltaTime;
             if (_statisticsAge > 0.5f)

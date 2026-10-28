@@ -71,15 +71,20 @@ namespace Dynasty.Presentation
             }
         }
 
-        /// <summary>Advances by real (frame) time: runs the ticks the clock allows and refreshes the frames.</summary>
-        public void Update(double realSeconds)
+        /// <summary>
+        /// Advances by real (frame) time: runs the ticks the clock allows and refreshes the frames. With a budget, only the ticks
+        /// computed within <paramref name="budgetMilliseconds"/> of real time run (at least one) and the rest are dropped: at a speed
+        /// the computer cannot keep up with the match runs slower and smoothly instead of freezing and then skipping ahead.
+        /// </summary>
+        public void Update(double realSeconds, double budgetMilliseconds = double.PositiveInfinity)
         {
             int ticks = Clock.Advance(realSeconds);
             if (ticks <= 0 || Kernel.IsFinished)
                 return;
 
-            if (ticks > 1)
-                Kernel.RunTicks(ticks - 1);
+            var watch = System.Diagnostics.Stopwatch.StartNew();
+            for (int i = 1; i < ticks && !Kernel.IsFinished && watch.Elapsed.TotalMilliseconds < budgetMilliseconds; i++)
+                Kernel.Step();
             Previous = Capture();
             if (!Kernel.IsFinished)
                 Kernel.Step();

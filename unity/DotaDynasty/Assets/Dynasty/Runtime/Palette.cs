@@ -1,5 +1,6 @@
 #nullable enable
 using Dynasty.MatchSimulation.Rules;
+using Dynasty.Presentation;
 using UnityEngine;
 
 namespace Dynasty.Unity
@@ -19,6 +20,21 @@ namespace Dynasty.Unity
         public static readonly Color Tree = new Color(0.12f, 0.30f, 0.14f);
         public static readonly Color Rune = new Color(0.40f, 0.75f, 1.00f);
         public static readonly Color Projectile = new Color(1.00f, 0.90f, 0.50f);
+
+        public static readonly Color Boss = new Color(0.55f, 0.35f, 0.75f);
+        public static readonly Color Tormentor = new Color(0.95f, 0.55f, 0.15f);
+        public static readonly Color Aegis = new Color(1.00f, 0.85f, 0.25f);
+
+        /// <summary>Colour of a map object (pits, shrines, lotus pools, watchers, Twin Gates).</summary>
+        public static Color Of(MapMarkerKind kind) => kind switch
+        {
+            MapMarkerKind.BossPit => Boss,
+            MapMarkerKind.Tormentor => Tormentor,
+            MapMarkerKind.Shrine => new Color(0.45f, 0.85f, 0.95f),
+            MapMarkerKind.LotusPool => new Color(0.95f, 0.55f, 0.80f),
+            MapMarkerKind.Watcher => new Color(0.92f, 0.92f, 0.92f),
+            _ => new Color(0.30f, 0.90f, 0.75f),
+        };
 
         public static Color Of(Team team) => team == Team.Dawn ? Dawn : team == Team.Dusk ? Dusk : Neutral;
 

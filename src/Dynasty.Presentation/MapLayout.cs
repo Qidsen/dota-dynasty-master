@@ -11,8 +11,9 @@ namespace Dynasty.Presentation
     public sealed class MapLayout
     {
         private MapLayout(int width, int height, List<MapObstacle> obstacles, List<MapLane> lanes, List<MapCircle> plateaus,
-            List<MapFountain> fountains, List<MapPoint> camps, MapPoint? bossPit)
+            List<MapFountain> fountains, List<MapPoint> camps, MapPoint? bossPit, List<MapMarker> markers)
         {
+            Markers = markers;
             Width = width;
             Height = height;
             Obstacles = obstacles;
@@ -34,6 +35,9 @@ namespace Dynasty.Presentation
         public IReadOnlyList<MapFountain> Fountains { get; }
         public IReadOnlyList<MapPoint> Camps { get; }
         public MapPoint? BossPit { get; }
+
+        /// <summary>Map objects that are places, not units: boss and Tormentor pits, shrines, lotus pools, watchers, Twin Gates.</summary>
+        public IReadOnlyList<MapMarker> Markers { get; }
 
         public static MapLayout From(RulesetContent ruleset)
         {
@@ -64,12 +68,52 @@ namespace Dynasty.Presentation
                 camps.Add(P(camp.Position));
 
             MapPoint? boss = ruleset.Boss != null ? P(ruleset.Boss.Position) : (MapPoint?)null;
-            return new MapLayout(map.Width, map.Height, obstacles, lanes, plateaus, fountains, camps, boss);
+            var markers = new List<MapMarker>();
+            void Mark(MapMarkerKind kind, IEnumerable<FixedVector2> positions)
+            {
+                foreach (FixedVector2 p in positions)
+                    markers.Add(new MapMarker(kind, F(p.X), F(p.Y)));
+            }
+
+            if (ruleset.Boss != null)
+                Mark(MapMarkerKind.BossPit, ruleset.Boss.NightPosition is FixedVector2 night ? new[] { ruleset.Boss.Position, night } : new[] { ruleset.Boss.Position });
+            if (ruleset.Miniboss != null)
+                Mark(MapMarkerKind.Tormentor, new[] { ruleset.Miniboss.DayPosition, ruleset.Miniboss.NightPosition });
+            Mark(MapMarkerKind.Shrine, ruleset.Shrines?.Positions ?? new FixedVector2[0]);
+            Mark(MapMarkerKind.LotusPool, ruleset.LotusPools?.Positions ?? new FixedVector2[0]);
+            Mark(MapMarkerKind.Watcher, ruleset.Watchers?.Positions ?? new FixedVector2[0]);
+            Mark(MapMarkerKind.TwinGate, ruleset.TwinGates?.Positions ?? new FixedVector2[0]);
+            return new MapLayout(map.Width, map.Height, obstacles, lanes, plateaus, fountains, camps, boss, markers);
         }
 
         private static float F(Fixed value) => (float)value.ToDouble();
 
         private static MapPoint P(FixedVector2 p) => new MapPoint(F(p.X), F(p.Y));
+    }
+
+    /// <summary>What a <see cref="MapMarker"/> marks.</summary>
+    public enum MapMarkerKind
+    {
+        BossPit,
+        Tormentor,
+        Shrine,
+        LotusPool,
+        Watcher,
+        TwinGate,
+    }
+
+    public readonly struct MapMarker
+    {
+        public MapMarker(MapMarkerKind kind, float x, float y)
+        {
+            Kind = kind;
+            X = x;
+            Y = y;
+        }
+
+        public MapMarkerKind Kind { get; }
+        public float X { get; }
+        public float Y { get; }
     }
 
     public readonly struct MapPoint

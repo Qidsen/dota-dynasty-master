@@ -15,8 +15,9 @@ namespace Dynasty.Unity.Tests
                 Object.Destroy(existing.gameObject);
             MatchViewer viewer = MatchViewer.Create(seed: 1);
             viewer.Session.Clock.SetSpeed(MatchClock.MaxSpeed);
-            for (int i = 0; i < 120; i++)
-                yield return null;   // a couple of match minutes
+            float until = Time.realtimeSinceStartup + 30f;   // a frame computes only its time budget: wait for the ticks, not a frame count
+            while (viewer.Session.Kernel.CurrentTick.Value <= 1000 && Time.realtimeSinceStartup < until)
+                yield return null;
 
             foreach (Viewpoint viewpoint in new[] { Viewpoint.Observer, Viewpoint.Dawn, Viewpoint.Dusk })
             {

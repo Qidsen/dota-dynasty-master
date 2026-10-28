@@ -38,6 +38,14 @@ namespace Dynasty.Unity
             GUI.color = Color.white;
             GUI.DrawTexture(area, _background);
 
+            foreach (MapMarker marker in _map.Markers)
+            {
+                Vector2 at = ToScreen(area, marker.X, marker.Y);
+                float size = area.width * (marker.Kind == MapMarkerKind.BossPit || marker.Kind == MapMarkerKind.Tormentor ? 0.03f : 0.018f);
+                GUI.color = Palette.Of(marker.Kind);
+                GUI.DrawTexture(new Rect(at.x - size / 2f, at.y - size / 2f, size, size), _ring);
+            }
+
             foreach (UnitFrame unit in frame.Units)
             {
                 Vector2 at = ToScreen(area, unit.X, unit.Y);
@@ -52,7 +60,17 @@ namespace Dynasty.Unity
                         Square(at, area.width * (unit.TypeId.Contains("ancient") ? 0.03f : 0.016f), color);
                         break;
                     case UnitKind.Boss:
-                        Dot(at, area.width * 0.024f, new Color(0.55f, 0.35f, 0.75f));
+                        Dot(at, area.width * 0.024f, Palette.Boss);
+                        break;
+                    case UnitKind.Miniboss:
+                        Dot(at, area.width * 0.024f, Palette.Tormentor);
+                        break;
+                    case UnitKind.Outpost:
+                        Square(at, area.width * 0.014f, color);
+                        Dot(at, area.width * 0.006f, Color.white);
+                        break;
+                    case UnitKind.GroundItem:
+                        Dot(at, area.width * 0.014f, Palette.Aegis);
                         break;
                     default:
                         bool ward = unit.TypeId.Contains("ward");
