@@ -172,6 +172,32 @@ public class BasicHeroControllerTests
         Assert.Equal(new[] { "a", "b" }, picks.OrderBy(p => p, StringComparer.Ordinal).ToArray());
     }
 
+    /// <summary>
+    /// A core walking to a camp near its lane goes on to farm it when an enemy wave reaches the lane meanwhile, instead of turning
+    /// back halfway (on the long Dota lanes such walks were mostly wasted: 208 s walking to 60 s farming in minutes 10-20).
+    /// </summary>
+    [Fact]
+    public void Controller_WalkingToACamp_FarmsItEvenWhenAWaveArrivesMeanwhile()
+    {
+        var draft = new RulesetDraft().WithoutWaves();
+        draft.Creeps.Add(new CreepType("wolf", MeleeStats(hp: 300), new Bounty(30, 30, 40)));
+        draft.Creeps.Add(new CreepType("brute", MeleeStats(hp: 5000)));
+        draft.Camps.Add(new NeutralCampDefinition("camp.a", P(3000, 3200), new[] { new WaveEntry("wolf", 1) }, firstSpawnMs: 0, respawnMs: 60000, leashRadius: 600));
+        var kernel = draft.StartWithHeroes(new[] { ("alpha", "mid") }, NoHeroes);
+        At(kernel, 0, ctx => H(ctx.State, "alpha").Position = P(3000, 5000));
+        At(kernel, 20, ctx =>
+        {
+            MatchUnit creep = ctx.State.SpawnCreep(ctx.Ids.Allocate(), Team.Dusk, ctx.State.Ruleset.FindCreepType("brute")!, ctx.State.Ruleset.Map.Lanes.Single(l => l.Id == "mid"), ctx.Tick.Value);
+            creep.Position = P(3800, 5000);
+            creep.StartPosition = creep.Position;
+        });
+        HeroAi.Attach(kernel, new HeroAiSettings { ReactionJitterTicks = 0, MisjudgementPercent = 0, LaningPhaseMinutes = 0 });
+
+        kernel.RunTicks(30 * 20);
+
+        Assert.Contains(kernel.EventsOf<UnitKilled>(), k => k.VictimTypeId == "wolf" && k.Killer == H(kernel.State, "alpha").Id);
+    }
+
     [Fact]
     public void Controller_GoesToItsLaneAndLastHitsCreeps()
     {

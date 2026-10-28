@@ -66,6 +66,32 @@ public class ConsumableAiTests
         }
     }
 
+    /// <summary>
+    /// An enemy hero in sight but out of reach (an offlaner across the creep wave) does not keep a hurt hero from drinking: it steps
+    /// back and drinks instead of walking home; one close enough to hit it does.
+    /// </summary>
+    [Theory]
+    [InlineData(1000, true)]
+    [InlineData(400, false)]
+    public void HurtHero_DrinksWithAnEnemyInSight_OnlyWhenTheEnemyIsOutOfReach(int enemyDistance, bool drinks)
+    {
+        var kernel = WithSalve().StartWithHeroes(new[] { ("alpha", "mid") }, new[] { ("beta", "mid") });
+        var settings = new HeroAiSettings { ReactionJitterTicks = 0, MisjudgementPercent = 0 };
+        settings.Uncontrolled.Add("beta");
+        HeroAi.Attach(kernel, settings);
+        kernel.AddSystem(new LambdaSystem(10, ctx =>
+        {
+            MatchUnit alpha = H(ctx.State, "alpha");
+            alpha.Position = P(3500, 5000);
+            alpha.Hp = Fixed.FromInt(alpha.MaxHp * 25 / 100);
+            H(ctx.State, "beta").Position = P(3500 + enemyDistance, 5000);
+        }));
+
+        kernel.RunTicks(10 + 5);
+
+        Assert.Equal(drinks, kernel.EventsOf<AbilityCast>().Any(c => c.AbilityId == "item.salve"));
+    }
+
     [Theory]
     [InlineData(5000, true)]
     [InlineData(3000, false)]

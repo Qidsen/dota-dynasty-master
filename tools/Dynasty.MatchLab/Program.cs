@@ -156,6 +156,45 @@ if (mode == "whydiag")
     return;
 }
 
+if (mode == "junglediag")
+{
+    // Minutes 10-20 of the Dawn heroes: what their jungle time is spent on and what it yields.
+    int n = args.Length > 1 ? int.Parse(args[1]) : 4;
+    var time = new Dictionary<string, int>();
+    var kills = new Dictionary<string, int>();
+    for (ulong seed = 1; seed <= (ulong)n; seed++)
+    {
+        var k = Match.Create(Rules(), seed, MirrorLineup());
+        var branch = new Dictionary<long, string>();
+        HeroAi.Attach(k, new HeroAiSettings { DecisionTrace = (hero, now, b) => branch[hero.Id.Value] = b });
+        k.RunUntilFinished(10 * 1800);
+        for (int t = 0; t < 10 * 1800 && k.State.Winner == null; t += 15)
+        {
+            k.RunUntilFinished(15);
+            foreach (MatchUnit h in k.State.Heroes.Where(h => h.Team == Team.Dawn && !h.Hero!.IsDead))
+            {
+                if (!branch.TryGetValue(h.Id.Value, out string? b) || !b.StartsWith("FarmJungle"))
+                    continue;
+                var target = k.State.Find(h.Hero!.Order.Target);
+                string c = h.Hero.Order.Kind == Dynasty.MatchSimulation.Heroes.HeroOrderKind.Attack ? "attack-" + (target?.Team == Team.Neutral ? "neutral" : target?.Kind.ToString() ?? "?") : h.Hero.Order.Kind.ToString().ToLowerInvariant();
+                time[c] = time.GetValueOrDefault(c) + 1;
+            }
+        }
+
+        foreach (var e in k.Events.Records.Where(r => r.Tick.Value >= 10 * 1800 && r.Tick.Value < 20 * 1800).Select(r => r.Event).OfType<UnitKilled>()
+                     .Where(e => e.VictimTeam == Team.Neutral && (e.VictimTypeId.StartsWith("jungle") || e.VictimTypeId.StartsWith("neutral_"))))
+        {
+            MatchUnit? killer = k.State.Find(e.Killer);
+            string who = killer?.Hero != null ? killer.Team + " " + killer.Hero.Definition.Id : "other";
+            kills[who] = kills.GetValueOrDefault(who) + 1;
+        }
+    }
+
+    Console.WriteLine("Dawn heroes on FarmJungle, minutes 10-20 (per match, seconds): " + string.Join(", ", time.OrderByDescending(x => x.Value).Select(x => $"{x.Key} {x.Value * 15 / 30.0 / n:0}")));
+    Console.WriteLine("neutrals killed in minutes 10-20 (per match): " + string.Join(", ", kills.OrderByDescending(x => x.Value).Select(x => $"{x.Key} {x.Value / (double)n:0.0}")));
+    return;
+}
+
 if (mode == "lanediag")
 {
     // Where the Dawn carry's first ten minutes go, and who takes the enemy creeps of its lane.
@@ -165,15 +204,22 @@ if (mode == "lanediag")
     var kills = new Dictionary<string, int>();
     int trips = 0; string prev = "base";
     var damage = new Dictionary<string, long>();
+    var bought = new Dictionary<string, int>();
+    var used = new Dictionary<string, int>();
+    var towerHitWhile = new Dictionary<string, long>();
+    var tripCause = new Dictionary<string, int>();
     for (ulong seed = 1; seed <= (ulong)n; seed++)
     {
         var k = Match.Create(Rules(), seed, MirrorLineup());
+        string lastBranch = "?";
         var solo = new HeroAiSettings();
+        solo.DecisionTrace = (hero, now, branch) => { if (hero.Team == Team.Dawn && hero.Hero!.Definition.Id == heroId) lastBranch = branch + (hero.Hero.IsDead ? "" : $" hp{hero.Hp.ToIntFloor() * 100 / hero.MaxHp / 10 * 10}"); };
         if (Environment.GetEnvironmentVariable("MATCHLAB_SOLO") == "1")
             foreach (var h in k.State.Heroes.Where(h => h.Hero!.Definition.Id != heroId)) solo.Uncontrolled.Add(h.Hero!.Definition.Id);   // in a mirror the other side's copy plays on its own safe lane
         HeroAi.Attach(k, solo);
         MatchUnit carry = k.State.Heroes.Single(h => h.Team == Team.Dawn && h.Hero!.Definition.Id == heroId);
         var home = k.State.Ruleset.Map.FountainOf(Team.Dawn)!.Position;
+        var sampled = new List<string>();
         for (int t = 0; t < 10 * 1800; t += 15)
         {
             k.RunUntilFinished(15);
@@ -190,16 +236,33 @@ if (mode == "lanediag")
                 c += creepsNear ? " (enemy creeps near)" : "";
             }
             time[c] = time.GetValueOrDefault(c) + 1;
-            if (c == "base" && prev != "base") trips++;
+            sampled.Add(c);
+            if (c == "base" && prev != "base")
+            {
+                trips++;
+                string cause = prev == "dead" ? "death" : lastBranch;
+                tripCause[cause] = tripCause.GetValueOrDefault(cause) + 1;
+            }
             prev = c;
         }
 
+        var early = k.Events.Records.Where(r => r.Tick.Value < 10 * 1800).Select(r => r.Event).ToList();
+        foreach (var e in early.OfType<ItemPurchased>().Where(e => e.Hero == carry.Id))
+            bought[e.ItemId] = bought.GetValueOrDefault(e.ItemId) + 1;
+        foreach (var e in early.OfType<AbilityCast>().Where(e => e.Caster == carry.Id))
+            used[e.AbilityId] = used.GetValueOrDefault(e.AbilityId) + 1;
         var creepIds = k.Events.Records.Select(r => r.Event).OfType<CreepSpawned>().Select(e => e.Unit).ToHashSet();
         foreach (var e in k.Events.Records.Where(r => r.Tick.Value < 10 * 1800).Select(r => r.Event).OfType<DamageDealt>().Where(e => e.Target == carry.Id))
         {
             MatchUnit? source = k.State.Find(e.Attacker);
             string who = source?.Hero != null ? "hero " + source.Hero.Definition.Id : creepIds.Contains(e.Attacker) ? "creep" : source?.Kind == UnitKind.Structure ? "tower" : "other";
             damage[who] = damage.GetValueOrDefault(who) + e.Amount.ToIntFloor();
+            if (who == "tower")
+            {
+                long at = k.Events.Records.First(r => r.Event == e).Tick.Value / 15;
+                string what = at < sampled.Count ? sampled[(int)at] : "?";
+                towerHitWhile[what] = towerHitWhile.GetValueOrDefault(what) + e.Amount.ToIntFloor();
+            }
         }
 
         var spawned = k.Events.Records.Select(r => r.Event).OfType<CreepSpawned>().Where(e => e.Team == Team.Dusk && e.LaneId == carry.Hero!.AssignedLane).Select(e => e.Unit).ToHashSet();
@@ -215,6 +278,10 @@ if (mode == "lanediag")
     foreach (var kv in time.OrderByDescending(x => x.Value))
         Console.WriteLine($"{kv.Key,-40} {kv.Value * 100.0 / time.Values.Sum():0.0}%");
     Console.WriteLine($"trips to base per match (first 10 min): {trips / (double)n:0.0}");
+    Console.WriteLine("trips to base by the branch before: " + string.Join(", ", tripCause.OrderByDescending(x => x.Value).Select(x => $"{x.Key} {x.Value}")));
+    Console.WriteLine("tower damage taken while (per match): " + string.Join(", ", towerHitWhile.OrderByDescending(x => x.Value).Select(x => $"{x.Key} {x.Value / n}")));
+    Console.WriteLine("bought (first 10 min, per match): " + string.Join(", ", bought.OrderByDescending(x => x.Value).Select(x => $"{x.Key} {x.Value / (double)n:0.0}")));
+    Console.WriteLine("cast (first 10 min, per match): " + string.Join(", ", used.OrderByDescending(x => x.Value).Select(x => $"{x.Key} {x.Value / (double)n:0.0}")));
     Console.WriteLine("damage taken (first 10 min, per match): " + string.Join(", ", damage.OrderByDescending(x => x.Value).Select(x => $"{x.Key} {x.Value / n}")));
     Console.WriteLine("enemy lane creeps killed by (first 10 min, per match):");
     foreach (var kv in kills.OrderByDescending(x => x.Value))

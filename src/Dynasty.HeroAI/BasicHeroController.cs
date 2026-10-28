@@ -499,7 +499,7 @@ namespace Dynasty.HeroAI
                 return;
             // Healing over time that will bring the hero back to a fighting state replaces the trip home.
             bool patchedUp = Healing && ExpectedHpPercent() >= _personality.ReturnHpPercent - PatchedUpMarginPercent &&
-                             VisibleEnemyHeroes(_hero.Position, _settings.EngageRange).Count == 0;
+                             VisibleEnemyHeroes(_hero.Position, SafeToHealRange).Count == 0;
             if (_memory.Retreating && (hpPercent >= _personality.ReturnHpPercent || patchedUp))
                 _memory.Retreating = false;
             else if (!_memory.Retreating && hpPercent < _personality.RetreatHpPercent + _skill.RetreatShiftPercent && !patchedUp)
@@ -551,6 +551,12 @@ namespace Dynasty.HeroAI
         private const int ConsumablesCarried = 1;
         private const int PatchedUpMarginPercent = 30;
 
+        /// <summary>
+        /// No enemy hero in sight this close: a hurt hero drinks and stays (an offlaner across the creep wave cannot break it at once;
+        /// Dota players step back out of reach and drink instead of walking home).
+        /// </summary>
+        private const int SafeToHealRange = 800;
+
         private const int CheeseHpPercent = 25;
         private const int BigInstantHeal = 1000;
 
@@ -593,7 +599,7 @@ namespace Dynasty.HeroAI
         /// <summary>Drinks a carried healing consumable when hurt and not already healing (backlog B-024).</summary>
         private bool DrinkConsumable(int hpPercent)
         {
-            if (hpPercent >= ConsumableHpPercent || Healing || VisibleEnemyHeroes(_hero.Position, _settings.EngageRange).Count > 0)
+            if (hpPercent >= ConsumableHpPercent || Healing || VisibleEnemyHeroes(_hero.Position, SafeToHealRange).Count > 0)
                 return false;
             AbilityState? potion = _h.Inventory
                 .Where(i => i.Active != null && Math.IsHealingConsumable(i.Definition, i.Active.Definition))
@@ -845,7 +851,7 @@ namespace Dynasty.HeroAI
             {
                 if (FinishingCamp())
                     return true;
-                if (EnemyWaveAt(front))
+                if (EnemyWaveAt(front) && !WalkingToCamp())
                     return false;
             }
             else if (_state.Units.Any(u => u.Team == self._hero.Team && u.Kind == UnitKind.Creep && u.IsAlive && u.LaneId == self._h.AssignedLane))
@@ -903,6 +909,19 @@ namespace Dynasty.HeroAI
                 return false;
             MatchUnit? target = _state.Find(_h.Order.Target);
             return target != null && target.IsAlive && target.Team == Team.Neutral && target.Kind == UnitKind.Creep && Sees(target);
+        }
+
+        /// <summary>
+        /// The hero is on its way to a camp not known to be empty: it goes on to farm it rather than turning back to a wave that
+        /// reached the lane meanwhile (a wave waits; a walk cut halfway is wasted).
+        /// </summary>
+        private bool WalkingToCamp()
+        {
+            if (_h.Order.Kind != HeroOrderKind.Move)
+                return false;
+            HeroDecision self = this;
+            return _state.Ruleset.Map.Camps.Any(c => c.Position == self._h.Order.Point &&
+                                                     (!self._brain.CampEmptyUntil.TryGetValue(c.Id, out long until) || self._now >= until));
         }
 
         /// <summary>A visible enemy creep of the hero's lane near its lane front, outside enemy tower range.</summary>
