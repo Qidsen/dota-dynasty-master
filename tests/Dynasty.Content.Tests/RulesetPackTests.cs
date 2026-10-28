@@ -266,6 +266,20 @@ public class RulesetPackTests
     }
 
     [Fact]
+    public void LotusPools_AreRead()
+    {
+        string pools = @"""lotusPools"": { ""positions"": [1000, 2000], ""first"": 180, ""interval"": 180, ""max"": 6, ""radius"": 350, ""firstPick"": 1.5,
+            ""nextPickPercent"": 70, ""minPick"": 0.3, ""item"": ""cheese"" },
+        ""items"": [ { ""id"": ""cheese"", ""name"": ""Cheese"", ""cost"": 0 } ],";
+
+        LotusPoolRules rules = Apply(PackWith(pools)).LotusPools!;
+
+        Assert.Equal(new[] { FixedVector2.FromInts(1000, 2000) }, rules.Positions);
+        Assert.Equal((180000, 180000, 6, 350, 1500, 70, 300, "cheese"),
+            (rules.FirstMs, rules.IntervalMs, rules.Max, rules.Radius, rules.FirstPickMs, rules.NextPickPercent, rules.MinPickMs, rules.ItemId));
+    }
+
+    [Fact]
     public void Shrines_AreRead()
     {
         string shrines = @"""shrines"": { ""positions"": [1000, 2000, 9000, 8000], ""first"": 420, ""interval"": 420, ""radius"": 300, ""capture"": 3, ""xp"": 200, ""xpPerInterval"": 300 },";

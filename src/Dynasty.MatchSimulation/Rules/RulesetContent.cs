@@ -773,8 +773,10 @@ namespace Dynasty.MatchSimulation.Rules
             DayNightRules? dayNight = null,
             DraftRules? draft = null,
             MinibossDefinition? miniboss = null,
-            ShrineRules? shrines = null)
+            ShrineRules? shrines = null,
+            LotusPoolRules? lotusPools = null)
         {
+            LotusPools = lotusPools;
             Shrines = shrines;
             Miniboss = miniboss;
             DayNight = dayNight;
@@ -796,6 +798,9 @@ namespace Dynasty.MatchSimulation.Rules
         }
 
         public IReadOnlyList<HeroDefinition> Heroes { get; }
+
+        /// <summary>Dota's Lotus Pools; null without them.</summary>
+        public LotusPoolRules? LotusPools { get; }
 
         /// <summary>Dota's Shrines of Wisdom; null without them.</summary>
         public ShrineRules? Shrines { get; }
@@ -938,6 +943,15 @@ namespace Dynasty.MatchSimulation.Rules
             if (Shrines != null && (Shrines.Positions.Count == 0 || Shrines.Positions.Any(p => !IsInsideMap(p)) || Shrines.IntervalMs <= 0 ||
                                     Shrines.FirstMs < 0 || Shrines.Radius <= 0 || Shrines.CaptureMs <= 0))
                 errors.Add("Shrines of Wisdom need places inside the map, a positive interval, radius and capture time.");
+            if (LotusPools != null)
+            {
+                if (FindItem(LotusPools.ItemId) == null)
+                    errors.Add("Lotus Pools give unknown item '" + LotusPools.ItemId + "'.");
+                if (LotusPools.Positions.Count == 0 || LotusPools.Positions.Any(p => !IsInsideMap(p)) || LotusPools.IntervalMs <= 0 || LotusPools.FirstMs < 0 ||
+                    LotusPools.Max <= 0 || LotusPools.Radius <= 0 || LotusPools.FirstPickMs <= 0 || LotusPools.MinPickMs <= 0 ||
+                    LotusPools.NextPickPercent <= 0 || LotusPools.NextPickPercent > 100)
+                    errors.Add("Lotus Pools need places inside the map, a positive interval, maximum, radius and picking times.");
+            }
 
             return errors;
         }
@@ -1201,6 +1215,8 @@ namespace Dynasty.MatchSimulation.Rules
             Miniboss?.WriteCanonical(writer);
             writer.WriteBool(Shrines != null);
             Shrines?.WriteCanonical(writer);
+            writer.WriteBool(LotusPools != null);
+            LotusPools?.WriteCanonical(writer);
             writer.WriteBool(DayNight != null);
             DayNight?.WriteCanonical(writer);
             writer.WriteBool(Draft != null);

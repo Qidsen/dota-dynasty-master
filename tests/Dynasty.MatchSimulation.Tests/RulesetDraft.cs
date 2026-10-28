@@ -80,6 +80,8 @@ public sealed class RulesetDraft
 
     public ShrineRules? Shrines { get; set; }
 
+    public LotusPoolRules? LotusPools { get; set; }
+
     public RuneRules? Runes { get; set; }
 
     public DayNightRules? DayNight { get; set; }
@@ -184,7 +186,8 @@ public sealed class RulesetDraft
         DayNight,
         Draft,
         Miniboss,
-        Shrines);
+        Shrines,
+        LotusPools);
 
     /// <summary>Starts a match with the given heroes; each pick is (heroId, laneId).</summary>
     public Dynasty.Core.Kernel.SimulationKernel<MatchState> StartWithHeroes(

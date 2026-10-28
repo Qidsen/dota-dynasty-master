@@ -212,6 +212,19 @@ var pack = new JsonObject
     },
     ["heroes"] = packHeroes,
     ["miniboss"] = Tormentor(dotaMap, gameAbilities),
+    // Lotus Pools (Fandom «Lotus Pool» and «Healing Lotus»: a lotus every 3 minutes, at most 6; Valve 7.38: the first picked in 1.5 s,
+    // each next one in a row 30% faster; game file ability_lotus_pool: radius 350, min 0.3 s; 7.41: contested countdowns run back).
+    // Great and Greater Lotuses come with the neutral items' tiers 4 and 5 — not carried over (B-164).
+    ["lotusPools"] = new JsonObject
+    {
+        ["positions"] = new JsonArray(dotaMap.LotusPools.SelectMany(p => new JsonNode[] { p.X, p.Y }).ToArray()),
+        ["first"] = 3 * 60, ["interval"] = 3 * 60, ["max"] = 6,
+        ["radius"] = DotaData.Number(gameAbilities["ability_lotus_pool"]!["AbilityValues"]!["radius"]).DeepClone(),
+        ["firstPick"] = DotaData.Number(gameAbilities["ability_lotus_pool"]!["AbilityValues"]!["first_lotus_pickup_time"]).DeepClone(),
+        ["nextPickPercent"] = DotaData.Number(gameAbilities["ability_lotus_pool"]!["AbilityValues"]!["pickup_time_reduction_pct"]).DeepClone(),
+        ["minPick"] = DotaData.Number(gameAbilities["ability_lotus_pool"]!["AbilityValues"]!["min_lotus_pickup_time"]).DeepClone(),
+        ["item"] = "healing_lotus",
+    },
     // Shrines of Wisdom (Valve 7.38, 7.41; game file ability_xp_fountain: radius 300, countdown 3 s): every 7 minutes from 7:00, 200
     // experience at the first activation and 300 more at each later one, by the clock; what is not taken adds up (as Wisdom Runes).
     ["shrines"] = new JsonObject
@@ -542,6 +555,14 @@ static JsonNode[] RoshanDropAbilities() => new JsonNode[]
         ["effects"] = new JsonArray(new JsonObject { ["kind"] = "heal", ["amounts"] = new JsonArray(2500) },
             new JsonObject { ["kind"] = "restoreMana", ["amounts"] = new JsonArray(1500) }),
     },
+    // Healing Lotus (game file items.txt item_famango: replenish_amount 125 — health and mana, Fandom «Healing Lotus»; cooldown 5).
+    new JsonObject
+    {
+        ["id"] = "item_healing_lotus", ["name"] = "Healing Lotus", ["targeting"] = "noTarget", ["targetTeam"] = "ally", ["castRange"] = 0, ["castPoint"] = 0,
+        ["cooldown"] = new JsonArray(5), ["requiredLevels"] = new JsonArray(1),
+        ["effects"] = new JsonArray(new JsonObject { ["kind"] = "heal", ["amounts"] = new JsonArray(125) },
+            new JsonObject { ["kind"] = "restoreMana", ["amounts"] = new JsonArray(125) }),
+    },
     new JsonObject
     {
         ["id"] = "item_refresher_shard", ["name"] = "Refresher Shard", ["targeting"] = "noTarget", ["targetTeam"] = "ally", ["castRange"] = 0, ["castPoint"] = 0,
@@ -554,6 +575,7 @@ static JsonNode[] RoshanDropItems() => new JsonNode[]
 {
     new JsonObject { ["id"] = "cheese", ["name"] = "Cheese", ["cost"] = 0, ["active"] = "item_cheese", ["charges"] = 1, ["inShop"] = false },
     new JsonObject { ["id"] = "refresher_shard", ["name"] = "Refresher Shard", ["cost"] = 0, ["active"] = "item_refresher_shard", ["charges"] = 1, ["inShop"] = false },
+    new JsonObject { ["id"] = "healing_lotus", ["name"] = "Healing Lotus", ["cost"] = 0, ["active"] = "item_healing_lotus", ["charges"] = 1, ["inShop"] = false },
 };
 
 // Runes (Fandom «Runes» 2025-09 and the runes' pages; Valve 7.35–7.41 for what changed since: Amplify 80% + 15% spell amp,

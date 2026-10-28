@@ -710,6 +710,29 @@ namespace Dynasty.MatchSimulation.Events
         }
     }
 
+    public sealed class LotusPicked : IDomainEvent
+    {
+        public LotusPicked(int pool, EntityId hero)
+        {
+            Pool = pool;
+            Hero = hero;
+        }
+
+        /// <summary>Index of the pool in the rules.</summary>
+        public int Pool { get; }
+
+        public EntityId Hero { get; }
+
+        public string Type => "match.lotus_picked";
+        public int SchemaVersion => 1;
+
+        public void WritePayload(ref Fnv1a64 hash)
+        {
+            hash.AddInt64(Pool);
+            hash.AddInt64(Hero.Value);
+        }
+    }
+
     public sealed class ShrineTaken : IDomainEvent
     {
         public ShrineTaken(int shrine, Team team, EntityId taker, int xp)

@@ -43,6 +43,9 @@ sealed class DotaMap
 
     public (int X, int Y) TormentorBottom { get; }
 
+    /// <summary>The Lotus Pools.</summary>
+    public (int X, int Y)[] LotusPools { get; private set; } = Array.Empty<(int X, int Y)>();
+
     /// <summary>The Shrines of Wisdom (the map's xp fountains).</summary>
     public (int X, int Y)[] Shrines { get; private set; } = Array.Empty<(int X, int Y)>();
 
@@ -255,6 +258,8 @@ sealed class DotaMap
         return new DotaMap(map, Spots("dota_item_rune_spawner_powerup"), Spots("dota_item_rune_spawner_bounty"), pits[0], pits[1], tormentors[0], tormentors[1], warnings)
         {
             Shrines = shrines,
+            // The pool is a building in the middle of its water: its own spot is not walkable, the heroes stand around it.
+            LotusPools = data["npc_dota_lotus_pool"]!.AsArray().Select(p => Point(p!)).OrderBy(p => p.Y).ToArray(),
         };
     }
 }

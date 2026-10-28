@@ -466,7 +466,7 @@ namespace Dynasty.HeroAI
 
             NoticeDeaths();
             int hpPercent = Math.HpPercent(_hero);
-            if (EatCheese(hpPercent) || UseRefresher() || DrinkConsumable(hpPercent))
+            if (EatCheese(hpPercent) || UseRefresher() || DrinkConsumable(hpPercent) || EatSmallRestore())
                 return;
             // Healing over time that will bring the hero back to a fighting state replaces the trip home.
             bool patchedUp = Healing && ExpectedHpPercent() >= _personality.ReturnHpPercent - PatchedUpMarginPercent &&
@@ -499,6 +499,8 @@ namespace Dynasty.HeroAI
             if (Decided(PickUpRune(), "PickUpRune"))
                 return;
             if (Decided(TakeShrine(), "TakeShrine"))
+                return;
+            if (Decided(PickLotuses(), "PickLotuses"))
                 return;
             if (Decided(FarmJungle(), "FarmJungle"))
                 return;
@@ -567,6 +569,33 @@ namespace Dynasty.HeroAI
             return true;
         }
 
+        /// <summary>
+        /// A small instant restore (Dota's Healing Lotus: health and mana, below the big heals kept for fights) is eaten as soon as the
+        /// hero misses at least what it gives, of health or of mana.
+        /// </summary>
+        private bool EatSmallRestore()
+        {
+            foreach (ItemSlot slot in _h.Inventory)
+            {
+                AbilityDefinition? ability = slot.Active?.Definition;
+                if (ability == null || slot.Definition.Charges == 0 || ability.Targeting != AbilityTargeting.NoTarget || ability.Effects.Count == 0 ||
+                    !ability.Effects.All(e => e.Kind == EffectKind.Heal || e.Kind == EffectKind.RestoreMana) || !slot.Active!.IsReady(_now))
+                    continue;
+                int heal = ability.Effects.Where(e => e.Kind == EffectKind.Heal).Select(e => e.AmountAt(1)).DefaultIfEmpty(0).Max();
+                int mana = ability.Effects.Where(e => e.Kind == EffectKind.RestoreMana).Select(e => e.AmountAt(1)).DefaultIfEmpty(0).Max();
+                if (heal >= BigInstantHeal)
+                    continue;
+                bool hurt = heal > 0 && Fixed.FromInt(_hero.MaxHp) - _hero.Hp >= Fixed.FromInt(heal);
+                bool drained = mana > 0 && Fixed.FromInt(_h.MaxMana) - _h.Mana >= Fixed.FromInt(mana);
+                if (!hurt && !drained)
+                    continue;
+                Issue(HeroOrder.CastNoTarget(ability.Id));
+                return true;
+            }
+
+            return false;
+        }
+
         /// <summary>Healing over time is running on the hero (a consumable, an ally's spell, a rune).</summary>
         private bool Healing => _hero.Modifiers.Any(m => m.Spec.HealPerSecond > Fixed.Zero && !m.Spec.IsPermanent && m.ExpiresTick > _now);
 
@@ -627,6 +656,35 @@ namespace Dynasty.HeroAI
                 if (nearest != _hero)
                     continue;
                 Issue(HeroOrder.Move(shrine));
+                return true;
+            }
+
+            return false;
+        }
+
+        private const int LotusPickerWithin = 4000;
+
+        /// <summary>
+        /// Lotuses in a pool (Dota: seen there) are picked by the team's nearest living hero within reach with room for them, healthy,
+        /// while no enemy hero is seen near the pool.
+        /// </summary>
+        private bool PickLotuses()
+        {
+            LotusPoolRules? rules = _state.Ruleset.LotusPools;
+            if (rules == null || Math.HpPercent(_hero) < 40 || _h.Inventory.Count >= HeroShop.InventorySize)
+                return false;
+            HeroDecision self = this;
+            for (int i = 0; i < rules.Positions.Count; i++)
+            {
+                FixedVector2 pool = rules.Positions[i];
+                if (_state.LotusCount(i) == 0 || !Math.Within(_hero.Position, pool, LotusPickerWithin) || UnderEnemyTower(pool) ||
+                    VisibleEnemyHeroes(pool, ShrineEnemyWithin).Count > 0)
+                    continue;
+                MatchUnit nearest = _state.Heroes.Where(h => h.Team == self._hero.Team && h.IsAlive && !h.IllusionOf.IsValid && h.Hero!.Inventory.Count < HeroShop.InventorySize)
+                    .OrderBy(h => FixedVector2.DistanceSquared(h.Position, pool)).ThenBy(h => h.Id.Value).First();
+                if (nearest != _hero)
+                    continue;
+                Issue(HeroOrder.Move(pool));
                 return true;
             }
 

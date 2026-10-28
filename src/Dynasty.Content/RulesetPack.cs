@@ -73,6 +73,14 @@ namespace Dynasty.Content
                 throw reader.Error("boss", "a pack with its own map must place the boss pit (the base one is on the base map)");
             RuneRules? runes = reader.OptionalObject("runes") is Reader ru ? ReadRunes(ru, baseRules.Runes) : baseRules.Runes;
             MinibossDefinition? miniboss = reader.OptionalObject("miniboss") is Reader mb ? ReadMiniboss(mb) : baseRules.Miniboss;
+            LotusPoolRules? lotusPools = baseRules.LotusPools;
+            if (reader.OptionalObject("lotusPools") is Reader lp)
+            {
+                lotusPools = new LotusPoolRules(Points(lp, "positions"), lp.Milliseconds("first"), lp.Milliseconds("interval"), lp.Int("max"), lp.Int("radius"),
+                    lp.Milliseconds("firstPick"), lp.Int("nextPickPercent"), lp.Milliseconds("minPick"), lp.String("item"));
+                lp.RejectUnknown();
+            }
+
             ShrineRules? shrines = baseRules.Shrines;
             if (reader.OptionalObject("shrines") is Reader sh)
             {
@@ -95,7 +103,7 @@ namespace Dynasty.Content
             }
             var content = new RulesetContent(id, version, baseRules.TicksPerSecond, combat, creepTypes, structureTypes,
                 packMap ?? baseRules.Map, waves, heroes, heroRules, abilities, items, boss, runes,
-                baseRules.DayNight, baseRules.Draft, miniboss, shrines);
+                baseRules.DayNight, baseRules.Draft, miniboss, shrines, lotusPools);
             IReadOnlyList<string> errors = content.Validate();
             if (errors.Count > 0)
                 throw new RulesetPackException((errors.Any(e => e.Contains("terrain")) ? "map.terrain: " : "") + "The pack makes an invalid ruleset: " + string.Join("; ", errors));

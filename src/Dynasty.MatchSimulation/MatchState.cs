@@ -533,6 +533,22 @@ namespace Dynasty.MatchSimulation
         internal int WaypointCount => Team != Team.Dawn && Lane!.DuskWaypoints != null ? Lane.DuskWaypoints.Count : Lane!.Waypoints.Count;
     }
 
+    /// <summary>Runtime state of a Lotus Pool (Dota).</summary>
+    internal sealed class LotusPoolState
+    {
+        /// <summary>Lotuses grown so far by the clock.</summary>
+        public int Grown { get; set; }
+
+        /// <summary>Lotuses in the pool.</summary>
+        public int Lotuses { get; set; }
+
+        /// <summary>Lotuses picked in a row by the current team.</summary>
+        public int Picked { get; set; }
+
+        public long Progress { get; set; }
+        public Team ProgressTeam { get; set; }
+    }
+
     /// <summary>Runtime state of a Shrine of Wisdom (Dota).</summary>
     internal sealed class ShrineState
     {
@@ -597,6 +613,8 @@ namespace Dynasty.MatchSimulation
                 NextMinibossSpawnTick = rate.TicksFor(ruleset.Miniboss.FirstSpawnMs);
             foreach (FixedVector2 _ in ruleset.Shrines?.Positions ?? Array.Empty<FixedVector2>())
                 Shrines.Add(new ShrineState());
+            foreach (FixedVector2 _ in ruleset.LotusPools?.Positions ?? Array.Empty<FixedVector2>())
+                LotusPools.Add(new LotusPoolState());
             foreach (NeutralCampDefinition camp in ruleset.Map.Camps)
                 Camps.Add(new CampState(camp, rate.TicksFor(camp.FirstSpawnMs)));
             if (ruleset.Runes != null)
@@ -699,6 +717,12 @@ namespace Dynasty.MatchSimulation
 
         /// <summary>The living boss, if the ruleset has one and it is up.</summary>
         public MatchUnit? Boss { get; internal set; }
+
+        /// <summary>The Lotus Pools, as in the rules.</summary>
+        internal List<LotusPoolState> LotusPools { get; } = new List<LotusPoolState>();
+
+        /// <summary>Lotuses in a pool (public: they are seen in it).</summary>
+        public int LotusCount(int pool) => LotusPools[pool].Lotuses;
 
         /// <summary>The Shrines of Wisdom, as in the rules.</summary>
         internal List<ShrineState> Shrines { get; } = new List<ShrineState>();
