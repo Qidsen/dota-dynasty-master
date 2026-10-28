@@ -490,8 +490,8 @@ namespace Dynasty.HeroAI
         public void Run()
         {
             Shop();
-            if (_h.IsDead || _h.IsCasting || !_hero.IsAlive)
-                return;
+            if (_h.IsDead || _h.IsCasting || _h.IsChanneling || !_hero.IsAlive)
+                return;   // an order would cancel a channel
 
             NoticeDeaths();
             int hpPercent = Math.HpPercent(_hero);

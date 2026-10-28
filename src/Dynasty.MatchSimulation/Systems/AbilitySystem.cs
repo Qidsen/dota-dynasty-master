@@ -150,6 +150,8 @@ namespace Dynasty.MatchSimulation.Systems
             Effects.RunSpell(context, caster, definition.Effects, ability.Level, target, point);
             foreach (ActiveModifier modifier in caster.Modifiers.Where(m => m.Spec.OnCast.Count > 0).ToList())
                 Effects.Run(context, caster, modifier.Spec.OnCast, 1, target, point);
+            if (definition.Channel != null && caster.IsAlive)
+                ChannelSystem.Start(context, caster, hero, definition, ability.Level, target, point);
         }
 
         /// <summary>Using a consumable item's active spends a charge; the item is gone at zero.</summary>
@@ -290,6 +292,9 @@ namespace Dynasty.MatchSimulation.Systems
                 case EffectKind.Area:
                     RunArea(context, caster, effect, level, target, point);
                     break;
+                case EffectKind.RandomArea:
+                    RunAround(context, caster, effect, level, RandomPointAround(context, caster.Position, effect.MinDistance, effect.MaxDistance), point);
+                    break;
                 case EffectKind.Dash:
                     Dash(caster, target, point);
                     DisjointProjectiles(context, caster);
@@ -373,9 +378,12 @@ namespace Dynasty.MatchSimulation.Systems
                     if (caster.Hero != null)
                     {
                         long now = context.Tick.Value;
-                        foreach (AbilityState ability in caster.Hero.Abilities.Concat(caster.Hero.Inventory.Where(i => i.Active != null).Select(i => i.Active!)))
+                        IEnumerable<AbilityState> items = effect.AbilitiesOnly ? Enumerable.Empty<AbilityState>() : caster.Hero.Inventory.Where(i => i.Active != null).Select(i => i.Active!);
+                        foreach (AbilityState ability in caster.Hero.Abilities.Concat(items))
                         {
-                            if (!ability.Definition.Effects.SelectMany(e => e.SelfAndDescendants()).Any(e => e.Kind == EffectKind.RefreshCooldowns) && ability.CooldownReadyTick > now)
+                            AbilityDefinition definition = ability.Definition;
+                            IEnumerable<EffectDefinition> all = definition.Channel == null ? definition.Effects : definition.Effects.Concat(definition.Channel.End);
+                            if (!all.SelectMany(e => e.SelfAndDescendants()).Any(e => e.Kind == EffectKind.RefreshCooldowns) && ability.CooldownReadyTick > now)
                                 ability.CooldownReadyTick = now;
                         }
                     }
@@ -386,6 +394,21 @@ namespace Dynasty.MatchSimulation.Systems
                         AttackSystem.Strike(context, caster, target, effect.AmountAt(level));
                     break;
             }
+        }
+
+        /// <summary>A random point at least <paramref name="min"/> and at most <paramref name="max"/> from the centre (drawn in the square, kept in the ring).</summary>
+        private static FixedVector2 RandomPointAround(SimulationContext<MatchState> context, FixedVector2 center, int min, int max)
+        {
+            var random = context.Random("abilities");
+            for (int attempt = 0; attempt < 32; attempt++)
+            {
+                FixedVector2 offset = FixedVector2.FromInts(random.NextInt(-max, max + 1), random.NextInt(-max, max + 1));
+                Fixed distanceSquared = offset.LengthSquared;
+                if (distanceSquared >= Fixed.FromInt(min) * Fixed.FromInt(min) && distanceSquared <= Fixed.FromInt(max) * Fixed.FromInt(max))
+                    return center + offset;
+            }
+
+            return center + FixedVector2.FromInts(max, 0);
         }
 
         private static void RunArea(SimulationContext<MatchState> context, MatchUnit caster, EffectDefinition effect, int level, MatchUnit target, FixedVector2 point)

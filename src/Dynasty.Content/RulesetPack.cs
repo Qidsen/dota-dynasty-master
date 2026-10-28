@@ -616,9 +616,18 @@ namespace Dynasty.Content
                 cooldowns, mana, levels, a.Array("effects").Select(ReadEffect).ToList(),
                 a.OptionalArray("passive").Select(ReadModifier).ToList(), a.OptionalBool("targetsStructures") ?? false, a.OptionalBool("innate") ?? false,
                 a.OptionalInts("charges"), a.Has("charges") ? a.Seconds("chargeRestore") : null,
-                a.OptionalArray("variants").Select(v => new AbilityVariant(v.Strings("upgrades"), ReadAbility(v))).ToList());
+                a.OptionalArray("variants").Select(v => new AbilityVariant(v.Strings("upgrades"), ReadAbility(v))).ToList(),
+                a.OptionalObject("channel") is Reader c ? ReadChannel(c) : null);
             a.RejectUnknown();
             return ability;
+        }
+
+        private static ChannelSpec ReadChannel(Reader c)
+        {
+            var channel = new ChannelSpec(c.Seconds("duration"), c.OptionalMilliseconds("period") ?? 1000, c.OptionalArray("pulse").Select(ReadEffect).ToList(),
+                c.OptionalArray("end").Select(ReadEffect).ToList(), c.OptionalObject("whileModifier") is Reader m ? ReadModifier(m) : null);
+            c.RejectUnknown();
+            return channel;
         }
 
         private static TargetTeam ReadTeam(Reader r, string field) => r.String(field) switch
@@ -661,6 +670,10 @@ namespace Dynasty.Content
                     break;
                 case "dash":
                     effect = EffectDefinition.Dash();
+                    break;
+                case "randomArea":
+                    effect = EffectDefinition.RandomArea(e.Int("radius"), e.Int("minDistance"), e.Int("maxDistance"), ReadTeam(e, "team"),
+                        e.Array("effects").Select(ReadEffect).ToArray());
                     break;
                 case "slashes":
                     effect = EffectDefinition.Slashes(e.Int("radius"), e.Ints("amounts").ToArray(), e.Array("modifiers").Select(ReadModifier).ToArray());
@@ -711,7 +724,7 @@ namespace Dynasty.Content
                     effect = EffectDefinition.Execute(e.Ints("amounts").ToArray());
                     break;
                 case "refreshCooldowns":
-                    effect = EffectDefinition.RefreshCooldowns();
+                    effect = EffectDefinition.RefreshCooldowns(e.OptionalBool("abilitiesOnly") ?? false);
                     break;
                 case "ifMelee":
                     effect = EffectDefinition.IfMelee(e.Array("effects").Select(ReadEffect).ToArray());

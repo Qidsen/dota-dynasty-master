@@ -1,4 +1,4 @@
-using Dynasty.Core.Mathematics;
+﻿using Dynasty.Core.Mathematics;
 using Dynasty.MatchSimulation.Combat;
 using Dynasty.MatchSimulation.Rules;
 
@@ -57,6 +57,28 @@ public class PackContentTests
         Assert.Equal((950, 350, 700, 140, "stun"), (m.ReflectHundredths, m.ReflectFullRadius, m.ReflectRadius, m.ReturnPercent, m.OnReturn.Single().ModifierAt(1).Key));
         Assert.Equal((30, 50, 600, 7000, 3, 30), (m.DamageBlock, m.DamageBlockCreepPercent, m.CleanseThreshold, m.CleanseWindowMs, m.AbsorbInstances, m.AbsorbBarrier));
         Assert.Equal((4, 8, 7000, 40), (m.Layers, m.LayerReductionPercent, m.LayerRecoveryMs, m.LayerMinimumDamage));
+    }
+
+    private const string Field = @"{
+        ""id"": ""field"", ""name"": ""Field"", ""targeting"": ""noTarget"", ""targetTeam"": ""enemy"", ""castRange"": 0, ""castPoint"": 0,
+        ""cooldown"": [90], ""manaCost"": [200], ""requiredLevels"": [6], ""effects"": [],
+        ""channel"": { ""duration"": [10], ""period"": 0.1,
+            ""pulse"": [ { ""kind"": ""randomArea"", ""radius"": 320, ""minDistance"": 195, ""maxDistance"": 785, ""team"": ""enemy"",
+                ""effects"": [ { ""kind"": ""damage"", ""damageType"": ""magical"", ""amounts"": [110] } ] } ],
+            ""end"": [ { ""kind"": ""refreshCooldowns"", ""abilitiesOnly"": true } ],
+            ""whileModifier"": { ""key"": ""phase"", ""flags"": [""invulnerable""] } } }";
+
+    [Fact]
+    public void Channels_AreRead()
+    {
+        RulesetContent rules = Apply(@"""unitTypes"": " + Units + @", ""abilities"": [" + Spike + "," + WardPlace + "," + Field + @"], ""items"": " + Items);
+
+        ChannelSpec channel = rules.FindAbility("field")!.Channel!;
+        EffectDefinition pulse = channel.Pulse.Single();
+        Assert.Equal((10000, 100), (channel.DurationAt(1), channel.PeriodMs));
+        Assert.Equal((EffectKind.RandomArea, 320, 195, 785, 110), (pulse.Kind, pulse.Radius, pulse.MinDistance, pulse.MaxDistance, pulse.Inner.Single().AmountAt(1)));
+        Assert.Equal((EffectKind.RefreshCooldowns, true), (channel.End.Single().Kind, channel.End.Single().AbilitiesOnly));
+        Assert.Equal(ModifierFlags.Invulnerable, channel.WhileChannelling!.Flags);
     }
 
     [Fact]

@@ -11737,5 +11737,73 @@
       "releaseAbility": "bristleback_quill_spray",
       "releaseThreshold": "$quill_release_threshold"
     }
+  },
+  "crystal_maiden_freezing_field": {
+    "status": "full",
+    "targeting": "noTarget",
+    "targetTeam": "enemy",
+    "channel": {
+      "period": "$explosion_interval",
+      "pulse": [
+        {
+          "kind": "randomArea",
+          "radius": "$explosion_radius",
+          "minDistance": "$explosion_min_dist",
+          "maxDistance": "$explosion_max_dist",
+          "team": "enemy",
+          "effects": [
+            {
+              "kind": "damage",
+              "damageType": "magical",
+              "amounts": "$damage"
+            }
+          ]
+        },
+        {
+          "kind": "area",
+          "radius": "$radius",
+          "center": "caster",
+          "team": "enemy",
+          "effects": [
+            {
+              "kind": "modifier",
+              "modifiers": {
+                "key": "crystal_maiden_freezing_field_slow",
+                "duration": "$slow_duration",
+                "moveSpeedPercent": "$movespeed_slow",
+                "attackSpeed": "$attack_slow"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "tinker_rearm": {
+    "status": "full",
+    "targeting": "noTarget",
+    "targetTeam": "ally",
+    "channel": {
+      "end": [
+        {
+          "kind": "refreshCooldowns",
+          "abilitiesOnly": true
+        }
+      ]
+    }
+  },
+  "puck_phase_shift": {
+    "status": "full",
+    "targeting": "noTarget",
+    "targetTeam": "ally",
+    "channel": {
+      "duration": "$duration",
+      "whileModifier": {
+        "key": "puck_phase_shift",
+        "flags": [
+          "invulnerable"
+        ]
+      }
+    }
   }
 }

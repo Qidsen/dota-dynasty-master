@@ -175,6 +175,11 @@ namespace Dynasty.MatchSimulation.Heroes
         /// <summary>In the wind-up of an ability (between cast start and effect).</summary>
         public bool IsCasting => CastEndTick >= 0;
 
+        /// <summary>Channelling an ability (see <see cref="ChannelSpec"/>).</summary>
+        public bool IsChanneling => Channel != null;
+
+        internal ChannelState? Channel { get; set; }
+
         /// <summary>When the Twin Gate channel ends; -1 when not channeling one.</summary>
         public long GateChannelEndTick { get; internal set; } = -1;
 
@@ -300,6 +305,8 @@ namespace Dynasty.MatchSimulation.Heroes
         public static void Issue(MatchUnit hero, HeroOrder order)
         {
             HeroState state = hero.Hero!;
+            if (state.Channel != null && order.Kind != HeroOrderKind.Idle)
+                state.Channel.Cancelled = true;   // Dota: any action cancels a channel
             state.Order = order;
             if (order.Kind == HeroOrderKind.Attack)
                 state.AttackOrders++;
@@ -307,6 +314,28 @@ namespace Dynasty.MatchSimulation.Heroes
             state.CastEndTick = -1;
             hero.TargetId = order.Kind == HeroOrderKind.Attack ? order.Target : EntityId.None;
         }
+    }
+
+    /// <summary>A channel under way: what is channelled, where, and when its next pulse and its end come.</summary>
+    internal sealed class ChannelState
+    {
+        public ChannelState(AbilityDefinition ability, int level, EntityId target, FixedVector2 point, long nextPulseTick, long endTick)
+        {
+            Ability = ability;
+            Level = level;
+            Target = target;
+            Point = point;
+            NextPulseTick = nextPulseTick;
+            EndTick = endTick;
+        }
+
+        public AbilityDefinition Ability { get; }
+        public int Level { get; }
+        public EntityId Target { get; }
+        public FixedVector2 Point { get; }
+        public long NextPulseTick { get; set; }
+        public long EndTick { get; }
+        public bool Cancelled { get; set; }
     }
 
     public static class HeroProgression

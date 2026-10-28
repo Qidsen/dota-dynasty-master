@@ -374,6 +374,20 @@ static class Abilities
         ability["effects"] = new JsonArray((entry["effects"] as JsonArray ?? new JsonArray()).Select(e => (JsonNode)ResolveEffect(e!.AsObject(), values, levels)).ToArray());
         if (entry["passive"] is JsonObject passive)
             ability["passive"] = Modifiers(passive, values, levels);
+        if (entry["channel"] is JsonObject channel)
+        {
+            var resolved = new JsonObject
+            {
+                ["duration"] = PerLevel(channel["duration"] ?? JsonValue.Create("$abilitychanneltime"), values, levels, fallback: null),
+                ["period"] = Scalar(channel["period"] ?? JsonValue.Create(1m), values, levels, fallback: null),
+                ["pulse"] = new JsonArray((channel["pulse"] as JsonArray ?? new JsonArray()).Select(e => (JsonNode)ResolveEffect(e!.AsObject(), values, levels)).ToArray()),
+                ["end"] = new JsonArray((channel["end"] as JsonArray ?? new JsonArray()).Select(e => (JsonNode)ResolveEffect(e!.AsObject(), values, levels)).ToArray()),
+            };
+            if (channel["whileModifier"] is JsonObject whileModifier)
+                resolved["whileModifier"] = ResolveAt(whileModifier, values, 0);   // the same at every level (Phase Shift's invulnerability)
+            ability["channel"] = resolved;
+        }
+
         return ability;
     }
 

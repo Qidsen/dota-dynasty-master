@@ -1030,10 +1030,11 @@ namespace Dynasty.MatchSimulation.Rules
                     errors.Add(owner + " must define cooldown and mana cost per level.");
                 if (ability.CastRange < 0 || ability.CastPointMs < 0)
                     errors.Add(owner + " has a negative cast range or cast point.");
-                if (ability.Effects.Count == 0)
+                if (ability.Effects.Count == 0 && (ability.Channel == null || ability.Channel.Pulse.Count + ability.Channel.End.Count == 0 && ability.Channel.WhileChannelling == null))
                     errors.Add(owner + " has no effects.");
 
-                foreach (EffectDefinition effect in ability.Effects.SelectMany(e => e.SelfAndDescendants()))
+                IEnumerable<EffectDefinition> all = ability.Channel == null ? ability.Effects : ability.Effects.Concat(ability.Channel.Pulse).Concat(ability.Channel.End);
+                foreach (EffectDefinition effect in all.SelectMany(e => e.SelfAndDescendants()))
                 {
                     bool needsAmounts = effect.Kind == EffectKind.Damage || effect.Kind == EffectKind.Heal ||
                                         effect.Kind == EffectKind.Knockback || effect.Kind == EffectKind.Summon;

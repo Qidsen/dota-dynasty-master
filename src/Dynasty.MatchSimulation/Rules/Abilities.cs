@@ -99,6 +99,12 @@ namespace Dynasty.MatchSimulation.Rules
         /// <see cref="EffectDefinition.Radius"/>, moved next to it, starting with the target; no enemy near ends them.
         /// </summary>
         Slashes = 22,
+
+        /// <summary>
+        /// The inner effects on the matching units within <see cref="EffectDefinition.Radius"/> of a random point between
+        /// <see cref="EffectDefinition.MinDistance"/> and <see cref="EffectDefinition.MaxDistance"/> from the caster (Freezing Field).
+        /// </summary>
+        RandomArea = 23,
     }
 
     /// <summary>What a damage effect's amounts mean: flat damage, or a percent of the target's health or mana.</summary>
@@ -152,8 +158,14 @@ namespace Dynasty.MatchSimulation.Rules
             DamageScaling scaling = DamageScaling.Flat,
             int damagePercent = 0,
             string? stackKey = null,
-            int periodMs = 0)
+            int periodMs = 0,
+            int minDistance = 0,
+            int maxDistance = 0,
+            bool abilitiesOnly = false)
         {
+            AbilitiesOnly = abilitiesOnly;
+            MinDistance = minDistance;
+            MaxDistance = maxDistance;
             PeriodMs = periodMs;
             StackKey = stackKey;
             Scaling = scaling;
@@ -175,6 +187,14 @@ namespace Dynasty.MatchSimulation.Rules
         }
 
         public EffectKind Kind { get; }
+
+        /// <summary>Cooldown refreshes only: the hero's abilities, not its items (Dota's Rearm in 7.41).</summary>
+        public bool AbilitiesOnly { get; }
+
+        /// <summary>Random areas only: the ring their centres fall in, around the caster.</summary>
+        public int MinDistance { get; }
+
+        public int MaxDistance { get; }
 
         /// <summary>Damage, heal, knockback distance or summon count per level.</summary>
         public IReadOnlyList<int> Amounts { get; }
@@ -259,7 +279,7 @@ namespace Dynasty.MatchSimulation.Rules
 
         public static EffectDefinition RestoreMana(params int[] manaPerLevel) => new EffectDefinition(EffectKind.RestoreMana, manaPerLevel);
 
-        public static EffectDefinition RefreshCooldowns() => new EffectDefinition(EffectKind.RefreshCooldowns);
+        public static EffectDefinition RefreshCooldowns(bool abilitiesOnly = false) => new EffectDefinition(EffectKind.RefreshCooldowns, abilitiesOnly: abilitiesOnly);
 
         public static EffectDefinition IfMelee(params EffectDefinition[] inner) => new EffectDefinition(EffectKind.IfMelee, inner: inner);
 
@@ -292,6 +312,10 @@ namespace Dynasty.MatchSimulation.Rules
             new EffectDefinition(EffectKind.Summon, countPerLevel, summonTypeId: creepTypeId, durationMs: durationMs);
 
         /// <summary>Summon at the cast point instead of next to the caster (wards); point-target abilities only.</summary>
+        /// <summary>See <see cref="EffectKind.RandomArea"/>.</summary>
+        public static EffectDefinition RandomArea(int radius, int minDistance, int maxDistance, TargetTeam team, params EffectDefinition[] inner) =>
+            new EffectDefinition(EffectKind.RandomArea, radius: radius, team: team, inner: inner, minDistance: minDistance, maxDistance: maxDistance);
+
         /// <summary>Slashes (see <see cref="EffectKind.Slashes"/>): the rate in percent of the attack rate, and the slashing modifier, per level.</summary>
         public static EffectDefinition Slashes(int radius, int[] ratePercentPerLevel, params ModifierSpec[] perLevel) =>
             new EffectDefinition(EffectKind.Slashes, ratePercentPerLevel, modifiers: perLevel, radius: radius);
@@ -349,6 +373,9 @@ namespace Dynasty.MatchSimulation.Rules
             w.WriteInt64(DamagePercent);
             w.WriteString(StackKey ?? "");
             w.WriteInt64(PeriodMs);
+            w.WriteInt64(MinDistance);
+            w.WriteInt64(MaxDistance);
+            w.WriteBool(AbilitiesOnly);
             w.WriteInt64(Inner.Count);
             foreach (EffectDefinition child in Inner)
                 child.WriteCanonical(w);
@@ -356,6 +383,49 @@ namespace Dynasty.MatchSimulation.Rules
     }
 
     /// <summary>An ability as upgraded by a set of talents, "scepter" and/or "shard".</summary>
+    /// <summary>
+    /// A channel (Dota): after the cast the hero stands channelling for the level's duration; <see cref="Pulse"/> runs every
+    /// <see cref="PeriodMs"/> from the start, <see cref="End"/> only when the channel is completed, and <see cref="WhileChannelling"/>
+    /// is on the hero meanwhile. A stun, a silence, fear, a taunt, death or a new order ends it early.
+    /// </summary>
+    public sealed class ChannelSpec
+    {
+        public ChannelSpec(IReadOnlyList<int> durationMs, int periodMs, IReadOnlyList<EffectDefinition> pulse, IReadOnlyList<EffectDefinition> end,
+            ModifierSpec? whileChannelling)
+        {
+            DurationMs = durationMs.ToArray();
+            PeriodMs = periodMs;
+            Pulse = pulse.ToArray();
+            End = end.ToArray();
+            WhileChannelling = whileChannelling;
+        }
+
+        public IReadOnlyList<int> DurationMs { get; }
+        public int PeriodMs { get; }
+        public IReadOnlyList<EffectDefinition> Pulse { get; }
+        public IReadOnlyList<EffectDefinition> End { get; }
+        public ModifierSpec? WhileChannelling { get; }
+
+        public int DurationAt(int level) => EffectDefinition.ValueAt(DurationMs, level);
+
+        internal void WriteCanonical(CanonicalWriter w)
+        {
+            w.WriteInt64(DurationMs.Count);
+            foreach (int value in DurationMs)
+                w.WriteInt64(value);
+            w.WriteInt64(PeriodMs);
+            foreach (IReadOnlyList<EffectDefinition> list in new[] { Pulse, End })
+            {
+                w.WriteInt64(list.Count);
+                foreach (EffectDefinition effect in list)
+                    effect.WriteCanonical(w);
+            }
+
+            w.WriteBool(WhileChannelling != null);
+            WhileChannelling?.WriteCanonical(w);
+        }
+    }
+
     public sealed class AbilityVariant
     {
         public AbilityVariant(IReadOnlyList<string> upgrades, AbilityDefinition definition)
@@ -388,8 +458,10 @@ namespace Dynasty.MatchSimulation.Rules
             bool innate = false,
             IReadOnlyList<int>? maxCharges = null,
             IReadOnlyList<int>? chargeRestoreMs = null,
-            IReadOnlyList<AbilityVariant>? variants = null)
+            IReadOnlyList<AbilityVariant>? variants = null,
+            ChannelSpec? channel = null)
         {
+            Channel = channel;
             Variants = (variants ?? Array.Empty<AbilityVariant>()).ToArray();
             MaxCharges = (maxCharges ?? Array.Empty<int>()).ToArray();
             ChargeRestoreMs = (chargeRestoreMs ?? Array.Empty<int>()).ToArray();
@@ -422,6 +494,9 @@ namespace Dynasty.MatchSimulation.Rules
 
         public int MaxLevel => RequiredHeroLevel.Count;
         public IReadOnlyList<EffectDefinition> Effects { get; }
+
+        /// <summary>The channel the ability starts after its effects; null for abilities that are not channelled.</summary>
+        public ChannelSpec? Channel { get; }
 
         /// <summary>Permanent modifier per level for passive abilities.</summary>
         public IReadOnlyList<ModifierSpec> PassiveModifiers { get; }
@@ -494,6 +569,8 @@ namespace Dynasty.MatchSimulation.Rules
                 modifier.WriteCanonical(w);
             w.WriteBool(TargetsStructures);
             w.WriteBool(Innate);
+            w.WriteBool(Channel != null);
+            Channel?.WriteCanonical(w);
             w.WriteInt64(Variants.Count);
             foreach (AbilityVariant variant in Variants)
             {
