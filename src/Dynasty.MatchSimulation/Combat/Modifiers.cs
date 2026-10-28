@@ -197,8 +197,20 @@ namespace Dynasty.MatchSimulation.Combat
             int layers = 0,
             int layerReductionPercent = 0,
             int layerRecoveryMs = 0,
-            int layerMinimumDamage = 0)
+            int layerMinimumDamage = 0,
+            int sideReductionPercent = 0,
+            int backReductionPercent = 0,
+            int sideAngle = 0,
+            int backAngle = 0,
+            string? releaseAbilityId = null,
+            int releaseThreshold = 0)
         {
+            SideReductionPercent = sideReductionPercent;
+            BackReductionPercent = backReductionPercent;
+            SideAngle = sideAngle;
+            BackAngle = backAngle;
+            ReleaseAbilityId = releaseAbilityId;
+            ReleaseThreshold = releaseThreshold;
             Layers = layers;
             LayerReductionPercent = layerReductionPercent;
             LayerRecoveryMs = layerRecoveryMs;
@@ -510,6 +522,25 @@ namespace Dynasty.MatchSimulation.Combat
         public int LayerRecoveryMs { get; }
         public int LayerMinimumDamage { get; }
 
+        /// <summary>
+        /// Dota's Bristleback: damage whose source stands within <see cref="BackAngle"/> degrees of the bearer's back is cut by
+        /// <see cref="BackReductionPercent"/>, within <see cref="SideAngle"/> by <see cref="SideReductionPercent"/> (by the way the
+        /// bearer faces, <see cref="MatchUnit.Facing"/>).
+        /// </summary>
+        public int SideReductionPercent { get; }
+
+        public int BackReductionPercent { get; }
+        public int SideAngle { get; }
+        public int BackAngle { get; }
+
+        /// <summary>
+        /// Damage taken from the rear adds up; each <see cref="ReleaseThreshold"/> of it makes the bearer release its ability
+        /// <see cref="ReleaseAbilityId"/> at the level it has learned (Bristleback's Quill Spray), none when not learned.
+        /// </summary>
+        public string? ReleaseAbilityId { get; }
+
+        public int ReleaseThreshold { get; }
+
         /// <summary><see cref="OnKill"/> runs only for hero victims (Flesh Heap).</summary>
         public bool OnKillHeroesOnly { get; }
 
@@ -682,8 +713,10 @@ namespace Dynasty.MatchSimulation.Combat
                     effect.WriteCanonical(w);
             }
             foreach (int value in new[] { ReflectHundredths, ReflectFullRadius, ReflectRadius, ReturnPercent, DamageBlock, DamageBlockCreepPercent,
-                                          CleanseThreshold, CleanseWindowMs, AbsorbInstances, AbsorbBarrier, Layers, LayerReductionPercent, LayerRecoveryMs, LayerMinimumDamage })
+                                          CleanseThreshold, CleanseWindowMs, AbsorbInstances, AbsorbBarrier, Layers, LayerReductionPercent, LayerRecoveryMs, LayerMinimumDamage,
+                                          SideReductionPercent, BackReductionPercent, SideAngle, BackAngle, ReleaseThreshold })
                 w.WriteInt64(value);
+            w.WriteString(ReleaseAbilityId ?? "");
         }
 
         public static ModifierSpec Status(string key, int durationMs, ModifierFlags flags) => new ModifierSpec(key, durationMs, flags);
@@ -715,6 +748,9 @@ namespace Dynasty.MatchSimulation.Combat
         internal int InstancesLeft { get; set; }
 
         internal int InstanceBarrierLeft { get; set; }
+
+        /// <summary>Damage from the rear counted toward <see cref="ModifierSpec.ReleaseThreshold"/>.</summary>
+        internal Fixed ReleaseTaken { get; set; }
 
         /// <summary>When each lost layer of <see cref="ModifierSpec.Layers"/> comes back, in order.</summary>
         internal List<long> LayerReturns { get; } = new List<long>();
@@ -900,6 +936,8 @@ namespace Dynasty.MatchSimulation.Combat
 
             bool byPlayer = from != null && from.Team != target.Team && (from.Kind == UnitKind.Hero || from.Kind == UnitKind.Summon || from.IllusionOf.IsValid);
             amount = ThroughLayers(context, target, from, amount);
+            bool fromRear = false;
+            amount = ByDirection(target, from, amount, ref fromRear);
             ActiveModifier? returning = null;
             Fixed returned = Fixed.Zero;
             if (!reflected && byPlayer && amount > Fixed.Zero)
@@ -935,6 +973,8 @@ namespace Dynasty.MatchSimulation.Combat
             context.Emit(new DamageDealt(attacker, target.Id, amount, target.Hp, type, isCritical));
             if (byPlayer && amount > Fixed.Zero)
                 CountTowardCleanse(context, target, amount);
+            if (fromRear && amount > Fixed.Zero)
+                CountTowardRelease(context, target, amount);
             if (reflections != null)
             {
                 foreach (var (unit, share) in reflections)
@@ -977,6 +1017,56 @@ namespace Dynasty.MatchSimulation.Combat
             }
 
             return reflections;
+        }
+
+        /// <summary>cos(degrees) in ten-thousandths for whole degrees 0..180: angles compared without floating point.</summary>
+        private static readonly int[] CosTenThousandths = { 10000, 9998, 9994, 9986, 9976, 9962, 9945, 9925, 9903, 9877, 9848, 9816, 9781, 9744, 9703, 9659, 9613, 9563, 9511, 9455, 9397, 9336, 9272, 9205, 9135, 9063, 8988, 8910, 8829, 8746, 8660, 8572, 8480, 8387, 8290, 8192, 8090, 7986, 7880, 7771, 7660, 7547, 7431, 7314, 7193, 7071, 6947, 6820, 6691, 6561, 6428, 6293, 6157, 6018, 5878, 5736, 5592, 5446, 5299, 5150, 5000, 4848, 4695, 4540, 4384, 4226, 4067, 3907, 3746, 3584, 3420, 3256, 3090, 2924, 2756, 2588, 2419, 2250, 2079, 1908, 1736, 1564, 1392, 1219, 1045, 872, 698, 523, 349, 175, 0, -175, -349, -523, -698, -872, -1045, -1219, -1392, -1564, -1736, -1908, -2079, -2250, -2419, -2588, -2756, -2924, -3090, -3256, -3420, -3584, -3746, -3907, -4067, -4226, -4384, -4540, -4695, -4848, -5000, -5150, -5299, -5446, -5592, -5736, -5878, -6018, -6157, -6293, -6428, -6561, -6691, -6820, -6947, -7071, -7193, -7314, -7431, -7547, -7660, -7771, -7880, -7986, -8090, -8192, -8290, -8387, -8480, -8572, -8660, -8746, -8829, -8910, -8988, -9063, -9135, -9205, -9272, -9336, -9397, -9455, -9511, -9563, -9613, -9659, -9703, -9744, -9781, -9816, -9848, -9877, -9903, -9925, -9945, -9962, -9976, -9986, -9994, -9998, -10000 };
+
+        /// <summary>
+        /// Bristleback: cuts damage from the side or rear by where the source stands against the way the bearer faces (a unit that
+        /// has not faced anywhere yet takes it as from the front).
+        /// </summary>
+        private static Fixed ByDirection(MatchUnit target, MatchUnit? from, Fixed amount, ref bool fromRear)
+        {
+            if (from == null || from == target || amount <= Fixed.Zero || target.Modifiers.Count == 0 || target.Facing == FixedVector2.Zero)
+                return amount;
+            ActiveModifier? hide = target.Modifiers.FirstOrDefault(m => m.Spec.SideAngle > 0 || m.Spec.BackAngle > 0);
+            if (hide == null)
+                return amount;
+            FixedVector2 toSource = from.Position - target.Position;
+            if (toSource == FixedVector2.Zero)
+                return amount;
+            // The source is within A degrees of the back when the angle between the facing and it is at least 180 - A,
+            // that is when cos <= -cos(A): dot <= -cos(A) * |facing| * |toSource|.
+            Fixed dot = target.Facing.X * toSource.X + target.Facing.Y * toSource.Y;
+            Fixed lengths = target.Facing.Length * toSource.Length;
+            bool Within(int degrees) => degrees > 0 && dot * Fixed.FromInt(10000) <= Fixed.FromInt(-CosTenThousandths[System.Math.Min(180, degrees)]) * lengths;
+            ModifierSpec spec = hide.Spec;
+            int cut = 0;
+            if (Within(spec.BackAngle))
+            {
+                cut = spec.BackReductionPercent;
+                fromRear = true;
+            }
+            else if (Within(spec.SideAngle))
+                cut = spec.SideReductionPercent;
+            return amount * Fixed.FromInt(100 - cut) / Fixed.FromInt(100);
+        }
+
+        /// <summary>Quill Spray released by Bristleback: each threshold of damage from the rear casts the learned ability once.</summary>
+        private static void CountTowardRelease(SimulationContext<MatchState> context, MatchUnit target, Fixed amount)
+        {
+            foreach (ActiveModifier modifier in target.Modifiers.Where(m => m.Spec.ReleaseThreshold > 0 && m.Spec.ReleaseAbilityId != null).ToList())
+            {
+                modifier.ReleaseTaken += amount;
+                if (modifier.ReleaseTaken < Fixed.FromInt(modifier.Spec.ReleaseThreshold))
+                    continue;
+                modifier.ReleaseTaken -= Fixed.FromInt(modifier.Spec.ReleaseThreshold);
+                int level = target.Hero?.AbilityLevel(modifier.Spec.ReleaseAbilityId!) ?? 0;
+                Rules.AbilityDefinition? ability = context.State.Ruleset.FindAbility(modifier.Spec.ReleaseAbilityId!);
+                if (level > 0 && ability != null && target.IsAlive)
+                    Systems.Effects.Run(context, target, ability.Effects, level, target, target.Position);
+            }
         }
 
         /// <summary>Gravekeeper's Cloak: the layers cut the damage; a player's damage over the minimum takes one off.</summary>

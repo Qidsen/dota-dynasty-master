@@ -11722,5 +11722,20 @@
       "layerRecovery": "$recovery_time",
       "layerMinimumDamage": "$minimum_damage"
     }
+  },
+  "bristleback_bristleback": {
+    "status": "simplified",
+    "note": "no activation (the 7.41 data has an active: activation_cooldown, activation_num_quill_sprays; not in its description); passively released Quill Sprays are ordinary damage (reflected damage in Dota: no lifesteal, not reflected again); at most one release per instance of damage",
+    "targeting": "passive",
+    "targetTeam": "ally",
+    "passive": {
+      "key": "bristleback_bristleback",
+      "sideReduction": "$side_damage_reduction",
+      "backReduction": "$back_damage_reduction",
+      "sideAngle": "$side_angle",
+      "backAngle": "$back_angle",
+      "releaseAbility": "bristleback_quill_spray",
+      "releaseThreshold": "$quill_release_threshold"
+    }
   }
 }

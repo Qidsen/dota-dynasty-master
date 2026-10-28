@@ -197,6 +197,12 @@ namespace Dynasty.MatchSimulation
         public bool CanMove => (StartFlags & (ModifierFlags.Stunned | ModifierFlags.Rooted | ModifierFlags.Busy)) == 0 && StepPerTick > Fixed.Zero;
         public bool CanStartAttack => (StartFlags & (ModifierFlags.Stunned | ModifierFlags.Disarmed | ModifierFlags.Busy)) == 0 && CanAttackAtAll;
 
+        /// <summary>
+        /// The way the unit faces (not normalised): the way it last stepped, or toward what it last started attacking; zero until then.
+        /// Directional effects read it (Bristleback).
+        /// </summary>
+        public FixedVector2 Facing { get; internal set; }
+
         /// <summary>The slashes in progress (Dota's Omnislash); null when none.</summary>
         internal SlashState? Slashes { get; set; }
 

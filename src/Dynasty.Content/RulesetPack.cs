@@ -836,7 +836,9 @@ namespace Dynasty.Content
                 cleanseWindowMs: m.OptionalMilliseconds("cleanseWindow") ?? 0, absorbInstances: m.OptionalInt("absorbInstances") ?? 0,
                 absorbBarrier: m.OptionalInt("absorbBarrier") ?? 0, layers: m.OptionalInt("layers") ?? 0,
                 layerReductionPercent: m.OptionalInt("layerReduction") ?? 0, layerRecoveryMs: m.OptionalMilliseconds("layerRecovery") ?? 0,
-                layerMinimumDamage: m.OptionalInt("layerMinimumDamage") ?? 0);
+                layerMinimumDamage: m.OptionalInt("layerMinimumDamage") ?? 0, sideReductionPercent: m.OptionalInt("sideReduction") ?? 0,
+                backReductionPercent: m.OptionalInt("backReduction") ?? 0, sideAngle: m.OptionalInt("sideAngle") ?? 0, backAngle: m.OptionalInt("backAngle") ?? 0,
+                releaseAbilityId: m.OptionalString("releaseAbility"), releaseThreshold: m.OptionalInt("releaseThreshold") ?? 0);
             m.RejectUnknown();
             return spec;
         }

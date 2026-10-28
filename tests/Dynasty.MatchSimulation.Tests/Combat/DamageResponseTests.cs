@@ -175,6 +175,78 @@ public class DamageResponseTests
         Assert.Equal(new[] { Fixed.FromInt(20), Fixed.FromInt(100), Fixed.FromInt(200), Fixed.FromInt(40) }, lost);
     }
 
+    /// <summary>
+    /// Bristleback: less damage from the side (within 110 degrees of the back) and more less from the rear (within 70 degrees of the
+    /// back), by where the source stands against the way the bearer faces; enough damage from the rear releases its Quill Spray.
+    /// </summary>
+    [Theory]
+    [InlineData(5300, 5000, 100)]   // in front
+    [InlineData(5000, 5300, 80)]    // the side: 90 degrees off the front
+    [InlineData(4700, 5000, 60)]    // the rear
+    [InlineData(4900, 5300, 80)]    // 72 degrees off the back: the side, not the rear (within 70 is the rear)
+    [InlineData(4800, 5300, 60)]    // 56 degrees off the back: the rear
+    public void Directional_LessDamageFromTheSideAndRear(int x, int y, int expected)
+    {
+        var kernel = Arena(("alpha", 5000, 5000), ("beta", x, y), ("delta", 9000, 9000), ("gamma", 3000, 5000));
+        Give(kernel, "alpha", new ModifierSpec("bristleback", -1, sideReductionPercent: 20, backReductionPercent: 40, sideAngle: 110, backAngle: 70));
+        At(kernel, 2, ctx =>
+        {
+            H(ctx.State, "alpha").Facing = P(1, 0);   // faces east
+            Damage.Deal(ctx, H(ctx.State, "beta").Id, H(ctx.State, "alpha"), Fixed.FromInt(100), DamageType.Pure);
+        });
+
+        kernel.RunTicks(3);
+
+        Assert.Equal(Fixed.FromInt(expected), Lost(kernel.State, "alpha"));
+    }
+
+    [Fact]
+    public void Directional_RearDamageAddsUp_AndReleasesTheBearersAbility()
+    {
+        var draft = new RulesetDraft().WithoutWaves();
+        draft.Heroes.Clear();
+        foreach (string id in new[] { "alpha", "beta", "gamma", "delta" })
+            draft.Heroes.Add(new HeroDefinition(id, id, new[] { "carry" }, new UnitStats(2000, Fixed.Zero, 300, 50, 50, 150, 1500, 300, 800, 24, 0, visionRange: 1200),
+                hpPerLevel: 0, armorPerLevel: Fixed.Zero, damagePerLevel: 0, baseMana: 300, manaPerLevel: 0, hpRegenPerSecond: Fixed.Zero, manaRegenPerSecond: Fixed.Zero,
+                abilityIds: id == "alpha" ? new[] { "quills" } : null));
+        draft.Abilities.Add(new AbilityDefinition("quills", "Quills", AbilityTargeting.NoTarget, TargetTeam.Enemy, 0, 0, new[] { 3000 }, new[] { 0 }, new[] { 1 },
+            new[] { EffectDefinition.Area(700, AreaCenter.Caster, TargetTeam.Enemy, EffectDefinition.Damage(DamageType.Pure, 33)) }));
+        var kernel = draft.StartWithHeroes(new[] { ("alpha", "mid"), ("gamma", "mid") }, new[] { ("beta", "mid"), ("delta", "mid") });
+        At(kernel, 0, ctx =>
+        {
+            H(ctx.State, "alpha").Position = P(5000, 5000);
+            H(ctx.State, "beta").Position = P(4700, 5000);   // behind
+            H(ctx.State, "gamma").Position = P(3000, 3000);
+            H(ctx.State, "delta").Position = P(5300, 5000);  // in front, near: the quills hit it too
+        });
+        Give(kernel, "alpha", new ModifierSpec("bristleback", -1, backReductionPercent: 50, sideAngle: 110, backAngle: 70, releaseAbilityId: "quills", releaseThreshold: 100));
+        for (long tick = 2; tick <= 4; tick++)
+            At(kernel, tick, ctx =>
+            {
+                H(ctx.State, "alpha").Facing = P(1, 0);
+                Damage.Deal(ctx, H(ctx.State, "beta").Id, H(ctx.State, "alpha"), Fixed.FromInt(80), DamageType.Pure);   // 40 each from behind
+            });
+
+        kernel.RunTicks(5);
+
+        Assert.Equal(Fixed.FromInt(33), Lost(kernel.State, "delta"));   // 40 + 40 + 40 = 120: one release at 100
+        Assert.Equal(Fixed.FromInt(33), Lost(kernel.State, "beta"));
+    }
+
+    [Fact]
+    public void Facing_FollowsTheWalk_AndTurnsToTheAttackTarget()
+    {
+        var kernel = Arena(("alpha", 5000, 5000), ("beta", 5000, 5100), ("delta", 9000, 9000), ("gamma", 3000, 5000));
+        At(kernel, 2, ctx => Dynasty.MatchSimulation.Heroes.HeroOrders.Issue(H(ctx.State, "gamma"), Dynasty.MatchSimulation.Heroes.HeroOrder.Move(P(3000, 4000))));   // walks south
+        At(kernel, 2, ctx => Dynasty.MatchSimulation.Heroes.HeroOrders.Issue(H(ctx.State, "alpha"), Dynasty.MatchSimulation.Heroes.HeroOrder.Attack(H(ctx.State, "beta").Id)));   // beta is north
+
+        kernel.RunTicks(10);
+
+        FixedVector2 gamma = H(kernel.State, "gamma").Facing, alpha = H(kernel.State, "alpha").Facing;
+        Assert.True(gamma.Y < Fixed.Zero && Fixed.Abs(gamma.X) < Fixed.Abs(gamma.Y), "gamma faces south");
+        Assert.True(alpha.Y > Fixed.Zero && Fixed.Abs(alpha.X) < Fixed.Abs(alpha.Y), "alpha faces beta, north");
+    }
+
     [Fact]
     public void AbsorbInstances_SwallowWholeHits_UntilTheChargesAreGone()
     {

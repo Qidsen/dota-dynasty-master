@@ -668,6 +668,8 @@ namespace Dynasty.MatchSimulation.Systems
                 return;
 
             unit.PendingTargetId = target.Id;
+            if (target.Position != unit.Position)
+                unit.Facing = target.Position - unit.Position;
             unit.AttackStartTick = now;
             unit.AttackStartTarget = target.Id;
             unit.PendingAttackTick = now + unit.AttackPointTicks;

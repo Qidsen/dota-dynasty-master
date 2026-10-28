@@ -289,7 +289,10 @@ namespace Dynasty.MatchSimulation.Systems
                 return false;
             }
 
+            FixedVector2 before = unit.Position;
             unit.Position = FixedVector2.MoveTowards(unit.Position, path[hero.PathIndex], unit.StepPerTick);
+            if (unit.Position != before)
+                unit.Facing = unit.Position - before;
             // Count the waypoint as reached now, before separation may nudge the hero off it.
             if (unit.Position == path[hero.PathIndex])
                 hero.PathIndex++;
