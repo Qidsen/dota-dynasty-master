@@ -786,6 +786,15 @@ namespace Dynasty.MatchSimulation.Systems
             if (target.EvasionHundredths > 0 &&
                 (context.State.Ruleset.Combat.DotaStacking ? PseudoRandom.Roll(context, target.EvasionHundredths, ref target.EvasionTries) : Draw(context, target.EvasionHundredths)))
                 return;
+            int block = 0;
+            foreach (ActiveModifier blocking in target.Modifiers)
+            {
+                // Dota's damage block (Kraken Shell): before armor, the strongest one; less against creeps.
+                int amount = attacker.Kind == UnitKind.Creep ? blocking.Spec.DamageBlock * blocking.Spec.DamageBlockCreepPercent / 100 : blocking.Spec.DamageBlock;
+                block = System.Math.Max(block, amount);
+            }
+            if (block > 0)
+                damage = Fixed.Max(Fixed.Zero, damage - Fixed.FromInt(block));
             Fixed dealt = Damage.Deal(context, attacker.Id, target, damage, DamageType.Physical, critical);
             if (attacker.LifestealPercent > 0 && attacker.IsAlive)
                 Damage.Heal(context, attacker.Id, attacker, dealt * Fixed.FromInt(attacker.LifestealPercent) / Fixed.FromInt(100));

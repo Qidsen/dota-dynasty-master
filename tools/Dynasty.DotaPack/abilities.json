@@ -11620,5 +11620,94 @@
         }
       }
     ]
+  },
+  "spectre_dispersion": {
+    "status": "full",
+    "targeting": "passive",
+    "targetTeam": "ally",
+    "passive": {
+      "key": "spectre_dispersion",
+      "reflect": "$damage_reflection_pct",
+      "reflectFullRadius": "$min_radius",
+      "reflectRadius": "$max_radius"
+    }
+  },
+  "nyx_assassin_spiked_carapace": {
+    "status": "simplified",
+    "note": "no burrowed form (the Aghanim's Scepter Burrow): always the above-ground carapace",
+    "targeting": "noTarget",
+    "targetTeam": "ally",
+    "effects": [
+      {
+        "kind": "modifier",
+        "modifiers": {
+          "key": "nyx_assassin_spiked_carapace",
+          "duration": "$reflect_duration",
+          "returnPercent": "$damage_reflect_pct",
+          "onReturn": [
+            {
+              "kind": "modifier",
+              "modifiers": {
+                "key": "nyx_assassin_spiked_carapace_stun",
+                "duration": "$stun_duration",
+                "flags": [
+                  "stunned"
+                ]
+              }
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "tidehunter_kraken_shell": {
+    "status": "full",
+    "targeting": "noTarget",
+    "targetTeam": "ally",
+    "effects": [
+      {
+        "kind": "modifier",
+        "modifiers": {
+          "key": "tidehunter_kraken_shell_active",
+          "duration": "$active_duration",
+          "damageBlock": "$damage_reduction*$active_pct_effectiveness/100",
+          "damageBlockCreepReduction": "$creep_reduction_penalty_pct",
+          "moveSpeedPercent": "-$active_move_speed_penalty_pct"
+        }
+      }
+    ],
+    "passive": {
+      "key": "tidehunter_kraken_shell",
+      "damageBlock": "$damage_reduction",
+      "damageBlockCreepReduction": "$creep_reduction_penalty_pct",
+      "cleanseThreshold": "$damage_cleanse",
+      "cleanseWindow": "$damage_reset_interval"
+    }
+  },
+  "templar_assassin_refraction": {
+    "status": "simplified",
+    "note": "no HP removal in the engine (it would bypass the charges)",
+    "targeting": "noTarget",
+    "targetTeam": "ally",
+    "effects": [
+      {
+        "kind": "modifier",
+        "modifiers": {
+          "key": "templar_assassin_refraction_absorb",
+          "duration": "$duration",
+          "absorbInstances": "$instances",
+          "absorbBarrier": "$shield_per_instance"
+        }
+      },
+      {
+        "kind": "modifier",
+        "modifiers": {
+          "key": "templar_assassin_refraction_damage",
+          "duration": "$duration",
+          "attackCharges": "$instances",
+          "damage": "$bonus_damage"
+        }
+      }
+    ]
   }
 }

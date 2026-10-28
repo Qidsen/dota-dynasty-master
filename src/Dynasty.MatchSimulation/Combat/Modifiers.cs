@@ -182,8 +182,30 @@ namespace Dynasty.MatchSimulation.Combat
             int barrierMaxHealthPercent = 0,
             Fixed damagedRegenMaxPercent = default,
             int damagedRegenMs = 0,
-            bool endsWhenFull = false)
+            bool endsWhenFull = false,
+            int reflectHundredths = 0,
+            int reflectFullRadius = 0,
+            int reflectRadius = 0,
+            int returnPercent = 0,
+            IReadOnlyList<Rules.EffectDefinition>? onReturn = null,
+            int damageBlock = 0,
+            int damageBlockCreepPercent = 100,
+            int cleanseThreshold = 0,
+            int cleanseWindowMs = 0,
+            int absorbInstances = 0,
+            int absorbBarrier = 0)
         {
+            ReflectHundredths = reflectHundredths;
+            ReflectFullRadius = reflectFullRadius;
+            ReflectRadius = reflectRadius;
+            ReturnPercent = returnPercent;
+            OnReturn = (onReturn ?? Array.Empty<Rules.EffectDefinition>()).ToArray();
+            DamageBlock = damageBlock;
+            DamageBlockCreepPercent = damageBlockCreepPercent;
+            CleanseThreshold = cleanseThreshold;
+            CleanseWindowMs = cleanseWindowMs;
+            AbsorbInstances = absorbInstances;
+            AbsorbBarrier = absorbBarrier;
             BaseDamagePercent = baseDamagePercent;
             SpellAmplificationPercent = spellAmplificationPercent;
             CooldownReductionPercent = cooldownReductionPercent;
@@ -430,6 +452,46 @@ namespace Dynasty.MatchSimulation.Combat
         /// <summary>The modifier ends once the bearer's health and mana are full (Dota's Regeneration rune).</summary>
         public bool EndsWhenFull { get; }
 
+        /// <summary>
+        /// Dota's Dispersion: this share (hundredths of a percent) of any damage taken, before reductions, is not dealt to the bearer
+        /// but to each enemy around it as the same damage type: in full within <see cref="ReflectFullRadius"/>, then less, linearly,
+        /// down to nothing at <see cref="ReflectRadius"/>. Illusions do not reflect.
+        /// </summary>
+        public int ReflectHundredths { get; }
+
+        public int ReflectFullRadius { get; }
+        public int ReflectRadius { get; }
+
+        /// <summary>
+        /// Dota's Spiked Carapace: damage from a player's unit (hero, summon, illusion) is negated, once per source, and this percent of
+        /// it, after reductions, is dealt back to the source as the same type, with <see cref="OnReturn"/> run on it (the stun).
+        /// </summary>
+        public int ReturnPercent { get; }
+
+        public IReadOnlyList<Rules.EffectDefinition> OnReturn { get; }
+
+        /// <summary>Dota's damage block (Kraken Shell): taken off each attack's damage before armor; the strongest block counts.</summary>
+        public int DamageBlock { get; }
+
+        /// <summary>Percent of <see cref="DamageBlock"/> against creeps' attacks.</summary>
+        public int DamageBlockCreepPercent { get; }
+
+        /// <summary>
+        /// Kraken Shell's cleanse: damage from players' units taken with no pause longer than <see cref="CleanseWindowMs"/> adds up;
+        /// past this much the bearer is strongly dispelled and the count starts again.
+        /// </summary>
+        public int CleanseThreshold { get; }
+
+        public int CleanseWindowMs { get; }
+
+        /// <summary>
+        /// Dota's Refraction: this many instances of damage are swallowed whole; a small barrier (<see cref="AbsorbBarrier"/>) wears down
+        /// with smaller ones and an instance it cannot hold uses up a charge. Without charges the modifier ends.
+        /// </summary>
+        public int AbsorbInstances { get; }
+
+        public int AbsorbBarrier { get; }
+
         /// <summary><see cref="OnKill"/> runs only for hero victims (Flesh Heap).</summary>
         public bool OnKillHeroesOnly { get; }
 
@@ -595,12 +657,15 @@ namespace Dynasty.MatchSimulation.Combat
             w.WriteInt64(AttackCharges);
             w.WriteBool(ExtraTargetRadiusFromAttackRange);
             w.WriteInt64(ExtraTargetChancePercent);
-            foreach (IReadOnlyList<Rules.EffectDefinition> list in new[] { OnCast, OnKill, OnDeath })
+            foreach (IReadOnlyList<Rules.EffectDefinition> list in new[] { OnCast, OnKill, OnDeath, OnReturn })
             {
                 w.WriteInt64(list.Count);
                 foreach (Rules.EffectDefinition effect in list)
                     effect.WriteCanonical(w);
             }
+            foreach (int value in new[] { ReflectHundredths, ReflectFullRadius, ReflectRadius, ReturnPercent, DamageBlock, DamageBlockCreepPercent,
+                                          CleanseThreshold, CleanseWindowMs, AbsorbInstances, AbsorbBarrier })
+                w.WriteInt64(value);
         }
 
         public static ModifierSpec Status(string key, int durationMs, ModifierFlags flags) => new ModifierSpec(key, durationMs, flags);
@@ -616,7 +681,22 @@ namespace Dynasty.MatchSimulation.Combat
             ExpiresTick = expiresTick;
             NextPeriodTick = nextPeriodTick;
             BarrierLeft = spec.Barrier;
+            InstancesLeft = spec.AbsorbInstances;
+            InstanceBarrierLeft = spec.AbsorbBarrier;
         }
+
+        /// <summary>Sources whose damage it has already returned (<see cref="ModifierSpec.ReturnPercent"/>: once each).</summary>
+        internal HashSet<long> ReturnedTo { get; } = new HashSet<long>();
+
+        /// <summary>Players' damage counted toward <see cref="ModifierSpec.CleanseThreshold"/>, and when the last of it came.</summary>
+        internal Fixed CleanseTaken { get; set; }
+
+        internal long CleanseLastTick { get; set; } = -1;
+
+        /// <summary>Charges and the current barrier of <see cref="ModifierSpec.AbsorbInstances"/>.</summary>
+        internal int InstancesLeft { get; set; }
+
+        internal int InstanceBarrierLeft { get; set; }
 
         public ModifierSpec Spec { get; }
 
@@ -751,17 +831,21 @@ namespace Dynasty.MatchSimulation.Combat
     /// <summary>The single entry point through which anything reduces a unit's HP.</summary>
     public static class Damage
     {
-        public static Fixed Deal(SimulationContext<MatchState> context, EntityId attacker, MatchUnit target, Fixed rawAmount, DamageType type, bool isCritical = false)
+        /// <summary>Deals damage; <c>reflected</c> marks damage a unit reflects or returns (Dispersion, Spiked Carapace), which is not reflected or returned again.</summary>
+        public static Fixed Deal(SimulationContext<MatchState> context, EntityId attacker, MatchUnit target, Fixed rawAmount, DamageType type, bool isCritical = false,
+            bool reflected = false)
         {
             if (!target.IsAlive || target.Kind == UnitKind.Outpost || (target.Flags & ModifierFlags.Invulnerable) != 0)
                 return Fixed.Zero;
+
+            MatchUnit? from = attacker.IsValid ? context.State.Find(attacker) : null;
+            List<(MatchUnit Unit, Fixed Amount)>? reflections = reflected ? null : Reflections(context.State, target, ref rawAmount);
 
             Fixed amount = type == DamageType.Physical && (target.Flags & ModifierFlags.PhysicalImmune) != 0 ? Fixed.Zero
                 : type == DamageType.Magical && context.State.Ruleset.Combat.DotaStacking
                     ? rawAmount * Fixed.FromInt(10000 - target.MagicResistHundredths) / Fixed.FromInt(10000)
                     : DamageMath.Mitigate(rawAmount, type, target.Armor, target.MagicResistPercent, context.State.Ruleset.Combat.ArmorFactor);
             // A whole percent keeps its old formula (same fixed-point result); a fractional one works in hundredths.
-            MatchUnit? from = attacker.IsValid ? context.State.Find(attacker) : null;
             if (from != null && from.CastingSpell > 0 && from.SpellAmplificationPercent != 0)
                 amount = amount * Fixed.FromInt(100 + from.SpellAmplificationPercent) / Fixed.FromInt(100);
             if (from != null && from.IllusionOf.IsValid && target.IllusionDamageTakenPercent != 0)
@@ -786,6 +870,22 @@ namespace Dynasty.MatchSimulation.Combat
                 amount -= absorbed;
             }
 
+            bool byPlayer = from != null && from.Team != target.Team && (from.Kind == UnitKind.Hero || from.Kind == UnitKind.Summon || from.IllusionOf.IsValid);
+            ActiveModifier? returning = null;
+            Fixed returned = Fixed.Zero;
+            if (!reflected && byPlayer && amount > Fixed.Zero)
+            {
+                returning = target.Modifiers.FirstOrDefault(m => m.Spec.ReturnPercent > 0 && !m.ReturnedTo.Contains(from!.Id.Value));
+                if (returning != null)
+                {
+                    returning.ReturnedTo.Add(from!.Id.Value);
+                    returned = amount * Fixed.FromInt(returning.Spec.ReturnPercent) / Fixed.FromInt(100);
+                    amount = Fixed.Zero;
+                }
+            }
+
+            if (amount > Fixed.Zero && from != target)
+                amount = SwallowInstance(context, target, amount);
             amount = Absorb(context, target, amount);
             if ((target.Flags & ModifierFlags.CannotDie) != 0)
                 amount = Fixed.Max(Fixed.Zero, Fixed.Min(amount, target.Hp - Fixed.One));
@@ -804,7 +904,93 @@ namespace Dynasty.MatchSimulation.Combat
                     target.Hero.RecentHeroAttackers[attacker.Value] = context.Tick.Value;
             }
             context.Emit(new DamageDealt(attacker, target.Id, amount, target.Hp, type, isCritical));
+            if (byPlayer && amount > Fixed.Zero)
+                CountTowardCleanse(context, target, amount);
+            if (reflections != null)
+            {
+                foreach (var (unit, share) in reflections)
+                    Deal(context, target.Id, unit, share, type, reflected: true);
+            }
+
+            if (returning != null && from!.IsAlive)
+            {
+                Deal(context, target.Id, from, returned, type, reflected: true);
+                Systems.Effects.Run(context, target, returning.Spec.OnReturn, 1, from, from.Position);
+            }
+
             return amount;
+        }
+
+        /// <summary>
+        /// Dispersion: takes each reflecting modifier's share off the raw damage and spreads it over the enemies around, full near and
+        /// less farther; null when the target reflects nothing.
+        /// </summary>
+        private static List<(MatchUnit, Fixed)>? Reflections(MatchState state, MatchUnit target, ref Fixed rawAmount)
+        {
+            if (target.IllusionOf.IsValid || target.Modifiers.Count == 0 || !target.Modifiers.Any(m => m.Spec.ReflectHundredths > 0))
+                return null;
+            var reflections = new List<(MatchUnit, Fixed)>();
+            foreach (ActiveModifier modifier in target.Modifiers.Where(m => m.Spec.ReflectHundredths > 0).ToList())
+            {
+                ModifierSpec spec = modifier.Spec;
+                Fixed share = rawAmount * Fixed.FromInt(spec.ReflectHundredths) / Fixed.FromInt(10000);
+                rawAmount -= share;
+                foreach (MatchUnit unit in state.Units.Where(u => Systems.Effects.Matches(state, target, u, Rules.TargetTeam.Enemy)).OrderBy(u => u.Id.Value))
+                {
+                    Fixed distance = FixedVector2.Distance(target.Position, unit.Position);
+                    if (distance > Fixed.FromInt(spec.ReflectRadius))
+                        continue;
+                    Fixed part = distance <= Fixed.FromInt(spec.ReflectFullRadius) ? share
+                        : share * (Fixed.FromInt(spec.ReflectRadius) - distance) / Fixed.FromInt(spec.ReflectRadius - spec.ReflectFullRadius);
+                    if (part > Fixed.Zero)
+                        reflections.Add((unit, part));
+                }
+            }
+
+            return reflections;
+        }
+
+        /// <summary>Refraction: the instance is swallowed whole while charges last; one it cannot hold uses up a charge.</summary>
+        private static Fixed SwallowInstance(SimulationContext<MatchState> context, MatchUnit target, Fixed amount)
+        {
+            ActiveModifier? refraction = target.Modifiers.FirstOrDefault(m => m.Spec.AbsorbInstances > 0 && m.InstancesLeft > 0);
+            if (refraction == null)
+                return amount;
+            if (amount >= Fixed.FromInt(refraction.InstanceBarrierLeft))
+            {
+                refraction.InstancesLeft--;
+                refraction.InstanceBarrierLeft = refraction.Spec.AbsorbBarrier;
+                if (refraction.InstancesLeft == 0)
+                    Modifiers.Remove(context, target, refraction, "instances_used");
+            }
+            else
+                refraction.InstanceBarrierLeft -= amount.ToIntFloor() + (amount > Fixed.FromInt(amount.ToIntFloor()) ? 1 : 0);
+
+            return Fixed.Zero;
+        }
+
+        /// <summary>Kraken Shell: players' damage taken without a long pause adds up; past the threshold the bearer is strongly dispelled.</summary>
+        private static void CountTowardCleanse(SimulationContext<MatchState> context, MatchUnit target, Fixed amount)
+        {
+            if (target.Modifiers.Count == 0)
+                return;
+            long now = context.Tick.Value;
+            bool cleanse = false;
+            foreach (ActiveModifier modifier in target.Modifiers.Where(m => m.Spec.CleanseThreshold > 0))
+            {
+                if (modifier.CleanseLastTick >= 0 && now - modifier.CleanseLastTick > context.TickRate.TicksFor(modifier.Spec.CleanseWindowMs))
+                    modifier.CleanseTaken = Fixed.Zero;
+                modifier.CleanseTaken += amount;
+                modifier.CleanseLastTick = now;
+                if (modifier.CleanseTaken >= Fixed.FromInt(modifier.Spec.CleanseThreshold))
+                {
+                    modifier.CleanseTaken = Fixed.Zero;
+                    cleanse = true;
+                }
+            }
+
+            if (cleanse)
+                Systems.Effects.Dispel(context, target, target, strong: true);
         }
 
         /// <summary>Barriers take the damage first, in the order they were applied; a used-up barrier is removed.</summary>

@@ -828,7 +828,13 @@ namespace Dynasty.Content
                 revives: m.OptionalBool("revives") ?? false, attackCharges: m.OptionalInt("attackCharges") ?? 0,
                 extraTargetRadiusFromAttackRange: m.OptionalBool("extraTargetRadiusFromAttackRange") ?? false,
                 extraTargetChancePercent: m.OptionalInt("extraTargetChance") ?? 100, pseudoRandom: m.OptionalBool("pseudoRandom") ?? false,
-                unique: m.OptionalBool("unique") ?? false);
+                unique: m.OptionalBool("unique") ?? false,
+                reflectHundredths: m.OptionalHundredth("reflect") ?? 0, reflectFullRadius: m.OptionalInt("reflectFullRadius") ?? 0,
+                reflectRadius: m.OptionalInt("reflectRadius") ?? 0, returnPercent: m.OptionalInt("returnPercent") ?? 0,
+                onReturn: m.OptionalArray("onReturn").Select(ReadEffect).ToList(), damageBlock: m.OptionalInt("damageBlock") ?? 0,
+                damageBlockCreepPercent: m.OptionalInt("damageBlockCreepPercent") ?? 100 - (m.OptionalInt("damageBlockCreepReduction") ?? 0), cleanseThreshold: m.OptionalInt("cleanseThreshold") ?? 0,
+                cleanseWindowMs: m.OptionalMilliseconds("cleanseWindow") ?? 0, absorbInstances: m.OptionalInt("absorbInstances") ?? 0,
+                absorbBarrier: m.OptionalInt("absorbBarrier") ?? 0);
             m.RejectUnknown();
             return spec;
         }
