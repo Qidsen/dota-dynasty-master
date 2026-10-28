@@ -67,13 +67,7 @@ public class MapLayoutTests
     [Fact]
     public void Layout_HasTheMapObjects()
     {
-        string json = @"{ ""format"": ""dynasty.ruleset-pack"", ""formatVersion"": 1, ""id"": ""dota"", ""version"": 7410,
-            ""shrines"": { ""positions"": [1000, 2000, 9000, 8000], ""first"": 420, ""interval"": 420, ""radius"": 300, ""capture"": 3, ""xp"": 200, ""xpPerInterval"": 300 },
-            ""lotusPools"": { ""positions"": [1500, 2500], ""first"": 180, ""interval"": 180, ""max"": 6, ""radius"": 350, ""firstPick"": 1.5, ""nextPickPercent"": 70, ""minPick"": 0.3, ""item"": ""cheese"" },
-            ""items"": [ { ""id"": ""cheese"", ""name"": ""Cheese"", ""cost"": 0 } ],
-            ""watchers"": { ""positions"": [3000, 4000], ""radius"": 200, ""channel"": 1, ""on"": 420, ""off"": 120, ""dayVision"": 800, ""nightVision"": 450 },
-            ""twinGates"": { ""positions"": [1100, 2100, 8900, 7900], ""radius"": 200, ""channel"": 4, ""manaCost"": 30 },
-            ""heroes"": [" + string.Join(",", Enumerable.Range(0, 20).Select(i => Hero.Replace(@"""antimage""", @"""hero" + i + @""""))) + "] }";
+        string json = ObjectsPack();
         string path = Path.Combine(Path.GetTempPath(), "dynasty-pack-" + Guid.NewGuid().ToString("N") + ".json");
         File.WriteAllText(path, json);
         try
@@ -89,5 +83,17 @@ public class MapLayoutTests
         {
             File.Delete(path);
         }
+    }
+
+    /// <summary>A pack of 20 heroes with two shrines, a lotus pool, a watcher and a pair of Twin Gates on the base map.</summary>
+    internal static string ObjectsPack()
+    {
+        return @"{ ""format"": ""dynasty.ruleset-pack"", ""formatVersion"": 1, ""id"": ""dota"", ""version"": 7410,
+            ""shrines"": { ""positions"": [1000, 2000, 9000, 8000], ""first"": 420, ""interval"": 420, ""radius"": 300, ""capture"": 3, ""xp"": 200, ""xpPerInterval"": 300 },
+            ""lotusPools"": { ""positions"": [1500, 2500], ""first"": 180, ""interval"": 180, ""max"": 6, ""radius"": 350, ""firstPick"": 1.5, ""nextPickPercent"": 70, ""minPick"": 0.3, ""item"": ""cheese"" },
+            ""items"": [ { ""id"": ""cheese"", ""name"": ""Cheese"", ""cost"": 0 } ],
+            ""watchers"": { ""positions"": [3000, 4000], ""radius"": 200, ""channel"": 1, ""on"": 420, ""off"": 120, ""dayVision"": 800, ""nightVision"": 450 },
+            ""twinGates"": { ""positions"": [1100, 2100, 8900, 7900], ""radius"": 200, ""channel"": 4, ""manaCost"": 30 },
+            ""heroes"": [" + string.Join(",", Enumerable.Range(0, 20).Select(i => Hero.Replace(@"""antimage""", @"""hero" + i + @""""))) + "] }";
     }
 }

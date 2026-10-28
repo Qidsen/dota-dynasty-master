@@ -17,12 +17,13 @@ namespace Dynasty.Unity
         private GUIStyle? _panel;
         private Texture2D? _panelTexture;
 
-        public void DrawTopBar(MatchFrame frame, MatchClock clock, string mode)
+        public void DrawTopBar(MatchFrame frame, MatchClock clock, string mode, float actualSpeed)
         {
             Styles();
             int minutes = (int)(frame.TimeSeconds / 60f);
             int seconds = (int)frame.TimeSeconds % 60;
-            string speed = clock.IsPaused ? "PAUSED" : "x" + clock.Speed;
+            // The computer may not keep up with a high speed: then the speed it actually runs at is shown too.
+            string speed = clock.IsPaused ? "PAUSED" : "x" + clock.Speed + (actualSpeed < clock.Speed * 0.9f ? " (actual x" + actualSpeed.ToString("0") + ")" : "");
             float w = 520f;
             var area = new Rect((Screen.width - w) / 2f, 8f, w, 58f);
             GUI.Box(area, GUIContent.none, _panel);

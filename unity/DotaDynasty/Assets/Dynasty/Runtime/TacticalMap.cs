@@ -38,12 +38,19 @@ namespace Dynasty.Unity
             GUI.color = Color.white;
             GUI.DrawTexture(area, _background);
 
+            var seen = new int[6];
             foreach (MapMarker marker in _map.Markers)
             {
+                int index = seen[(int)marker.Kind]++;
                 Vector2 at = ToScreen(area, marker.X, marker.Y);
                 float size = area.width * (marker.Kind == MapMarkerKind.BossPit || marker.Kind == MapMarkerKind.Tormentor ? 0.03f : 0.018f);
-                GUI.color = Palette.Of(marker.Kind);
-                GUI.DrawTexture(new Rect(at.x - size / 2f, at.y - size / 2f, size, size), _ring);
+                GUI.color = Palette.Of(marker.Kind, index, frame, out bool lit);
+                GUI.DrawTexture(new Rect(at.x - size / 2f, at.y - size / 2f, size, size), lit ? _disc : _ring);
+                if (marker.Kind == MapMarkerKind.LotusPool && index < frame.LotusCounts.Count && frame.LotusCounts[index] > 0)
+                {
+                    GUI.color = Color.white;
+                    GUI.Label(new Rect(at.x + size / 2f, at.y - 9f, 30f, 18f), frame.LotusCounts[index].ToString());
+                }
             }
 
             foreach (UnitFrame unit in frame.Units)
@@ -91,6 +98,51 @@ namespace Dynasty.Unity
                 Dot(ToScreen(area, projectile.X, projectile.Y), area.width * 0.005f, Palette.Projectile);
 
             GUI.color = Color.white;
+        }
+
+        private static readonly (string Name, MapMarkerKind? Kind, Color Color)[] LegendEntries =
+        {
+            ("Roshan pit / Roshan", MapMarkerKind.BossPit, Palette.Boss),
+            ("Tormentor", MapMarkerKind.Tormentor, Palette.Tormentor),
+            ("Shrine of Wisdom (filled: ready)", MapMarkerKind.Shrine, Palette.Of(MapMarkerKind.Shrine)),
+            ("Lotus Pool (filled: lotuses)", MapMarkerKind.LotusPool, Palette.Of(MapMarkerKind.LotusPool)),
+            ("Watcher (team colour: on, grey: off)", MapMarkerKind.Watcher, Palette.Of(MapMarkerKind.Watcher)),
+            ("Twin Gate", MapMarkerKind.TwinGate, Palette.Of(MapMarkerKind.TwinGate)),
+            ("Outpost (owner's colour)", null, Color.white),
+            ("Aegis on the ground", null, Palette.Aegis),
+            ("Ward", null, Color.yellow),
+            ("Rune", null, Palette.Rune),
+        };
+
+        /// <summary>What the map's symbols mean (the places only when this map has them).</summary>
+        public void DrawLegend(Rect area)
+        {
+            float y = area.y;
+            foreach (var (name, kind, color) in LegendEntries)
+            {
+                if (kind is MapMarkerKind k && !HasMarker(k))
+                    continue;
+                if (kind == null && (name.StartsWith("Outpost") || name.StartsWith("Aegis")) && !HasMarker(MapMarkerKind.TwinGate))
+                    continue;   // outposts, gates and the dropped Aegis come together (the Dota map)
+                GUI.color = color;
+                GUI.DrawTexture(new Rect(area.x, y + 3f, 12f, 12f), kind != null ? _ring : _disc);
+                GUI.color = Color.white;
+                GUI.Label(new Rect(area.x + 18f, y, area.width - 18f, 20f), name);
+                y += 20f;
+            }
+
+            GUI.color = Color.white;
+        }
+
+        private bool HasMarker(MapMarkerKind kind)
+        {
+            foreach (MapMarker marker in _map.Markers)
+            {
+                if (marker.Kind == kind)
+                    return true;
+            }
+
+            return false;
         }
 
         private Vector2 ToScreen(Rect area, float x, float y) =>

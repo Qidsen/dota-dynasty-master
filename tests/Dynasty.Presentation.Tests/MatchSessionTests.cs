@@ -46,9 +46,11 @@ public class MatchSessionTests
 
         session.Update(1.0, budgetMilliseconds: 0);   // no time at all: still one tick, so the match moves
         Assert.Equal(1, session.Current.Tick);
+        Assert.Equal(1.0 / 30, session.ActualSpeed, 6);   // what the screen shows when the computer cannot keep up
 
         session.Update(1.0 / 60);   // the dropped ticks do not come back in the next frame
         Assert.Equal(1 + 32, session.Current.Tick);
+        Assert.Equal(64, session.ActualSpeed, 6);
     }
 
     [Fact]

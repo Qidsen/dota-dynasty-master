@@ -28,6 +28,39 @@ public class MatchFrameTests
         return kernel;
     }
 
+    /// <summary>
+    /// The state of the map's places shows in every frame (it is public in Dota: a lit Watcher, the lotuses in a pool, a glowing
+    /// shrine): lotuses grown in a pool, a shrine's waiting fillings, each Watcher's team and whether it is off.
+    /// </summary>
+    [Fact]
+    public void Frame_ShowsTheStateOfTheMapsPlaces()
+    {
+        string json = MapLayoutTests.ObjectsPack().Replace(@"""first"": 420, ""interval"": 420", @"""first"": 10, ""interval"": 420")
+            .Replace(@"""first"": 180, ""interval"": 180", @"""first"": 20, ""interval"": 180");
+        string path = Path.Combine(Path.GetTempPath(), "dynasty-pack-" + Guid.NewGuid().ToString("N") + ".json");
+        File.WriteAllText(path, json);
+        RulesetContent rules;
+        try
+        {
+            rules = RulesetSource.Load(path);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+
+        var kernel = Match.Create(rules, 1, new MatchLineup(new[] { new HeroPick("hero0", "mid") }, new[] { new HeroPick("hero1", "mid") }));   // no AI: nobody takes anything
+        MatchFrame early = MatchFrame.Capture(kernel.State, 0, Viewpoint.Dawn);
+        kernel.RunTicks(25 * 30);
+        MatchFrame later = MatchFrame.Capture(kernel.State, kernel.CurrentTick.Value, Viewpoint.Dawn);
+
+        Assert.Equal(new[] { 0 }, early.LotusCounts);
+        Assert.Equal(new[] { 1 }, later.LotusCounts);
+        Assert.Equal(new[] { 0, 0 }, early.ShrineCharges);
+        Assert.Equal(new[] { 1, 1 }, later.ShrineCharges);
+        Assert.Equal(new[] { (Team.Neutral, false) }, later.Watchers.Select(w => (w.Owner, w.Off)));
+    }
+
     [Fact]
     public void ObserverFrame_ShowsEveryLivingUnitWithItsState()
     {

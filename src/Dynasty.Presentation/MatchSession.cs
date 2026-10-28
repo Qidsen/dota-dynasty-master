@@ -82,6 +82,7 @@ namespace Dynasty.Presentation
             if (ticks <= 0 || Kernel.IsFinished)
                 return;
 
+            long before = Kernel.CurrentTick.Value;
             var watch = System.Diagnostics.Stopwatch.StartNew();
             for (int i = 1; i < ticks && !Kernel.IsFinished && watch.Elapsed.TotalMilliseconds < budgetMilliseconds; i++)
                 Kernel.Step();
@@ -90,7 +91,15 @@ namespace Dynasty.Presentation
                 Kernel.Step();
             Current = Capture();
             ReadEvents();
+            if (realSeconds > 0)
+                ActualSpeed = (Kernel.CurrentTick.Value - before) / (realSeconds * Kernel.Config.TickRate.TicksPerSecond);
         }
+
+        /// <summary>
+        /// Match seconds per real second in the last update: the chosen speed, or less when the frames' time budget cannot compute
+        /// that much (the viewer shows it next to the chosen speed).
+        /// </summary>
+        public double ActualSpeed { get; private set; }
 
         /// <summary>Unit positions blended between the previous and current frame by the clock's alpha.</summary>
         public List<UnitPose> Poses()

@@ -27,8 +27,11 @@ namespace Dynasty.Presentation
     public sealed class MatchFrame
     {
         private MatchFrame(long tick, float timeSeconds, Viewpoint viewpoint, bool isNight, Team? winner, int dawnKills, int duskKills,
-            List<UnitFrame> units, List<GhostFrame> ghosts, List<ProjectileFrame> projectiles)
+            List<UnitFrame> units, List<GhostFrame> ghosts, List<ProjectileFrame> projectiles, int[] lotusCounts, int[] shrineCharges, List<WatcherFrame> watchers)
         {
+            LotusCounts = lotusCounts;
+            ShrineCharges = shrineCharges;
+            Watchers = watchers;
             Tick = tick;
             TimeSeconds = timeSeconds;
             Viewpoint = viewpoint;
@@ -56,6 +59,15 @@ namespace Dynasty.Presentation
         public IReadOnlyList<GhostFrame> Ghosts { get; }
 
         public IReadOnlyList<ProjectileFrame> Projectiles { get; }
+
+        /// <summary>Lotuses in each Lotus Pool, in the rules' order (public in Dota: they are seen in the pool).</summary>
+        public IReadOnlyList<int> LotusCounts { get; }
+
+        /// <summary>Fillings waiting at each Shrine of Wisdom, in the rules' order (a shrine glows while it has some).</summary>
+        public IReadOnlyList<int> ShrineCharges { get; }
+
+        /// <summary>Each Watcher's state, in the rules' order.</summary>
+        public IReadOnlyList<WatcherFrame> Watchers { get; }
 
         public static MatchFrame Capture(MatchState state, long tick, Viewpoint viewpoint)
         {
@@ -95,12 +107,36 @@ namespace Dynasty.Presentation
                 projectiles.Add(new ProjectileFrame(projectile.Id, source?.Team, (float)projectile.Position.X.ToDouble(), (float)projectile.Position.Y.ToDouble(), projectile.IsAbility));
             }
 
+            var lotuses = new int[state.Ruleset.LotusPools?.Positions.Count ?? 0];
+            for (int i = 0; i < lotuses.Length; i++)
+                lotuses[i] = state.LotusCount(i);
+            var charges = new int[state.Ruleset.Shrines?.Positions.Count ?? 0];
+            for (int i = 0; i < charges.Length; i++)
+                charges[i] = state.ShrineCharges(i);
+            var watchers = new List<WatcherFrame>(state.Ruleset.Watchers?.Positions.Count ?? 0);
+            for (int i = 0; i < (state.Ruleset.Watchers?.Positions.Count ?? 0); i++)
+                watchers.Add(new WatcherFrame(state.WatcherOwner(i), state.WatcherOff(i)));
+
             float time = tick / (float)state.Ruleset.TicksPerSecond;
-            return new MatchFrame(tick, time, viewpoint, state.IsNight(tick), state.Winner, dawnKills, duskKills, units, ghosts, projectiles);
+            return new MatchFrame(tick, time, viewpoint, state.IsNight(tick), state.Winner, dawnKills, duskKills, units, ghosts, projectiles,
+                lotuses, charges, watchers);
         }
 
         private static bool Known(MatchState state, Team team, MatchUnit? unit) =>
             unit != null && (unit.Team == team || state.IsVisibleTo(team, unit));
+    }
+
+    /// <summary>A Watcher in a frame: the team it is on for (Neutral when ready or off) and whether it is off.</summary>
+    public readonly struct WatcherFrame
+    {
+        public WatcherFrame(Team owner, bool off)
+        {
+            Owner = owner;
+            Off = off;
+        }
+
+        public Team Owner { get; }
+        public bool Off { get; }
     }
 
     /// <summary>One visible unit in a frame. Positions are map coordinates (presentation floats).</summary>

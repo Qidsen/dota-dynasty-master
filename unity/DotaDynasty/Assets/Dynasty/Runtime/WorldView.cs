@@ -26,6 +26,9 @@ namespace Dynasty.Unity
         private readonly Light _sun;
         private readonly MapGround? _ground;
 
+        /// <summary>The places' discs and pillars with their kind and index, recoloured by each frame's state.</summary>
+        private readonly List<(MapMarkerKind Kind, int Index, Renderer Renderer)> _places = new List<(MapMarkerKind, int, Renderer)>();
+
         public WorldView(MapLayout map, Material material)
         {
             _material = material;
@@ -75,6 +78,12 @@ namespace Dynasty.Unity
             }
 
             Retire(_units, _seen);
+            foreach (var (kind, index, renderer) in _places)
+            {
+                _block.Clear();
+                _block.SetColor(BaseColor, Palette.Of(kind, index, frame, out _));
+                renderer.SetPropertyBlock(_block);
+            }
 
             _seen.Clear();
             foreach (ProjectileFrame projectile in frame.Projectiles)
@@ -283,16 +292,20 @@ namespace Dynasty.Unity
 
         private void BuildMarkersAndFountains(MapLayout map)
         {
+            var seen = new int[6];
             foreach (MapMarker marker in map.Markers)
             {
+                int index = seen[(int)marker.Kind]++;
                 // A flat coloured disc for each place (the units on it — Roshan, the Tormentor — are drawn by themselves).
                 float d = marker.Kind == MapMarkerKind.BossPit || marker.Kind == MapMarkerKind.Tormentor ? 7f : 3.5f;
                 Transform disc = Primitive(PrimitiveType.Cylinder, marker.Kind.ToString(), Palette.Of(marker.Kind), new Vector3(d, 0.06f, d));
                 disc.position = Palette.World(marker.X, marker.Y, GroundAt(marker.X, marker.Y) + 0.08f);
+                _places.Add((marker.Kind, index, disc.GetComponent<Renderer>()));
                 if (marker.Kind == MapMarkerKind.Watcher || marker.Kind == MapMarkerKind.Shrine || marker.Kind == MapMarkerKind.TwinGate)
                 {
                     Transform pillar = Primitive(PrimitiveType.Cylinder, marker.Kind + " pillar", Palette.Of(marker.Kind), new Vector3(0.6f, 1.6f, 0.6f));
                     pillar.position = Palette.World(marker.X, marker.Y, GroundAt(marker.X, marker.Y) + 1.6f);
+                    _places.Add((marker.Kind, index, pillar.GetComponent<Renderer>()));
                 }
             }
 

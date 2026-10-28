@@ -36,6 +36,32 @@ namespace Dynasty.Unity
             _ => new Color(0.30f, 0.90f, 0.75f),
         };
 
+        /// <summary>
+        /// Colour of a place in a frame and whether it is lit: a shrine with fillings waiting, a pool with lotuses, a Watcher a team
+        /// has on (in the team's colour; grey while off). <paramref name="index"/> counts the places of the kind in the rules' order.
+        /// </summary>
+        public static Color Of(MapMarkerKind kind, int index, MatchFrame frame, out bool lit)
+        {
+            lit = false;
+            Color color = Of(kind);
+            switch (kind)
+            {
+                case MapMarkerKind.Shrine when index < frame.ShrineCharges.Count:
+                    lit = frame.ShrineCharges[index] > 0;
+                    break;
+                case MapMarkerKind.LotusPool when index < frame.LotusCounts.Count:
+                    lit = frame.LotusCounts[index] > 0;
+                    break;
+                case MapMarkerKind.Watcher when index < frame.Watchers.Count:
+                    WatcherFrame watcher = frame.Watchers[index];
+                    lit = watcher.Owner != Team.Neutral;
+                    color = watcher.Off ? new Color(0.35f, 0.35f, 0.35f) : lit ? Of(watcher.Owner) : color;
+                    break;
+            }
+
+            return lit || kind == MapMarkerKind.BossPit || kind == MapMarkerKind.Tormentor || kind == MapMarkerKind.TwinGate ? color : color * 0.6f;
+        }
+
         public static Color Of(Team team) => team == Team.Dawn ? Dawn : team == Team.Dusk ? Dusk : Neutral;
 
         public static Vector3 World(float mapX, float mapY, float height = 0f) =>

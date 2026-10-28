@@ -20,6 +20,9 @@ namespace Dynasty.Unity
         /// <summary>Real time a frame may spend computing the match; at higher speeds the match runs as fast as this allows.</summary>
         private const double FrameBudgetMilliseconds = 25;
 
+        /// <summary>Match seconds per real second actually computed, smoothed for the top bar.</summary>
+        private float _shownSpeed;
+
         private static readonly Viewpoint[] Viewpoints = { Viewpoint.Observer, Viewpoint.Dawn, Viewpoint.Dusk };
 
         private readonly List<FeedItem> _feed = new List<FeedItem>();
@@ -88,6 +91,7 @@ namespace Dynasty.Unity
         {
             ReadInput();
             _session.Update(Time.unscaledDeltaTime, FrameBudgetMilliseconds);
+            _shownSpeed = Mathf.Lerp(_shownSpeed, (float)_session.ActualSpeed, 0.05f);   // smoothed: frames differ
             _feed.AddRange(_session.TakeFeed());
             _statisticsAge += Time.unscaledDeltaTime;
             if (_statisticsAge > 0.5f)
@@ -157,6 +161,7 @@ namespace Dynasty.Unity
                 GUI.DrawTexture(new Rect(0, 0, Screen.width, Screen.height), Texture2D.whiteTexture);
                 GUI.color = Color.white;
                 _tactical.Draw(new Rect((Screen.width - size) / 2f, 72f, size, size), frame, _camera.Following);
+                _tactical.DrawLegend(new Rect(12f, 80f, (Screen.width - size) / 2f - 20f, Screen.height - 120f));
             }
             else
             {
@@ -164,7 +169,7 @@ namespace Dynasty.Unity
                 _tactical.Draw(new Rect(12f, Screen.height - size - 36f, size, size), frame, _camera.Following);
             }
 
-            _hud.DrawTopBar(frame, _session.Clock, _tacticalMode ? "tactical 2D" : "3D broadcast");
+            _hud.DrawTopBar(frame, _session.Clock, _tacticalMode ? "tactical 2D" : "3D broadcast", _shownSpeed);
             _hud.DrawFeed(_feed, _session.Kernel.Config.TickRate.TicksPerSecond);
             _hud.DrawHelp();
             if (Input.GetKey(KeyCode.Tab))
