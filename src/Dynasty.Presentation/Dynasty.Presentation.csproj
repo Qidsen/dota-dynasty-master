@@ -6,6 +6,7 @@
     <ProjectReference Include="..\Dynasty.HeroAI\Dynasty.HeroAI.csproj" />
     <ProjectReference Include="..\Dynasty.Drafting\Dynasty.Drafting.csproj" />
     <ProjectReference Include="..\Dynasty.Players\Dynasty.Players.csproj" />
+    <ProjectReference Include="..\Dynasty.Content\Dynasty.Content.csproj" />
   </ItemGroup>
 
   <PropertyGroup>
