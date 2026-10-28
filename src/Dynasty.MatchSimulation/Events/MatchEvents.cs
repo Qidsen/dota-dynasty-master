@@ -710,6 +710,32 @@ namespace Dynasty.MatchSimulation.Events
         }
     }
 
+    public sealed class TwinGateUsed : IDomainEvent
+    {
+        public TwinGateUsed(EntityId hero, FixedVector2 from, FixedVector2 to)
+        {
+            Hero = hero;
+            From = from;
+            To = to;
+        }
+
+        public EntityId Hero { get; }
+        public FixedVector2 From { get; }
+        public FixedVector2 To { get; }
+
+        public string Type => "match.twin_gate_used";
+        public int SchemaVersion => 1;
+
+        public void WritePayload(ref Fnv1a64 hash)
+        {
+            hash.AddInt64(Hero.Value);
+            hash.AddInt64(From.X.Raw);
+            hash.AddInt64(From.Y.Raw);
+            hash.AddInt64(To.X.Raw);
+            hash.AddInt64(To.Y.Raw);
+        }
+    }
+
     public sealed class OutpostCaptured : IDomainEvent
     {
         public OutpostCaptured(int outpost, Team team)

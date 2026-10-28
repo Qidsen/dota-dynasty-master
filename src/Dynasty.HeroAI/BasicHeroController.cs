@@ -1815,14 +1815,42 @@ namespace Dynasty.HeroAI
         }
 
         /// <summary>Issues the order unless the hero is already doing the same thing (avoids re-pathing every decision).</summary>
+        /// <summary>A walk is cut short through the Twin Gates (Dota) when the gate route saves this much.</summary>
+        private const int GateSavesAtLeast = 2000;
+
         private void Issue(HeroOrder order)
         {
+            if (order.Kind == HeroOrderKind.Move && _state.Ruleset.TwinGates is TwinGateRules gates && GateRoute(gates, order.Point) is FixedVector2 gate)
+                order = HeroOrder.UseGate(gate);
             HeroOrder current = _h.Order;
+            if (current.Kind == HeroOrderKind.UseGate && order.Kind == HeroOrderKind.UseGate && Math.Within(current.Point, order.Point, 100))
+                return;
             if (current.Kind == order.Kind && current.Target == order.Target && current.AbilityId == order.AbilityId &&
                 (order.Kind != HeroOrderKind.Move || Math.Within(current.Point, order.Point, 100)))
                 return;
 
             HeroOrders.Issue(_hero, order);
+        }
+
+        /// <summary>
+        /// The gate to walk to when going to <paramref name="destination"/> through the Twin Gates (to the gate, the channel, from the other)
+        /// is shorter than walking straight by <see cref="GateSavesAtLeast"/>, with the mana for it; null otherwise.
+        /// </summary>
+        private FixedVector2? GateRoute(TwinGateRules gates, FixedVector2 destination)
+        {
+            if (_h.MaxMana > 0 && _h.Mana < Fixed.FromInt(gates.ManaCost) || (_hero.Flags & ModifierFlags.Rooted) != 0)
+                return null;
+            Fixed walk = FixedVector2.Distance(_hero.Position, destination);
+            Fixed channel = Fixed.FromInt(_hero.MoveSpeed) * Fixed.FromInt(gates.ChannelMs) / Fixed.FromInt(1000);
+            foreach (FixedVector2 near in gates.Positions)
+            {
+                FixedVector2 far = gates.Route(near).To;
+                Fixed viaGate = FixedVector2.Distance(_hero.Position, near) + channel + FixedVector2.Distance(far, destination);
+                if (viaGate + Fixed.FromInt(GateSavesAtLeast) <= walk)
+                    return near;
+            }
+
+            return null;
         }
     }
 

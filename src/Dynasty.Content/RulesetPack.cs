@@ -73,6 +73,13 @@ namespace Dynasty.Content
                 throw reader.Error("boss", "a pack with its own map must place the boss pit (the base one is on the base map)");
             RuneRules? runes = reader.OptionalObject("runes") is Reader ru ? ReadRunes(ru, baseRules.Runes) : baseRules.Runes;
             MinibossDefinition? miniboss = reader.OptionalObject("miniboss") is Reader mb ? ReadMiniboss(mb) : baseRules.Miniboss;
+            TwinGateRules? twinGates = baseRules.TwinGates;
+            if (reader.OptionalObject("twinGates") is Reader tg)
+            {
+                twinGates = new TwinGateRules(Points(tg, "positions"), tg.Int("radius"), tg.Milliseconds("channel"), tg.Int("manaCost"));
+                tg.RejectUnknown();
+            }
+
             OutpostRules? outposts = baseRules.Outposts;
             if (reader.OptionalObject("outposts") is Reader op)
             {
@@ -125,7 +132,7 @@ namespace Dynasty.Content
             }
             var content = new RulesetContent(id, version, baseRules.TicksPerSecond, combat, creepTypes, structureTypes,
                 packMap ?? baseRules.Map, waves, heroes, heroRules, abilities, items, boss, runes,
-                baseRules.DayNight, baseRules.Draft, miniboss, shrines, lotusPools, watchers, outposts);
+                baseRules.DayNight, baseRules.Draft, miniboss, shrines, lotusPools, watchers, outposts, twinGates);
             IReadOnlyList<string> errors = content.Validate();
             if (errors.Count > 0)
                 throw new RulesetPackException((errors.Any(e => e.Contains("terrain")) ? "map.terrain: " : "") + "The pack makes an invalid ruleset: " + string.Join("; ", errors));

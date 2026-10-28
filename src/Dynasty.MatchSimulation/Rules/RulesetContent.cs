@@ -776,8 +776,10 @@ namespace Dynasty.MatchSimulation.Rules
             ShrineRules? shrines = null,
             LotusPoolRules? lotusPools = null,
             WatcherRules? watchers = null,
-            OutpostRules? outposts = null)
+            OutpostRules? outposts = null,
+            TwinGateRules? twinGates = null)
         {
+            TwinGates = twinGates;
             Outposts = outposts;
             Watchers = watchers;
             LotusPools = lotusPools;
@@ -802,6 +804,9 @@ namespace Dynasty.MatchSimulation.Rules
         }
 
         public IReadOnlyList<HeroDefinition> Heroes { get; }
+
+        /// <summary>Dota's Twin Gates; null without them.</summary>
+        public TwinGateRules? TwinGates { get; }
 
         /// <summary>Dota's Outposts; null without them.</summary>
         public OutpostRules? Outposts { get; }
@@ -959,6 +964,9 @@ namespace Dynasty.MatchSimulation.Rules
             if (Outposts != null && (Outposts.Positions.Count == 0 || Outposts.Positions.Any(p => !IsInsideMap(p)) || Outposts.Owners.Count != Outposts.Positions.Count ||
                                      Outposts.Owners.Any(o => o == Team.Neutral) || Outposts.Radius <= 0 || Outposts.CaptureMs <= 0))
                 errors.Add("Outposts need places inside the map, a team owning each, a positive radius and capture time.");
+            if (TwinGates != null && (TwinGates.Positions.Count != 2 || TwinGates.Positions.Any(p => !IsInsideMap(p)) || TwinGates.Radius <= 0 ||
+                                      TwinGates.ChannelMs <= 0 || TwinGates.ManaCost < 0))
+                errors.Add("Twin Gates need two places inside the map, a positive radius and channel time.");
             if (LotusPools != null)
             {
                 if (FindItem(LotusPools.ItemId) == null)
@@ -1237,6 +1245,8 @@ namespace Dynasty.MatchSimulation.Rules
             Watchers?.WriteCanonical(writer);
             writer.WriteBool(Outposts != null);
             Outposts?.WriteCanonical(writer);
+            writer.WriteBool(TwinGates != null);
+            TwinGates?.WriteCanonical(writer);
             writer.WriteBool(DayNight != null);
             DayNight?.WriteCanonical(writer);
             writer.WriteBool(Draft != null);

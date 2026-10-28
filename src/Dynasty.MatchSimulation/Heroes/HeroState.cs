@@ -154,6 +154,12 @@ namespace Dynasty.MatchSimulation.Heroes
         /// <summary>In the wind-up of an ability (between cast start and effect).</summary>
         public bool IsCasting => CastEndTick >= 0;
 
+        /// <summary>When the Twin Gate channel ends; -1 when not channeling one.</summary>
+        public long GateChannelEndTick { get; internal set; } = -1;
+
+        /// <summary>Mana paid for the gate channel under way (given back if it breaks).</summary>
+        internal int GateChannelMana { get; set; }
+
         internal long CastEndTick { get; set; }
 
         internal IReadOnlyList<FixedVector2>? Path { get; set; }
@@ -222,6 +228,9 @@ namespace Dynasty.MatchSimulation.Heroes
         Move = 1,
         Attack = 2,
         Cast = 3,
+
+        /// <summary>Walk to the Twin Gate at <see cref="HeroOrder.Point"/> and channel it (Dota).</summary>
+        UseGate = 4,
     }
 
     /// <summary>What a hero is currently trying to do. Set by AI/controllers, carried out by match systems.</summary>
@@ -256,6 +265,9 @@ namespace Dynasty.MatchSimulation.Heroes
 
         public static HeroOrder CastNoTarget(string abilityId) =>
             new HeroOrder(HeroOrderKind.Cast, FixedVector2.Zero, EntityId.None, abilityId);
+
+        /// <summary>Use the Twin Gate at (nearest to) the point.</summary>
+        public static HeroOrder UseGate(FixedVector2 gate) => new HeroOrder(HeroOrderKind.UseGate, gate, EntityId.None);
     }
 
     public static class HeroOrders

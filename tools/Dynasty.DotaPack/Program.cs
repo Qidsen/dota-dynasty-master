@@ -212,6 +212,14 @@ var pack = new JsonObject
     },
     ["heroes"] = packHeroes,
     ["miniboss"] = Tormentor(dotaMap, gameAbilities),
+    // Twin Gates (game file twin_gate_portal_warp: within 200, 4 s channel, 30 mana — 7.40; Fandom «Twin Gate»: to the other gate).
+    ["twinGates"] = new JsonObject
+    {
+        ["positions"] = new JsonArray(dotaMap.TwinGates.SelectMany(p => new JsonNode[] { p.X, p.Y }).ToArray()),
+        ["radius"] = DotaData.Number(gameAbilities["twin_gate_portal_warp"]!["AbilityCastRange"]).DeepClone(),
+        ["channel"] = DotaData.Number(gameAbilities["twin_gate_portal_warp"]!["AbilityChannelTime"]).DeepClone(),
+        ["manaCost"] = DotaData.Number(gameAbilities["twin_gate_portal_warp"]!["AbilityManaCost"]).DeepClone(),
+    },
     // Outposts (game file ability_capture: base_capture_time 6, within 300; Valve 7.24: they start owned by their side, here the side whose
     // fountain is nearer — B-166; 7.33: no experience and no vision; the owner's heroes teleport to them).
     ["outposts"] = new JsonObject

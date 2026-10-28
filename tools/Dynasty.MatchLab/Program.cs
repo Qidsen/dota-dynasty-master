@@ -716,6 +716,10 @@ for (ulong seed = firstSeed; seed < firstSeed + (ulong)count; seed++)
     var bossKills = records.Select(r => r.Event).OfType<BossKilled>().ToList();
     var minibossKills = records.Select(r => r.Event).OfType<MinibossKilled>().ToList();
     var shrinesTaken = records.Select(r => r.Event).OfType<ShrineTaken>().ToList();
+    int gateUses = records.Count(r => r.Event is TwinGateUsed);
+    int lotuses = records.Count(r => r.Event is LotusPicked);
+    int watchersOn = records.Count(r => r.Event is WatcherTaken);
+    int outpostsTaken = records.Count(r => r.Event is OutpostCaptured);
     if (Environment.GetEnvironmentVariable("MATCHLAB_MINIBOSS") == "1")
     {
         var spawned = records.Select(r => r.Event).OfType<MinibossSpawned>().Select(e => e.Miniboss.Value).ToHashSet();
@@ -725,7 +729,7 @@ for (ulong seed = firstSeed; seed < firstSeed + (ulong)count; seed++)
             Console.WriteLine($"     {g.Key * 30 / 60}:{g.Key * 30 % 60:00} hits {g.Count()} by {g.Select(h => ((DamageDealt)h.Event).Attacker.Value).Distinct().Count()} dealers, damage {g.Sum(h => ((DamageDealt)h.Event).Amount.ToIntFloor())}");
     }
     var wards = records.Select(r => r.Event).OfType<UnitSummoned>().Count(s => s.CreepTypeId == "observer_ward");
-    Console.WriteLine($"   boss kills: Dawn {bossKills.Count(b => b.Team == Team.Dawn)}, Dusk {bossKills.Count(b => b.Team == Team.Dusk)}; miniboss kills: Dawn {minibossKills.Count(b => b.Team == Team.Dawn)}, Dusk {minibossKills.Count(b => b.Team == Team.Dusk)}; shrines: Dawn {shrinesTaken.Count(t => t.Team == Team.Dawn)}, Dusk {shrinesTaken.Count(t => t.Team == Team.Dusk)}; observer wards placed: {wards}");
+    Console.WriteLine($"   boss kills: Dawn {bossKills.Count(b => b.Team == Team.Dawn)}, Dusk {bossKills.Count(b => b.Team == Team.Dusk)}; miniboss kills: Dawn {minibossKills.Count(b => b.Team == Team.Dawn)}, Dusk {minibossKills.Count(b => b.Team == Team.Dusk)}; shrines: Dawn {shrinesTaken.Count(t => t.Team == Team.Dawn)}, Dusk {shrinesTaken.Count(t => t.Team == Team.Dusk)}; lotuses {lotuses}, watchers on {watchersOn}, outposts taken {outpostsTaken}, gate uses {gateUses}; observer wards placed: {wards}");
 
     if (!kernel.State.Heroes.Any())
     {

@@ -280,6 +280,17 @@ public class RulesetPackTests
     }
 
     [Fact]
+    public void TwinGates_AreRead()
+    {
+        string gates = @"""twinGates"": { ""positions"": [1000, 2000, 9000, 8000], ""radius"": 200, ""channel"": 4, ""manaCost"": 30 },";
+
+        TwinGateRules rules = Apply(PackWith(gates)).TwinGates!;
+
+        Assert.Equal(new[] { FixedVector2.FromInts(1000, 2000), FixedVector2.FromInts(9000, 8000) }, rules.Positions);
+        Assert.Equal((200, 4000, 30), (rules.Radius, rules.ChannelMs, rules.ManaCost));
+    }
+
+    [Fact]
     public void Outposts_AreRead()
     {
         string outposts = @"""outposts"": { ""positions"": [1000, 2000, 3000, 4000], ""owners"": [""dawn"", ""dusk""], ""radius"": 300, ""capture"": 6 },";

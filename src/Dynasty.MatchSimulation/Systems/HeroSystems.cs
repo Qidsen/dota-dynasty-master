@@ -220,6 +220,21 @@ namespace Dynasty.MatchSimulation.Systems
                         if (unit.CanMove && !hero.IsCasting && MoveIntoCastRange(state, unit, hero, order))
                             unit.LastActiveTick = now;
                         break;
+
+                    case HeroOrderKind.UseGate:
+                        // The twin gate system channels it once within range.
+                        Rules.TwinGateRules? gates = state.Ruleset.TwinGates;
+                        if (gates == null)
+                        {
+                            HeroOrders.Issue(unit, HeroOrder.Idle);
+                            break;
+                        }
+
+                        FixedVector2 gate = gates.Route(order.Point).From;
+                        if (unit.CanMove && hero.GateChannelEndTick < 0 && !Geometry.WithinRange(unit.Position, gate, gates.Radius) &&
+                            WalkTo(state, unit, hero, FixedVector2.MoveTowards(gate, unit.Position, Fixed.FromInt(gates.Radius / 2))))
+                            unit.LastActiveTick = now;
+                        break;
                 }
             }
         }

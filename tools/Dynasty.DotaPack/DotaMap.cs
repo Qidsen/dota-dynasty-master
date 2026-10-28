@@ -46,6 +46,9 @@ sealed class DotaMap
     /// <summary>The Outposts (the map's watch towers) and the side each starts with: the one whose fountain is nearer.</summary>
     public ((int X, int Y) At, string Owner)[] Outposts { get; private set; } = Array.Empty<((int X, int Y), string)>();
 
+    /// <summary>The Twin Gates (their own spot is the building: not walkable).</summary>
+    public (int X, int Y)[] TwinGates { get; private set; } = Array.Empty<(int X, int Y)>();
+
     /// <summary>The Watchers (the map's lanterns).</summary>
     public (int X, int Y)[] Watchers { get; private set; } = Array.Empty<(int X, int Y)>();
 
@@ -272,6 +275,7 @@ sealed class DotaMap
         {
             Shrines = shrines,
             Watchers = Spots("npc_dota_lantern"),
+            TwinGates = data["npc_dota_unit_twin_gate"]!.AsArray().Select(p => Point(p!)).OrderBy(p => p.Y).ToArray(),
             Outposts = Spots("npc_dota_watch_tower").Select(p => (p, Nearer(p))).ToArray(),
             // The pool is a building in the middle of its water: its own spot is not walkable, the heroes stand around it.
             LotusPools = data["npc_dota_lotus_pool"]!.AsArray().Select(p => Point(p!)).OrderBy(p => p.Y).ToArray(),
