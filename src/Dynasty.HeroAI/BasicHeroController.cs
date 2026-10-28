@@ -502,6 +502,8 @@ namespace Dynasty.HeroAI
                 return;
             }
 
+            if (Decided(DenyBuilding(), "DenyBuilding"))
+                return;
             if (Decided(Cleanse(), "Cleanse"))
                 return;
             if (Decided(Fight(), "Fight"))
@@ -684,6 +686,28 @@ namespace Dynasty.HeroAI
             }
 
             return false;
+        }
+
+        private const int DenyReach = 600;
+
+        /// <summary>
+        /// An own building low enough to be denied (Dota: below 10% of its health, never the ancient) is finished by a hero close to it,
+        /// so the enemy does not get its full gold.
+        /// </summary>
+        private bool DenyBuilding()
+        {
+            HeroDecision self = this;
+            MatchUnit? building = _state.Units
+                .Where(u => u.Kind == UnitKind.Structure && u.Team == self._hero.Team && u.IsAlive && self._state.IsVulnerable(u) &&
+                            Math.Within(u.Position, self._hero.Position, self._hero.AttackRange + DenyReach) &&
+                            self._state.Ruleset.FindStructureType(u.TypeId)?.DenyHealthPercent is int deny && deny > 0 &&
+                            u.Hp * Fixed.FromInt(100) < Fixed.FromInt(u.MaxHp * deny))
+                .OrderBy(u => u.Hp).ThenBy(u => u.Id.Value)
+                .FirstOrDefault();
+            if (building == null)
+                return false;
+            Issue(HeroOrder.Attack(building.Id));
+            return true;
         }
 
         private const int WatcherDetour = 1000;

@@ -728,7 +728,8 @@ for (ulong seed = firstSeed; seed < firstSeed + (ulong)count; seed++)
         foreach (var g in hits.GroupBy(h => h.Tick.Value / 30 / 30))
             Console.WriteLine($"     {g.Key * 30 / 60}:{g.Key * 30 % 60:00} hits {g.Count()} by {g.Select(h => ((DamageDealt)h.Event).Attacker.Value).Distinct().Count()} dealers, damage {g.Sum(h => ((DamageDealt)h.Event).Amount.ToIntFloor())}");
     }
-    var wards = records.Select(r => r.Event).OfType<UnitSummoned>().Count(s => s.CreepTypeId == "observer_ward");
+    // The base rules' observer ward or the Dota pack's.
+    var wards = records.Select(r => r.Event).OfType<UnitSummoned>().Count(s => s.CreepTypeId is "observer_ward" or "ward_observer_unit");
     Console.WriteLine($"   boss kills: Dawn {bossKills.Count(b => b.Team == Team.Dawn)}, Dusk {bossKills.Count(b => b.Team == Team.Dusk)}; miniboss kills: Dawn {minibossKills.Count(b => b.Team == Team.Dawn)}, Dusk {minibossKills.Count(b => b.Team == Team.Dusk)}; shrines: Dawn {shrinesTaken.Count(t => t.Team == Team.Dawn)}, Dusk {shrinesTaken.Count(t => t.Team == Team.Dusk)}; lotuses {lotuses}, watchers on {watchersOn}, outposts taken {outpostsTaken}, gate uses {gateUses}; observer wards placed: {wards}");
 
     if (!kernel.State.Heroes.Any())

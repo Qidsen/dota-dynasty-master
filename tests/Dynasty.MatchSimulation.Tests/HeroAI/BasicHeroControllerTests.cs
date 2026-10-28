@@ -119,6 +119,30 @@ public class BasicHeroControllerTests
         Assert.Equal(new long[] { 0, 1 }, picks.OrderBy(p => p).ToArray());
     }
 
+    /// <summary>An own tower below its deny threshold is finished by a hero close to it (B-140).</summary>
+    [Theory]
+    [InlineData(5, true)]
+    [InlineData(20, false)]
+    public void Controller_DeniesItsOwnBuildingWhenLowEnough(int hpPercent, bool denied)
+    {
+        var draft = new RulesetDraft().WithoutWaves();
+        draft.StructureTypes[0] = new StructureType("tower", TowerStats(dmg: 0), denyHealthPercent: 10);
+        var kernel = draft.StartWithHeroes(new[] { ("alpha", "mid") }, NoHeroes);
+        At(kernel, 0, ctx =>
+        {
+            MatchUnit tower = ctx.State.FindStructure("dawn.mid.t1")!;
+            tower.Hp = Fixed.FromInt(tower.MaxHp * hpPercent / 100);
+            H(ctx.State, "alpha").Position = P(3300, 5000);
+        });
+        bool tried = false;
+        HeroAi.Attach(kernel, new HeroAiSettings { ReactionJitterTicks = 0, DecisionTrace = (h, now, branch) => tried |= branch == "DenyBuilding" });
+
+        kernel.RunTicks(30 * 20);
+
+        Assert.Equal(denied, kernel.EventsOf<StructureDestroyed>().Any(d => d.PlacementId == "dawn.mid.t1"));
+        Assert.Equal(denied, tried);
+    }
+
     /// <summary>Two camps exactly as far from the hero: which it farms is drawn, not left to the order of the camps (B-155).</summary>
     [Fact]
     public void Controller_TwoCampsEquallyFar_AreNotDecidedByTheirOrder()
