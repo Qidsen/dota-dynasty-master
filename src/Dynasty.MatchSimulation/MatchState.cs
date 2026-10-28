@@ -27,6 +27,9 @@ namespace Dynasty.MatchSimulation
 
         /// <summary>A building of a team that cannot be attacked, captured by enemy heroes standing at it (see <see cref="OutpostRules"/>).</summary>
         Outpost = 7,
+
+        /// <summary>An item lying on the ground (Dota's dropped Aegis): picked up by walking onto it, destroyed by a hero's hit.</summary>
+        GroundItem = 8,
     }
 
     /// <summary>
@@ -756,6 +759,17 @@ namespace Dynasty.MatchSimulation
         /// <summary>The Outposts, as in the rules (put on the map at the first tick).</summary>
         internal List<OutpostState> Outposts { get; } = new List<OutpostState>();
 
+        /// <summary>The Aegis lying on the ground; null when there is none.</summary>
+        public MatchUnit? GroundAegis { get; internal set; }
+
+        internal MatchUnit SpawnGroundAegis(EntityId id, FixedVector2 position)
+        {
+            var unit = new MatchUnit(id, Team.Neutral, UnitKind.GroundItem, "aegis", new UnitStats(1, Fixed.Zero, 0, 0, 0, 0, 1000, 0, 0, 16, visionRange: 0, nightVisionRange: 0), position, Rate);
+            Add(unit);
+            GroundAegis = unit;
+            return unit;
+        }
+
         internal MatchUnit SpawnOutpost(EntityId id, Team owner, FixedVector2 position, UnitStats stats)
         {
             var unit = new MatchUnit(id, owner, UnitKind.Outpost, "outpost", stats, position, Rate);
@@ -874,6 +888,8 @@ namespace Dynasty.MatchSimulation
         {
             if (!target.IsAlive || target == attacker || target.Kind == UnitKind.Rune)
                 return false;
+            if (target.Kind == UnitKind.GroundItem)
+                return attacker.Kind == UnitKind.Hero;   // only heroes destroy a dropped Aegis
             if (target.Team == attacker.Team)
             {
                 if (attacker.Kind != UnitKind.Hero)
@@ -1081,6 +1097,8 @@ namespace Dynasty.MatchSimulation
                 Boss = null;
             if (unit == Miniboss)
                 Miniboss = null;
+            if (unit == GroundAegis)
+                GroundAegis = null;
             _units.Remove(unit);
             if (unit.Hero != null)
                 _heroes.Remove(unit);

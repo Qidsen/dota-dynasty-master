@@ -156,7 +156,7 @@ public class RulesetPackTests
         ""structureTypes"": [ { ""id"": ""barracks.ranged"", ""health"": 1300, ""armor"": 9, ""visionRange"": 900, ""nightVision"": 600,
             ""upgradesCreeps"": [""ranged""] } ],
         ""boss"": { ""id"": ""colossus"", ""creep"": ""colossus"", ""respawnMin"": 480, ""respawnMax"": 660, ""teamGold"": 200,
-            ""position"": { ""x"": 5000, ""y"": 4000 }, ""nightPosition"": { ""x"": 6000, ""y"": 3000 }, ""leashRadius"": 900 },";
+            ""position"": { ""x"": 5000, ""y"": 4000 }, ""nightPosition"": { ""x"": 6000, ""y"": 3000 }, ""leashRadius"": 900, ""aegisDrops"": true },";
     }
 
     private static string PackWith(string sections) => Pack(Hero1).Replace(@"""heroes"": [", sections + @"""heroes"": [");
@@ -194,7 +194,7 @@ public class RulesetPackTests
         NeutralCampDefinition camp = Assert.Single(map.Camps);
         Assert.Equal(("camp.dawn.small", FixedVector2.FromInts(4000, 2000), 60000, 60000, 600, true), (camp.Id, camp.Position, camp.FirstSpawnMs, camp.RespawnMs, camp.LeashRadius, camp.AlignedToClock));
         Assert.Equal(("jungle_small", 2), (camp.Creeps[0].CreepTypeId, camp.Creeps[0].Count));
-        Assert.Equal((FixedVector2.FromInts(5000, 4000), FixedVector2.FromInts(6000, 3000), 900), (pack.Boss!.Position, pack.Boss.NightPosition, pack.Boss.LeashRadius));
+        Assert.Equal((FixedVector2.FromInts(5000, 4000), FixedVector2.FromInts(6000, 3000), 900, true), (pack.Boss!.Position, pack.Boss.NightPosition, pack.Boss.LeashRadius, pack.Boss.AegisDrops));
     }
 
     [Fact]
@@ -339,7 +339,7 @@ public class RulesetPackTests
     {
         string json = PackWith(MapSection());
         int start = json.IndexOf(@"""boss"": {", StringComparison.Ordinal);
-        int end = json.IndexOf(@"""leashRadius"": 900 },", start, StringComparison.Ordinal) + @"""leashRadius"": 900 },".Length;
+        int end = json.IndexOf(@"""aegisDrops"": true },", start, StringComparison.Ordinal) + @"""aegisDrops"": true },".Length;
 
         var e = Assert.Throws<RulesetPackException>(() => Apply(json.Remove(start, end - start)));
         Assert.Contains("boss", e.Message);

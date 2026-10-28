@@ -860,6 +860,37 @@ namespace Dynasty.MatchSimulation.Events
         }
     }
 
+    public sealed class AegisPicked : IDomainEvent
+    {
+        public AegisPicked(EntityId hero)
+        {
+            Hero = hero;
+        }
+
+        public EntityId Hero { get; }
+
+        public string Type => "match.aegis_picked";
+        public int SchemaVersion => 1;
+
+        public void WritePayload(ref Fnv1a64 hash) => hash.AddInt64(Hero.Value);
+    }
+
+    public sealed class AegisDenied : IDomainEvent
+    {
+        public AegisDenied(EntityId hero)
+        {
+            Hero = hero;
+        }
+
+        /// <summary>The hero whose hit destroyed it.</summary>
+        public EntityId Hero { get; }
+
+        public string Type => "match.aegis_denied";
+        public int SchemaVersion => 1;
+
+        public void WritePayload(ref Fnv1a64 hash) => hash.AddInt64(Hero.Value);
+    }
+
     public sealed class MinibossSpawned : IDomainEvent
     {
         public MinibossSpawned(EntityId miniboss, string minibossId)

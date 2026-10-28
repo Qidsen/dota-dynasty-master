@@ -432,7 +432,7 @@ namespace Dynasty.Content
                     var drop = new BossDrop(d.String("item"), d.Int("fromDeath"));
                     d.RejectUnknown();
                     return drop;
-                }).ToList(), nightPosition);
+                }).ToList(), nightPosition, b.OptionalBool("aegisDrops") ?? false);
             b.RejectUnknown();
             return boss;
         }

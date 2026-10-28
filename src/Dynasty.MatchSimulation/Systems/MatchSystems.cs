@@ -1008,6 +1008,12 @@ namespace Dynasty.MatchSimulation.Systems
                     continue;
                 }
 
+                if (unit.Kind == UnitKind.GroundItem)
+                {
+                    context.Emit(new AegisDenied(unit.LastAttackerId));
+                    continue;
+                }
+
                 if (unit.Kind == UnitKind.Miniboss)
                 {
                     context.Emit(new UnitKilled(unit.Id, unit.Team, unit.TypeId, unit.LastAttackerId));

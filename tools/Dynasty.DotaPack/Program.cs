@@ -280,6 +280,8 @@ var pack = new JsonObject
     {
         ["position"] = new JsonObject { ["x"] = dotaMap.RoshanTop.X, ["y"] = dotaMap.RoshanTop.Y },
         ["nightPosition"] = new JsonObject { ["x"] = dotaMap.RoshanBottom.X, ["y"] = dotaMap.RoshanBottom.Y },
+        // The Aegis drops where he died: anyone may pick it up (the killers take it, the others steal it) or deny it (the project owner).
+        ["aegisDrops"] = true,
         // Roshan idles in his pit and fights only those who attack him (Fandom «Roshan»: «only attacking when aggroed»).
         ["id"] = "roshan", ["creep"] = "roshan", ["firstSpawn"] = 0, ["respawnMin"] = 480, ["respawnMax"] = 660, ["provokeRadius"] = 0,
         ["teamGold"] = 135, ["killerGold"] = new JsonArray(200, 290), ["xp"] = 400,

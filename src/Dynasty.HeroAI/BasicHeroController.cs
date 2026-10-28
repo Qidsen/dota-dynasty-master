@@ -504,6 +504,8 @@ namespace Dynasty.HeroAI
 
             if (Decided(DenyBuilding(), "DenyBuilding"))
                 return;
+            if (Decided(TakeAegis(), "TakeAegis"))
+                return;
             if (Decided(Cleanse(), "Cleanse"))
                 return;
             if (Decided(Fight(), "Fight"))
@@ -686,6 +688,38 @@ namespace Dynasty.HeroAI
             }
 
             return false;
+        }
+
+        private const int AegisReach = 2500;
+        private const int AegisStealWithin = 1500;
+
+        /// <summary>
+        /// A dropped Aegis in sight (Dota): the killing team's richest living hero nearby walks onto it; an enemy hero hits it
+        /// (denies it) when it is in reach, else walks onto it to steal it when close.
+        /// </summary>
+        private bool TakeAegis()
+        {
+            MatchUnit? aegis = _state.GroundAegis;
+            if (aegis == null || !Sees(aegis) || !Math.Within(_hero.Position, aegis.Position, AegisReach))
+                return false;
+            HeroDecision self = this;
+            if (_state.BossLastKillerTeam == _hero.Team)
+            {
+                MatchUnit taker = _state.Heroes.Where(h => h.Team == self._hero.Team && h.IsAlive && !h.IllusionOf.IsValid && Math.Within(h.Position, aegis.Position, AegisReach))
+                    .OrderByDescending(h => h.Hero!.NetWorth).ThenBy(h => h.Id.Value).First();
+                if (taker != _hero)
+                    return false;
+                Issue(HeroOrder.Move(aegis.Position));
+                return true;
+            }
+
+            if (Math.Within(_hero.Position, aegis.Position, _hero.AttackRange + 100))
+                Issue(HeroOrder.Attack(aegis.Id));
+            else if (Math.Within(_hero.Position, aegis.Position, AegisStealWithin))
+                Issue(HeroOrder.Move(aegis.Position));
+            else
+                return false;
+            return true;
         }
 
         private const int DenyReach = 600;

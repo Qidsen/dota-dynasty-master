@@ -717,6 +717,8 @@ for (ulong seed = firstSeed; seed < firstSeed + (ulong)count; seed++)
     var minibossKills = records.Select(r => r.Event).OfType<MinibossKilled>().ToList();
     var shrinesTaken = records.Select(r => r.Event).OfType<ShrineTaken>().ToList();
     int gateUses = records.Count(r => r.Event is TwinGateUsed);
+    int aegisPicked = records.Count(r => r.Event is AegisPicked);
+    int aegisDenied = records.Count(r => r.Event is AegisDenied);
     int lotuses = records.Count(r => r.Event is LotusPicked);
     int watchersOn = records.Count(r => r.Event is WatcherTaken);
     int outpostsTaken = records.Count(r => r.Event is OutpostCaptured);
@@ -730,7 +732,7 @@ for (ulong seed = firstSeed; seed < firstSeed + (ulong)count; seed++)
     }
     // The base rules' observer ward or the Dota pack's.
     var wards = records.Select(r => r.Event).OfType<UnitSummoned>().Count(s => s.CreepTypeId is "observer_ward" or "ward_observer_unit");
-    Console.WriteLine($"   boss kills: Dawn {bossKills.Count(b => b.Team == Team.Dawn)}, Dusk {bossKills.Count(b => b.Team == Team.Dusk)}; miniboss kills: Dawn {minibossKills.Count(b => b.Team == Team.Dawn)}, Dusk {minibossKills.Count(b => b.Team == Team.Dusk)}; shrines: Dawn {shrinesTaken.Count(t => t.Team == Team.Dawn)}, Dusk {shrinesTaken.Count(t => t.Team == Team.Dusk)}; lotuses {lotuses}, watchers on {watchersOn}, outposts taken {outpostsTaken}, gate uses {gateUses}; observer wards placed: {wards}");
+    Console.WriteLine($"   boss kills: Dawn {bossKills.Count(b => b.Team == Team.Dawn)}, Dusk {bossKills.Count(b => b.Team == Team.Dusk)}; miniboss kills: Dawn {minibossKills.Count(b => b.Team == Team.Dawn)}, Dusk {minibossKills.Count(b => b.Team == Team.Dusk)}; shrines: Dawn {shrinesTaken.Count(t => t.Team == Team.Dawn)}, Dusk {shrinesTaken.Count(t => t.Team == Team.Dusk)}; lotuses {lotuses}, watchers on {watchersOn}, outposts taken {outpostsTaken}, gate uses {gateUses}; aegis picked {aegisPicked}, denied {aegisDenied}; observer wards placed: {wards}");
 
     if (!kernel.State.Heroes.Any())
     {

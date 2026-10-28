@@ -15,8 +15,9 @@ namespace Dynasty.MatchSimulation.Rules
         public BossDefinition(string id, string creepTypeId, FixedVector2 position, int leashRadius, int firstSpawnMs,
             int respawnMinMs, int respawnMaxMs, int teamGold, ModifierSpec? reward, int killerGoldMin = 0, int killerGoldMax = 0, int xp = 0,
             BossGrowth? growth = null, ModifierSpec? aegis = null, IReadOnlyList<BossAbility>? abilities = null, int provokeRadius = 300, IReadOnlyList<BossDrop>? drops = null,
-            FixedVector2? nightPosition = null)
+            FixedVector2? nightPosition = null, bool aegisDrops = false)
         {
+            AegisDrops = aegisDrops;
             NightPosition = nightPosition;
             Drops = (drops ?? System.Array.Empty<BossDrop>()).ToArray();
             ProvokeRadius = provokeRadius;
@@ -83,6 +84,12 @@ namespace Dynasty.MatchSimulation.Rules
         /// </summary>
         public ModifierSpec? Aegis { get; }
 
+        /// <summary>
+        /// The Aegis drops where the boss died, for any hero to pick up (the killers take it, the others steal it) or to destroy by
+        /// hitting it (Dota, the project owner); otherwise the killing team's richest hero gets it at once.
+        /// </summary>
+        public bool AegisDrops { get; }
+
         /// <summary>Heroes this close to the boss provoke it without attacking; 0 = only attackers (Dota's Roshan: «only attacking when aggroed»).</summary>
         public int ProvokeRadius { get; }
 
@@ -123,6 +130,7 @@ namespace Dynasty.MatchSimulation.Rules
 
             w.WriteBool(Aegis != null);
             Aegis?.WriteCanonical(w);
+            w.WriteBool(AegisDrops);
             w.WriteInt64(ProvokeRadius);
             w.WriteInt64(Drops.Count);
             foreach (BossDrop drop in Drops)

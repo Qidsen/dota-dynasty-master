@@ -32,10 +32,11 @@ namespace Dynasty.MatchSimulation.Systems
             foreach (CampState camp in state.Camps)
                 UpdateCamp(context, state, camp, now);
             MovePit(state, now);
+            PickUpAegis(context, state);
 
             foreach (MatchUnit unit in state.Units)
             {
-                if (unit.Team != Team.Neutral || !unit.IsAlive || unit.Kind == UnitKind.Rune || unit.Kind == UnitKind.Miniboss)
+                if (unit.Team != Team.Neutral || !unit.IsAlive || unit.Kind == UnitKind.Rune || unit.Kind == UnitKind.Miniboss || unit.Kind == UnitKind.GroundItem)
                     continue;
 
                 MatchUnit? target = ChooseTarget(state, unit);
@@ -157,6 +158,8 @@ namespace Dynasty.MatchSimulation.Systems
             if (definition != null && state.Boss == null && state.NextBossSpawnTick >= 0 && now >= state.NextBossSpawnTick)
             {
                 // Dota: Roshan takes back an unused Aegis when he respawns; its carrier gets the regeneration instead.
+                if (state.GroundAegis != null)
+                    state.Remove(state.GroundAegis);
                 if (definition.Aegis != null)
                 {
                     foreach (MatchUnit hero in state.Heroes.ToList())
@@ -173,6 +176,25 @@ namespace Dynasty.MatchSimulation.Systems
                 MatchUnit spawned = state.SpawnBoss(context.Ids.Allocate(), definition, definition.PitAt(state.IsNight(now)));
                 context.Emit(new BossSpawned(spawned.Id, definition.Id));
             }
+        }
+
+        private const int AegisPickupRadius = 150;
+
+        /// <summary>A hero (of either team) on the dropped Aegis takes it; several at once draw (D-014).</summary>
+        private static void PickUpAegis(SimulationContext<MatchState> context, MatchState state)
+        {
+            MatchUnit? aegis = state.GroundAegis;
+            ModifierSpec? spec = state.Ruleset.Boss?.Aegis;
+            if (aegis == null || spec == null || !aegis.IsAlive)
+                return;
+            var takers = state.Heroes.Where(h => h.IsAlive && !h.IllusionOf.IsValid && Geometry.WithinRange(h.Position, aegis.Position, AegisPickupRadius))
+                .OrderBy(h => h.Id.Value).ToList();
+            if (takers.Count == 0)
+                return;
+            MatchUnit taker = takers.Count == 1 ? takers[0] : takers[context.Random("objectives").NextInt(0, takers.Count)];
+            state.Remove(aegis);
+            Modifiers.Apply(context, taker, spec, aegis.Id);
+            context.Emit(new AegisPicked(taker.Id));
         }
 
         /// <summary>Dota's Roshan: at every change of day and night his home becomes the other pit, reached along a path.</summary>
@@ -354,7 +376,9 @@ namespace Dynasty.MatchSimulation.Systems
                         HeroShop.Give(context, receiver, state.Ruleset.FindItem(drop.ItemId)!);
                 }
 
-                if (definition.Aegis != null)
+                if (definition.Aegis != null && definition.AegisDrops)
+                    state.SpawnGroundAegis(context.Ids.Allocate(), boss.Position);
+                else if (definition.Aegis != null)
                 {
                     MatchUnit? holder = state.Heroes.Where(h => h.Team == team && h.IsAlive)
                         .OrderByDescending(h => h.Hero!.NetWorth).ThenBy(h => h.Id.Value).FirstOrDefault();
