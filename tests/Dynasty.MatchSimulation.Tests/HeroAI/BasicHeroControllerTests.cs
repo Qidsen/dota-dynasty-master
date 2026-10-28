@@ -173,8 +173,8 @@ public class BasicHeroControllerTests
     }
 
     /// <summary>
-    /// A core walking to a camp near its lane goes on to farm it when an enemy wave reaches the lane meanwhile, instead of turning
-    /// back halfway (on the long Dota lanes such walks were mostly wasted: 208 s walking to 60 s farming in minutes 10-20).
+    /// A core almost at a camp near its lane goes on to farm it when an enemy wave reaches the lane meanwhile, instead of turning
+    /// back at the camp (on the long Dota lanes such walks were mostly wasted: 208 s walking to 60 s farming in minutes 10-20).
     /// </summary>
     [Fact]
     public void Controller_WalkingToACamp_FarmsItEvenWhenAWaveArrivesMeanwhile()
@@ -185,7 +185,7 @@ public class BasicHeroControllerTests
         draft.Camps.Add(new NeutralCampDefinition("camp.a", P(3000, 3200), new[] { new WaveEntry("wolf", 1) }, firstSpawnMs: 0, respawnMs: 60000, leashRadius: 600));
         var kernel = draft.StartWithHeroes(new[] { ("alpha", "mid") }, NoHeroes);
         At(kernel, 0, ctx => H(ctx.State, "alpha").Position = P(3000, 5000));
-        At(kernel, 20, ctx =>
+        At(kernel, 120, ctx =>   // the hero is some 600 from the camp by then
         {
             MatchUnit creep = ctx.State.SpawnCreep(ctx.Ids.Allocate(), Team.Dusk, ctx.State.Ruleset.FindCreepType("brute")!, ctx.State.Ruleset.Map.Lanes.Single(l => l.Id == "mid"), ctx.Tick.Value);
             creep.Position = P(3800, 5000);

@@ -900,6 +900,7 @@ namespace Dynasty.HeroAI
         private const double CoreGreed = 0.5;
         private const int CampReachFromHero = 2000;
         private const int CampReachFromLane = 3000;
+        private const int CommitToCampRange = 1000;
         private const int WaveReach = 1500;
 
         /// <summary>Already hitting a camp: finish it rather than leave the creeps half dead.</summary>
@@ -912,15 +913,15 @@ namespace Dynasty.HeroAI
         }
 
         /// <summary>
-        /// The hero is on its way to a camp not known to be empty: it goes on to farm it rather than turning back to a wave that
-        /// reached the lane meanwhile (a wave waits; a walk cut halfway is wasted).
+        /// The hero is on its way to a camp not known to be empty and almost there: it goes on to farm it rather than turning
+        /// back to a wave that reached the lane meanwhile (a walk cut at the camp is wasted; farther off the wave comes first).
         /// </summary>
         private bool WalkingToCamp()
         {
             if (_h.Order.Kind != HeroOrderKind.Move)
                 return false;
             HeroDecision self = this;
-            return _state.Ruleset.Map.Camps.Any(c => c.Position == self._h.Order.Point &&
+            return _state.Ruleset.Map.Camps.Any(c => c.Position == self._h.Order.Point && Math.Within(self._hero.Position, c.Position, CommitToCampRange) &&
                                                      (!self._brain.CampEmptyUntil.TryGetValue(c.Id, out long until) || self._now >= until));
         }
 
