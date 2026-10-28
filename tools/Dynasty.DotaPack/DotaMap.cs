@@ -17,8 +17,10 @@ sealed class DotaMap
     private const int FountainRadius = 1200;
 
     private DotaMap(JsonObject map, (int X, int Y)[] powerSpots, (int X, int Y)[] bountySpots, (int X, int Y) roshanTop, (int X, int Y) roshanBottom,
-        IReadOnlyList<string> warnings)
+        (int X, int Y) tormentorTop, (int X, int Y) tormentorBottom, IReadOnlyList<string> warnings)
     {
+        TormentorTop = tormentorTop;
+        TormentorBottom = tormentorBottom;
         RoshanBottom = roshanBottom;
         Map = map;
         PowerSpots = powerSpots;
@@ -35,6 +37,11 @@ sealed class DotaMap
     public (int X, int Y) RoshanTop { get; }
 
     public (int X, int Y) RoshanBottom { get; }
+
+    /// <summary>The Tormentor's places (the map's miniboss spawners): the top-left corner and the bottom-right one.</summary>
+    public (int X, int Y) TormentorTop { get; }
+
+    public (int X, int Y) TormentorBottom { get; }
 
     /// <summary>Points that are not on walkable ground (lane corners, camps, runes): printed by the generator.</summary>
     public IReadOnlyList<string> Warnings { get; }
@@ -238,6 +245,9 @@ sealed class DotaMap
             ["lanes"] = lanes, ["structures"] = structures, ["fountains"] = fountains, ["camps"] = camps,
         };
         var pits = data["npc_dota_roshan_spawner"]!.AsArray().Select(p => Point(p!)).OrderByDescending(p => p.Y).ToArray();
-        return new DotaMap(map, Spots("dota_item_rune_spawner_powerup"), Spots("dota_item_rune_spawner_bounty"), pits[0], pits[1], warnings);
+        var tormentors = data["npc_dota_miniboss_spawner"]!.AsArray().Select(p => Point(p!)).OrderByDescending(p => p.Y).ToArray();
+        foreach ((int X, int Y) p in tormentors)
+            MustWalk("tormentor", p);
+        return new DotaMap(map, Spots("dota_item_rune_spawner_powerup"), Spots("dota_item_rune_spawner_bounty"), pits[0], pits[1], tormentors[0], tormentors[1], warnings);
     }
 }

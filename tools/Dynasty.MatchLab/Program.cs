@@ -714,8 +714,17 @@ for (ulong seed = firstSeed; seed < firstSeed + (ulong)count; seed++)
     duskKills += kernel.State.Heroes.Where(h => h.Team == Team.Dusk).Sum(h => h.Hero!.Kills);
     Console.WriteLine($"   structures lost: Dawn {structures.Count(r => ((StructureDestroyed)r.Event).Team == Team.Dawn)}, Dusk {structures.Count(r => ((StructureDestroyed)r.Event).Team == Team.Dusk)}; taken by 3+ heroes together: {pushes.Grouped}");
     var bossKills = records.Select(r => r.Event).OfType<BossKilled>().ToList();
+    var minibossKills = records.Select(r => r.Event).OfType<MinibossKilled>().ToList();
+    if (Environment.GetEnvironmentVariable("MATCHLAB_MINIBOSS") == "1")
+    {
+        var spawned = records.Select(r => r.Event).OfType<MinibossSpawned>().Select(e => e.Miniboss.Value).ToHashSet();
+        var hits = records.Where(r => r.Event is DamageDealt d && spawned.Contains(d.Target.Value)).ToList();
+        Console.WriteLine($"   miniboss: spawns {spawned.Count}, hits {hits.Count}, first hit at {(hits.Count > 0 ? hits[0].Tick.Value / 30 / 60 + ":" + (hits[0].Tick.Value / 30 % 60).ToString("00") : "-")}");
+        foreach (var g in hits.GroupBy(h => h.Tick.Value / 30 / 30))
+            Console.WriteLine($"     {g.Key * 30 / 60}:{g.Key * 30 % 60:00} hits {g.Count()} by {g.Select(h => ((DamageDealt)h.Event).Attacker.Value).Distinct().Count()} dealers, damage {g.Sum(h => ((DamageDealt)h.Event).Amount.ToIntFloor())}");
+    }
     var wards = records.Select(r => r.Event).OfType<UnitSummoned>().Count(s => s.CreepTypeId == "observer_ward");
-    Console.WriteLine($"   boss kills: Dawn {bossKills.Count(b => b.Team == Team.Dawn)}, Dusk {bossKills.Count(b => b.Team == Team.Dusk)}; observer wards placed: {wards}");
+    Console.WriteLine($"   boss kills: Dawn {bossKills.Count(b => b.Team == Team.Dawn)}, Dusk {bossKills.Count(b => b.Team == Team.Dusk)}; miniboss kills: Dawn {minibossKills.Count(b => b.Team == Team.Dawn)}, Dusk {minibossKills.Count(b => b.Team == Team.Dusk)}; observer wards placed: {wards}");
 
     if (!kernel.State.Heroes.Any())
     {

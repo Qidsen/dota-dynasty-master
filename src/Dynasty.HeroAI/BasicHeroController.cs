@@ -26,6 +26,9 @@ namespace Dynasty.HeroAI
 
         /// <summary>Kill the neutral boss (its being alive is public knowledge, like a kill feed).</summary>
         Boss = 3,
+
+        /// <summary>Kill the miniboss (Dota's Tormentor: its timer and place are public) for the shard.</summary>
+        Miniboss = 4,
     }
 
     /// <summary>
@@ -87,6 +90,16 @@ namespace Dynasty.HeroAI
                 Objective = state.Boss;
                 return;
             }
+            MatchUnit? miniboss = state.Miniboss;
+            if (miniboss != null && minute >= settings.MinibossFromMinute && ownAlive >= 3 && ownAlive >= enemyAlive && SomeoneLacks(state, state.Ruleset.Miniboss?.RewardItemId) &&
+                CanTake(state, miniboss, now) &&
+                !state.Heroes.Any(h => h.Team != Team && h.IsAlive && state.IsVisibleTo(Team, h) && Math.Within(h.Position, miniboss.Position, 2500)))
+            {
+                Plan = TeamPlanKind.Miniboss;
+                Objective = miniboss;
+                return;
+            }
+
             int needed = minute < settings.LaningPhaseFor(Team) ? 3 : 2;   // the laning phase is for farming
             bool numbers = ownAlive - enemyAlive >= needed;
             bool advantage = numbers || (ownAlive >= enemyAlive && ownAlive >= 3 && minute >= settings.EvenPushFor(Team));
@@ -106,6 +119,45 @@ namespace Dynasty.HeroAI
 
             Plan = TeamPlanKind.Lane;
             Objective = null;
+        }
+
+        /// <summary>
+        /// Whether the team's living heroes can break the miniboss: their attacks (against its armor) outpace its barrier's
+        /// regeneration by half again, and the burn and their share of the reflection until it falls would take at most half of
+        /// their health. The team's own stats and the miniboss's public numbers only.
+        /// </summary>
+        private bool CanTake(MatchState state, MatchUnit miniboss, long now)
+        {
+            MinibossDefinition? rules = state.Ruleset.Miniboss;
+            var heroes = state.Heroes.Where(h => h.Team == Team && h.IsAlive).ToList();
+            if (rules == null || heroes.Count == 0)
+                return false;
+            int intervals = rules.IntervalsAt(now * 1000 / state.Ruleset.TicksPerSecond);
+            Fixed dps = Fixed.Zero;
+            foreach (MatchUnit hero in heroes)
+            {
+                Fixed hit = Dynasty.MatchSimulation.Combat.DamageMath.Mitigate(Fixed.FromInt((hero.AttackDamageMin + hero.AttackDamageMax) / 2),
+                    Dynasty.MatchSimulation.Combat.DamageType.Physical, miniboss.Armor, miniboss.MagicResistPercent, state.Ruleset.Combat.ArmorFactor);
+                dps += hit * Fixed.FromInt(1000 * (100 + hero.AttackSpeedBonus)) / Fixed.FromInt(100 * hero.Stats.AttackIntervalMs);
+            }
+
+            Fixed regen = rules.BarrierRegen + rules.BarrierRegenPerInterval * Fixed.FromInt(intervals);
+            if (dps * Fixed.FromInt(2) <= regen * Fixed.FromInt(3))
+                return false;
+            Fixed seconds = miniboss.MinibossBarrier / (dps - regen);
+            Fixed burn = rules.ShiningDamage + rules.ShiningDamagePerInterval * Fixed.FromInt(intervals);
+            Fixed reflected = dps * (rules.ReflectPercent + rules.ReflectPercentPerInterval * Fixed.FromInt(intervals)) / Fixed.FromInt(100 * heroes.Count);
+            Fixed health = heroes.Aggregate(Fixed.Zero, (sum, h) => sum + h.Hp) / Fixed.FromInt(heroes.Count);
+            return (burn + reflected) * seconds * Fixed.FromInt(2) <= health;
+        }
+
+        /// <summary>One of the team's heroes has no item of this kind (or of its upgrade) yet; true without an item.</summary>
+        private bool SomeoneLacks(MatchState state, string? itemId)
+        {
+            ItemDefinition? item = itemId != null ? state.Ruleset.FindItem(itemId) : null;
+            if (item == null)
+                return true;
+            return state.Heroes.Any(h => h.Team == Team && !h.Hero!.Inventory.Any(s => s.Definition.Id == item.Id || (item.Upgrade != null && s.Definition.Upgrade == item.Upgrade)));
         }
 
         private int AlliedCreepsAt(MatchState state, MatchUnit structure)
@@ -1043,6 +1095,21 @@ namespace Dynasty.HeroAI
                 return true;
             }
 
+            if (_brain.Plan == TeamPlanKind.Miniboss)
+            {
+                // The Tormentor burns and reflects on everyone around while it is hit: the team gathers, then hits it down together,
+                // leaving only when nearly dead.
+                if (Math.HpPercent(_hero) < MinibossLeaveBelowHpPercent)
+                    return false;
+                HeroDecision self = this;
+                int gathered = _state.Heroes.Count(h => h.Team == self._hero.Team && h.IsAlive && Math.Within(h.Position, objective.Position, MinibossGatherRange));
+                if (gathered >= MinibossTogether && Sees(objective) && Math.Within(_hero.Position, objective.Position, MinibossGatherRange))
+                    Issue(HeroOrder.Attack(objective.Id));
+                else
+                    Issue(HeroOrder.Move(objective.Position));
+                return true;
+            }
+
             if (_brain.Plan == TeamPlanKind.Boss)
             {
                 if (Math.HpPercent(_hero) < 50)
@@ -1095,6 +1162,12 @@ namespace Dynasty.HeroAI
         }
 
         private const int CarryJoinsPushWithin = 3000;
+
+        private const int MinibossTogether = 3;
+
+        private const int MinibossGatherRange = 1300;
+
+        private const int MinibossLeaveBelowHpPercent = 25;
         private const int NearbyDefenseRange = 3000;
         private const int PushJoinsWithin = 2000;
 

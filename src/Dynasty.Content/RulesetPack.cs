@@ -72,6 +72,7 @@ namespace Dynasty.Content
             if (packMap != null && !reader.Has("boss") && boss != null)
                 throw reader.Error("boss", "a pack with its own map must place the boss pit (the base one is on the base map)");
             RuneRules? runes = reader.OptionalObject("runes") is Reader ru ? ReadRunes(ru, baseRules.Runes) : baseRules.Runes;
+            MinibossDefinition? miniboss = reader.OptionalObject("miniboss") is Reader mb ? ReadMiniboss(mb) : baseRules.Miniboss;
             reader.RejectUnknown();
 
             var unitIds = new HashSet<string>(unitTypes.Select(u => u.Id));
@@ -87,7 +88,7 @@ namespace Dynasty.Content
             }
             var content = new RulesetContent(id, version, baseRules.TicksPerSecond, combat, creepTypes, structureTypes,
                 packMap ?? baseRules.Map, waves, heroes, heroRules, abilities, items, boss, runes,
-                baseRules.DayNight, baseRules.Draft);
+                baseRules.DayNight, baseRules.Draft, miniboss);
             IReadOnlyList<string> errors = content.Validate();
             if (errors.Count > 0)
                 throw new RulesetPackException((errors.Any(e => e.Contains("terrain")) ? "map.terrain: " : "") + "The pack makes an invalid ruleset: " + string.Join("; ", errors));
@@ -313,6 +314,27 @@ namespace Dynasty.Content
                 w.Has("megaUpgrades") ? CreepUpgrades(w, "megaUpgrades") : baseWaves.MegaUpgrades);
             w.RejectUnknown();
             return waves;
+        }
+
+        /// <summary>Dota's Tormentor: its places by day and night, timings, rewards and the numbers of its barrier, reflection and burn.</summary>
+        private static MinibossDefinition ReadMiniboss(Reader m)
+        {
+            FixedVector2 Place(string field)
+            {
+                Reader p = m.OptionalObject(field) ?? throw m.Error(field, "missing");
+                var point = FixedVector2.FromInts(p.Int("x"), p.Int("y"));
+                p.RejectUnknown();
+                return point;
+            }
+
+            var miniboss = new MinibossDefinition(m.String("id"), m.String("creep"), Place("dayPosition"), Place("nightPosition"), m.Milliseconds("firstSpawn"),
+                m.Milliseconds("respawn"), m.Int("teamGold"), m.OptionalString("rewardItem"), m.OptionalInt("teamGoldWithoutItem") ?? 0, m.Milliseconds("growthInterval"),
+                m.Int("barrier"), m.OptionalInt("barrierPerInterval") ?? 0, m.Fixed("barrierRegen"), m.OptionalFixed("barrierRegenPerInterval") ?? Fixed.Zero,
+                m.Fixed("reflectPercent"), m.OptionalFixed("reflectPercentPerInterval") ?? Fixed.Zero, m.Int("reflectRadius"), m.Milliseconds("reflectInterval"),
+                m.Int("shiningRadius"), m.Fixed("shiningDamage"), m.OptionalFixed("shiningDamagePerInterval") ?? Fixed.Zero, m.Milliseconds("shiningInterval"),
+                m.Milliseconds("shiningAfterHit"), m.OptionalObject("deathModifier") is Reader d ? ReadModifier(d) : null, m.OptionalInt("deathModifierRadius") ?? 0);
+            m.RejectUnknown();
+            return miniboss;
         }
 
         private static IReadOnlyList<CreepUpgrade> CreepUpgrades(Reader w, string field) => w.Array(field).Select(u =>

@@ -1,4 +1,5 @@
 using Dynasty.Core.Kernel;
+using Dynasty.HeroAI;
 using Dynasty.Core.Mathematics;
 using Dynasty.MatchSimulation.Combat;
 using Dynasty.MatchSimulation.Events;
@@ -235,6 +236,74 @@ public class DotaTormentorTests
         Assert.Single(H(kernel.State, "alpha").Hero!.Inventory, i => i.Definition.Id == "aghanims_shard");
         Assert.NotNull(kernel.State.Miniboss);   // back 10 s after the kill
         Assert.Equal(Bottom, kernel.State.Miniboss!.Position);
+    }
+
+    /// <summary>
+    /// The team AI takes the Tormentor (its timer is public in Dota, like Roshan's) from a set minute, with at least three heroes
+    /// up and no fewer than the enemy, no enemy seen near it, and someone still without a shard. Four against four; the enemy far
+    /// away and unseen.
+    /// </summary>
+    private static SimulationKernel<MatchState> TeamsAround(bool allHaveShards, int barrierRegen = 20)
+    {
+        var draft = WithTormentor(growthIntervalMs: 60000);
+        draft.Miniboss = new MinibossDefinition("tormentor", "tormentor", dayPosition: P(5000, 2500), nightPosition: P(5000, 2500), firstSpawnMs: 0, respawnMs: 600000,
+            teamGold: 175, rewardItemId: "aghanims_shard", teamGoldWithoutItem: 240, growthIntervalMs: 60000, barrier: 600, barrierPerInterval: 0,
+            barrierRegen: Fixed.FromInt(barrierRegen), barrierRegenPerInterval: Fixed.Zero, reflectPercent: Fixed.FromInt(30), reflectPercentPerInterval: Fixed.Zero,
+            reflectRadius: 1200, reflectIntervalMs: 1000, shiningRadius: 1000, shiningDamage: Fixed.FromInt(20), shiningDamagePerInterval: Fixed.Zero,
+            shiningIntervalMs: 200, shiningAfterHitMs: 10000);
+        foreach (string id in new[] { "delta", "epsilon", "zeta", "eta", "theta" })
+            draft.Heroes.Add(Hero(id));
+        var kernel = draft.StartWithHeroes(
+            new[] { ("alpha", "mid"), ("beta", "mid"), ("gamma", "mid"), ("delta", "mid") },
+            new[] { ("epsilon", "mid"), ("zeta", "mid"), ("eta", "mid"), ("theta", "mid") });
+        At(kernel, 0, ctx =>
+        {
+            foreach (string hero in new[] { "alpha", "beta", "gamma", "delta" })
+            {
+                HeroProgression.GrantXp(ctx, H(ctx.State, hero), 2000);
+                if (allHaveShards)
+                    HeroShop.Give(ctx, H(ctx.State, hero), ctx.State.Ruleset.FindItem("aghanims_shard")!);
+            }
+
+            int i = 0;
+            foreach (string hero in new[] { "epsilon", "zeta", "eta", "theta" })
+                H(ctx.State, hero).Position = P(9000, 8000 + 200 * i++);
+        });
+        var settings = new HeroAiSettings { ReactionJitterTicks = 0, MisjudgementPercent = 0, MinibossFromMinute = 0, BossAtEvenNumbersFromMinute = 99 };
+        foreach (string hero in new[] { "epsilon", "zeta", "eta", "theta" })
+            settings.Uncontrolled.Add(hero);
+        HeroAi.Attach(kernel, settings);
+        return kernel;
+    }
+
+    [Fact]
+    public void TeamAi_TakesTheTormentor_WhenSomeoneHasNoShard()
+    {
+        var kernel = TeamsAround(allHaveShards: false);
+
+        kernel.RunTicks(30 * 60);
+
+        Assert.Equal(Team.Dawn, Assert.Single(kernel.EventsOf<MinibossKilled>()).Team);
+    }
+
+    [Fact]
+    public void TeamAi_LeavesTheTormentor_WhenItCannotOutpaceItsBarrier()
+    {
+        var kernel = TeamsAround(allHaveShards: false, barrierRegen: 500);
+
+        kernel.RunTicks(30 * 30);
+
+        Assert.Equal(-1, kernel.State.Miniboss!.MinibossLastHitTick);   // never even hit
+    }
+
+    [Fact]
+    public void TeamAi_LeavesTheTormentor_WhenEveryoneHasAShard()
+    {
+        var kernel = TeamsAround(allHaveShards: true);
+
+        kernel.RunTicks(30 * 60);
+
+        Assert.Empty(kernel.EventsOf<MinibossKilled>());
     }
 
     [Fact]

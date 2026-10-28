@@ -211,6 +211,7 @@ var pack = new JsonObject
         },
     },
     ["heroes"] = packHeroes,
+    ["miniboss"] = Tormentor(dotaMap, gameAbilities),
     // Dota's map of 7.41f (D-053, DotaMap.cs).
     ["map"] = dotaMap.Map,
     ["runes"] = Runes(dotaMap.PowerSpots, dotaMap.BountySpots),
@@ -292,7 +293,7 @@ var pack = new JsonObject
                 ("melee_super", "npc_dota_creep_goodguys_melee_upgraded"), ("ranged_super", "npc_dota_creep_goodguys_ranged_upgraded"),
                 ("siege_super", "npc_dota_goodguys_siege_upgraded"), ("melee_mega", "npc_dota_creep_goodguys_melee_upgraded_mega"),
                 ("ranged_mega", "npc_dota_creep_goodguys_ranged_upgraded_mega"), ("siege_mega", "npc_dota_goodguys_siege_upgraded_mega"),
-                ("flagbearer", "npc_dota_creep_goodguys_flagbearer"), ("roshan", "npc_dota_roshan"),
+                ("flagbearer", "npc_dota_creep_goodguys_flagbearer"), ("roshan", "npc_dota_roshan"), ("tormentor", "npc_dota_miniboss"),
             }.Concat(Jungle.Units.Select(u => (Id: u, Game: "npc_dota_" + u))).Select(c => (JsonNode)Roshan(Flagbearer(Abilities.GameUnit(c.Id, c.Game, gameUnits)))))
         .ToArray()),
     ["structureTypes"] = new JsonArray(new (string Id, string Game)[]
@@ -454,6 +455,43 @@ static JsonObject FlagbearerStep()
     step["auraMaxCycles"] = 15;
     step["auraRadius"] = 700;
     return step;
+}
+
+// The Tormentor (game file npc_dota_miniboss and its abilities miniboss_*; Valve 7.38–7.41f; the project owner where the sources are silent,
+// 2026-10-28): first at 20:00 (7.39), 10 minutes after each kill, always on the side away from Roshan — the bottom corner by day
+// (7.41: the first one in the bottom corner), the top one by night —, moving with him; 175 gold to each hero of the killing team
+// (7.38b), the Aghanim's Shard to the one with the lowest net worth without one, else 240 more each (Liquipedia); the barrier,
+// reflection and The Shining grow every minute; Alleviation at its death to every hero within its radius.
+static JsonObject Tormentor(DotaMap map, JsonObject abilities)
+{
+    JsonNode Value(string ability, string key) => DotaData.Number(abilities[ability]!["AbilityValues"]![key]);
+    return new JsonObject
+    {
+        ["id"] = "tormentor", ["creep"] = "tormentor",
+        ["dayPosition"] = new JsonObject { ["x"] = map.TormentorBottom.X, ["y"] = map.TormentorBottom.Y },
+        ["nightPosition"] = new JsonObject { ["x"] = map.TormentorTop.X, ["y"] = map.TormentorTop.Y },
+        ["firstSpawn"] = 20 * 60, ["respawn"] = 10 * 60, ["teamGold"] = 175, ["rewardItem"] = "aghanims_shard", ["teamGoldWithoutItem"] = 240,
+        ["growthInterval"] = 60,
+        ["barrier"] = Value("miniboss_unyielding_shield", "damage_absorb").DeepClone(),
+        ["barrierPerInterval"] = Value("miniboss_unyielding_shield", "absorb_bonus_per_interval").DeepClone(),
+        ["barrierRegen"] = Value("miniboss_unyielding_shield", "regen_per_second").DeepClone(),
+        ["barrierRegenPerInterval"] = Value("miniboss_unyielding_shield", "regen_bonus_per_interval").DeepClone(),
+        ["reflectPercent"] = Value("miniboss_reflect", "passive_reflection_pct").DeepClone(),
+        ["reflectPercentPerInterval"] = Value("miniboss_reflect", "passive_reflection_bonus_per_interval").DeepClone(),
+        ["reflectRadius"] = Value("miniboss_reflect", "radius").DeepClone(),
+        ["reflectInterval"] = Value("miniboss_reflect", "wave_interval").DeepClone(),
+        ["shiningRadius"] = Value("miniboss_radiance", "aura_radius").DeepClone(),
+        ["shiningDamage"] = Value("miniboss_radiance", "aura_damage").DeepClone(),
+        ["shiningDamagePerInterval"] = Value("miniboss_radiance", "aura_damage_per_upgrade").DeepClone(),
+        ["shiningInterval"] = Value("miniboss_radiance", "aura_interval").DeepClone(),
+        ["shiningAfterHit"] = Value("miniboss_radiance", "attack_timer_duration").DeepClone(),
+        ["deathModifier"] = new JsonObject
+        {
+            ["key"] = "tormentor_alleviation", ["duration"] = Value("miniboss_alleviation", "aura_duration").DeepClone(),
+            ["healthRegenMaxPercent"] = Value("miniboss_alleviation", "hp_restoration_pct").DeepClone(),
+        },
+        ["deathModifierRadius"] = Value("miniboss_alleviation", "radius").DeepClone(),
+    };
 }
 
 static JsonObject CreepUpgrade(string from, string to) => new() { ["from"] = from, ["to"] = to };

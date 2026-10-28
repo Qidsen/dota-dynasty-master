@@ -244,6 +244,28 @@ public class RulesetPackTests
     }
 
     [Fact]
+    public void Miniboss_IsReadWithItsNumbers()
+    {
+        string miniboss = @"""miniboss"": { ""id"": ""tormentor"", ""creep"": ""colossus"", ""dayPosition"": { ""x"": 7000, ""y"": 2000 }, ""nightPosition"": { ""x"": 3000, ""y"": 8000 },
+            ""firstSpawn"": 1200, ""respawn"": 600, ""teamGold"": 175, ""teamGoldWithoutItem"": 240, ""growthInterval"": 60,
+            ""barrier"": 3000, ""barrierPerInterval"": 50, ""barrierRegen"": 20, ""barrierRegenPerInterval"": 5,
+            ""reflectPercent"": 30, ""reflectPercentPerInterval"": 1.5, ""reflectRadius"": 1200, ""reflectInterval"": 1,
+            ""shiningRadius"": 1000, ""shiningDamage"": 20, ""shiningDamagePerInterval"": 2, ""shiningInterval"": 0.2, ""shiningAfterHit"": 10,
+            ""deathModifier"": { ""key"": ""tormentor_alleviation"", ""duration"": 15, ""healthRegenMaxPercent"": 2.25 }, ""deathModifierRadius"": 900 },";
+
+        MinibossDefinition m = Apply(PackWith(miniboss)).Miniboss!;
+
+        Assert.Equal(("tormentor", "colossus", FixedVector2.FromInts(7000, 2000), FixedVector2.FromInts(3000, 8000), 1200000, 600000),
+            (m.Id, m.CreepTypeId, m.DayPosition, m.NightPosition, m.FirstSpawnMs, m.RespawnMs));
+        Assert.Equal((175, (string?)null, 240, 60000, 3000, 50), (m.TeamGold, m.RewardItemId, m.TeamGoldWithoutItem, m.GrowthIntervalMs, m.Barrier, m.BarrierPerInterval));
+        Assert.Equal((Fixed.FromInt(20), Fixed.FromInt(5), Fixed.FromInt(30), Fixed.FromRatio(3, 2), 1200, 1000),
+            (m.BarrierRegen, m.BarrierRegenPerInterval, m.ReflectPercent, m.ReflectPercentPerInterval, m.ReflectRadius, m.ReflectIntervalMs));
+        Assert.Equal((1000, Fixed.FromInt(20), Fixed.FromInt(2), 200, 10000, 900),
+            (m.ShiningRadius, m.ShiningDamage, m.ShiningDamagePerInterval, m.ShiningIntervalMs, m.ShiningAfterHitMs, m.DeathModifierRadius));
+        Assert.Equal(("tormentor_alleviation", 15000, Fixed.FromRatio(9, 4)), (m.DeathModifier!.Key, m.DeathModifier.DurationMs, m.DeathModifier.HealPerSecondMaxHealthPercent));
+    }
+
+    [Fact]
     public void Map_FromThePack_NeedsTheBossPitPlaced()
     {
         string json = PackWith(MapSection());

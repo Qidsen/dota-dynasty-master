@@ -62,6 +62,12 @@ namespace Dynasty.HeroAI
         /// </summary>
         public int BossAtEvenNumbersFromMinute { get; set; } = 20;
 
+        /// <summary>
+        /// From this match minute on, a team with three or more heroes up and no fewer than the enemy takes the miniboss (Dota's
+        /// Tormentor, whose timer is public) while one of them has no shard and no enemy hero is seen near it.
+        /// </summary>
+        public int MinibossFromMinute { get; set; } = 20;
+
         /// <summary>Radius around a hero within which allies and visible enemies count toward a fight.</summary>
         public int EngageRange { get; set; } = 1200;
 
