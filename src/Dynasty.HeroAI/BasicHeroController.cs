@@ -790,8 +790,8 @@ namespace Dynasty.HeroAI
                 .Where(c => !core || (Math.Within(c.Position, front, CampReachFromLane) && Math.Within(c.Position, self._hero.Position, CampReachFromHero)) ||
                             Math.Within(c.Position, rally, CampReachFromLane))
                 .Where(c => !self._brain.CampEmptyUntil.TryGetValue(c.Id, out long until) || self._now >= until)
-                .OrderBy(c => FixedVector2.DistanceSquared(c.Position, self._hero.Position))
-                .FirstOrDefault();
+                .ToList()
+                .Nearest(c => FixedVector2.DistanceSquared(c.Position, self._hero.Position), _random);
             if (camp == null)
                 return false;
 
@@ -1398,9 +1398,9 @@ namespace Dynasty.HeroAI
             List<MatchUnit> ownWards = _state.Units.Where(u => u.Team == self._hero.Team && u.TypeId == wardType && u.IsAlive).ToList();
             FixedVector2? spot = _brain.WardSpots(_state)
                 .Where(s => !ownWards.Any(w => Math.Within(w.Position, s, 1000)) && !self.UnderEnemyTower(s))
-                .OrderBy(s => FixedVector2.DistanceSquared(s, self._hero.Position))
                 .Select(s => (FixedVector2?)s)
-                .FirstOrDefault();
+                .ToList()
+                .Nearest(s => FixedVector2.DistanceSquared(s!.Value, self._hero.Position), _random);
             if (spot == null)
                 return false;
 
@@ -1465,8 +1465,8 @@ namespace Dynasty.HeroAI
             MatchUnit? tower = _state.Units
                 .Where(u => ((u.Kind == UnitKind.Structure && u.CanAttackAtAll) || u.Kind == UnitKind.Outpost) && u.Team == self._hero.Team && u.IsAlive &&
                             !Math.Within(u.Position, self.Home, TeleportWorthDistance))
-                .OrderBy(u => FixedVector2.DistanceSquared(u.Position, front))
-                .FirstOrDefault();
+                .ToList()
+                .Nearest(u => FixedVector2.DistanceSquared(u.Position, front), _random);
             return tower != null && TryTeleportTo(tower);
         }
 
@@ -1911,6 +1911,22 @@ namespace Dynasty.HeroAI
             }
 
             return null;
+        }
+    }
+
+    internal static class Choice
+    {
+        /// <summary>
+        /// The candidate with the smallest key; exact ties are drawn from the hero's random stream, not left to the order the
+        /// candidates come in (D-014: in a mirror match both sides would otherwise lean the same way, B-154, B-155). Default when empty.
+        /// </summary>
+        public static T? Nearest<T>(this List<T> candidates, System.Func<T, Fixed> key, DeterministicRandom random)
+        {
+            if (candidates.Count == 0)
+                return default;
+            Fixed best = candidates.Min(key);
+            List<T> closest = candidates.Where(c => key(c) == best).ToList();
+            return closest.Count == 1 ? closest[0] : closest[random.NextInt(0, closest.Count)];
         }
     }
 

@@ -119,6 +119,35 @@ public class BasicHeroControllerTests
         Assert.Equal(new long[] { 0, 1 }, picks.OrderBy(p => p).ToArray());
     }
 
+    /// <summary>Two camps exactly as far from the hero: which it farms is drawn, not left to the order of the camps (B-155).</summary>
+    [Fact]
+    public void Controller_TwoCampsEquallyFar_AreNotDecidedByTheirOrder()
+    {
+        var picks = new HashSet<string>();
+        for (ulong seed = 1; seed <= 20; seed++)
+        {
+            var draft = new RulesetDraft().WithoutWaves();
+            draft.Creeps.Add(new CreepType("wolf", MeleeStats(hp: 300), new Bounty(30, 30, 40)));
+            draft.Camps.Add(new NeutralCampDefinition("camp.a", P(2000, 2000), new[] { new WaveEntry("wolf", 1) }, firstSpawnMs: 0, respawnMs: 60000, leashRadius: 600));
+            draft.Camps.Add(new NeutralCampDefinition("camp.b", P(4000, 2000), new[] { new WaveEntry("wolf", 1) }, firstSpawnMs: 0, respawnMs: 60000, leashRadius: 600));
+            var kernel = draft.StartWithHeroes(new[] { ("alpha", "mid") }, NoHeroes, seed);
+            At(kernel, 0, ctx => H(ctx.State, "alpha").Position = P(3000, 2000));
+            string pick = "";
+            for (long t = 1; t <= 30; t++)
+                At(kernel, t, ctx =>
+                {
+                    HeroOrder order = H(ctx.State, "alpha").Hero!.Order;
+                    if (pick == "" && order.Kind == HeroOrderKind.Move && (order.Point == P(2000, 2000) || order.Point == P(4000, 2000)))
+                        pick = order.Point == P(2000, 2000) ? "a" : "b";
+                });
+            HeroAi.Attach(kernel, new HeroAiSettings { ReactionJitterTicks = 0 });
+            kernel.RunTicks(30);
+            picks.Add(pick);
+        }
+
+        Assert.Equal(new[] { "a", "b" }, picks.OrderBy(p => p, StringComparer.Ordinal).ToArray());
+    }
+
     [Fact]
     public void Controller_GoesToItsLaneAndLastHitsCreeps()
     {
