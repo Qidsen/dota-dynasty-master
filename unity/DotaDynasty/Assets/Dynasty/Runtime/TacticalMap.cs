@@ -24,7 +24,7 @@ namespace Dynasty.Unity
         public TacticalMap(MapLayout map)
         {
             _map = map;
-            _background = Rasterise(map);
+            _background = map.Ground != null ? TerrainView.Texture(map, map.Ground, 0.6f) : Rasterise(map);
             _disc = Circle(32, filled: true);
             _ring = Circle(32, filled: false);
             _pixel = new Texture2D(1, 1) { hideFlags = HideFlags.HideAndDontSave };

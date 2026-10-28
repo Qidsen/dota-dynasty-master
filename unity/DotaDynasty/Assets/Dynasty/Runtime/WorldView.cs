@@ -24,10 +24,12 @@ namespace Dynasty.Unity
         private readonly HashSet<long> _seen = new HashSet<long>();
         private readonly List<long> _gone = new List<long>();
         private readonly Light _sun;
+        private readonly MapGround? _ground;
 
         public WorldView(MapLayout map, Material material)
         {
             _material = material;
+            _ground = map.Ground;
             _root = new GameObject("World").transform;
             _sun = CreateSun();
             BuildTerrain(map);
@@ -66,7 +68,7 @@ namespace Dynasty.Unity
                 }
 
                 UnitPose pose = poseById.TryGetValue(unit.Id, out UnitPose p) ? p : new UnitPose(unit.Id, unit.X, unit.Y);
-                float ground = unit.Elevation > 0 ? PlateauHeight : 0f;
+                float ground = _ground != null ? TerrainView.Height(unit.Elevation) : unit.Elevation > 0 ? PlateauHeight : 0f;
                 visual.Body.position = Palette.World(pose.X, pose.Y, ground + visual.HalfHeight);
                 visual.SetHealth(unit.MaxHp > 0 ? Mathf.Clamp01(unit.Hp / (float)unit.MaxHp) : 1f, viewer);
                 visual.SetInvisible(unit.Invisible);
@@ -84,7 +86,7 @@ namespace Dynasty.Unity
                     _projectiles.Add(projectile.Id, shot);
                 }
 
-                shot.position = Palette.World(projectile.X, projectile.Y, 1.2f);
+                shot.position = Palette.World(projectile.X, projectile.Y, GroundAt(projectile.X, projectile.Y) + 1.2f);
             }
 
             RetireTransforms(_projectiles, _seen);
@@ -196,8 +198,46 @@ namespace Dynasty.Unity
             return go.transform;
         }
 
+        /// <summary>Height of the drawn ground at a map point (flat without a cell-by-cell map).</summary>
+        private float GroundAt(float x, float y) => _ground != null ? TerrainView.Height(_ground.LevelAt(x, y)) : 0f;
+
+        private void BuildGround(MapLayout map, MapGround ground)
+        {
+            var groundObject = new GameObject("Ground");
+            groundObject.transform.SetParent(_root, false);
+            groundObject.AddComponent<MeshFilter>().sharedMesh = TerrainView.GroundMesh(ground);
+            var material = new Material(_material) { hideFlags = HideFlags.HideAndDontSave };
+            Texture2D texture = TerrainView.Texture(map, ground, 1f);
+            material.mainTexture = texture;
+            if (material.HasProperty("_BaseMap"))
+                material.SetTexture("_BaseMap", texture);
+            material.color = Color.white;
+            if (material.HasProperty(BaseColor))
+                material.SetColor(BaseColor, Color.white);
+            groundObject.AddComponent<MeshRenderer>().sharedMaterial = material;
+
+            foreach (Mesh trees in TerrainView.TreeMeshes(ground))
+            {
+                var treesObject = new GameObject("Trees");
+                treesObject.transform.SetParent(_root, false);
+                treesObject.AddComponent<MeshFilter>().sharedMesh = trees;
+                var renderer = treesObject.AddComponent<MeshRenderer>();
+                renderer.sharedMaterial = _material;
+                _block.Clear();
+                _block.SetColor(BaseColor, Palette.Tree);
+                renderer.SetPropertyBlock(_block);
+            }
+        }
+
         private void BuildTerrain(MapLayout map)
         {
+            if (map.Ground != null)
+            {
+                BuildGround(map, map.Ground);   // the Dota map: ground, river, cliffs, trees and lanes in the mesh and its texture
+                BuildMarkersAndFountains(map);
+                return;
+            }
+
             float w = map.Width / Palette.MapUnitsPerMetre;
             float h = map.Height / Palette.MapUnitsPerMetre;
             Transform ground = Primitive(PrimitiveType.Cube, "Ground", Palette.Ground, new Vector3(w, 0.2f, h));
@@ -238,16 +278,21 @@ namespace Dynasty.Unity
                 }
             }
 
+            BuildMarkersAndFountains(map);
+        }
+
+        private void BuildMarkersAndFountains(MapLayout map)
+        {
             foreach (MapMarker marker in map.Markers)
             {
                 // A flat coloured disc for each place (the units on it — Roshan, the Tormentor — are drawn by themselves).
                 float d = marker.Kind == MapMarkerKind.BossPit || marker.Kind == MapMarkerKind.Tormentor ? 7f : 3.5f;
                 Transform disc = Primitive(PrimitiveType.Cylinder, marker.Kind.ToString(), Palette.Of(marker.Kind), new Vector3(d, 0.06f, d));
-                disc.position = Palette.World(marker.X, marker.Y, 0.08f);
+                disc.position = Palette.World(marker.X, marker.Y, GroundAt(marker.X, marker.Y) + 0.08f);
                 if (marker.Kind == MapMarkerKind.Watcher || marker.Kind == MapMarkerKind.Shrine || marker.Kind == MapMarkerKind.TwinGate)
                 {
                     Transform pillar = Primitive(PrimitiveType.Cylinder, marker.Kind + " pillar", Palette.Of(marker.Kind), new Vector3(0.6f, 1.6f, 0.6f));
-                    pillar.position = Palette.World(marker.X, marker.Y, 1.6f);
+                    pillar.position = Palette.World(marker.X, marker.Y, GroundAt(marker.X, marker.Y) + 1.6f);
                 }
             }
 
@@ -255,7 +300,7 @@ namespace Dynasty.Unity
             {
                 float d = fountain.Radius * 2f / Palette.MapUnitsPerMetre;
                 Transform f = Primitive(PrimitiveType.Cylinder, "Fountain", Palette.Of(fountain.Team) * 0.6f, new Vector3(d, 0.1f, d));
-                f.position = Palette.World(fountain.X, fountain.Y, 0.05f);
+                f.position = Palette.World(fountain.X, fountain.Y, GroundAt(fountain.X, fountain.Y) + 0.05f);
             }
         }
 

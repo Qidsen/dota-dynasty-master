@@ -11,8 +11,9 @@ namespace Dynasty.Presentation
     public sealed class MapLayout
     {
         private MapLayout(int width, int height, List<MapObstacle> obstacles, List<MapLane> lanes, List<MapCircle> plateaus,
-            List<MapFountain> fountains, List<MapPoint> camps, MapPoint? bossPit, List<MapMarker> markers)
+            List<MapFountain> fountains, List<MapPoint> camps, MapPoint? bossPit, List<MapMarker> markers, MapGround? ground)
         {
+            Ground = ground;
             Markers = markers;
             Width = width;
             Height = height;
@@ -35,6 +36,9 @@ namespace Dynasty.Presentation
         public IReadOnlyList<MapFountain> Fountains { get; }
         public IReadOnlyList<MapPoint> Camps { get; }
         public MapPoint? BossPit { get; }
+
+        /// <summary>The map cell by cell (Dota's terrain: walkable, levels, trees); null for a map of shapes.</summary>
+        public MapGround? Ground { get; }
 
         /// <summary>Map objects that are places, not units: boss and Tormentor pits, shrines, lotus pools, watchers, Twin Gates.</summary>
         public IReadOnlyList<MapMarker> Markers { get; }
@@ -83,12 +87,67 @@ namespace Dynasty.Presentation
             Mark(MapMarkerKind.LotusPool, ruleset.LotusPools?.Positions ?? new FixedVector2[0]);
             Mark(MapMarkerKind.Watcher, ruleset.Watchers?.Positions ?? new FixedVector2[0]);
             Mark(MapMarkerKind.TwinGate, ruleset.TwinGates?.Positions ?? new FixedVector2[0]);
-            return new MapLayout(map.Width, map.Height, obstacles, lanes, plateaus, fountains, camps, boss, markers);
+            MapGround? ground = map.Terrain != null ? MapGround.From(map.Terrain, map.NavCellSize) : null;
+            return new MapLayout(map.Width, map.Height, obstacles, lanes, plateaus, fountains, camps, boss, markers, ground);
         }
 
         private static float F(Fixed value) => (float)value.ToDouble();
 
         private static MapPoint P(FixedVector2 p) => new MapPoint(F(p.X), F(p.Y));
+    }
+
+    /// <summary>A map given cell by cell, as plain numbers for the views: walkable cells, ground levels, trees.</summary>
+    public sealed class MapGround
+    {
+        private MapGround(int columns, int rows, int cellSize, bool[] walkable, int[] levels, List<MapPoint> trees, int treeSize)
+        {
+            Columns = columns;
+            Rows = rows;
+            CellSize = cellSize;
+            Walkable = walkable;
+            Levels = levels;
+            Trees = trees;
+            TreeSize = treeSize;
+        }
+
+        public int Columns { get; }
+        public int Rows { get; }
+
+        /// <summary>Side of a cell in map units; cells go row by row from y = 0.</summary>
+        public int CellSize { get; }
+
+        public IReadOnlyList<bool> Walkable { get; }
+        public IReadOnlyList<int> Levels { get; }
+        public IReadOnlyList<MapPoint> Trees { get; }
+
+        /// <summary>Side of the square each tree covers.</summary>
+        public int TreeSize { get; }
+
+        public static MapGround From(MapTerrain terrain, int cellSize)
+        {
+            var walkable = new bool[terrain.CellCount];
+            var levels = new int[terrain.CellCount];
+            for (int i = 0; i < terrain.CellCount; i++)
+            {
+                walkable[i] = terrain.IsWalkable(i);
+                levels[i] = terrain.LevelOf(i);
+            }
+
+            var trees = new List<MapPoint>(terrain.Trees.Count);
+            foreach (FixedVector2 tree in terrain.Trees)
+                trees.Add(new MapPoint((float)tree.X.ToDouble(), (float)tree.Y.ToDouble()));
+            return new MapGround(terrain.Columns, terrain.Rows, cellSize, walkable, levels, trees, terrain.TreeSize);
+        }
+
+        /// <summary>The cell index at a map point, clamped to the map.</summary>
+        public int IndexAt(float x, float y)
+        {
+            int column = System.Math.Min(Columns - 1, System.Math.Max(0, (int)(x / CellSize)));
+            int row = System.Math.Min(Rows - 1, System.Math.Max(0, (int)(y / CellSize)));
+            return row * Columns + column;
+        }
+
+        public int LevelAt(float x, float y) => Levels[IndexAt(x, y)];
     }
 
     /// <summary>What a <see cref="MapMarker"/> marks.</summary>

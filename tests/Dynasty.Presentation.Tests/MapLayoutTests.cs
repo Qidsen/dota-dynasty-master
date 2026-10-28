@@ -29,6 +29,29 @@ public class MapLayoutTests
         Assert.Contains(layout.Markers, m => m.Kind == MapMarkerKind.BossPit);
     }
 
+    /// <summary>
+    /// A map given cell by cell (the Dota pack) is copied for the views: per cell whether it is walkable and its level, the trees
+    /// and their size, the cell size; without such a map there is none.
+    /// </summary>
+    [Fact]
+    public void Ground_CopiesTheCellsAndTrees()
+    {
+        var walkable = new bool[3 * 2];
+        walkable[1] = true;
+        walkable[5] = true;
+        var levels = new[] { 0, 1, 2, 3, 4, 5 };
+        var terrain = new MapTerrain(3, 2, walkable, levels: levels, trees: new[] { Dynasty.Core.Mathematics.FixedVector2.FromInts(640, 320) }, treeSize: 128);
+
+        MapGround ground = MapGround.From(terrain, 64);
+
+        Assert.Equal((3, 2, 64, 128), (ground.Columns, ground.Rows, ground.CellSize, ground.TreeSize));
+        Assert.Equal(walkable, ground.Walkable);
+        Assert.Equal(levels, ground.Levels);
+        Assert.Equal((640f, 320f), (ground.Trees.Single().X, ground.Trees.Single().Y));
+        Assert.Equal(5, ground.LevelAt(2.5f * 64, 1.5f * 64));   // column 2, row 1
+        Assert.Null(MapLayout.From(BaseRuleset.Create()).Ground);
+    }
+
     private const string Hero = @"{
         ""id"": ""antimage"", ""name"": ""Anti-Mage"", ""roles"": [""carry""], ""attackType"": ""melee"",
         ""primaryAttribute"": ""agility"", ""strength"": 21, ""agility"": 25, ""intelligence"": 12,
