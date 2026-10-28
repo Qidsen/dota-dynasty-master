@@ -49,6 +49,12 @@ namespace Dynasty.MatchSimulation.Combat
 
         /// <summary>Attacks the modifier's source whatever it was ordered to do; cannot cast (Berserker's Call, Duel).</summary>
         Taunted = 512,
+
+        /// <summary>Cannot be attacked, targeted or affected by others' abilities, and takes no damage (Dota's invulnerability: Omnislash).</summary>
+        Invulnerable = 1024,
+
+        /// <summary>Acts on its own: takes no orders, does not walk, attack or cast by itself (the slashing hero of Omnislash).</summary>
+        Busy = 2048,
     }
 
     /// <summary>
@@ -747,7 +753,7 @@ namespace Dynasty.MatchSimulation.Combat
     {
         public static Fixed Deal(SimulationContext<MatchState> context, EntityId attacker, MatchUnit target, Fixed rawAmount, DamageType type, bool isCritical = false)
         {
-            if (!target.IsAlive || target.Kind == UnitKind.Outpost)
+            if (!target.IsAlive || target.Kind == UnitKind.Outpost || (target.Flags & ModifierFlags.Invulnerable) != 0)
                 return Fixed.Zero;
 
             Fixed amount = type == DamageType.Physical && (target.Flags & ModifierFlags.PhysicalImmune) != 0 ? Fixed.Zero

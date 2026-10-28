@@ -156,6 +156,27 @@ if (mode == "whydiag")
     return;
 }
 
+if (mode == "casts")
+{
+    // Abilities and item actives cast per match by each hero of the mirrored line-up (both sides together).
+    int n = args.Length > 1 ? int.Parse(args[1]) : 4;
+    var casts = new Dictionary<string, int>();
+    var runs = Enumerable.Range(1, n).AsParallel().AsOrdered().Select(seed =>
+    {
+        var k = Match.Create(Rules(), (ulong)seed, MirrorLineup());
+        HeroAi.Attach(k, new HeroAiSettings());
+        k.RunUntilFinished(60L * 60 * 30);
+        return k;
+    }).ToList();
+    foreach (var k in runs)
+        foreach (var c in k.Events.Records.Select(r => r.Event).OfType<AbilityCast>())
+            if (k.State.Find(c.Caster)?.Hero is Dynasty.MatchSimulation.Heroes.HeroState hero)
+                casts[hero.Definition.Id + " " + c.AbilityId] = casts.GetValueOrDefault(hero.Definition.Id + " " + c.AbilityId) + 1;
+    foreach (var kv in casts.OrderBy(x => x.Key, StringComparer.Ordinal))
+        Console.WriteLine($"{kv.Key,-60} {kv.Value / (double)n,6:0.0}");
+    return;
+}
+
 if (mode == "junglediag")
 {
     // Minutes 10-20 of the Dawn heroes: what their jungle time is spent on and what it yields.

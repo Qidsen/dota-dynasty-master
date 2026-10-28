@@ -33,10 +33,27 @@ public class PackContentTests
                 { ""key"": ""lion_impale"", ""duration"": 1.9, ""flags"": [""stunned""] },
                 { ""key"": ""lion_impale"", ""duration"": 2.2, ""flags"": [""stunned""] } ] } ] } ] }";
 
+    private const string Omnislash = @"{
+        ""id"": ""juggernaut_omni_slash"", ""name"": ""Omnislash"", ""targeting"": ""unit"", ""targetTeam"": ""enemy"", ""castRange"": 450, ""castPoint"": 0.3,
+        ""cooldown"": [120], ""requiredLevels"": [6],
+        ""effects"": [ { ""kind"": ""slashes"", ""radius"": 425, ""amounts"": [140],
+            ""modifiers"": [ { ""key"": ""omni"", ""duration"": 3, ""damage"": 25, ""flags"": [""invulnerable"", ""busy""] } ] } ] }";
+
+    [Fact]
+    public void Slashes_AreRead()
+    {
+        RulesetContent rules = Apply(@"""unitTypes"": " + Units + @", ""abilities"": [" + Spike + "," + WardPlace + "," + Omnislash + @"], ""items"": " + Items);
+
+        EffectDefinition slashes = rules.FindAbility("juggernaut_omni_slash")!.Effects.Single();
+        Assert.Equal((EffectKind.Slashes, 425, 140), (slashes.Kind, slashes.Radius, slashes.AmountAt(1)));
+        Assert.Equal((3000, 25, ModifierFlags.Invulnerable | ModifierFlags.Busy), (slashes.ModifierAt(1).DurationMs, slashes.ModifierAt(1).DamageBonus, slashes.ModifierAt(1).Flags));
+    }
+
     private const string WardPlace = @"{
         ""id"": ""item_ward_observer"", ""name"": ""Observer Ward"", ""targeting"": ""point"", ""targetTeam"": ""any"", ""castRange"": 500, ""castPoint"": 0,
         ""cooldown"": [1], ""requiredLevels"": [1],
-        ""effects"": [ { ""kind"": ""summon"", ""unitType"": ""ward_observer"", ""duration"": 360, ""counts"": [1], ""atPoint"": true } ] }";
+        ""effects"": [ { ""kind"": ""summon"", ""unitType"": ""ward_observer"", ""duration"": 360, ""counts"": [1], ""atPoint"": true,
+            ""effects"": [ { ""kind"": ""modifier"", ""modifiers"": [ { ""key"": ""ward_glow"", ""duration"": 360 } ] } ] } ] }";
 
     private const string Items = @"[
         { ""id"": ""belt_of_strength"", ""name"": ""Belt of Strength"", ""cost"": 450, ""bonuses"": { ""key"": ""item_belt_of_strength"", ""strength"": 6 } },
@@ -99,6 +116,7 @@ public class PackContentTests
         Assert.NotNull(rules.FindCreepType("melee"));   // the base lane creeps stay
         EffectDefinition summon = rules.FindAbility("item_ward_observer")!.Effects.Single();
         Assert.Equal((EffectKind.Summon, "ward_observer", 360000, true), (summon.Kind, summon.SummonTypeId, summon.DurationMs, summon.AtPoint));
+        Assert.Equal("ward_glow", Assert.Single(summon.Inner).Modifiers.Single().Key);   // effects on each summoned unit
     }
 
     [Fact]

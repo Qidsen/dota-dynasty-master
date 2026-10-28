@@ -2960,6 +2960,79 @@
       "critMultiplier": "$blade_dance_crit_mult"
     }
   },
+  "juggernaut_healing_ward": {
+    "status": "simplified",
+    "note": "the ward follows Juggernaut (it walks at 325 and the player moves it in Dota); it dies to damage like any 1-health unit, not to a set number of hits; it lasts the top level's duration at every level",
+    "targeting": "point",
+    "targetTeam": "ally",
+    "unitTypes": [
+      {
+        "id": "juggernaut_healing_ward_unit",
+        "gameUnit": "npc_dota_juggernaut_healing_ward"
+      }
+    ],
+    "effects": [
+      {
+        "kind": "summon",
+        "unitType": "juggernaut_healing_ward_unit",
+        "duration": "$abilityduration",
+        "counts": [
+          1
+        ],
+        "atPoint": true,
+        "effects": [
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "juggernaut_healing_ward",
+              "duration": "$abilityduration",
+              "aura": {
+                "radius": "$healing_ward_aura_radius",
+                "team": "ally",
+                "modifier": {
+                  "key": "juggernaut_healing_ward_heal",
+                  "duration": 1,
+                  "healthRegenMaxPercent": "$healing_ward_heal_amount"
+                }
+              }
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "juggernaut_omni_slash": {
+    "status": "simplified",
+    "note": "no items during the slashes (Dota allows them); the slashes are Juggernaut's normal attacks on a random visible enemy within the radius of him (the project owner, 2026-10-29)",
+    "targeting": "unit",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "onCaster",
+        "effects": [
+          {
+            "kind": "dispel"
+          }
+        ]
+      },
+      {
+        "kind": "slashes",
+        "radius": "$omni_slash_radius",
+        "amounts": "$attack_rate_multiplier*100",
+        "modifiers": {
+          "key": "juggernaut_omni_slash",
+          "duration": "$duration",
+          "damage": "$bonus_damage",
+          "attackSpeed": "$bonus_attack_speed",
+          "flags": [
+            "invulnerable",
+            "busy"
+          ],
+          "dispellable": false
+        }
+      }
+    ]
+  },
   "lion_impale": {
     "status": "simplified",
     "note": "unit-targeted: hits the target only, not a line",

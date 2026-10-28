@@ -50,6 +50,29 @@ public class AbilityTests
         Assert.Equal("bolt", learned.AbilityId);
     }
 
+    /// <summary>
+    /// A summon carries effects for each summoned unit, at the ability's level (Dota's Healing Ward: a ward with a healing aura of
+    /// 2–5% of max health a second by level): the ward gets the aura, and a hurt ally next to it is healed.
+    /// </summary>
+    [Fact]
+    public void Summon_AppliesItsEffectsToEachSummonedUnit()
+    {
+        var draft = Draft();
+        draft.Creeps.Add(new CreepType("ward", new UnitStats(1, Fixed.Zero, 0, 0, 0, 0, 1000, 0, 0, 16, visionRange: 400)));
+        var heal = new ModifierSpec("ward_heal", 1000, healPerSecondMaxHealthPercent: Fixed.FromInt(10));
+        draft.Abilities.Add(new AbilityDefinition("healing_ward", "Healing Ward", AbilityTargeting.Point, TargetTeam.Ally, 500, 0,
+            new[] { 60000 }, new[] { 0 }, new[] { 1 },
+            new[] { EffectDefinition.SummonAtPoint("ward", 10000, new[] { 1 }, EffectDefinition.Modifier(new ModifierSpec("ward_aura", 10000, aura: new AuraSpec(400, TargetTeam.Ally, false, heal)))) }));
+        var kernel = Arena(new[] { "healing_ward" }, ctx => H(ctx.State, "gamma").Hp = Fixed.FromInt(100), draft);
+        Order(kernel, 2, s => HeroOrder.CastAtPoint("healing_ward", P(4900, 3100)));
+
+        kernel.RunTicks(2 + 3 * 30);
+
+        MatchUnit ward = Assert.Single(kernel.State.Units, u => u.TypeId == "ward");
+        Assert.Contains(ward.Modifiers, m => m.Spec.Key == "ward_aura");
+        Assert.True(H(kernel.State, "gamma").Hp > Fixed.FromInt(100 + H(kernel.State, "gamma").MaxHp / 10), $"gamma healed to {H(kernel.State, "gamma").Hp.ToDouble():0}");
+    }
+
     [Fact]
     public void UnitTargetNuke_DealsMagicalDamageAfterCastPointAndSpendsMana()
     {

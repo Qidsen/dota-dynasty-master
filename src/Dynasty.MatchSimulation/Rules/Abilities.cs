@@ -92,6 +92,13 @@ namespace Dynasty.MatchSimulation.Rules
 
         /// <summary>Runs its inner effects only on a ranged target.</summary>
         IfRanged = 21,
+
+        /// <summary>
+        /// Slashes (Dota's Omnislash): the caster gets the level's modifier and, while it lasts, makes one normal attack every
+        /// attack interval divided by the rate (<see cref="EffectDefinition.Amounts"/>, percent) on a random visible enemy within
+        /// <see cref="EffectDefinition.Radius"/>, moved next to it, starting with the target; no enemy near ends them.
+        /// </summary>
+        Slashes = 22,
     }
 
     /// <summary>What a damage effect's amounts mean: flat damage, or a percent of the target's health or mana.</summary>
@@ -285,8 +292,23 @@ namespace Dynasty.MatchSimulation.Rules
             new EffectDefinition(EffectKind.Summon, countPerLevel, summonTypeId: creepTypeId, durationMs: durationMs);
 
         /// <summary>Summon at the cast point instead of next to the caster (wards); point-target abilities only.</summary>
+        /// <summary>Slashes (see <see cref="EffectKind.Slashes"/>): the rate in percent of the attack rate, and the slashing modifier, per level.</summary>
+        public static EffectDefinition Slashes(int radius, int[] ratePercentPerLevel, params ModifierSpec[] perLevel) =>
+            new EffectDefinition(EffectKind.Slashes, ratePercentPerLevel, modifiers: perLevel, radius: radius);
+
         public static EffectDefinition SummonAtPoint(string creepTypeId, int durationMs, params int[] countPerLevel) =>
             new EffectDefinition(EffectKind.Summon, countPerLevel, summonTypeId: creepTypeId, durationMs: durationMs, atPoint: true);
+
+        /// <summary>
+        /// A summon whose <paramref name="onEach"/> effects run on each summoned unit at the ability's level (Dota's Healing Ward:
+        /// its healing aura grows with the level, the ward's unit type does not).
+        /// </summary>
+        public static EffectDefinition Summon(string creepTypeId, int durationMs, bool atPoint, int[] countPerLevel, params EffectDefinition[] onEach) =>
+            new EffectDefinition(EffectKind.Summon, countPerLevel, summonTypeId: creepTypeId, durationMs: durationMs, atPoint: atPoint, inner: onEach);
+
+        /// <summary>A summon at the cast point with effects on each summoned unit (see <see cref="Summon(string, int, bool, int[], EffectDefinition[])"/>).</summary>
+        public static EffectDefinition SummonAtPoint(string creepTypeId, int durationMs, int[] countPerLevel, params EffectDefinition[] onEach) =>
+            Summon(creepTypeId, durationMs, true, countPerLevel, onEach);
 
         public int AmountAt(int level) => ValueAt(Amounts, level);
 

@@ -194,8 +194,11 @@ namespace Dynasty.MatchSimulation
 
         // Action gates use the tick-start snapshot: a status applied during a tick takes effect
         // from the next tick, so the order units are processed in cannot decide who acts first.
-        public bool CanMove => (StartFlags & (ModifierFlags.Stunned | ModifierFlags.Rooted)) == 0 && StepPerTick > Fixed.Zero;
-        public bool CanStartAttack => (StartFlags & (ModifierFlags.Stunned | ModifierFlags.Disarmed)) == 0 && CanAttackAtAll;
+        public bool CanMove => (StartFlags & (ModifierFlags.Stunned | ModifierFlags.Rooted | ModifierFlags.Busy)) == 0 && StepPerTick > Fixed.Zero;
+        public bool CanStartAttack => (StartFlags & (ModifierFlags.Stunned | ModifierFlags.Disarmed | ModifierFlags.Busy)) == 0 && CanAttackAtAll;
+
+        /// <summary>The slashes in progress (Dota's Omnislash); null when none.</summary>
+        internal SlashState? Slashes { get; set; }
 
         /// <summary>Position at the start of the current tick; pursuit within a tick aims here.</summary>
         public FixedVector2 StartPosition { get; internal set; }
@@ -555,6 +558,23 @@ namespace Dynasty.MatchSimulation
         public long[] Progress { get; } = new long[2];
     }
 
+    /// <summary>Slashes in progress: the modifier that lasts them, where they reach and how often they come.</summary>
+    internal sealed class SlashState
+    {
+        public SlashState(string modifierKey, int radius, int ratePercent, long nextTick)
+        {
+            ModifierKey = modifierKey;
+            Radius = radius;
+            RatePercent = ratePercent;
+            NextTick = nextTick;
+        }
+
+        public string ModifierKey { get; }
+        public int Radius { get; }
+        public int RatePercent { get; }
+        public long NextTick { get; set; }
+    }
+
     /// <summary>Runtime state of a Watcher (Dota).</summary>
     internal sealed class WatcherState
     {
@@ -887,7 +907,7 @@ namespace Dynasty.MatchSimulation
         /// </summary>
         internal bool CanAttack(MatchUnit attacker, MatchUnit target)
         {
-            if (!target.IsAlive || target == attacker || target.Kind == UnitKind.Rune)
+            if (!target.IsAlive || target == attacker || target.Kind == UnitKind.Rune || (target.Flags & ModifierFlags.Invulnerable) != 0)
                 return false;
             if (target.Kind == UnitKind.GroundItem)
                 return attacker.Kind == UnitKind.Hero;   // only heroes destroy a dropped Aegis

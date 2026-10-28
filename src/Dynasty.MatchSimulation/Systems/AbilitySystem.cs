@@ -52,7 +52,7 @@ namespace Dynasty.MatchSimulation.Systems
             // tick does not stop a cast resolving this tick, whichever hero is processed first.
             if (hero.IsCasting)
             {
-                if ((caster.StartFlags & (ModifierFlags.Stunned | ModifierFlags.Silenced)) != 0)
+                if ((caster.StartFlags & (ModifierFlags.Stunned | ModifierFlags.Silenced | ModifierFlags.Busy)) != 0)
                 {
                     Fail(context, caster, order.AbilityId!, "interrupted");
                     return;
@@ -64,7 +64,7 @@ namespace Dynasty.MatchSimulation.Systems
             }
 
             // A stunned hero keeps its order and tries again once the stun ends.
-            if ((caster.StartFlags & ModifierFlags.Stunned) != 0)
+            if ((caster.StartFlags & (ModifierFlags.Stunned | ModifierFlags.Busy)) != 0)
                 return;
 
             string? failure = Validate(context.State, caster, hero, ability, order, now);
@@ -244,7 +244,7 @@ namespace Dynasty.MatchSimulation.Systems
         /// </summary>
         public static bool Matches(MatchState state, MatchUnit caster, MatchUnit unit, TargetTeam team, bool allowAlliedStructures = false)
         {
-            if (!unit.IsAlive || unit.Kind == UnitKind.Rune)
+            if (!unit.IsAlive || unit.Kind == UnitKind.Rune || (unit != caster && (unit.Flags & ModifierFlags.Invulnerable) != 0))
                 return false;
             if (unit.Kind == UnitKind.Structure || unit.Kind == UnitKind.Outpost)
                 return allowAlliedStructures && unit.Team == caster.Team && team != TargetTeam.Enemy;
@@ -305,6 +305,15 @@ namespace Dynasty.MatchSimulation.Systems
                     break;
                 case EffectKind.Summon:
                     Summon(context, caster, effect, level, point);
+                    break;
+                case EffectKind.Slashes:
+                    ModifierSpec slashing = effect.ModifierAt(level);
+                    if (Modifiers.Apply(context, caster, slashing, caster.Id) != null)
+                    {
+                        caster.Slashes = new SlashState(slashing.Key, effect.Radius, effect.AmountAt(level), context.Tick.Value);
+                        caster.TargetId = target.Id;
+                        SlashSystem.Slash(context, caster, target);
+                    }
                     break;
                 case EffectKind.Teleport:
                     Teleport(context.State, caster, target);
@@ -524,6 +533,8 @@ namespace Dynasty.MatchSimulation.Systems
                 }
 
                 context.Emit(new UnitSummoned(unit.Id, caster.Id, type.Id, expires));
+                foreach (EffectDefinition inner in effect.Inner)
+                    RunOne(context, caster, inner, level, unit, point);
             }
         }
     }

@@ -662,6 +662,9 @@ namespace Dynasty.Content
                 case "dash":
                     effect = EffectDefinition.Dash();
                     break;
+                case "slashes":
+                    effect = EffectDefinition.Slashes(e.Int("radius"), e.Ints("amounts").ToArray(), e.Array("modifiers").Select(ReadModifier).ToArray());
+                    break;
                 case "knockback":
                     effect = EffectDefinition.Knockback(e.Ints("amounts").ToArray());
                     break;
@@ -669,7 +672,7 @@ namespace Dynasty.Content
                     string unit = e.String("unitType");
                     int duration = e.Milliseconds("duration");
                     int[] counts = e.Ints("counts").ToArray();
-                    effect = e.OptionalBool("atPoint") == true ? EffectDefinition.SummonAtPoint(unit, duration, counts) : EffectDefinition.Summon(unit, duration, counts);
+                    effect = EffectDefinition.Summon(unit, duration, e.OptionalBool("atPoint") == true, counts, e.OptionalArray("effects").Select(ReadEffect).ToArray());
                     break;
                 case "teleport":
                     effect = EffectDefinition.Teleport();
@@ -772,6 +775,8 @@ namespace Dynasty.Content
             "physicalImmune" => ModifierFlags.PhysicalImmune,
             "feared" => ModifierFlags.Feared,
             "taunted" => ModifierFlags.Taunted,
+            "invulnerable" => ModifierFlags.Invulnerable,
+            "busy" => ModifierFlags.Busy,
             _ => throw r.Error("flags", "unknown flag '" + flag + "'"),
         };
 
