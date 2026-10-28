@@ -43,6 +43,9 @@ sealed class DotaMap
 
     public (int X, int Y) TormentorBottom { get; }
 
+    /// <summary>The Shrines of Wisdom (the map's xp fountains).</summary>
+    public (int X, int Y)[] Shrines { get; private set; } = Array.Empty<(int X, int Y)>();
+
     /// <summary>Points that are not on walkable ground (lane corners, camps, runes): printed by the generator.</summary>
     public IReadOnlyList<string> Warnings { get; }
 
@@ -248,6 +251,10 @@ sealed class DotaMap
         var tormentors = data["npc_dota_miniboss_spawner"]!.AsArray().Select(p => Point(p!)).OrderByDescending(p => p.Y).ToArray();
         foreach ((int X, int Y) p in tormentors)
             MustWalk("tormentor", p);
-        return new DotaMap(map, Spots("dota_item_rune_spawner_powerup"), Spots("dota_item_rune_spawner_bounty"), pits[0], pits[1], tormentors[0], tormentors[1], warnings);
+        var shrines = Spots("npc_dota_xp_fountain");
+        return new DotaMap(map, Spots("dota_item_rune_spawner_powerup"), Spots("dota_item_rune_spawner_bounty"), pits[0], pits[1], tormentors[0], tormentors[1], warnings)
+        {
+            Shrines = shrines,
+        };
     }
 }

@@ -772,8 +772,10 @@ namespace Dynasty.MatchSimulation.Rules
             RuneRules? runes = null,
             DayNightRules? dayNight = null,
             DraftRules? draft = null,
-            MinibossDefinition? miniboss = null)
+            MinibossDefinition? miniboss = null,
+            ShrineRules? shrines = null)
         {
+            Shrines = shrines;
             Miniboss = miniboss;
             DayNight = dayNight;
             Draft = draft;
@@ -794,6 +796,9 @@ namespace Dynasty.MatchSimulation.Rules
         }
 
         public IReadOnlyList<HeroDefinition> Heroes { get; }
+
+        /// <summary>Dota's Shrines of Wisdom; null without them.</summary>
+        public ShrineRules? Shrines { get; }
 
         /// <summary>Dota's Tormentor; null without one.</summary>
         public MinibossDefinition? Miniboss { get; }
@@ -929,6 +934,10 @@ namespace Dynasty.MatchSimulation.Rules
                 if (Miniboss.RespawnMs <= 0 || Miniboss.ReflectIntervalMs <= 0 || Miniboss.ShiningIntervalMs <= 0 || Miniboss.GrowthIntervalMs <= 0)
                     errors.Add("Miniboss '" + Miniboss.Id + "' needs positive respawn, reflect, burn and growth intervals.");
             }
+
+            if (Shrines != null && (Shrines.Positions.Count == 0 || Shrines.Positions.Any(p => !IsInsideMap(p)) || Shrines.IntervalMs <= 0 ||
+                                    Shrines.FirstMs < 0 || Shrines.Radius <= 0 || Shrines.CaptureMs <= 0))
+                errors.Add("Shrines of Wisdom need places inside the map, a positive interval, radius and capture time.");
 
             return errors;
         }
@@ -1190,6 +1199,8 @@ namespace Dynasty.MatchSimulation.Rules
             Runes?.WriteCanonical(writer);
             writer.WriteBool(Miniboss != null);
             Miniboss?.WriteCanonical(writer);
+            writer.WriteBool(Shrines != null);
+            Shrines?.WriteCanonical(writer);
             writer.WriteBool(DayNight != null);
             DayNight?.WriteCanonical(writer);
             writer.WriteBool(Draft != null);

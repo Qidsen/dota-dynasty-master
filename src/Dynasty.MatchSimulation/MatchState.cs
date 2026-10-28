@@ -533,6 +533,21 @@ namespace Dynasty.MatchSimulation
         internal int WaypointCount => Team != Team.Dawn && Lane!.DuskWaypoints != null ? Lane.DuskWaypoints.Count : Lane!.Waypoints.Count;
     }
 
+    /// <summary>Runtime state of a Shrine of Wisdom (Dota).</summary>
+    internal sealed class ShrineState
+    {
+        /// <summary>Activations counted so far.</summary>
+        public int Activations { get; set; }
+
+        /// <summary>Fillings waiting to be taken.</summary>
+        public int Charges { get; set; }
+
+        /// <summary>Ticks of the countdown of <see cref="ProgressTeam"/>.</summary>
+        public long Progress { get; set; }
+
+        public Team ProgressTeam { get; set; }
+    }
+
     /// <summary>Runtime state of a neutral camp.</summary>
     internal sealed class CampState
     {
@@ -580,6 +595,8 @@ namespace Dynasty.MatchSimulation
                 NextBossSpawnTick = rate.TicksFor(ruleset.Boss.FirstSpawnMs);
             if (ruleset.Miniboss != null)
                 NextMinibossSpawnTick = rate.TicksFor(ruleset.Miniboss.FirstSpawnMs);
+            foreach (FixedVector2 _ in ruleset.Shrines?.Positions ?? Array.Empty<FixedVector2>())
+                Shrines.Add(new ShrineState());
             foreach (NeutralCampDefinition camp in ruleset.Map.Camps)
                 Camps.Add(new CampState(camp, rate.TicksFor(camp.FirstSpawnMs)));
             if (ruleset.Runes != null)
@@ -682,6 +699,12 @@ namespace Dynasty.MatchSimulation
 
         /// <summary>The living boss, if the ruleset has one and it is up.</summary>
         public MatchUnit? Boss { get; internal set; }
+
+        /// <summary>The Shrines of Wisdom, as in the rules.</summary>
+        internal List<ShrineState> Shrines { get; } = new List<ShrineState>();
+
+        /// <summary>Fillings of a Shrine of Wisdom waiting to be taken (public: a shrine glows when active).</summary>
+        public int ShrineCharges(int shrine) => Shrines[shrine].Charges;
 
         /// <summary>The living miniboss (Dota's Tormentor); null when there is none.</summary>
         public MatchUnit? Miniboss { get; internal set; }

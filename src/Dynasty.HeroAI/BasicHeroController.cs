@@ -498,6 +498,8 @@ namespace Dynasty.HeroAI
                 return;
             if (Decided(PickUpRune(), "PickUpRune"))
                 return;
+            if (Decided(TakeShrine(), "TakeShrine"))
+                return;
             if (Decided(FarmJungle(), "FarmJungle"))
                 return;
             Trace("Lane");
@@ -599,6 +601,36 @@ namespace Dynasty.HeroAI
 
             Issue(HeroOrder.Move(rune.Position));
             return true;
+        }
+
+        private const int ShrineTakerWithin = 6000;
+        private const int ShrineEnemyWithin = 1500;
+
+        /// <summary>
+        /// A filled Shrine of Wisdom (Dota: its glow is public) is taken by the team's nearest living hero within reach, healthy,
+        /// while no enemy hero is seen near it; the hero walks there and stands until it is taken.
+        /// </summary>
+        private bool TakeShrine()
+        {
+            ShrineRules? rules = _state.Ruleset.Shrines;
+            if (rules == null || Math.HpPercent(_hero) < 40)
+                return false;
+            HeroDecision self = this;
+            for (int i = 0; i < rules.Positions.Count; i++)
+            {
+                FixedVector2 shrine = rules.Positions[i];
+                if (_state.ShrineCharges(i) == 0 || !Math.Within(_hero.Position, shrine, ShrineTakerWithin) || UnderEnemyTower(shrine) ||
+                    VisibleEnemyHeroes(shrine, ShrineEnemyWithin).Count > 0)
+                    continue;
+                MatchUnit nearest = _state.Heroes.Where(h => h.Team == self._hero.Team && h.IsAlive && !h.IllusionOf.IsValid)
+                    .OrderBy(h => FixedVector2.DistanceSquared(h.Position, shrine)).ThenBy(h => h.Id.Value).First();
+                if (nearest != _hero)
+                    continue;
+                Issue(HeroOrder.Move(shrine));
+                return true;
+            }
+
+            return false;
         }
 
         // ── Jungle ───────────────────────────────────────────────────────────────

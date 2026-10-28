@@ -710,6 +710,37 @@ namespace Dynasty.MatchSimulation.Events
         }
     }
 
+    public sealed class ShrineTaken : IDomainEvent
+    {
+        public ShrineTaken(int shrine, Team team, EntityId taker, int xp)
+        {
+            Shrine = shrine;
+            Team = team;
+            Taker = taker;
+            Xp = xp;
+        }
+
+        /// <summary>Index of the shrine in the rules.</summary>
+        public int Shrine { get; }
+
+        public Team Team { get; }
+        public EntityId Taker { get; }
+
+        /// <summary>Experience given to the taker and to the teammate with the least.</summary>
+        public int Xp { get; }
+
+        public string Type => "match.shrine_taken";
+        public int SchemaVersion => 1;
+
+        public void WritePayload(ref Fnv1a64 hash)
+        {
+            hash.AddInt64(Shrine);
+            hash.AddInt64((int)Team);
+            hash.AddInt64(Taker.Value);
+            hash.AddInt64(Xp);
+        }
+    }
+
     public sealed class MinibossSpawned : IDomainEvent
     {
         public MinibossSpawned(EntityId miniboss, string minibossId)

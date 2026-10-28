@@ -266,6 +266,17 @@ public class RulesetPackTests
     }
 
     [Fact]
+    public void Shrines_AreRead()
+    {
+        string shrines = @"""shrines"": { ""positions"": [1000, 2000, 9000, 8000], ""first"": 420, ""interval"": 420, ""radius"": 300, ""capture"": 3, ""xp"": 200, ""xpPerInterval"": 300 },";
+
+        ShrineRules rules = Apply(PackWith(shrines)).Shrines!;
+
+        Assert.Equal(new[] { FixedVector2.FromInts(1000, 2000), FixedVector2.FromInts(9000, 8000) }, rules.Positions);
+        Assert.Equal((420000, 420000, 300, 3000, 200, 300), (rules.FirstMs, rules.IntervalMs, rules.Radius, rules.CaptureMs, rules.Xp, rules.XpPerInterval));
+    }
+
+    [Fact]
     public void Map_FromThePack_NeedsTheBossPitPlaced()
     {
         string json = PackWith(MapSection());

@@ -64,6 +64,7 @@ namespace Dynasty.MatchSimulation
             kernel.AddSystem(new AbilitySystem());
             kernel.AddSystem(new NeutralSystem());
             kernel.AddSystem(new MinibossSystem());
+            kernel.AddSystem(new ShrineSystem());
             kernel.AddSystem(new RuneSystem());
             kernel.AddSystem(new MovementSystem());
             kernel.AddSystem(new ProjectileSystem());

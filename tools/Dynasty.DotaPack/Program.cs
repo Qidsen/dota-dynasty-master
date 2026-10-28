@@ -212,6 +212,16 @@ var pack = new JsonObject
     },
     ["heroes"] = packHeroes,
     ["miniboss"] = Tormentor(dotaMap, gameAbilities),
+    // Shrines of Wisdom (Valve 7.38, 7.41; game file ability_xp_fountain: radius 300, countdown 3 s): every 7 minutes from 7:00, 200
+    // experience at the first activation and 300 more at each later one, by the clock; what is not taken adds up (as Wisdom Runes).
+    ["shrines"] = new JsonObject
+    {
+        ["positions"] = new JsonArray(dotaMap.Shrines.SelectMany(p => new JsonNode[] { p.X, p.Y }).ToArray()),
+        ["first"] = 7 * 60, ["interval"] = 7 * 60,
+        ["radius"] = DotaData.Number(gameAbilities["ability_xp_fountain"]!["AbilityValues"]!["radius"]).DeepClone(),
+        ["capture"] = DotaData.Number(gameAbilities["ability_xp_fountain"]!["AbilityValues"]!["countdown_time"]).DeepClone(),
+        ["xp"] = 200, ["xpPerInterval"] = 300,
+    },
     // Dota's map of 7.41f (D-053, DotaMap.cs).
     ["map"] = dotaMap.Map,
     ["runes"] = Runes(dotaMap.PowerSpots, dotaMap.BountySpots),
