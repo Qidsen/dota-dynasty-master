@@ -147,7 +147,8 @@ namespace Dynasty.MatchSimulation
         public int ManaCostLeftHundredths { get; private set; } = 10000;
 
         /// <summary>The last tick a player's unit or the boss damaged it (-1 = never).</summary>
-        internal long LastPlayerDamageTick = -1;
+        /// <summary>When a player's unit (or the boss) last damaged it; -1 never.</summary>
+        public long LastPlayerDamageTick { get; internal set; } = -1;
 
         /// <summary>Above zero while its spell's effects run (they get its spell amplification).</summary>
         internal int CastingSpell;

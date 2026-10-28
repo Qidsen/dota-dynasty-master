@@ -136,6 +136,33 @@ public class TacticalAiTests
         Assert.True(now < start - 1500, $"alpha should rotate to defend (distance {start:0} -> {now:0})");
     }
 
+    /// <summary>An enemy hero standing by a tower without hitting it (an offlaner harassing in lane) draws no defenders.</summary>
+    [Fact]
+    public void AnEnemyStandingByATower_WithoutHittingIt_DrawsNoDefenders()
+    {
+        var draft = TestAbilities.Draft();
+        draft.Lanes.Add(new LaneDefinition("side", new[] { P(1000, 1000), P(9000, 1000) }));
+        draft.StructureTypes[0] = new StructureType("tower", TowerStats(dmg: 1));
+        var plans = new List<string>();
+        var settings = new HeroAiSettings
+        {
+            ReactionJitterTicks = 0, MisjudgementPercent = 0, LaningPhaseMinutes = 0,
+            DecisionTrace = (hero, now, branch) => plans.Add(branch),
+        };
+        settings.Uncontrolled.Add("beta");
+        var kernel = Skirmish(
+            new[] { ("alpha", 2500, 1000) },
+            new[] { ("beta", 3300, 5000) },
+            settings,
+            draft: draft,
+            lane: "side");
+
+        kernel.RunTicks(240);
+
+        Assert.NotEmpty(plans);
+        Assert.DoesNotContain(plans, p => p.EndsWith("/Defend"));
+    }
+
     /// <summary>
     /// A push at even numbers takes the heroes it needs (the nearest three), not the whole team: the
     /// farthest one keeps its lane — someone has to catch the other waves.

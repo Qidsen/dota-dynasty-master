@@ -69,7 +69,7 @@ namespace Dynasty.HeroAI
 
         private void Decide(MatchState state, long now, int ticksPerMinute, HeroAiSettings settings)
         {
-            MatchUnit? threatened = FindThreatenedStructure(state);
+            MatchUnit? threatened = FindThreatenedStructure(state, now, ticksPerMinute / 60);
             if (threatened != null)
             {
                 Plan = TeamPlanKind.Defend;
@@ -212,13 +212,22 @@ namespace Dynasty.HeroAI
             }
         }
 
-        private MatchUnit? FindThreatenedStructure(MatchState state)
+        /// <summary>Seconds since a player's hit on a building within which it counts as under attack.</summary>
+        private const int ThreatWindowSeconds = 3;
+
+        /// <summary>
+        /// The own building that enemy heroes in sight are attacking: heroes or their units hit it in the last seconds (an enemy
+        /// merely standing near a tower, as an offlaner harassing in the laning phase, is no threat to it).
+        /// </summary>
+        private MatchUnit? FindThreatenedStructure(MatchState state, long now, int ticksPerSecond)
         {
             MatchUnit? best = null;
             int bestCount = 0;
             foreach (MatchUnit structure in state.Units)
             {
                 if (structure.Kind != UnitKind.Structure || structure.Team != Team || !structure.IsAlive)
+                    continue;
+                if (structure.LastPlayerDamageTick < 0 || now - structure.LastPlayerDamageTick > ThreatWindowSeconds * ticksPerSecond)
                     continue;
                 int reach = Math.TowerReach(structure) + 300;
                 int count = state.Heroes.Count(h => h.Team != Team && h.IsAlive && state.IsVisibleTo(Team, h) && Math.Within(h.Position, structure.Position, reach));

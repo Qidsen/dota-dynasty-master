@@ -170,7 +170,7 @@ if (mode == "lanediag")
         var k = Match.Create(Rules(), seed, MirrorLineup());
         var solo = new HeroAiSettings();
         if (Environment.GetEnvironmentVariable("MATCHLAB_SOLO") == "1")
-            foreach (var id in new[] { "dawnmender", "emberwisp", "stonewarden", "thornkeeper" }) solo.Uncontrolled.Add(id);
+            foreach (var h in k.State.Heroes.Where(h => h.Hero!.Definition.Id != heroId)) solo.Uncontrolled.Add(h.Hero!.Definition.Id);   // in a mirror the other side's copy plays on its own safe lane
         HeroAi.Attach(k, solo);
         MatchUnit carry = k.State.Heroes.Single(h => h.Team == Team.Dawn && h.Hero!.Definition.Id == heroId);
         var home = k.State.Ruleset.Map.FountainOf(Team.Dawn)!.Position;
