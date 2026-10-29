@@ -8,8 +8,8 @@ namespace Dynasty.MatchSimulation.Systems
 {
     /// <summary>
     /// Keeps blocked units on their side of each standing ring wall: a unit that ended the tick across the wall (walking, pushed or
-    /// separated) is put back just on its side. Each unit's side is remembered from the tick the wall formed (or the unit first came
-    /// under it), so the result does not depend on the order units moved in. Debuff-immune units pass and their side follows them.
+    /// separated) is put back just on its side; a blink or a teleport goes over it. Each unit's side is remembered from the tick the wall formed (or the unit first came
+    /// under it), so the result does not depend on the order units moved in. Debuff-immune and teleported units pass and their side follows them.
     /// Expired walls are removed.
     /// </summary>
     internal sealed class WallSystem : ISimulationSystem<MatchState>
@@ -39,7 +39,7 @@ namespace Dynasty.MatchSimulation.Systems
                         continue;
                     FixedVector2 offset = unit.Position - wall.Position;
                     bool inside = offset.LengthSquared < radius * radius;
-                    if (!wall.Known.Contains(unit.Id) || !Blocks(wall, unit))
+                    if (!wall.Known.Contains(unit.Id) || !Blocks(wall, unit) || unit.TeleportedTick == now)
                     {
                         wall.Known.Add(unit.Id);
                         if (inside)

@@ -120,6 +120,7 @@ namespace Dynasty.MatchSimulation.Systems
         {
             hero.RespawnTick = -1;
             unit.Position = context.State.Ruleset.Map.FountainOf(unit.Team)!.Position;
+            unit.TeleportedTick = context.Tick.Value;
             unit.Hp = Fixed.FromInt(unit.MaxHp);
             hero.Mana = Fixed.FromInt(hero.MaxMana);
             unit.LastActiveTick = context.Tick.Value;

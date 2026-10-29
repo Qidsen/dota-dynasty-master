@@ -209,6 +209,9 @@ namespace Dynasty.MatchSimulation
         /// <summary>How far the last rewind moved the unit (Glimpse's damage by the distance).</summary>
         internal Fixed LastRewindDistance { get; set; }
 
+        /// <summary>The tick the unit last moved instantly (blink, teleport, swap, rewind, respawn): such a move goes over walls.</summary>
+        internal long TeleportedTick { get; set; } = -1;
+
         /// <summary>The unit's health at <paramref name="tick"/> as recorded (heroes, over the last seconds); null without a record.</summary>
         public Fixed? HealthAt(long tick) => PastAt(tick)?.Hp;
 

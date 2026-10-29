@@ -51,6 +51,7 @@ namespace Dynasty.MatchSimulation.Systems
             Fixed reach = Fixed.FromInt(unit.BoundingRadius + target.BoundingRadius);
             unit.Position = FixedVector2.MoveTowards(target.Position, unit.Position, reach);   // on the side it came from
             unit.StartPosition = unit.Position;
+            unit.TeleportedTick = context.Tick.Value;
             AttackSystem.Strike(context, unit, target, 100);
             slashes.NextTick = context.Tick.Value + System.Math.Max(1, unit.AttackIntervalTicks * 100 / System.Math.Max(1, slashes.RatePercent));
         }

@@ -27,10 +27,13 @@ public class WallTests
     private static SimulationKernel<MatchState> Arena(FixedVector2 start, FixedVector2 destination)
     {
         var draft = new RulesetDraft().WithoutWaves();
+        draft.Abilities.Add(new AbilityDefinition("blink", "Blink", AbilityTargeting.Point, TargetTeam.Enemy, 1200, 0, new[] { 1000 }, new[] { 0 }, new[] { 1 },
+            new[] { EffectDefinition.Dash() }));
         draft.Heroes.Clear();
         foreach (string id in new[] { "alpha", "beta", "gamma" })
             draft.Heroes.Add(new HeroDefinition(id, id, new[] { "carry" }, new UnitStats(2000, Fixed.Zero, 300, 50, 50, 150, 1500, 300, 800, 24, 0, visionRange: 1800),
-                hpPerLevel: 0, armorPerLevel: Fixed.Zero, damagePerLevel: 0, baseMana: 500, manaPerLevel: 0, hpRegenPerSecond: Fixed.Zero, manaRegenPerSecond: Fixed.Zero));
+                hpPerLevel: 0, armorPerLevel: Fixed.Zero, damagePerLevel: 0, baseMana: 500, manaPerLevel: 0, hpRegenPerSecond: Fixed.Zero, manaRegenPerSecond: Fixed.Zero,
+                abilityIds: id == "beta" ? new[] { "blink" } : null));
         var kernel = draft.StartWithHeroes(new[] { ("alpha", "mid"), ("gamma", "mid") }, new[] { ("beta", "mid") });
         At(kernel, 0, ctx =>
         {
@@ -120,6 +123,32 @@ public class WallTests
         kernel.RunTicks(4 * 30);
 
         Assert.True(FromCenter(H(kernel.State, "beta")) > Fixed.FromInt(Radius + 100));
+    }
+
+    /// <summary>A blink or a teleport goes over the wall (the project owner: Kinetic Field and Arena of Blood can be blinked out of); walking and pushes can't.</summary>
+    [Fact]
+    public void Enemy_BlinksOutOverTheWall()
+    {
+        var kernel = Arena(Center, Center);
+        Wall(kernel, 1);
+        At(kernel, 10, ctx => HeroOrders.Issue(H(ctx.State, "beta"), HeroOrder.CastAtPoint("blink", P(5000, 6000))));
+
+        kernel.RunTicks(14);
+
+        Assert.Equal(P(5000, 6000), H(kernel.State, "beta").Position);
+    }
+
+    [Fact]
+    public void Enemy_BlinkedOut_IsKeptOutside()
+    {
+        var kernel = Arena(Center, Center);
+        Wall(kernel, 1);
+        At(kernel, 10, ctx => HeroOrders.Issue(H(ctx.State, "beta"), HeroOrder.CastAtPoint("blink", P(5000, 5500))));
+        At(kernel, 14, ctx => HeroOrders.Issue(H(ctx.State, "beta"), HeroOrder.Move(Center)));
+
+        kernel.RunTicks(3 * 30);
+
+        Assert.True(FromCenter(H(kernel.State, "beta")) > Fixed.FromInt(Radius));
     }
 
     [Fact]

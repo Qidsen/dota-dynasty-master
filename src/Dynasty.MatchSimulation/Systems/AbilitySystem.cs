@@ -373,6 +373,7 @@ namespace Dynasty.MatchSimulation.Systems
                         target.Position = casterWas;
                         caster.StartPosition = caster.Position;
                         target.StartPosition = target.Position;
+                        caster.TeleportedTick = target.TeleportedTick = context.Tick.Value;
                         if (caster.Hero != null)
                             caster.Hero.Path = null;
                         if (target.Hero != null)
@@ -634,6 +635,7 @@ namespace Dynasty.MatchSimulation.Systems
         /// <summary>Blinking or teleporting makes projectiles homing on the unit lose it.</summary>
         private static void DisjointProjectiles(SimulationContext<MatchState> context, MatchUnit unit)
         {
+            unit.TeleportedTick = context.Tick.Value;
             foreach (Projectile projectile in context.State.Disjoint(unit))
                 context.Emit(new ProjectileDodged(projectile.Id, projectile.Source, unit.Id));
         }

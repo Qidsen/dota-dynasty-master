@@ -1006,6 +1006,7 @@ namespace Dynasty.MatchSimulation.Combat
                 // X Marks the Spot: back to the mark; a channel there is interrupted (the official note).
                 target.Position = modifier.Mark;
                 target.StartPosition = modifier.Mark;
+                target.TeleportedTick = context.Tick.Value;
                 if (target.Hero != null)
                 {
                     target.Hero.Path = null;

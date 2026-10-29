@@ -43,6 +43,7 @@ namespace Dynasty.MatchSimulation.Systems
                     var center = FixedVector2.FromInts(state.Ruleset.Map.Width / 2, state.Ruleset.Map.Height / 2);
                     unit.Position = FixedVector2.MoveTowards(to, center, Fixed.FromInt(rules.Radius));
                     unit.StartPosition = unit.Position;
+                    unit.TeleportedTick = now;
                     hero.Path = null;
                     hero.GateChannelEndTick = -1;
                     HeroOrders.Issue(unit, HeroOrder.Idle);
