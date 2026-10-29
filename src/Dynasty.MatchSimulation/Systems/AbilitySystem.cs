@@ -342,6 +342,40 @@ namespace Dynasty.MatchSimulation.Systems
                 case EffectKind.Area:
                     RunArea(context, caster, effect, level, target, point);
                     break;
+                case EffectKind.Experience:
+                    if (caster.Hero != null)
+                        HeroProgression.GrantXp(context, caster, effect.AmountAt(level));
+                    break;
+                case EffectKind.SwapPositions:
+                    if (target != caster && target.IsAlive)
+                    {
+                        FixedVector2 casterWas = caster.Position;
+                        caster.Position = target.Position;
+                        target.Position = casterWas;
+                        caster.StartPosition = caster.Position;
+                        target.StartPosition = target.Position;
+                        if (caster.Hero != null)
+                            caster.Hero.Path = null;
+                        if (target.Hero != null)
+                        {
+                            target.Hero.Path = null;
+                            if (target.Hero.Channel != null)
+                                target.Hero.Channel.Cancelled = true;   // Nether Swap interrupts channels (the official note)
+                        }
+                    }
+
+                    break;
+                case EffectKind.IfTeam:
+                    if (effect.Team == TargetTeam.Enemy ? target.Team != caster.Team : target.Team == caster.Team)
+                    {
+                        foreach (EffectDefinition inner in effect.Inner)
+                            RunOne(context, caster, inner, level, target, point);
+                    }
+
+                    break;
+                case EffectKind.SwapHealthPercent:
+                    SwapHealth(caster, target, effect.AmountAt(level));
+                    break;
                 case EffectKind.RandomArea:
                     RunAround(context, caster, effect, level, RandomPointAround(context, caster.Position, effect.MinDistance, effect.MaxDistance), point);
                     break;
@@ -444,6 +478,20 @@ namespace Dynasty.MatchSimulation.Systems
                         AttackSystem.Strike(context, caster, target, effect.AmountAt(level));
                     break;
             }
+        }
+
+        /// <summary>Sunder: the shares of current health are exchanged, each kept at least at the minimum; a debuff-immune enemy keeps its own.</summary>
+        private static void SwapHealth(MatchUnit caster, MatchUnit target, int minimumPercent)
+        {
+            if (target == caster || !target.IsAlive || caster.MaxHp <= 0 || target.MaxHp <= 0)
+                return;
+            Fixed casterShare = caster.Hp / Fixed.FromInt(caster.MaxHp);
+            Fixed targetShare = target.Hp / Fixed.FromInt(target.MaxHp);
+            Fixed minimum = Fixed.FromInt(minimumPercent) / Fixed.FromInt(100);
+            caster.Hp = Fixed.FromInt(caster.MaxHp) * Fixed.Max(minimum, targetShare);
+            bool immune = target.Team != caster.Team && (target.Flags & ModifierFlags.DebuffImmune) != 0;
+            if (!immune)
+                target.Hp = Fixed.FromInt(target.MaxHp) * Fixed.Max(minimum, casterShare);
         }
 
         /// <summary>A random point at least <paramref name="min"/> and at most <paramref name="max"/> from the centre (drawn in the square, kept in the ring).</summary>

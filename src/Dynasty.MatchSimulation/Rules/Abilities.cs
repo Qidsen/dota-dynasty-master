@@ -105,6 +105,21 @@ namespace Dynasty.MatchSimulation.Rules
         /// <see cref="EffectDefinition.MinDistance"/> and <see cref="EffectDefinition.MaxDistance"/> from the caster (Freezing Field).
         /// </summary>
         RandomArea = 23,
+
+        /// <summary>Experience (<see cref="EffectDefinition.Amounts"/> per level) for the caster (Backstab's bonus for a hero kill).</summary>
+        Experience = 24,
+
+        /// <summary>The caster and the target exchange positions; the target's channel is interrupted (Nether Swap).</summary>
+        SwapPositions = 25,
+
+        /// <summary>The inner effects only when the target is of <see cref="EffectDefinition.Team"/> to the caster (an enemy or an ally).</summary>
+        IfTeam = 26,
+
+        /// <summary>
+        /// The caster and the target exchange their shares of current health, each kept at least at <see cref="EffectDefinition.Amounts"/>
+        /// percent; a debuff-immune enemy keeps its health (Sunder).
+        /// </summary>
+        SwapHealthPercent = 27,
     }
 
     /// <summary>What a damage effect's amounts mean: flat damage, or a percent of the target's health or mana.</summary>
@@ -322,6 +337,14 @@ namespace Dynasty.MatchSimulation.Rules
             new EffectDefinition(EffectKind.Summon, countPerLevel, summonTypeId: creepTypeId, durationMs: durationMs);
 
         /// <summary>Summon at the cast point instead of next to the caster (wards); point-target abilities only.</summary>
+        public static EffectDefinition Experience(params int[] perLevel) => new EffectDefinition(EffectKind.Experience, perLevel);
+
+        public static EffectDefinition SwapPositions() => new EffectDefinition(EffectKind.SwapPositions);
+
+        public static EffectDefinition IfTeam(TargetTeam team, params EffectDefinition[] inner) => new EffectDefinition(EffectKind.IfTeam, team: team, inner: inner);
+
+        public static EffectDefinition SwapHealthPercent(params int[] minimumPercentPerLevel) => new EffectDefinition(EffectKind.SwapHealthPercent, minimumPercentPerLevel);
+
         /// <summary>See <see cref="EffectKind.RandomArea"/>.</summary>
         public static EffectDefinition RandomArea(int radius, int minDistance, int maxDistance, TargetTeam team, params EffectDefinition[] inner) =>
             new EffectDefinition(EffectKind.RandomArea, radius: radius, team: team, inner: inner, minDistance: minDistance, maxDistance: maxDistance);

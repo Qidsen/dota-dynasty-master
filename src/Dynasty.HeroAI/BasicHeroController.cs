@@ -504,8 +504,10 @@ namespace Dynasty.HeroAI
                 _memory.Retreating = false;
             else if (!_memory.Retreating && hpPercent < _personality.RetreatHpPercent + _skill.RetreatShiftPercent && !patchedUp)
                 _memory.Retreating = true;
-            // Before retreating: a hurt Morphling shifts into strength on the way.
+            // Before retreating: a hurt Morphling shifts into strength on the way, a hurt Terrorblade sunders.
             if (Decided(ManageToggles(), "ManageToggles"))
+                return;
+            if (Decided(SwapHealthWhenLow(hpPercent), "SwapHealthWhenLow"))
                 return;
             if (_memory.Retreating)
             {
@@ -1237,6 +1239,9 @@ namespace Dynasty.HeroAI
                     MatchUnit? hurt = allies.Where(a => Math.HpPercent(a) < 60 && Math.Within(_hero.Position, a.Position, reach)).OrderBy(a => a.Hp).FirstOrDefault();
                     return hurt != null ? HeroOrder.Cast(def.Id, hurt.Id) : null;
 
+                case AbilityTargeting.Unit when def.Effects.Any(e => e.Kind == EffectKind.SwapHealthPercent):
+                    return null;   // Sunder is kept for when the hero is low (SwapHealthWhenLow)
+
                 case AbilityTargeting.Unit:
                     // A dispel on an enemy is only worth it when there is a buff to strip.
                     if (def.Effects.Any(e => e.Kind == EffectKind.Dispel) && !focus.Modifiers.Any(m => !m.Spec.IsPermanent && m.Spec.Dispellable && !m.Spec.IsDebuff))
@@ -1925,6 +1930,29 @@ namespace Dynasty.HeroAI
 
         private const int ShiftToStrengthHpPercent = 35;
         private const int ShiftToAgilityHpPercent = 75;
+
+        private const int SwapHealthBelowPercent = 35;
+        private const int SwapHealthGainPercent = 20;
+
+        /// <summary>
+        /// Sunder: when the hero is low, its health is exchanged with the enemy hero in reach that has the largest share, if that
+        /// share is clearly larger (the exchange must pay).
+        /// </summary>
+        private bool SwapHealthWhenLow(int hpPercent)
+        {
+            if (hpPercent >= SwapHealthBelowPercent || (_hero.Flags & ModifierFlags.Silenced) != 0)
+                return false;
+            AbilityState? sunder = ReadyAbilities().FirstOrDefault(a => a.Definition.Targeting == AbilityTargeting.Unit && a.Definition.Effects.Any(e => e.Kind == EffectKind.SwapHealthPercent));
+            if (sunder == null)
+                return false;
+            MatchUnit? best = VisibleEnemyHeroes(_hero.Position, sunder.Definition.CastRange + 100)
+                .Where(h => Math.HpPercent(h) >= hpPercent + SwapHealthGainPercent)
+                .OrderByDescending(h => Math.HpPercent(h)).ThenBy(h => h.Id.Value).FirstOrDefault();
+            if (best == null)
+                return false;
+            Issue(HeroOrder.Cast(sunder.Definition.Id, best.Id));
+            return true;
+        }
 
         /// <summary>Mana a toggle may still run on: below this share of the hero's mana it is turned off.</summary>
         private const int ToggleKeepManaPercent = 10;

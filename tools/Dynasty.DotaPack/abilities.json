@@ -11975,5 +11975,95 @@
         }
       ]
     }
+  },
+  "huskar_berserkers_blood": {
+    "status": "full",
+    "targeting": "passive",
+    "targetTeam": "ally",
+    "passive": {
+      "key": "huskar_berserkers_blood",
+      "attackSpeed": "$maximum_attack_speed",
+      "magicResist": "$maximum_magic_resist",
+      "healthRegenStrengthPercent": "$maximum_health_regen",
+      "fullBelowHealthPercent": "$hp_threshold_max"
+    }
+  },
+  "riki_backstab": {
+    "status": "simplified",
+    "note": "no experience for assists (only for Riki's own hero kills); a cast reveals him too",
+    "targeting": "passive",
+    "targetTeam": "ally",
+    "passive": {
+      "key": "riki_backstab",
+      "invisibleAfterIdle": "$fade_delay",
+      "onKillHeroesOnly": true,
+      "onKill": [
+        {
+          "kind": "experience",
+          "amounts": "$bonus_xp_kill"
+        }
+      ]
+    }
+  },
+  "vengefulspirit_nether_swap": {
+    "status": "simplified",
+    "note": "any unit can be targeted, not heroes only; no trees destroyed (there is no tree cutting)",
+    "targeting": "unit",
+    "targetTeam": "any",
+    "effects": [
+      {
+        "kind": "swapPositions"
+      },
+      {
+        "kind": "ifTeam",
+        "team": "enemy",
+        "effects": [
+          {
+            "kind": "damage",
+            "damageType": "magical",
+            "amounts": "$damage"
+          }
+        ]
+      },
+      {
+        "kind": "ifTeam",
+        "team": "ally",
+        "effects": [
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "vengefulspirit_nether_swap_barrier",
+              "duration": "$damage_reduction_duration",
+              "barrier": "$damage"
+            }
+          }
+        ]
+      },
+      {
+        "kind": "onCaster",
+        "effects": [
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "vengefulspirit_nether_swap_barrier",
+              "duration": "$damage_reduction_duration",
+              "barrier": "$damage"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "terrorblade_sunder": {
+    "status": "simplified",
+    "note": "any unit can be targeted, not heroes only",
+    "targeting": "unit",
+    "targetTeam": "any",
+    "effects": [
+      {
+        "kind": "swapHealthPercent",
+        "amounts": "$hit_point_minimum_pct"
+      }
+    ]
   }
 }

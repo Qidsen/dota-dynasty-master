@@ -212,8 +212,14 @@ namespace Dynasty.MatchSimulation.Combat
             int critLifestealPercent = 0,
             string? resetStacksKey = null,
             int onHitManaCost = 0,
-            int onHitManaCostPercent = 0)
+            int onHitManaCostPercent = 0,
+            int fullBelowHealthPercent = 0,
+            Fixed hpRegenStrengthPercent = default,
+            int invisibleAfterIdleMs = 0)
         {
+            FullBelowHealthPercent = fullBelowHealthPercent;
+            HpRegenStrengthPercent = hpRegenStrengthPercent;
+            InvisibleAfterIdleMs = invisibleAfterIdleMs;
             CritMultiplierMaxPercent = critMultiplierMaxPercent;
             CritLifestealPercent = critLifestealPercent;
             ResetStacksKey = resetStacksKey;
@@ -592,6 +598,18 @@ namespace Dynasty.MatchSimulation.Combat
         /// <summary>Arcane Orb: percent of the current mana each on-hit proc costs, spent before its effects.</summary>
         public int OnHitManaCostPercent { get; }
 
+        /// <summary>
+        /// Berserker's Blood: the attack speed, magic resistance and <see cref="HpRegenStrengthPercent"/> grow linearly with the
+        /// bearer's missing health, none at full and all below this percent of health. 0: given in full.
+        /// </summary>
+        public int FullBelowHealthPercent { get; }
+
+        /// <summary>Health regeneration a second as a percent of the bearer's strength.</summary>
+        public Fixed HpRegenStrengthPercent { get; }
+
+        /// <summary>Riki's Backstab (7.41): the bearer turns invisible after this long without starting an attack; an attack or a cast reveals it.</summary>
+        public int InvisibleAfterIdleMs { get; }
+
         /// <summary><see cref="OnKill"/> runs only for hero victims (Flesh Heap).</summary>
         public bool OnKillHeroesOnly { get; }
 
@@ -773,8 +791,9 @@ namespace Dynasty.MatchSimulation.Combat
             w.WriteInt64(AttributeShift);
             w.WriteInt64(InstanceBlock);
             w.WriteBool(DamageHeals);
-            foreach (int value in new[] { CritMultiplierMaxPercent, CritLifestealPercent, OnHitManaCost, OnHitManaCostPercent })
+            foreach (int value in new[] { CritMultiplierMaxPercent, CritLifestealPercent, OnHitManaCost, OnHitManaCostPercent, FullBelowHealthPercent, InvisibleAfterIdleMs })
                 w.WriteInt64(value);
+            w.WriteFixed(HpRegenStrengthPercent);
             w.WriteString(ResetStacksKey ?? "");
         }
 

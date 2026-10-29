@@ -349,6 +349,19 @@ namespace Dynasty.MatchSimulation
         /// <summary>Whole part of a product of fixed-point values, tolerant to their last-digit error (0.45 × 60 is 27, not 26).</summary>
         private static int WholePart(Fixed value) => (value + Fixed.FromRatio(1, 1000)).ToIntFloor();
 
+        /// <summary>Share (0..1) of a bonus by missing health: none at full, all below <paramref name="fullBelowPercent"/>% of health.</summary>
+        private Fixed MissingHealthShare(int fullBelowPercent)
+        {
+            if (MaxHp <= 0)
+                return Fixed.Zero;
+            Fixed missing = Fixed.FromInt(MaxHp) - Hp;
+            Fixed range = Fixed.FromInt(MaxHp) * Fixed.FromInt(100 - fullBelowPercent) / Fixed.FromInt(100);
+            return range <= Fixed.Zero ? Fixed.One : Fixed.Max(Fixed.Zero, Fixed.Min(Fixed.One, missing / range));
+        }
+
+        /// <summary>Whether a modifier's bonuses follow the health (they are worked out again every tick).</summary>
+        internal bool HasHealthScaledBonuses => _modifiers.Any(m => m.Spec.FullBelowHealthPercent > 0);
+
         internal void Recalculate()
         {
             Fixed armor = Stats.Armor;
@@ -376,6 +389,7 @@ namespace Dynasty.MatchSimulation
             long statusLeft = 10000, slowLeft = 10000;   // Dota: the parts left after status and slow resistance, every source multiplied
             int moveSlow = 0, illusionTaken = 0, baseDamagePercent = 0, spellAmp = 0, fixedSpeed = 0;
             long cooldownLeft = 10000, manaCostLeft = 10000;   // Dota: the parts of cooldowns and mana costs left, every source multiplied
+            Fixed regenStrengthPercent = Fixed.Zero;
             SpellBlocker = null;
             foreach (ActiveModifier modifier in _modifiers)
             {
@@ -391,6 +405,9 @@ namespace Dynasty.MatchSimulation
                 }
 
                 int n = modifier.Stacks;
+                // Berserker's Blood: a share of these by the missing health (all of them for other modifiers).
+                Fixed share = spec.FullBelowHealthPercent > 0 ? MissingHealthShare(spec.FullBelowHealthPercent) : Fixed.One;
+                regenStrengthPercent += spec.HpRegenStrengthPercent * share * Fixed.FromInt(n);
                 structurePercent += spec.StructureDamagePercent * n;
                 lifesteal += spec.LifestealPercent * n;
                 maxHpBonus += spec.MaxHpBonus * n;
@@ -401,9 +418,9 @@ namespace Dynasty.MatchSimulation
                 intelligenceBonus += spec.IntelligenceBonus * n;
                 armor += spec.ArmorBonus * Fixed.FromInt(n);
                 if (!dota)
-                    magicResist += spec.MagicResistBonus * n;
+                    magicResist += (Fixed.FromInt(spec.MagicResistBonus * n) * share).ToIntFloor();
                 damageBonus += spec.DamageBonus * n;
-                attackSpeed += spec.AttackSpeedBonus * n;
+                attackSpeed += (Fixed.FromInt(spec.AttackSpeedBonus * n) * share).ToIntFloor();
                 if (spec.MoveSpeedHundredths < 0)
                     moveSlow += spec.MoveSpeedHundredths * n;
                 else
@@ -432,7 +449,7 @@ namespace Dynasty.MatchSimulation
                     for (int i = 0; i < n && spec.EvasionHundredths != 0; i++)
                         evasionLeft = evasionLeft * (10000 - spec.EvasionHundredths) / 10000;
                     for (int i = 0; i < n && spec.MagicResistBonus != 0; i++)
-                        magicTakenFactor = magicTakenFactor * Fixed.FromInt(100 - spec.MagicResistBonus) / Fixed.FromInt(100);
+                        magicTakenFactor = magicTakenFactor * (Fixed.FromInt(100) - Fixed.FromInt(spec.MagicResistBonus) * share) / Fixed.FromInt(100);
                     if (spec.CritChanceHundredths > 0)
                         (crits ??= new List<ActiveModifier>()).Add(modifier);
                 }
@@ -464,6 +481,7 @@ namespace Dynasty.MatchSimulation
                 Intelligence = Fixed.FromRatio(intelligence100, 100);
                 maxHpBonus += strength100 * perPoint.HealthPerStrength / 100;
                 hpRegen += Strength * perPoint.HealthRegenPerStrength;
+                hpRegen += Strength * regenStrengthPercent / Fixed.FromInt(100);
                 armor += Agility * perPoint.ArmorPerAgility;
                 attackSpeed += attributes.BaseAttackSpeed - 100 + agility100 * perPoint.AttackSpeedPerAgility / 100;
                 maxManaBonus += intelligence100 * perPoint.ManaPerIntelligence / 100;

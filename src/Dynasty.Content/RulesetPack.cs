@@ -673,6 +673,18 @@ namespace Dynasty.Content
                 case "dash":
                     effect = EffectDefinition.Dash();
                     break;
+                case "experience":
+                    effect = EffectDefinition.Experience(e.Ints("amounts").ToArray());
+                    break;
+                case "swapPositions":
+                    effect = EffectDefinition.SwapPositions();
+                    break;
+                case "ifTeam":
+                    effect = EffectDefinition.IfTeam(ReadTeam(e, "team"), e.Array("effects").Select(ReadEffect).ToArray());
+                    break;
+                case "swapHealthPercent":
+                    effect = EffectDefinition.SwapHealthPercent(e.Ints("amounts").ToArray());
+                    break;
                 case "randomArea":
                     effect = EffectDefinition.RandomArea(e.Int("radius"), e.Int("minDistance"), e.Int("maxDistance"), ReadTeam(e, "team"),
                         e.Array("effects").Select(ReadEffect).ToArray());
@@ -859,7 +871,8 @@ namespace Dynasty.Content
                 manaCostPerSecond: m.OptionalFixed("manaCostPerSecond") ?? Fixed.Zero, instanceBlock: m.OptionalInt("instanceBlock") ?? 0, damageHeals: m.OptionalBool("damageHeals") ?? false,
                 critMultiplierMaxPercent: m.OptionalInt("critMultiplierMax") ?? 0, critLifestealPercent: m.OptionalInt("critLifesteal") ?? 0,
                 resetStacksKey: m.OptionalString("resetStacksKey"), onHitManaCost: m.OptionalInt("onHitManaCost") ?? 0,
-                onHitManaCostPercent: m.OptionalInt("onHitManaCostPercent") ?? 0,
+                onHitManaCostPercent: m.OptionalInt("onHitManaCostPercent") ?? 0, fullBelowHealthPercent: m.OptionalInt("fullBelowHealthPercent") ?? 0,
+                hpRegenStrengthPercent: m.OptionalFixed("healthRegenStrengthPercent") ?? Fixed.Zero, invisibleAfterIdleMs: m.OptionalMilliseconds("invisibleAfterIdle") ?? 0,
                 attributeShift: m.OptionalString("attributeShift") switch
                 {
                     null => 0,

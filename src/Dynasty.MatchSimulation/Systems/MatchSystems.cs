@@ -339,6 +339,9 @@ namespace Dynasty.MatchSimulation.Systems
                 if (unit.Modifiers.Count == 0)
                     continue;
 
+                if (unit.HasHealthScaledBonuses)
+                    unit.Recalculate();   // Berserker's Blood follows the health
+                ModifierFading.FadeWhenIdle(context, unit, now);
                 _scratch.Clear();
                 _scratch.AddRange(unit.Modifiers);
                 foreach (ActiveModifier modifier in _scratch)
@@ -643,6 +646,23 @@ namespace Dynasty.MatchSimulation.Systems
             }
 
             return best;
+        }
+    }
+
+    /// <summary>Riki's Backstab (7.41): invisible after a while without starting an attack.</summary>
+    internal static class ModifierFading
+    {
+        internal static void FadeWhenIdle(SimulationContext<MatchState> context, MatchUnit unit, long now)
+        {
+            foreach (ActiveModifier fade in unit.Modifiers.Where(m => m.Spec.InvisibleAfterIdleMs > 0).ToList())
+            {
+                string key = fade.Spec.Key + "_invisible";
+                if (unit.Modifiers.Any(m => m.Spec.Key == key))
+                    continue;
+                long idleSince = System.Math.Max(fade.AppliedTick, unit.AttackStartTick);
+                if (now - idleSince >= context.TickRate.TicksFor(fade.Spec.InvisibleAfterIdleMs))
+                    Modifiers.Apply(context, unit, new ModifierSpec(key, -1, ModifierFlags.Invisible, breakOnAction: true, dispellable: false), unit.Id);
+            }
         }
     }
 

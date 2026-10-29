@@ -48,7 +48,7 @@ public class PackContentTests
             ""damageBlock"": 30, ""damageBlockCreepReduction"": 50, ""cleanseThreshold"": 600, ""cleanseWindow"": 7,
             ""absorbInstances"": 3, ""absorbBarrier"": 30, ""layers"": 4, ""layerReduction"": 8, ""layerRecovery"": 7, ""layerMinimumDamage"": 40,
             ""instanceBlock"": 26, ""damageHeals"": true, ""critMultiplierMax"": 270, ""critLifesteal"": 30, ""resetStacksKey"": ""fervor_stack"",
-            ""onHitManaCost"": 40, ""onHitManaCostPercent"": 20,
+            ""onHitManaCost"": 40, ""onHitManaCostPercent"": 20, ""fullBelowHealthPercent"": 10, ""healthRegenStrengthPercent"": 50, ""invisibleAfterIdle"": 3,
             ""onHit"": [ { ""kind"": ""damage"", ""damageType"": ""pure"", ""scaling"": ""distanceToTargetPercent"", ""cap"": 1750, ""amounts"": [10] } ] } ] } ], ""autoCastBelowHealth"": 400 }";
 
     [Fact]
@@ -64,6 +64,24 @@ public class PackContentTests
         Assert.Equal((270, 30, "fervor_stack", 40, 20), (m.CritMultiplierMaxPercent, m.CritLifestealPercent, m.ResetStacksKey, m.OnHitManaCost, m.OnHitManaCostPercent));
         EffectDefinition impetus = m.OnHit.Single();
         Assert.Equal((DamageScaling.DistanceToTargetPercent, 1750, 1000), (impetus.Scaling, impetus.Radius, impetus.AmountAt(1)));
+        Assert.Equal((10, Fixed.FromInt(50), 3000), (m.FullBelowHealthPercent, m.HpRegenStrengthPercent, m.InvisibleAfterIdleMs));
+    }
+
+    private const string Swaps = @"{
+        ""id"": ""swaps"", ""name"": ""Swaps"", ""targeting"": ""unit"", ""targetTeam"": ""any"", ""castRange"": 800, ""castPoint"": 0,
+        ""cooldown"": [30], ""manaCost"": [100], ""requiredLevels"": [1],
+        ""effects"": [ { ""kind"": ""swapPositions"" }, { ""kind"": ""ifTeam"", ""team"": ""enemy"", ""effects"": [ { ""kind"": ""experience"", ""amounts"": [130] } ] },
+            { ""kind"": ""swapHealthPercent"", ""amounts"": [25] } ] }";
+
+    [Fact]
+    public void SwapEffects_AreRead()
+    {
+        RulesetContent rules = Apply(@"""unitTypes"": " + Units + @", ""abilities"": [" + Spike + "," + WardPlace + "," + Swaps + @"], ""items"": " + Items);
+
+        IReadOnlyList<EffectDefinition> effects = rules.FindAbility("swaps")!.Effects;
+        Assert.Equal(new[] { EffectKind.SwapPositions, EffectKind.IfTeam, EffectKind.SwapHealthPercent }, effects.Select(e => e.Kind));
+        Assert.Equal((TargetTeam.Enemy, EffectKind.Experience, 130), (effects[1].Team, effects[1].Inner.Single().Kind, effects[1].Inner.Single().AmountAt(1)));
+        Assert.Equal(25, effects[2].AmountAt(1));
     }
 
     private const string Field = @"{
