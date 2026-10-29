@@ -12477,5 +12477,81 @@
         ]
       }
     ]
+  },
+  "templar_assassin_psionic_trap": {
+    "status": "simplified",
+    "note": "a trap dies to damage like any unit of its health, not to a number of hits; no Psionic Projection (teleport to a trap)",
+    "targeting": "point",
+    "targetTeam": "enemy",
+    "unitTypes": [
+      {
+        "id": "templar_assassin_psionic_trap_unit",
+        "gameUnit": "npc_dota_templar_assassin_psionic_trap"
+      }
+    ],
+    "effects": [
+      {
+        "kind": "summon",
+        "unitType": "templar_assassin_psionic_trap_unit",
+        "counts": [
+          1
+        ],
+        "maxAlive": "$max_traps",
+        "atPoint": true,
+        "effects": [
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "templar_assassin_psionic_trap",
+              "flags": [
+                "debuffImmune"
+              ],
+              "invisibleAfterIdle": "$trap_fade_time"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "templar_assassin_trap": {
+    "status": "full",
+    "targeting": "noTarget",
+    "targetTeam": "enemy",
+    "levelsWith": "templar_assassin_psionic_trap",
+    "valuesFrom": {
+      "psionic_": "templar_assassin_psionic_trap"
+    },
+    "effects": [
+      {
+        "kind": "spring",
+        "unitType": "templar_assassin_psionic_trap_unit",
+        "charge": "$psionic_trap_max_charge_duration",
+        "minChargePercent": "$psionic_movement_speed_min*100/$psionic_movement_speed_max",
+        "effects": [
+          {
+            "kind": "area",
+            "radius": "$psionic_trap_radius",
+            "center": "caster",
+            "team": "enemy",
+            "effects": [
+              {
+                "kind": "modifier",
+                "modifiers": {
+                  "key": "templar_assassin_trap_slow",
+                  "duration": "$psionic_trap_duration",
+                  "moveSpeedPercent": "-$psionic_movement_speed_max"
+                }
+              },
+              {
+                "kind": "damage",
+                "damageType": "magical",
+                "scaling": "fullChargeOnly",
+                "amounts": "$psionic_trap_bonus_damage"
+              }
+            ]
+          }
+        ]
+      }
+    ]
   }
 }

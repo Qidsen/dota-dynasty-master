@@ -432,7 +432,7 @@ static class Abilities
         {
             resolved[field] = field switch
             {
-                "amounts" or "counts" or "floor" or "ceiling" or "durations" => PerLevel(node, values, levels, fallback: null),
+                "amounts" or "counts" or "floor" or "ceiling" or "durations" or "maxAlive" => PerLevel(node, values, levels, fallback: null),
                 "modifiers" => node is JsonObject single ? Modifiers(single, values, levels) : node!.DeepClone(),
                 "effects" => new JsonArray(node!.AsArray().Select(e => (JsonNode)ResolveEffect(e!.AsObject(), values, levels)).ToArray()),
                 _ => node is JsonValue v && v.TryGetValue(out string? s) && IsReference(s) ? Scalar(node, values, levels, fallback: null) : node?.DeepClone(),

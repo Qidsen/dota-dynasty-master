@@ -650,6 +650,8 @@ namespace Dynasty.Content
                         ? EffectDefinition.Damage(ReadDamageType(e, "damageType"), e.Ints("amounts").ToArray())
                         : scaling == DamageScaling.PerTargetStack
                         ? EffectDefinition.DamagePerStack(ReadDamageType(e, "damageType"), e.String("stackKey"), e.Ints("amounts").ToArray())
+                        : scaling == DamageScaling.FullChargeOnly
+                        ? EffectDefinition.FullChargeDamage(ReadDamageType(e, "damageType"), e.Ints("amounts").ToArray())
                         : scaling == DamageScaling.DistanceFalloff
                         ? EffectDefinition.FalloffDamage(ReadDamageType(e, "damageType"), e.Int("fullRadius"), e.Int("edgeRadius"), e.Int("edgePercent"), e.Ints("amounts").ToArray())
                         : e.Has("floor") ? EffectDefinition.BoundedScaledDamage(ReadDamageType(e, "damageType"), scaling, e.Ints("floor").ToArray(), e.Ints("ceiling").ToArray(), e.Hundredths("amounts").ToArray())
@@ -679,6 +681,9 @@ namespace Dynasty.Content
                     break;
                 case "rewind":
                     effect = EffectDefinition.Rewind(e.Milliseconds("back"), e.OptionalBool("restoresVitals") ?? false, e.OptionalArray("effects").Select(ReadEffect).ToArray());
+                    break;
+                case "spring":
+                    effect = EffectDefinition.Spring(e.String("unitType"), e.Milliseconds("charge"), e.Int("minChargePercent"), e.Array("effects").Select(ReadEffect).ToArray());
                     break;
                 case "summonNear":
                     effect = EffectDefinition.SummonNear(e.String("unitType"), e.OptionalMilliseconds("duration") ?? -1, e.Ints("counts").ToArray(),
@@ -716,7 +721,9 @@ namespace Dynasty.Content
                     string unit = e.String("unitType");
                     int duration = e.OptionalMilliseconds("duration") ?? -1;   // none: until destroyed (mines)
                     int[] counts = e.Ints("counts").ToArray();
-                    effect = EffectDefinition.Summon(unit, duration, e.OptionalBool("atPoint") == true, counts, e.OptionalArray("effects").Select(ReadEffect).ToArray());
+                    effect = e.Has("maxAlive")
+                        ? EffectDefinition.Summon(unit, duration, e.OptionalBool("atPoint") == true, counts, e.Ints("maxAlive").ToArray(), e.OptionalArray("effects").Select(ReadEffect).ToArray())
+                        : EffectDefinition.Summon(unit, duration, e.OptionalBool("atPoint") == true, counts, e.OptionalArray("effects").Select(ReadEffect).ToArray());
                     break;
                 case "teleport":
                     effect = EffectDefinition.Teleport();
@@ -807,8 +814,9 @@ namespace Dynasty.Content
             "distanceToTargetPercent" => DamageScaling.DistanceToTargetPercent,
             "rewoundDistancePercent" => DamageScaling.RewoundDistancePercent,
             "distanceFalloff" => DamageScaling.DistanceFalloff,
+            "fullChargeOnly" => DamageScaling.FullChargeOnly,
             _ => throw r.Error(field, "expected flat, targetMaxHealthPercent, targetMissingHealthPercent, targetCurrentHealthPercent, targetMaxManaPercent, " +
-                                      "targetMissingManaPercent, casterAttackDamagePercent, casterStrengthPercent, casterAgilityPercent, casterIntelligencePercent, perTargetStack, casterCurrentManaPercent, distanceToTargetPercent, rewoundDistancePercent or distanceFalloff"),
+                                      "targetMissingManaPercent, casterAttackDamagePercent, casterStrengthPercent, casterAgilityPercent, casterIntelligencePercent, perTargetStack, casterCurrentManaPercent, distanceToTargetPercent, rewoundDistancePercent, distanceFalloff or fullChargeOnly"),
         };
 
         private static ModifierFlags ReadFlag(Reader r, string flag) => flag switch

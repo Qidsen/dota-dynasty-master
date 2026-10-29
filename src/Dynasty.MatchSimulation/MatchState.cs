@@ -249,6 +249,12 @@ namespace Dynasty.MatchSimulation
         /// <summary>A summon bound to one target (Tombstone's zombies): it attacks only that unit and dies when it is dead or unseen.</summary>
         public EntityId LockedTarget { get; internal set; }
 
+        /// <summary>The tick a summon was summoned (a Psionic Trap's charge).</summary>
+        public long SummonedTick { get; internal set; }
+
+        /// <summary>The charge of a sprung trap while its effects run: the share of their slows (100 for every other unit).</summary>
+        internal int ChargePercent { get; set; } = 100;
+
         /// <summary>The hero this unit is an illusion of; None for other units.</summary>
         public EntityId IllusionOf { get; internal set; }
 
@@ -451,7 +457,7 @@ namespace Dynasty.MatchSimulation
                 damageBonus += spec.DamageBonus * n;
                 attackSpeed += (Fixed.FromInt(spec.AttackSpeedBonus * n) * share).ToIntFloor();
                 if (spec.MoveSpeedHundredths < 0)
-                    moveSlow += spec.MoveSpeedHundredths * n;
+                    moveSlow += spec.MoveSpeedHundredths * n * modifier.SlowStrengthPercent / 100;
                 else
                     movePercent += spec.MoveSpeedHundredths * n;
                 for (int i = 0; i < n && spec.StatusResistancePercent != 0; i++)
@@ -1116,6 +1122,7 @@ namespace Dynasty.MatchSimulation
                 Owner = owner.Id,
                 ExpiresTick = expiresTick,
                 LastActiveTick = tick,
+                SummonedTick = tick,
             };
             Add(unit);
             return unit;

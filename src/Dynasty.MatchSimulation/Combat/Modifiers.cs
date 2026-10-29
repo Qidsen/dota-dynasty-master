@@ -914,6 +914,9 @@ namespace Dynasty.MatchSimulation.Combat
         /// <summary>Where the bearer was when it got the modifier (<see cref="ModifierSpec.ReturnsOnExpiry"/>).</summary>
         internal FixedVector2 Mark { get; set; }
 
+        /// <summary>The share of the modifier's slow that applies: a sprung trap's charge (Psionic Trap); 100 otherwise.</summary>
+        internal int SlowStrengthPercent { get; set; } = 100;
+
         /// <summary>The tick an enemy came within the proximity radius and has stayed there since; -1 when none is near.</summary>
         internal long ProximitySinceTick { get; set; } = -1;
 

@@ -350,7 +350,8 @@ namespace Dynasty.MatchSimulation.Systems
                         scaled = Fixed.Max(scaled, Fixed.FromInt(EffectDefinition.ValueAt(effect.Floor, level)));
                     if (effect.Ceiling.Count > 0)
                         scaled = Fixed.Min(scaled, Fixed.FromInt(EffectDefinition.ValueAt(effect.Ceiling, level)));
-                    Damage.Deal(context, caster.Id, target, scaled, effect.DamageType);
+                    if (effect.Scaling != DamageScaling.FullChargeOnly || caster.ChargePercent >= 100)
+                        Damage.Deal(context, caster.Id, target, scaled, effect.DamageType);
                     break;
                 case EffectKind.Rewind:
                     Rewind(context, caster, effect, level, target, point);
@@ -382,8 +383,15 @@ namespace Dynasty.MatchSimulation.Systems
                     Damage.Heal(context, caster.Id, target, Fixed.FromInt(effect.AmountAt(level)));
                     break;
                 case EffectKind.ApplyModifier:
-                    if (target.IsAlive)
-                        Modifiers.Apply(context, target, effect.ModifierAt(level), caster.Id);
+                    if (target.IsAlive && Modifiers.Apply(context, target, effect.ModifierAt(level), caster.Id) is ActiveModifier applied && caster.ChargePercent != 100)
+                    {
+                        applied.SlowStrengthPercent = caster.ChargePercent;   // a sprung trap's slow by its charge
+                        target.Recalculate();
+                    }
+
+                    break;
+                case EffectKind.Spring:
+                    Spring(context, caster, effect, level);
                     break;
                 case EffectKind.Area:
                     RunArea(context, caster, effect, level, target, point);
@@ -740,6 +748,34 @@ namespace Dynasty.MatchSimulation.Systems
                 target.Hero.Path = null;
         }
 
+        /// <summary>Psionic Trap's Trap: the caster's trap nearest to it goes off with its charge, then is gone.</summary>
+        private static void Spring(SimulationContext<MatchState> context, MatchUnit caster, EffectDefinition effect, int level)
+        {
+            MatchUnit? trap = null;
+            Fixed best = Fixed.Zero;
+            foreach (MatchUnit unit in context.State.Units)
+            {
+                if (!unit.IsAlive || unit.Owner != caster.Id || unit.TypeId != effect.SummonTypeId || unit.ExpiresTick == context.Tick.Value)
+                    continue;
+                Fixed distance = (unit.Position - caster.Position).LengthSquared;
+                if (trap == null || distance < best)
+                {
+                    trap = unit;
+                    best = distance;
+                }
+            }
+
+            if (trap == null)
+                return;
+            long full = System.Math.Max(1, context.TickRate.TicksFor(effect.DurationMs));
+            long age = System.Math.Min(full, context.Tick.Value - trap.SummonedTick);
+            trap.ChargePercent = effect.DamagePercent + (int)((100 - effect.DamagePercent) * age / full);
+            foreach (EffectDefinition inner in effect.Inner)
+                RunOne(context, trap, inner, level, trap, trap.Position);
+            trap.ChargePercent = 100;
+            trap.ExpiresTick = context.Tick.Value;
+        }
+
         private static void SummonNear(SimulationContext<MatchState> context, MatchUnit caster, EffectDefinition effect, int level, MatchUnit target)
         {
             if (!target.IsAlive)
@@ -769,6 +805,14 @@ namespace Dynasty.MatchSimulation.Systems
             long expires = effect.DurationMs < 0 ? -1 : now + context.TickRate.TicksFor(effect.DurationMs);   // mines last until destroyed
             for (int i = 0; i < effect.AmountAt(level); i++)
             {
+                if (effect.Ceiling.Count > 0)
+                {
+                    // At most so many of the type for the caster (Psionic Trap): the oldest goes; units are in creation order.
+                    List<MatchUnit> alive = context.State.Units.Where(u => u.IsAlive && u.Owner == caster.Id && u.TypeId == type.Id && u.ExpiresTick != now).ToList();
+                    for (int k = 0; k <= alive.Count - EffectDefinition.ValueAt(effect.Ceiling, level); k++)
+                        alive[k].ExpiresTick = now;
+                }
+
                 MatchUnit unit = context.State.SpawnSummon(context.Ids.Allocate(), caster, type, now, expires);
                 if (effect.AtPoint)
                 {

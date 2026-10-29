@@ -1263,6 +1263,8 @@ namespace Dynasty.HeroAI
                 default:
                     if (def.Effects.Any(e => e.Kind == EffectKind.Rewind))
                         return null;   // Time Lapse is kept for when the hero has lost much health (LapseBackWhenHurt)
+                    if (def.Effects.FirstOrDefault(e => e.Kind == EffectKind.Spring) is EffectDefinition spring)
+                        return SpringWorthIt(spring, enemies) ? HeroOrder.CastNoTarget(def.Id) : null;
                     if (def.Effects.Any(e => e.Kind == EffectKind.Summon))
                         return HeroOrder.CastNoTarget(def.Id);
                     EffectDefinition? area = def.Effects.FirstOrDefault(e => e.Kind == EffectKind.Area);
@@ -1272,6 +1274,27 @@ namespace Dynasty.HeroAI
                     HeroDecision self = this;
                     return enemies.Count(e => Math.Within(self._hero.Position, e.Position, around)) >= minTargets ? HeroOrder.CastNoTarget(def.Id) : null;
             }
+        }
+
+        /// <summary>
+        /// Psionic Trap: spring only when the hero's trap nearest to it (the one that goes off) has enemies it sees around, and the trap
+        /// is fully charged (the whole slow and the damage) or one of them is near its edge, about to get away.
+        /// </summary>
+        private bool SpringWorthIt(EffectDefinition spring, List<MatchUnit> enemies)
+        {
+            HeroDecision self = this;
+            MatchUnit? trap = _state.Units
+                .Where(u => u.IsAlive && u.Owner == self._hero.Id && u.TypeId == spring.SummonTypeId)
+                .OrderBy(u => (u.Position - self._hero.Position).LengthSquared).ThenBy(u => u.Id.Value)
+                .FirstOrDefault();
+            if (trap == null)
+                return false;
+            int radius = spring.Inner.Where(e => e.Kind == EffectKind.Area).Select(e => e.Radius).DefaultIfEmpty(400).First();
+            List<MatchUnit> caught = enemies.Where(e => Math.Within(e.Position, trap.Position, radius)).ToList();
+            if (caught.Count == 0)
+                return false;
+            bool charged = (_now - trap.SummonedTick) * 1000 >= (long)spring.DurationMs * _ticksPerMinute / 60;
+            return charged || caught.Any(e => !Math.Within(e.Position, trap.Position, radius * 3 / 4));
         }
 
         /// <summary>Kills an isolated visible enemy hero a little further away when the odds are clearly good.</summary>

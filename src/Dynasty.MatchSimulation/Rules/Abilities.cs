@@ -144,6 +144,14 @@ namespace Dynasty.MatchSimulation.Rules
         /// <see cref="EffectDefinition.DurationMs"/> below zero: until they die. The inner effects run on each summoned unit.
         /// </summary>
         SummonNear = 31,
+
+        /// <summary>
+        /// Springs the caster's summon of <see cref="EffectDefinition.SummonTypeId"/> nearest to the caster (Psionic Trap): its charge
+        /// rises from <see cref="EffectDefinition.DamagePercent"/> to 100 percent over <see cref="EffectDefinition.DurationMs"/> since it was
+        /// placed; the inner effects run with it as the caster at its position (their slows weakened to the charge, damage of
+        /// <see cref="DamageScaling.FullChargeOnly"/> only at full charge), then it is gone.
+        /// </summary>
+        Spring = 32,
     }
 
     /// <summary>What a damage effect's amounts mean: flat damage, or a percent of the target's health or mana.</summary>
@@ -173,6 +181,9 @@ namespace Dynasty.MatchSimulation.Rules
 
         /// <summary>Hundredths of a percent of the distance from the caster to the target, at most the effect's radius when set (Impetus).</summary>
         DistanceToTargetPercent = 12,
+
+        /// <summary>Flat amounts, only when the caster (a sprung trap) is fully charged (see <see cref="EffectKind.Spring"/>).</summary>
+        FullChargeOnly = 15,
 
         /// <summary>
         /// Flat amounts, in full within <see cref="EffectDefinition.MinDistance"/> of the caster and falling evenly to
@@ -314,6 +325,21 @@ namespace Dynasty.MatchSimulation.Rules
         /// <summary>Scaled damage kept between a floor and a ceiling per level (Glimpse).</summary>
         public static EffectDefinition BoundedScaledDamage(DamageType type, DamageScaling scaling, int[] floor, int[] ceiling, params int[] percentPerLevel) =>
             new EffectDefinition(EffectKind.Damage, percentPerLevel, type, scaling: scaling, floor: floor, ceiling: ceiling);
+
+        /// <summary>See <see cref="EffectKind.Spring"/>.</summary>
+        public static EffectDefinition Spring(string trapTypeId, int chargeMs, int minChargePercent, params EffectDefinition[] inner) =>
+            new EffectDefinition(EffectKind.Spring, summonTypeId: trapTypeId, durationMs: chargeMs, damagePercent: minChargePercent, inner: inner);
+
+        /// <summary>See <see cref="DamageScaling.FullChargeOnly"/>.</summary>
+        public static EffectDefinition FullChargeDamage(DamageType type, params int[] perLevel) =>
+            new EffectDefinition(EffectKind.Damage, perLevel, type, scaling: DamageScaling.FullChargeOnly);
+
+        /// <summary>
+        /// A summon keeping at most <paramref name="maxAlive"/> (per level, in <see cref="Ceiling"/>) of the type for the caster: the
+        /// oldest goes (Psionic Trap's limit).
+        /// </summary>
+        public static EffectDefinition Summon(string creepTypeId, int durationMs, bool atPoint, int[] countPerLevel, int[] maxAlive, params EffectDefinition[] onEach) =>
+            new EffectDefinition(EffectKind.Summon, countPerLevel, summonTypeId: creepTypeId, durationMs: durationMs, atPoint: atPoint, inner: onEach, ceiling: maxAlive);
 
         /// <summary>See <see cref="EffectKind.SummonNear"/>.</summary>
         public static EffectDefinition SummonNear(string creepTypeId, int durationMs, int[] countPerLevel, params EffectDefinition[] onEach) =>
