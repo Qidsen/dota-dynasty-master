@@ -246,6 +246,9 @@ namespace Dynasty.MatchSimulation
         /// <summary>Hero that summoned this unit; None otherwise.</summary>
         public EntityId Owner { get; internal set; }
 
+        /// <summary>A summon bound to one target (Tombstone's zombies): it attacks only that unit and dies when it is dead or unseen.</summary>
+        public EntityId LockedTarget { get; internal set; }
+
         /// <summary>The hero this unit is an illusion of; None for other units.</summary>
         public EntityId IllusionOf { get; internal set; }
 

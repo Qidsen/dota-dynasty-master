@@ -228,8 +228,10 @@ namespace Dynasty.MatchSimulation.Combat
             int castDamageManaPercent = 0,
             int proximityRadius = 0,
             int proximityDelayMs = 0,
-            IReadOnlyList<Rules.EffectDefinition>? onProximity = null)
+            IReadOnlyList<Rules.EffectDefinition>? onProximity = null,
+            bool periodicFromBearer = false)
         {
+            PeriodicFromBearer = periodicFromBearer;
             ProximityRadius = proximityRadius;
             ProximityDelayMs = proximityDelayMs;
             OnProximity = onProximity?.ToArray() ?? System.Array.Empty<Rules.EffectDefinition>();
@@ -653,6 +655,9 @@ namespace Dynasty.MatchSimulation.Combat
         /// <summary>Effects run every period by the modifier's caster on the bearer (Static Link's drain).</summary>
         public IReadOnlyList<Rules.EffectDefinition> PeriodicEffects { get; }
 
+        /// <summary>The bearer itself runs <see cref="PeriodicEffects"/>, whether its caster lives or not (Tombstone raising zombies).</summary>
+        public bool PeriodicFromBearer { get; }
+
         /// <summary>The modifier ends when the bearer and its caster are farther apart than this (a link breaking).</summary>
         public int BreakDistance { get; }
 
@@ -868,6 +873,7 @@ namespace Dynasty.MatchSimulation.Combat
                                           CastDamage, CastDamageManaPercent, ProximityRadius, ProximityDelayMs })
                 w.WriteInt64(value);
             w.WriteBool(ReturnsOnExpiry);
+            w.WriteBool(PeriodicFromBearer);
             w.WriteInt64(PeriodicEffects.Count);
             foreach (Rules.EffectDefinition effect in PeriodicEffects)
                 effect.WriteCanonical(w);

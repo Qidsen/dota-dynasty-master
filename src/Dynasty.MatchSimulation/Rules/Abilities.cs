@@ -137,6 +137,13 @@ namespace Dynasty.MatchSimulation.Rules
         /// can't cross it either way, walking or pushed; debuff-immune units pass (Kinetic Field, Arena of Blood).
         /// </summary>
         Wall = 30,
+
+        /// <summary>
+        /// Summons (amounts per level) of <see cref="EffectDefinition.SummonTypeId"/> next to the target, for the caster's owner when the
+        /// caster is a summon itself, bound to the target: they attack only it and die when it is dead or unseen (Tombstone's zombies).
+        /// <see cref="EffectDefinition.DurationMs"/> below zero: until they die. The inner effects run on each summoned unit.
+        /// </summary>
+        SummonNear = 31,
     }
 
     /// <summary>What a damage effect's amounts mean: flat damage, or a percent of the target's health or mana.</summary>
@@ -307,6 +314,10 @@ namespace Dynasty.MatchSimulation.Rules
         /// <summary>Scaled damage kept between a floor and a ceiling per level (Glimpse).</summary>
         public static EffectDefinition BoundedScaledDamage(DamageType type, DamageScaling scaling, int[] floor, int[] ceiling, params int[] percentPerLevel) =>
             new EffectDefinition(EffectKind.Damage, percentPerLevel, type, scaling: scaling, floor: floor, ceiling: ceiling);
+
+        /// <summary>See <see cref="EffectKind.SummonNear"/>.</summary>
+        public static EffectDefinition SummonNear(string creepTypeId, int durationMs, int[] countPerLevel, params EffectDefinition[] onEach) =>
+            new EffectDefinition(EffectKind.SummonNear, countPerLevel, summonTypeId: creepTypeId, durationMs: durationMs, inner: onEach);
 
         /// <summary>See <see cref="DamageScaling.DistanceFalloff"/>.</summary>
         public static EffectDefinition FalloffDamage(DamageType type, int fullRadius, int edgeRadius, int edgePercent, params int[] perLevel) =>

@@ -466,6 +466,9 @@ namespace Dynasty.MatchSimulation.Systems
                     FixedVector2 at = effect.Center == AreaCenter.Caster ? caster.Position : effect.Center == AreaCenter.Target ? target.Position : point;
                     context.State.AddZone(caster.Id, at, effect, level, context.Tick.Value);
                     break;
+                case EffectKind.SummonNear:
+                    SummonNear(context, caster, effect, level, target);
+                    break;
                 case EffectKind.Wall:
                     long forms = context.Tick.Value + context.TickRate.TicksFor(effect.DurationMs);
                     context.State.AddWall(new GroundWall(effect.Center == AreaCenter.Caster ? caster.Position : effect.Center == AreaCenter.Target ? target.Position : point,
@@ -735,6 +738,28 @@ namespace Dynasty.MatchSimulation.Systems
             target.Position = position;
             if (target.Hero != null)
                 target.Hero.Path = null;
+        }
+
+        private static void SummonNear(SimulationContext<MatchState> context, MatchUnit caster, EffectDefinition effect, int level, MatchUnit target)
+        {
+            if (!target.IsAlive)
+                return;
+            CreepType type = context.State.Ruleset.FindCreepType(effect.SummonTypeId!)!;
+            MatchUnit owner = caster.Kind == UnitKind.Summon && context.State.Find(caster.Owner) is MatchUnit master ? master : caster;
+            long now = context.Tick.Value;
+            long expires = effect.DurationMs < 0 ? -1 : now + context.TickRate.TicksFor(effect.DurationMs);
+            FixedVector2 at = FixedVector2.MoveTowards(target.Position, caster.Position, Fixed.FromInt(target.BoundingRadius + type.Stats.BoundingRadius));
+            for (int i = 0; i < effect.AmountAt(level); i++)
+            {
+                MatchUnit unit = context.State.SpawnSummon(context.Ids.Allocate(), owner, type, now, expires);
+                unit.Position = at;
+                unit.StartPosition = at;
+                unit.LockedTarget = target.Id;
+                unit.TargetId = target.Id;
+                context.Emit(new UnitSummoned(unit.Id, owner.Id, type.Id, expires));
+                foreach (EffectDefinition inner in effect.Inner)
+                    RunOne(context, caster, inner, level, unit, at);
+            }
         }
 
         private static void Summon(SimulationContext<MatchState> context, MatchUnit caster, EffectDefinition effect, int level, FixedVector2 point)

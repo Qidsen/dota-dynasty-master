@@ -680,6 +680,10 @@ namespace Dynasty.Content
                 case "rewind":
                     effect = EffectDefinition.Rewind(e.Milliseconds("back"), e.OptionalBool("restoresVitals") ?? false, e.OptionalArray("effects").Select(ReadEffect).ToArray());
                     break;
+                case "summonNear":
+                    effect = EffectDefinition.SummonNear(e.String("unitType"), e.OptionalMilliseconds("duration") ?? -1, e.Ints("counts").ToArray(),
+                        e.OptionalArray("effects").Select(ReadEffect).ToArray());
+                    break;
                 case "wall":
                     effect = EffectDefinition.Wall(e.Int("radius"), ReadCenter(e, "center"), ReadTeam(e, "team"), e.Milliseconds("formation"), e.Seconds("durations").ToArray());
                     break;
@@ -894,7 +898,7 @@ namespace Dynasty.Content
                 manaSharePercent: m.OptionalInt("manaSharePercent") ?? 0, returnsOnExpiry: m.OptionalBool("returnsOnExpiry") ?? false,
                 castDamage: m.OptionalInt("castDamage") ?? 0, castDamageManaPercent: m.OptionalInt("castDamageManaPercent") ?? 0,
                 proximityRadius: m.OptionalInt("proximityRadius") ?? 0, proximityDelayMs: m.OptionalMilliseconds("proximityDelay") ?? 0,
-                onProximity: m.OptionalArray("onProximity").Select(ReadEffect).ToList(),
+                onProximity: m.OptionalArray("onProximity").Select(ReadEffect).ToList(), periodicFromBearer: m.OptionalBool("periodicFromBearer") ?? false,
                 attributeShift: m.OptionalString("attributeShift") switch
                 {
                     null => 0,

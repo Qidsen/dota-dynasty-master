@@ -12394,5 +12394,88 @@
         ]
       }
     ]
+  },
+  "undying_tombstone": {
+    "status": "simplified",
+    "note": "the tombstone and the zombies die to damage like any unit of their health, not to a number of attacks; the tombstone is of the first level at every level; no Deathlust frenzy below the health threshold; no Aghanim's Shard bunker",
+    "targeting": "point",
+    "targetTeam": "enemy",
+    "valuesFrom": {
+      "deathstrike_": "undying_tombstone_zombie_deathstrike"
+    },
+    "unitTypes": [
+      {
+        "id": "undying_tombstone_unit",
+        "gameUnit": "npc_dota_unit_tombstone1"
+      },
+      {
+        "id": "undying_zombie_unit",
+        "gameUnit": "npc_dota_unit_undying_zombie"
+      }
+    ],
+    "effects": [
+      {
+        "kind": "summon",
+        "unitType": "undying_tombstone_unit",
+        "duration": "$duration",
+        "counts": [
+          1
+        ],
+        "atPoint": true,
+        "effects": [
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "undying_tombstone",
+              "duration": "$duration",
+              "flags": [
+                "debuffImmune"
+              ],
+              "period": "$zombie_interval",
+              "periodicFromBearer": true,
+              "periodicEffects": [
+                {
+                  "kind": "area",
+                  "radius": "$radius",
+                  "center": "target",
+                  "team": "enemy",
+                  "effects": [
+                    {
+                      "kind": "summonNear",
+                      "unitType": "undying_zombie_unit",
+                      "counts": [
+                        1
+                      ],
+                      "effects": [
+                        {
+                          "kind": "modifier",
+                          "modifiers": {
+                            "key": "undying_tombstone_zombie",
+                            "flags": [
+                              "debuffImmune"
+                            ],
+                            "onHit": [
+                              {
+                                "kind": "modifier",
+                                "modifiers": {
+                                  "key": "undying_tombstone_zombie_slow",
+                                  "duration": "$deathstrike_duration",
+                                  "stacking": true,
+                                  "moveSpeedPercent": "$deathstrike_slow"
+                                }
+                              }
+                            ]
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        ]
+      }
+    ]
   }
 }

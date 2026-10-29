@@ -334,8 +334,12 @@ namespace Dynasty.MatchSimulation.Systems
         public void Tick(SimulationContext<MatchState> context)
         {
             long now = context.Tick.Value;
-            foreach (MatchUnit unit in context.State.Units)
+            // By index over the units there at the start: periodic effects may summon (Tombstone's zombies).
+            UnitView units = context.State.Units;
+            int count = units.Count;
+            for (int i = 0; i < count; i++)
             {
+                MatchUnit unit = units[i];
                 if (unit.Modifiers.Count == 0)
                     continue;
 
@@ -364,7 +368,9 @@ namespace Dynasty.MatchSimulation.Systems
                             unit.Hero.Mana -= upkeep;
                         }
 
-                        if (spec.PeriodicEffects.Count > 0 && context.State.Find(modifier.Source) is MatchUnit linker && linker.IsAlive)
+                        if (spec.PeriodicEffects.Count > 0 && spec.PeriodicFromBearer)
+                            Effects.RunSpell(context, unit, spec.PeriodicEffects, 1, unit, unit.Position);
+                        else if (spec.PeriodicEffects.Count > 0 && context.State.Find(modifier.Source) is MatchUnit linker && linker.IsAlive)
                             Effects.RunSpell(context, linker, spec.PeriodicEffects, 1, unit, unit.Position);
 
                         if (spec.AttributeShift != 0 && unit.Hero != null && unit.Hero.CanShiftAttribute(spec.AttributeShift))
@@ -475,6 +481,23 @@ namespace Dynasty.MatchSimulation.Systems
                     continue;
                 if (dota != null && ((unit.Kind == UnitKind.Creep && unit.Lane != null) || unit.Kind == UnitKind.Structure))
                     continue;
+
+                if (unit.LockedTarget.IsValid)
+                {
+                    // Tombstone's zombies: only their target; it dead or out of sight, they die (the official note).
+                    MatchUnit? locked = state.Find(unit.LockedTarget);
+                    if (locked == null || !locked.IsAlive || !state.IsVisibleTo(unit.Team, locked))
+                    {
+                        unit.TargetId = EntityId.None;
+                        unit.ExpiresTick = context.Tick.Value;
+                    }
+                    else
+                    {
+                        unit.TargetId = locked.Id;
+                    }
+
+                    continue;
+                }
 
                 int searchRange = unit.Kind == UnitKind.Structure ? unit.AttackRange : unit.AcquisitionRange;
                 MatchUnit? current = state.Find(unit.TargetId);

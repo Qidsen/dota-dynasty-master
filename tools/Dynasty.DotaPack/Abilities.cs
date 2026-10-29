@@ -73,11 +73,12 @@ static class Abilities
                 }
 
                 bool ultimate = slot == visible.Count - 1 && visible.Count >= 4;
-                JsonObject built = Build(key, data[key]!.AsObject(), entry, ultimate);
-                AddVariants(hero, built, key, data[key]!.AsObject(), entry, ultimate, false, links(hero), heroTalents(node), upgraded, rounded);
+                JsonObject source = WithValuesFrom(data[key]!.AsObject(), entry, data);
+                JsonObject built = Build(key, source, entry, ultimate);
+                AddVariants(hero, built, key, source, entry, ultimate, false, links(hero), heroTalents(node), upgraded, rounded);
                 abilities.Add(built);
                 foreach (JsonNode? unit in entry["unitTypes"] as JsonArray ?? new JsonArray())
-                    unitTypes.Add(ResolveUnit(unit!.AsObject(), data[key]!.AsObject(), gameUnits));
+                    unitTypes.Add(ResolveUnit(unit!.AsObject(), source, gameUnits));
                 list.Add(key);
                 mapped++;
                 if (entry["status"]?.GetValue<string>() == "simplified")
@@ -143,6 +144,29 @@ static class Abilities
         JsonValue one when one.TryGetValue(out string? b) => new[] { b },
         _ => Array.Empty<string>(),
     };
+
+    /// <summary>
+    /// The ability's data with the values of other abilities it relies on, under a prefix: <c>"valuesFrom": {"deathstrike_":
+    /// "undying_tombstone_zombie_deathstrike"}</c> makes that ability's <c>duration</c> available as <c>$deathstrike_duration</c>
+    /// (Tombstone's zombies carry their own ability).
+    /// </summary>
+    private static JsonObject WithValuesFrom(JsonObject source, JsonObject entry, JsonObject data)
+    {
+        if (entry["valuesFrom"] is not JsonObject from)
+            return source;
+        JsonObject merged = source.DeepClone().AsObject();
+        var attributes = merged["attrib"] as JsonArray ?? new JsonArray();
+        merged["attrib"] = attributes;
+        foreach (var (prefix, other) in from)
+        {
+            string name = other!.GetValue<string>();
+            JsonObject donor = data[name]?.AsObject() ?? throw new InvalidDataException("valuesFrom: no ability " + name);
+            foreach (JsonNode? attribute in donor["attrib"]?.AsArray() ?? new JsonArray())
+                attributes.Add(new JsonObject { ["key"] = prefix + attribute!["key"]!.GetValue<string>(), ["value"] = attribute["value"]?.DeepClone() });
+        }
+
+        return merged;
+    }
 
     private static Dictionary<string, JsonNode?> ValuesOf(JsonObject source)
     {
