@@ -11824,5 +11824,30 @@
         }
       }
     }
+  },
+  "morphling_morph_agi": {
+    "status": "simplified",
+    "note": "no Aghanim's Shard (cheaper, castable while disabled: the shard's reduction is not in the data found); the rate per second comes in steps of whole ticks (16 a second: one every 2 ticks = 15 a second); 10 mana a second while shifting (rdy.gg and dotacoach for 7.41, the data's mana_cost)",
+    "targeting": "noTarget",
+    "targetTeam": "ally",
+    "toggle": {
+      "key": "morphling_morph_agi",
+      "shiftsPerSecond": "$morph_rate",
+      "manaCostPerSecond": "$mana_cost",
+      "attributeShift": "toAgility"
+    }
+  },
+  "morphling_morph_str": {
+    "status": "simplified",
+    "note": "no Aghanim's Shard (cheaper, castable while disabled: the shard's reduction is not in the data found); the rate per second comes in steps of whole ticks (16 a second: one every 2 ticks = 15 a second); 10 mana a second while shifting (rdy.gg and dotacoach for 7.41, the data's mana_cost)",
+    "targeting": "noTarget",
+    "targetTeam": "ally",
+    "levelsWith": "morphling_morph_agi",
+    "toggle": {
+      "key": "morphling_morph_str",
+      "shiftsPerSecond": "$morph_rate",
+      "manaCostPerSecond": "$mana_cost",
+      "attributeShift": "toStrength"
+    }
   }
 }

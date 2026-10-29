@@ -359,6 +359,12 @@ namespace Dynasty.MatchSimulation.Systems
 
                             unit.Hero.Mana -= upkeep;
                         }
+
+                        if (spec.AttributeShift != 0 && unit.Hero != null && unit.Hero.CanShiftAttribute(spec.AttributeShift))
+                        {
+                            unit.Hero.AttributeShift += spec.AttributeShift;
+                            unit.Recalculate();
+                        }
                         if (spec.DamagePerSecond > Fixed.Zero)
                             Damage.Deal(context, modifier.Source, unit, spec.DamagePerSecond * periodFraction, spec.DamageType);
                         if (spec.DamagePerSecondMaxHealthPercent > Fixed.Zero)

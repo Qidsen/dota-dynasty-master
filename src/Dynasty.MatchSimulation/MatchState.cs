@@ -456,8 +456,8 @@ namespace Dynasty.MatchSimulation
                 // Dota's attributes: level, gain and bonuses make the current values; each point adds to the stats.
                 // Attributes are kept in hundredths (Dota's gains have two decimals) so whole stats come out exact.
                 int levels = Hero!.Level - 1;
-                int strength100 = (attributes.Strength + strengthBonus) * 100 + Hundredths(attributes.StrengthGain) * levels;
-                int agility100 = (attributes.Agility + agilityBonus) * 100 + Hundredths(attributes.AgilityGain) * levels;
+                int strength100 = (attributes.Strength + strengthBonus - Hero.AttributeShift) * 100 + Hundredths(attributes.StrengthGain) * levels;
+                int agility100 = (attributes.Agility + agilityBonus + Hero.AttributeShift) * 100 + Hundredths(attributes.AgilityGain) * levels;
                 int intelligence100 = (attributes.Intelligence + intelligenceBonus) * 100 + Hundredths(attributes.IntelligenceGain) * levels;
                 Strength = Fixed.FromRatio(strength100, 100);
                 Agility = Fixed.FromRatio(agility100, 100);

@@ -74,14 +74,21 @@ public class PackContentTests
         ""toggle"": [ { ""key"": ""nova"", ""manaCostPerSecond"": 20,
             ""aura"": { ""radius"": 500, ""team"": ""enemy"", ""modifier"": { ""key"": ""nova_burn"", ""duration"": 1, ""damagePerSecond"": 80 } } } ] }";
 
+    private const string ToStrength = @"{
+        ""id"": ""to_strength"", ""name"": ""Strength Gain"", ""targeting"": ""noTarget"", ""targetTeam"": ""ally"", ""castRange"": 0, ""castPoint"": 0,
+        ""cooldown"": [0], ""manaCost"": [0], ""requiredLevels"": [1], ""effects"": [], ""levelsWith"": ""nova"",
+        ""toggle"": [ { ""key"": ""to_strength"", ""shiftsPerSecond"": 4, ""manaCostPerSecond"": 10, ""attributeShift"": ""toStrength"" } ] }";
+
     [Fact]
     public void Toggles_AreRead()
     {
-        RulesetContent rules = Apply(@"""unitTypes"": " + Units + @", ""abilities"": [" + Spike + "," + WardPlace + "," + Nova + @"], ""items"": " + Items);
+        RulesetContent rules = Apply(@"""unitTypes"": " + Units + @", ""abilities"": [" + Spike + "," + WardPlace + "," + Nova + "," + ToStrength + @"], ""items"": " + Items);
 
         AbilityDefinition nova = rules.FindAbility("nova")!;
         Assert.True(nova.IsToggle);
         Assert.Equal((Fixed.FromInt(20), 500), (nova.Toggle[0].ManaCostPerSecond, nova.Toggle[0].Aura!.Radius));
+        AbilityDefinition shift = rules.FindAbility("to_strength")!;
+        Assert.Equal(("nova", -1, 250), (shift.LevelsWith, shift.Toggle[0].AttributeShift, shift.Toggle[0].PeriodMs));
     }
 
     [Fact]

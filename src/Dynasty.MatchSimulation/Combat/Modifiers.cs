@@ -204,8 +204,10 @@ namespace Dynasty.MatchSimulation.Combat
             int backAngle = 0,
             string? releaseAbilityId = null,
             int releaseThreshold = 0,
-            Fixed manaCostPerSecond = default)
+            Fixed manaCostPerSecond = default,
+            int attributeShift = 0)
         {
+            AttributeShift = attributeShift;
             ManaCostPerSecond = manaCostPerSecond;
             SideReductionPercent = sideReductionPercent;
             BackReductionPercent = backReductionPercent;
@@ -549,6 +551,12 @@ namespace Dynasty.MatchSimulation.Combat
         /// </summary>
         public Fixed ManaCostPerSecond { get; }
 
+        /// <summary>
+        /// Morphling's Attribute Shift: every period one point of the bearer's base attributes moves from strength to agility (1) or
+        /// back (-1), never below one base point of the source and never the attributes items give.
+        /// </summary>
+        public int AttributeShift { get; }
+
         /// <summary><see cref="OnKill"/> runs only for hero victims (Flesh Heap).</summary>
         public bool OnKillHeroesOnly { get; }
 
@@ -631,7 +639,8 @@ namespace Dynasty.MatchSimulation.Combat
             DamagePerSecond > Fixed.Zero;
 
         public bool IsPeriodic => DamagePerSecond > Fixed.Zero || HealPerSecond > Fixed.Zero || DamagePerSecondMaxHealthPercent > Fixed.Zero ||
-                                  HealPerSecondMaxHealthPercent > Fixed.Zero || ManaPerSecondMaxManaPercent > Fixed.Zero || ManaCostPerSecond > Fixed.Zero;
+                                  HealPerSecondMaxHealthPercent > Fixed.Zero || ManaPerSecondMaxManaPercent > Fixed.Zero || ManaCostPerSecond > Fixed.Zero ||
+                                  AttributeShift != 0;
 
         public bool IsPermanent => DurationMs < 0;
 
@@ -726,6 +735,7 @@ namespace Dynasty.MatchSimulation.Combat
                 w.WriteInt64(value);
             w.WriteString(ReleaseAbilityId ?? "");
             w.WriteFixed(ManaCostPerSecond);
+            w.WriteInt64(AttributeShift);
         }
 
         public static ModifierSpec Status(string key, int durationMs, ModifierFlags flags) => new ModifierSpec(key, durationMs, flags);

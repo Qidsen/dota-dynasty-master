@@ -460,8 +460,10 @@ namespace Dynasty.MatchSimulation.Rules
             IReadOnlyList<int>? chargeRestoreMs = null,
             IReadOnlyList<AbilityVariant>? variants = null,
             ChannelSpec? channel = null,
-            IReadOnlyList<ModifierSpec>? toggle = null)
+            IReadOnlyList<ModifierSpec>? toggle = null,
+            string? levelsWith = null)
         {
+            LevelsWith = levelsWith;
             Channel = channel;
             Toggle = (toggle ?? Array.Empty<ModifierSpec>()).ToArray();
             Variants = (variants ?? Array.Empty<AbilityVariant>()).ToArray();
@@ -504,6 +506,12 @@ namespace Dynasty.MatchSimulation.Rules
         public IReadOnlyList<ModifierSpec> Toggle { get; }
 
         public bool IsToggle => Toggle.Count > 0;
+
+        /// <summary>
+        /// An ability levelled together with this one, for its skill point (Morphling: Strength Gain with Agility Gain); toggles
+        /// linked so turn each other off. Null for abilities levelled on their own.
+        /// </summary>
+        public string? LevelsWith { get; }
 
         /// <summary>The channel the ability starts after its effects; null for abilities that are not channelled.</summary>
         public ChannelSpec? Channel { get; }
@@ -584,6 +592,7 @@ namespace Dynasty.MatchSimulation.Rules
             w.WriteInt64(Toggle.Count);
             foreach (ModifierSpec modifier in Toggle)
                 modifier.WriteCanonical(w);
+            w.WriteString(LevelsWith ?? "");
             w.WriteInt64(Variants.Count);
             foreach (AbilityVariant variant in Variants)
             {

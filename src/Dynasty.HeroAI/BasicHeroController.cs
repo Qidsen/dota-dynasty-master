@@ -504,6 +504,9 @@ namespace Dynasty.HeroAI
                 _memory.Retreating = false;
             else if (!_memory.Retreating && hpPercent < _personality.RetreatHpPercent + _skill.RetreatShiftPercent && !patchedUp)
                 _memory.Retreating = true;
+            // Before retreating: a hurt Morphling shifts into strength on the way.
+            if (Decided(ManageToggles(), "ManageToggles"))
+                return;
             if (_memory.Retreating)
             {
                 Trace("Retreat");
@@ -511,8 +514,6 @@ namespace Dynasty.HeroAI
                 return;
             }
 
-            if (Decided(ManageToggles(), "ManageToggles"))
-                return;
             if (Decided(DenyBuilding(), "DenyBuilding"))
                 return;
             if (Decided(TakeAegis(), "TakeAegis"))
@@ -1922,6 +1923,9 @@ namespace Dynasty.HeroAI
                             self._h.Mana >= Fixed.FromInt(a.Definition.ManaCostAt(a.Level)));
         }
 
+        private const int ShiftToStrengthHpPercent = 35;
+        private const int ShiftToAgilityHpPercent = 75;
+
         /// <summary>Mana a toggle may still run on: below this share of the hero's mana it is turned off.</summary>
         private const int ToggleKeepManaPercent = 10;
 
@@ -1942,7 +1946,10 @@ namespace Dynasty.HeroAI
                                                      Math.Within(self._hero.Position, u.Position, reach));
                 bool enemies = VisibleEnemyHeroes(_hero.Position, reach).Count > 0 || creeps >= 3;
                 bool mana = _h.Mana * Fixed.FromInt(100) >= Fixed.FromInt(_h.MaxMana * ToggleKeepManaPercent);
-                bool want = enemies && mana;
+                // Attribute Shift: into strength when hurt, into agility when healthy, while points are left to move.
+                int hp = Math.HpPercent(_hero);
+                bool want = spec.AttributeShift == 0 ? enemies && mana
+                    : mana && _h.CanShiftAttribute(spec.AttributeShift) && (spec.AttributeShift < 0 ? hp < ShiftToStrengthHpPercent : hp >= ShiftToAgilityHpPercent);
                 if (on == want || (!on && (!ability.IsReady(_now) || _h.Mana < Fixed.FromInt(def.ManaCostAt(ability.Level)))))
                     continue;
                 Issue(HeroOrder.CastNoTarget(def.Id));

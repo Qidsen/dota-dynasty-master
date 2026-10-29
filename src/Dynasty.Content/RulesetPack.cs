@@ -617,7 +617,8 @@ namespace Dynasty.Content
                 a.OptionalArray("passive").Select(ReadModifier).ToList(), a.OptionalBool("targetsStructures") ?? false, a.OptionalBool("innate") ?? false,
                 a.OptionalInts("charges"), a.Has("charges") ? a.Seconds("chargeRestore") : null,
                 a.OptionalArray("variants").Select(v => new AbilityVariant(v.Strings("upgrades"), ReadAbility(v))).ToList(),
-                a.OptionalObject("channel") is Reader c ? ReadChannel(c) : null, a.OptionalArray("toggle").Select(ReadModifier).ToList());
+                a.OptionalObject("channel") is Reader c ? ReadChannel(c) : null, a.OptionalArray("toggle").Select(ReadModifier).ToList(),
+                a.OptionalString("levelsWith"));
             a.RejectUnknown();
             return ability;
         }
@@ -804,7 +805,7 @@ namespace Dynasty.Content
                 attackSpeedBonus: m.OptionalInt("attackSpeed") ?? 0, damageBonus: m.OptionalInt("damage") ?? 0, magicResistBonus: m.OptionalInt("magicResist") ?? 0,
                 damagePerSecond: m.OptionalFixed("damagePerSecond") ?? Fixed.Zero,
                 damageType: m.Has("damageType") ? ReadDamageType(m, "damageType") : DamageType.Magical,
-                healPerSecond: m.OptionalFixed("healPerSecond") ?? Fixed.Zero, periodMs: m.OptionalMilliseconds("period") ?? 1000,
+                healPerSecond: m.OptionalFixed("healPerSecond") ?? Fixed.Zero, periodMs: m.OptionalMilliseconds("period") ?? (m.OptionalInt("shiftsPerSecond") is int rate && rate > 0 ? 1000 / rate : 1000),
                 critChanceHundredths: m.OptionalHundredth("critChance") ?? 0, critMultiplierPercent: m.OptionalInt("critMultiplier") ?? 0,
                 structureDamagePercent: m.OptionalInt("structureDamage") ?? 0, lifestealPercent: m.OptionalInt("lifesteal") ?? 0,
                 maxHpBonus: m.OptionalInt("maxHealth") ?? 0, maxManaBonus: m.OptionalInt("maxMana") ?? 0, hpRegenBonus: m.OptionalFixed("healthRegen") ?? Fixed.Zero,
@@ -852,7 +853,13 @@ namespace Dynasty.Content
                 layerMinimumDamage: m.OptionalInt("layerMinimumDamage") ?? 0, sideReductionPercent: m.OptionalInt("sideReduction") ?? 0,
                 backReductionPercent: m.OptionalInt("backReduction") ?? 0, sideAngle: m.OptionalInt("sideAngle") ?? 0, backAngle: m.OptionalInt("backAngle") ?? 0,
                 releaseAbilityId: m.OptionalString("releaseAbility"), releaseThreshold: m.OptionalInt("releaseThreshold") ?? 0,
-                manaCostPerSecond: m.OptionalFixed("manaCostPerSecond") ?? Fixed.Zero);
+                manaCostPerSecond: m.OptionalFixed("manaCostPerSecond") ?? Fixed.Zero, attributeShift: m.OptionalString("attributeShift") switch
+                {
+                    null => 0,
+                    "toAgility" => 1,
+                    "toStrength" => -1,
+                    _ => throw m.Error("attributeShift", "expected toAgility or toStrength"),
+                });
             m.RejectUnknown();
             return spec;
         }

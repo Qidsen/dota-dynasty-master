@@ -164,8 +164,20 @@ namespace Dynasty.MatchSimulation.Systems
             if (definition.Channel != null && caster.IsAlive)
                 ChannelSystem.Start(context, caster, hero, definition, ability.Level, target, point);
             if (definition.IsToggle && caster.IsAlive)
+            {
+                // Linked toggles turn each other off (Morphling's two Attribute Shifts).
+                foreach (AbilityState other in hero.Abilities.Where(a => a != ability && Linked(a.Definition, definition)))
+                {
+                    if (ToggledOn(caster, other.Definition) is ActiveModifier linked)
+                        Modifiers.Remove(context, caster, linked, "toggled_off");
+                }
+
                 Modifiers.Apply(context, caster, definition.Toggle[System.Math.Min(ability.Level, definition.Toggle.Count) - 1], caster.Id);
+            }
         }
+
+        private static bool Linked(AbilityDefinition a, AbilityDefinition b) =>
+            a.LevelsWith == b.Id || b.LevelsWith == a.Id || (a.LevelsWith != null && a.LevelsWith == b.LevelsWith);
 
         /// <summary>The modifier of a toggled ability that is on; null when it is off or the ability is not toggled.</summary>
         internal static ActiveModifier? ToggledOn(MatchUnit caster, AbilityDefinition definition) =>

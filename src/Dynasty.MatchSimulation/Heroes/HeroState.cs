@@ -164,7 +164,7 @@ namespace Dynasty.MatchSimulation.Heroes
                 int spent = AttributeBonusLevel;
                 foreach (AbilityState ability in _abilities)
                 {
-                    if (!ability.Definition.Innate)
+                    if (!ability.Definition.Innate && ability.Definition.LevelsWith == null)
                         spent += ability.Level;
                 }
 
@@ -174,6 +174,25 @@ namespace Dynasty.MatchSimulation.Heroes
 
         /// <summary>In the wind-up of an ability (between cast start and effect).</summary>
         public bool IsCasting => CastEndTick >= 0;
+
+        /// <summary>Points of base strength moved into agility by Attribute Shift (negative: of agility into strength).</summary>
+        public int AttributeShift { get; internal set; }
+
+        /// <summary>
+        /// Whether one more point can move that way (1: strength into agility): the source keeps at least one base point, whatever
+        /// items add.
+        /// </summary>
+        public bool CanShiftAttribute(int direction)
+        {
+            HeroAttributes? attributes = Definition.Attributes;
+            if (attributes == null)
+                return false;
+            int levels = Level - 1;
+            int source100 = direction > 0
+                ? (attributes.Strength - AttributeShift) * 100 + (int)(attributes.StrengthGain.Raw * 100 / Fixed.One.Raw) * levels
+                : (attributes.Agility + AttributeShift) * 100 + (int)(attributes.AgilityGain.Raw * 100 / Fixed.One.Raw) * levels;
+            return source100 - 100 >= 100;
+        }
 
         /// <summary>Channelling an ability (see <see cref="ChannelSpec"/>).</summary>
         public bool IsChanneling => Channel != null;
@@ -359,7 +378,7 @@ namespace Dynasty.MatchSimulation.Heroes
             foreach (string abilityId in state.Definition.SkillPriority)
             {
                 AbilityState? candidate = state.Ability(abilityId);
-                if (candidate != null && !candidate.Definition.Innate && (!unlearnedOnly || candidate.Level == 0) && candidate.Level < candidate.Definition.MaxLevel &&
+                if (candidate != null && !candidate.Definition.Innate && candidate.Definition.LevelsWith == null && (!unlearnedOnly || candidate.Level == 0) && candidate.Level < candidate.Definition.MaxLevel &&
                     candidate.Definition.RequiredHeroLevel[candidate.Level] <= state.Level)
                     return candidate;
             }
@@ -410,6 +429,13 @@ namespace Dynasty.MatchSimulation.Heroes
                 if (next.Definition.Targeting == AbilityTargeting.Passive)
                     Combat.Modifiers.Apply(context, hero, next.Definition.PassiveModifiers[next.Level - 1], hero.Id);
                 context.Emit(new AbilityLearned(hero.Id, next.Definition.Id, next.Level));
+                foreach (AbilityState follower in state.Abilities.Where(a => a.Definition.LevelsWith == next.Definition.Id && a.Level < next.Level && a.Level < a.Definition.MaxLevel))
+                {
+                    // Levelled together, for one skill point (Morphling's two Attribute Shifts).
+                    follower.Level = System.Math.Min(next.Level, follower.Definition.MaxLevel);
+                    follower.GainLevelCharges(follower.Level - 1);
+                    context.Emit(new AbilityLearned(hero.Id, follower.Definition.Id, follower.Level));
+                }
             }
         }
 
