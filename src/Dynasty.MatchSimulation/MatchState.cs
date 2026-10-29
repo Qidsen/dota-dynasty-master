@@ -407,6 +407,7 @@ namespace Dynasty.MatchSimulation
             int moveFlat = 0;
             int incomingDamage = 0, attackDamagePercent = 0, evasion = 0;
             int attackRangeBonus = 0;
+            int baseAttackTime = 0;
             Fixed manaRegenBonus = Fixed.Zero;
             int critChance = 0;
             int critMultiplier = 0;
@@ -489,6 +490,8 @@ namespace Dynasty.MatchSimulation
                         (crits ??= new List<ActiveModifier>()).Add(modifier);
                 }
                 attackRangeBonus += spec.AttackRangeBonus * n;
+                if (spec.BaseAttackTimeMs > 0 && (baseAttackTime == 0 || spec.BaseAttackTimeMs < baseAttackTime))
+                    baseAttackTime = spec.BaseAttackTimeMs;
                 manaRegenBonus += spec.ManaRegenBonus * Fixed.FromInt(n);
                 flags |= spec.Flags;
             }
@@ -586,7 +589,7 @@ namespace Dynasty.MatchSimulation
             AttackDamagePercent = Math.Max(attackDamagePercent, -100);
             EvasionHundredths = dota ? (int)(10000 - evasionLeft) : Math.Min(evasion, 10000);
             StepPerTick = Fixed.FromRatio(MoveSpeed, _rate.TicksPerSecond);
-            AttackIntervalTicks = Math.Max(1, _rate.TicksFor(Stats.AttackIntervalMs * 100 / (100 + AttackSpeedBonus)));
+            AttackIntervalTicks = Math.Max(1, _rate.TicksFor((baseAttackTime > 0 ? baseAttackTime : Stats.AttackIntervalMs) * 100 / (100 + AttackSpeedBonus)));
             AttackPointTicks = _rate.TicksFor(Stats.AttackPointMs * 100 / (100 + AttackSpeedBonus));
         }
 

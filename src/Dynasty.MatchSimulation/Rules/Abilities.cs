@@ -185,6 +185,9 @@ namespace Dynasty.MatchSimulation.Rules
         /// <summary>Flat amounts, only when the caster (a sprung trap) is fully charged (see <see cref="EffectKind.Spring"/>).</summary>
         FullChargeOnly = 15,
 
+        /// <summary>Amounts for every second the caster has been channelling, at most <see cref="EffectDefinition.Ceiling"/> (Upheaval).</summary>
+        PerChannelSecond = 16,
+
         /// <summary>
         /// Flat amounts, in full within <see cref="EffectDefinition.MinDistance"/> of the caster and falling evenly to
         /// <see cref="EffectDefinition.DamagePercent"/> at <see cref="EffectDefinition.Radius"/> (Proximity Mines).
@@ -329,6 +332,10 @@ namespace Dynasty.MatchSimulation.Rules
         /// <summary>See <see cref="EffectKind.Spring"/>.</summary>
         public static EffectDefinition Spring(string trapTypeId, int chargeMs, int minChargePercent, params EffectDefinition[] inner) =>
             new EffectDefinition(EffectKind.Spring, summonTypeId: trapTypeId, durationMs: chargeMs, damagePercent: minChargePercent, inner: inner);
+
+        /// <summary>See <see cref="DamageScaling.PerChannelSecond"/>.</summary>
+        public static EffectDefinition ChannelGrowthDamage(DamageType type, int[] maximum, params int[] perSecond) =>
+            new EffectDefinition(EffectKind.Damage, perSecond, type, scaling: DamageScaling.PerChannelSecond, ceiling: maximum);
 
         /// <summary>See <see cref="DamageScaling.FullChargeOnly"/>.</summary>
         public static EffectDefinition FullChargeDamage(DamageType type, params int[] perLevel) =>

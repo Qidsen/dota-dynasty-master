@@ -650,6 +650,8 @@ namespace Dynasty.Content
                         ? EffectDefinition.Damage(ReadDamageType(e, "damageType"), e.Ints("amounts").ToArray())
                         : scaling == DamageScaling.PerTargetStack
                         ? EffectDefinition.DamagePerStack(ReadDamageType(e, "damageType"), e.String("stackKey"), e.Ints("amounts").ToArray())
+                        : scaling == DamageScaling.PerChannelSecond
+                        ? EffectDefinition.ChannelGrowthDamage(ReadDamageType(e, "damageType"), e.Ints("ceiling").ToArray(), e.Ints("amounts").ToArray())
                         : scaling == DamageScaling.FullChargeOnly
                         ? EffectDefinition.FullChargeDamage(ReadDamageType(e, "damageType"), e.Ints("amounts").ToArray())
                         : scaling == DamageScaling.DistanceFalloff
@@ -815,8 +817,9 @@ namespace Dynasty.Content
             "rewoundDistancePercent" => DamageScaling.RewoundDistancePercent,
             "distanceFalloff" => DamageScaling.DistanceFalloff,
             "fullChargeOnly" => DamageScaling.FullChargeOnly,
+            "perChannelSecond" => DamageScaling.PerChannelSecond,
             _ => throw r.Error(field, "expected flat, targetMaxHealthPercent, targetMissingHealthPercent, targetCurrentHealthPercent, targetMaxManaPercent, " +
-                                      "targetMissingManaPercent, casterAttackDamagePercent, casterStrengthPercent, casterAgilityPercent, casterIntelligencePercent, perTargetStack, casterCurrentManaPercent, distanceToTargetPercent, rewoundDistancePercent, distanceFalloff or fullChargeOnly"),
+                                      "targetMissingManaPercent, casterAttackDamagePercent, casterStrengthPercent, casterAgilityPercent, casterIntelligencePercent, perTargetStack, casterCurrentManaPercent, distanceToTargetPercent, rewoundDistancePercent, distanceFalloff, fullChargeOnly or perChannelSecond"),
         };
 
         private static ModifierFlags ReadFlag(Reader r, string flag) => flag switch
@@ -907,6 +910,7 @@ namespace Dynasty.Content
                 castDamage: m.OptionalInt("castDamage") ?? 0, castDamageManaPercent: m.OptionalInt("castDamageManaPercent") ?? 0,
                 proximityRadius: m.OptionalInt("proximityRadius") ?? 0, proximityDelayMs: m.OptionalMilliseconds("proximityDelay") ?? 0,
                 onProximity: m.OptionalArray("onProximity").Select(ReadEffect).ToList(), periodicFromBearer: m.OptionalBool("periodicFromBearer") ?? false,
+                baseAttackTimeMs: m.OptionalMilliseconds("baseAttackTime") ?? 0, growsWithChannelMs: m.OptionalMilliseconds("growsWithChannel") ?? 0,
                 attributeShift: m.OptionalString("attributeShift") switch
                 {
                     null => 0,

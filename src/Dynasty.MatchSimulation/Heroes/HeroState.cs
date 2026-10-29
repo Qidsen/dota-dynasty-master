@@ -354,6 +354,9 @@ namespace Dynasty.MatchSimulation.Heroes
         public FixedVector2 Point { get; }
         public long NextPulseTick { get; set; }
         public long EndTick { get; }
+
+        /// <summary>The tick the channel began (Upheaval grows with its length).</summary>
+        public long StartTick { get; set; }
         public bool Cancelled { get; set; }
     }
 

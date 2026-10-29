@@ -20,7 +20,7 @@ namespace Dynasty.MatchSimulation.Systems
         {
             ChannelSpec spec = ability.Channel!;
             long now = context.Tick.Value;
-            hero.Channel = new ChannelState(ability, level, target.Id, point, now, now + context.TickRate.TicksFor(spec.DurationAt(level)));
+            hero.Channel = new ChannelState(ability, level, target.Id, point, now, now + context.TickRate.TicksFor(spec.DurationAt(level))) { StartTick = now };
             if (spec.WhileChannelling != null)
                 Modifiers.Apply(context, caster, spec.WhileChannelling, caster.Id);
         }

@@ -254,7 +254,7 @@ namespace Dynasty.MatchSimulation.Systems
         private static readonly Fixed KnockbackStep = Fixed.FromInt(25);
 
         /// <summary>A damage effect's amount for this target: flat, or a percent of its max health, missing health or missing mana.</summary>
-        private static Fixed ScaledAmount(EffectDefinition effect, int level, MatchUnit caster, MatchUnit target)
+        private static Fixed ScaledAmount(SimulationContext<MatchState> context, EffectDefinition effect, int level, MatchUnit caster, MatchUnit target)
         {
             Fixed amount = Fixed.FromInt(effect.AmountAt(level));
             Fixed percent = amount / Fixed.FromInt(10000);   // scaled amounts are hundredths of a percent
@@ -287,6 +287,9 @@ namespace Dynasty.MatchSimulation.Systems
                 case DamageScaling.DistanceToTargetPercent:
                     Fixed distance = FixedVector2.Distance(caster.Position, target.Position);
                     return (effect.Radius > 0 ? Fixed.Min(distance, Fixed.FromInt(effect.Radius)) : distance) * percent;
+                case DamageScaling.PerChannelSecond:
+                    ChannelState? channel = caster.Hero?.Channel;
+                    return channel == null ? Fixed.Zero : amount * Fixed.FromRatio((int)(context.Tick.Value - channel.StartTick), context.TickRate.TicksPerSecond);
                 case DamageScaling.DistanceFalloff:
                     Fixed beyond = FixedVector2.Distance(caster.Position, target.Position) - Fixed.FromInt(effect.MinDistance);
                     if (beyond <= Fixed.Zero)
@@ -345,12 +348,12 @@ namespace Dynasty.MatchSimulation.Systems
             switch (effect.Kind)
             {
                 case EffectKind.Damage:
-                    Fixed scaled = ScaledAmount(effect, level, caster, target);
+                    Fixed scaled = ScaledAmount(context, effect, level, caster, target);
                     if (effect.Floor.Count > 0)
                         scaled = Fixed.Max(scaled, Fixed.FromInt(EffectDefinition.ValueAt(effect.Floor, level)));
                     if (effect.Ceiling.Count > 0)
                         scaled = Fixed.Min(scaled, Fixed.FromInt(EffectDefinition.ValueAt(effect.Ceiling, level)));
-                    if (effect.Scaling != DamageScaling.FullChargeOnly || caster.ChargePercent >= 100)
+                    if ((effect.Scaling != DamageScaling.FullChargeOnly || caster.ChargePercent >= 100) && (effect.Scaling != DamageScaling.PerChannelSecond || scaled > Fixed.Zero))
                         Damage.Deal(context, caster.Id, target, scaled, effect.DamageType);
                     break;
                 case EffectKind.Rewind:
@@ -383,10 +386,14 @@ namespace Dynasty.MatchSimulation.Systems
                     Damage.Heal(context, caster.Id, target, Fixed.FromInt(effect.AmountAt(level)));
                     break;
                 case EffectKind.ApplyModifier:
-                    if (target.IsAlive && Modifiers.Apply(context, target, effect.ModifierAt(level), caster.Id) is ActiveModifier applied && caster.ChargePercent != 100)
+                    if (target.IsAlive && Modifiers.Apply(context, target, effect.ModifierAt(level), caster.Id) is ActiveModifier applied)
                     {
-                        applied.SlowStrengthPercent = caster.ChargePercent;   // a sprung trap's slow by its charge
-                        target.Recalculate();
+                        int strength = applied.Spec.GrowsWithChannelMs > 0 ? ChannelStrength(context, caster, applied.Spec.GrowsWithChannelMs) : caster.ChargePercent;
+                        if (strength != applied.SlowStrengthPercent)
+                        {
+                            applied.SlowStrengthPercent = strength;   // a sprung trap's charge, an Upheaval's channel so far
+                            target.Recalculate();
+                        }
                     }
 
                     break;
@@ -746,6 +753,16 @@ namespace Dynasty.MatchSimulation.Systems
             target.Position = position;
             if (target.Hero != null)
                 target.Hero.Path = null;
+        }
+
+        /// <summary>The share of a growing slow (<see cref="ModifierSpec.GrowsWithChannelMs"/>) after the caster's channel so far.</summary>
+        private static int ChannelStrength(SimulationContext<MatchState> context, MatchUnit caster, int fullAfterMs)
+        {
+            ChannelState? channel = caster.Hero?.Channel;
+            if (channel == null)
+                return 100;
+            long full = System.Math.Max(1, context.TickRate.TicksFor(fullAfterMs));
+            return (int)(System.Math.Min(full, context.Tick.Value - channel.StartTick) * 100 / full);
         }
 
         /// <summary>Psionic Trap's Trap: the caster's trap nearest to it goes off with its charge, then is gone.</summary>

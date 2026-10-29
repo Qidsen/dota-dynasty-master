@@ -229,8 +229,12 @@ namespace Dynasty.MatchSimulation.Combat
             int proximityRadius = 0,
             int proximityDelayMs = 0,
             IReadOnlyList<Rules.EffectDefinition>? onProximity = null,
-            bool periodicFromBearer = false)
+            bool periodicFromBearer = false,
+            int baseAttackTimeMs = 0,
+            int growsWithChannelMs = 0)
         {
+            BaseAttackTimeMs = baseAttackTimeMs;
+            GrowsWithChannelMs = growsWithChannelMs;
             PeriodicFromBearer = periodicFromBearer;
             ProximityRadius = proximityRadius;
             ProximityDelayMs = proximityDelayMs;
@@ -658,6 +662,15 @@ namespace Dynasty.MatchSimulation.Combat
         /// <summary>The bearer itself runs <see cref="PeriodicEffects"/>, whether its caster lives or not (Tombstone raising zombies).</summary>
         public bool PeriodicFromBearer { get; }
 
+        /// <summary>Sets the bearer's base attack time while it lasts (Lil' Shredder); 0: the unit's own.</summary>
+        public int BaseAttackTimeMs { get; }
+
+        /// <summary>
+        /// The modifier's slow, applied by a channelling caster, is in full only after the caster has channelled this long, and in
+        /// proportion before (Upheaval: by the length of the channel, not by the time the bearer stood in the area).
+        /// </summary>
+        public int GrowsWithChannelMs { get; }
+
         /// <summary>The modifier ends when the bearer and its caster are farther apart than this (a link breaking).</summary>
         public int BreakDistance { get; }
 
@@ -870,7 +883,7 @@ namespace Dynasty.MatchSimulation.Combat
             w.WriteBool(DamageHeals);
             foreach (int value in new[] { CritMultiplierMaxPercent, CritLifestealPercent, OnHitManaCost, OnHitManaCostPercent, FullBelowHealthPercent, InvisibleAfterIdleMs,
                                           ShareDamagePercent, SpreadDamagePercent, SpreadRadius, BreakDistance, HealSharePercent, ManaSharePercent,
-                                          CastDamage, CastDamageManaPercent, ProximityRadius, ProximityDelayMs })
+                                          CastDamage, CastDamageManaPercent, ProximityRadius, ProximityDelayMs, BaseAttackTimeMs, GrowsWithChannelMs })
                 w.WriteInt64(value);
             w.WriteBool(ReturnsOnExpiry);
             w.WriteBool(PeriodicFromBearer);

@@ -12553,5 +12553,75 @@
         ]
       }
     ]
+  },
+  "snapfire_lil_shredder": {
+    "status": "full",
+    "targeting": "noTarget",
+    "targetTeam": "ally",
+    "effects": [
+      {
+        "kind": "modifier",
+        "modifiers": {
+          "key": "snapfire_lil_shredder",
+          "duration": "$abilityduration",
+          "attackCharges": "$buffed_attacks",
+          "attackSpeed": "$attack_speed_bonus",
+          "attackRange": "$attack_range_bonus",
+          "baseAttackTime": "$base_attack_time",
+          "attackDamagePercent": "$damage_pct+-100",
+          "onHit": [
+            {
+              "kind": "damage",
+              "damageType": "physical",
+              "amounts": "$damage"
+            },
+            {
+              "kind": "modifier",
+              "modifiers": {
+                "key": "snapfire_lil_shredder_armor",
+                "duration": "$armor_duration",
+                "stacking": true,
+                "armor": "-$armor_reduction_per_attack"
+              }
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "warlock_upheaval": {
+    "status": "simplified",
+    "note": "the damage per second grows by 10 for every second of the channel up to the level's maximum (the project owner); pulses every damage tick, so damage and slow grow in steps of a second; the radius is the top level's at every level; the AI channels to the end (B-171)",
+    "targeting": "point",
+    "targetTeam": "enemy",
+    "channel": {
+      "period": "$damage_tick_interval",
+      "pulse": [
+        {
+          "kind": "area",
+          "radius": "$aoe",
+          "center": "point",
+          "team": "enemy",
+          "effects": [
+            {
+              "kind": "modifier",
+              "modifiers": {
+                "key": "warlock_upheaval",
+                "duration": "$duration",
+                "moveSpeedPercent": "-$max_slow",
+                "growsWithChannel": "$max_slow/$slow_per_second"
+              }
+            },
+            {
+              "kind": "damage",
+              "damageType": "magical",
+              "scaling": "perChannelSecond",
+              "amounts": "$damage_per_second",
+              "ceiling": "$max_damage"
+            }
+          ]
+        }
+      ]
+    }
   }
 }
