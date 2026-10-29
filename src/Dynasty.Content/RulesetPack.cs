@@ -650,6 +650,7 @@ namespace Dynasty.Content
                         ? EffectDefinition.Damage(ReadDamageType(e, "damageType"), e.Ints("amounts").ToArray())
                         : scaling == DamageScaling.PerTargetStack
                         ? EffectDefinition.DamagePerStack(ReadDamageType(e, "damageType"), e.String("stackKey"), e.Ints("amounts").ToArray())
+                        : e.Has("cap") ? EffectDefinition.CappedScaledDamage(ReadDamageType(e, "damageType"), scaling, e.Int("cap"), e.Hundredths("amounts").ToArray())
                         : EffectDefinition.ScaledDamage(ReadDamageType(e, "damageType"), scaling, e.Hundredths("amounts").ToArray());
                     break;
                 case "manaBurn":
@@ -773,8 +774,10 @@ namespace Dynasty.Content
             "casterAgilityPercent" => DamageScaling.CasterAgilityPercent,
             "casterIntelligencePercent" => DamageScaling.CasterIntelligencePercent,
             "perTargetStack" => DamageScaling.PerTargetStack,
+            "casterCurrentManaPercent" => DamageScaling.CasterCurrentManaPercent,
+            "distanceToTargetPercent" => DamageScaling.DistanceToTargetPercent,
             _ => throw r.Error(field, "expected flat, targetMaxHealthPercent, targetMissingHealthPercent, targetCurrentHealthPercent, targetMaxManaPercent, " +
-                                      "targetMissingManaPercent, casterAttackDamagePercent, casterStrengthPercent, casterAgilityPercent, casterIntelligencePercent or perTargetStack"),
+                                      "targetMissingManaPercent, casterAttackDamagePercent, casterStrengthPercent, casterAgilityPercent, casterIntelligencePercent, perTargetStack, casterCurrentManaPercent or distanceToTargetPercent"),
         };
 
         private static ModifierFlags ReadFlag(Reader r, string flag) => flag switch
@@ -854,6 +857,9 @@ namespace Dynasty.Content
                 backReductionPercent: m.OptionalInt("backReduction") ?? 0, sideAngle: m.OptionalInt("sideAngle") ?? 0, backAngle: m.OptionalInt("backAngle") ?? 0,
                 releaseAbilityId: m.OptionalString("releaseAbility"), releaseThreshold: m.OptionalInt("releaseThreshold") ?? 0,
                 manaCostPerSecond: m.OptionalFixed("manaCostPerSecond") ?? Fixed.Zero, instanceBlock: m.OptionalInt("instanceBlock") ?? 0, damageHeals: m.OptionalBool("damageHeals") ?? false,
+                critMultiplierMaxPercent: m.OptionalInt("critMultiplierMax") ?? 0, critLifestealPercent: m.OptionalInt("critLifesteal") ?? 0,
+                resetStacksKey: m.OptionalString("resetStacksKey"), onHitManaCost: m.OptionalInt("onHitManaCost") ?? 0,
+                onHitManaCostPercent: m.OptionalInt("onHitManaCostPercent") ?? 0,
                 attributeShift: m.OptionalString("attributeShift") switch
                 {
                     null => 0,

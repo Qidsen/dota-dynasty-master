@@ -108,7 +108,7 @@ static class Abilities
     /// <summary>
     /// The map refers to the data for every number (docs/DOTA_PACK.md). Allowed literals are the engine's own
     /// conventions: an aura's modifier (and a modifier of a zone without a period) lasts 1 s and is refreshed, 20000 and more means "global",
-    /// and summon counts.
+    /// summon counts, and a critical strike certain to land (100) when a cooldown is what limits it (Mortal Strike).
     /// </summary>
     private static void RejectHandTypedNumbers(string key, JsonNode? node, string path, bool inContinuousZone = false)
     {
@@ -128,7 +128,7 @@ static class Abilities
                 throw new InvalidDataException($"abilities.json: {key}{path} = \"{written}\" is a number typed by hand; refer to the data (\"$key\")");
             case JsonValue v when v.TryGetValue(out decimal number):
                 bool allowed = ((path.EndsWith(".aura.modifier.duration") || (inContinuousZone && path.EndsWith(".modifiers.duration"))) && number == 1) ||
-                               number >= 20000 || path.Contains(".counts[");
+                               number >= 20000 || path.Contains(".counts[") || (path.EndsWith(".critChance") && number == 100);
                 if (!allowed)
                     throw new InvalidDataException($"abilities.json: {key}{path} = {number} is typed by hand; refer to the data (\"$key\")");
                 break;
@@ -151,6 +151,8 @@ static class Abilities
             values["dmg"] = dmg;   // some abilities keep their damage outside the attributes (Storm Hammer)
         if (source["cd"] is JsonNode cd && !values.ContainsKey("cd"))
             values["cd"] = cd;     // the ability's own cooldown, e.g. a passive's proc cooldown (Mortal Strike)
+        if (source["mc"] is JsonNode mc && !values.ContainsKey("mc"))
+            values["mc"] = mc;     // the ability's own mana cost, e.g. an autocast attack's cost per proc (Impetus)
         return values;
     }
 

@@ -11885,5 +11885,95 @@
         }
       }
     ]
+  },
+  "skeleton_king_mortal_strike": {
+    "status": "simplified",
+    "note": "Wraith King's Skeletons do not share the cooldown multiplier (wraith_cd_mult)",
+    "targeting": "passive",
+    "targetTeam": "ally",
+    "passive": {
+      "key": "skeleton_king_mortal_strike",
+      "critChance": 100,
+      "critMultiplier": "$crit_mult",
+      "procCooldown": "$cd"
+    }
+  },
+  "chaos_knight_chaos_strike": {
+    "status": "simplified",
+    "note": "Chaos Knight's illusions do not have it; full lifesteal from creeps (the data's creep_multiplier 1)",
+    "targeting": "passive",
+    "targetTeam": "ally",
+    "passive": {
+      "key": "chaos_knight_chaos_strike",
+      "critChance": "$chance",
+      "critMultiplier": "$crit_min",
+      "critMultiplierMax": "$crit_max",
+      "critLifesteal": "$lifesteal"
+    }
+  },
+  "troll_warlord_fervor": {
+    "status": "simplified",
+    "note": "no Break; no Aghanim's Shard proc",
+    "targeting": "passive",
+    "targetTeam": "ally",
+    "passive": {
+      "key": "troll_warlord_fervor",
+      "resetStacksKey": "troll_warlord_fervor_stack",
+      "onHit": [
+        {
+          "kind": "onCaster",
+          "effects": [
+            {
+              "kind": "modifier",
+              "modifiers": {
+                "key": "troll_warlord_fervor_stack",
+                "attackSpeed": "$attack_speed",
+                "stacking": true,
+                "maxStacks": "$max_stacks"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "obsidian_destroyer_arcane_orb": {
+    "status": "simplified",
+    "note": "always on (an autocast the AI never turns off); on attacks only, not as a targeted cast",
+    "targeting": "passive",
+    "targetTeam": "ally",
+    "passive": {
+      "key": "obsidian_destroyer_arcane_orb",
+      "procCooldown": "$cd",
+      "onHitManaCostPercent": "$mana_cost_percentage",
+      "onHit": [
+        {
+          "kind": "damage",
+          "damageType": "pure",
+          "scaling": "casterCurrentManaPercent",
+          "amounts": "$mana_pool_damage_pct"
+        }
+      ]
+    }
+  },
+  "enchantress_impetus": {
+    "status": "simplified",
+    "note": "always on (an autocast the AI never turns off); on attacks only; no double damage to illusions",
+    "targeting": "passive",
+    "targetTeam": "ally",
+    "passive": {
+      "key": "enchantress_impetus",
+      "procCooldown": "$cd",
+      "onHitManaCost": "$mc",
+      "onHit": [
+        {
+          "kind": "damage",
+          "damageType": "pure",
+          "scaling": "distanceToTargetPercent",
+          "cap": "$distance_cap",
+          "amounts": "$distance_damage_pct"
+        }
+      ]
+    }
   }
 }

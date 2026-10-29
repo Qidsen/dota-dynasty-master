@@ -704,7 +704,7 @@ namespace Dynasty.MatchSimulation.Systems
             if (target == null || !context.State.CanAttack(unit, target))
                 return;
 
-            Fixed damage = RollDamage(context, unit, target, out bool critical);
+            Fixed damage = RollDamage(context, unit, target, out bool critical, out int critLifesteal);
             HitExtraTargets(context, unit, target);
             if (unit.Stats.ProjectileSpeed > 0)
             {
@@ -712,11 +712,12 @@ namespace Dynasty.MatchSimulation.Systems
                 Projectile projectile = context.State.LaunchProjectile(unit, target, unit.Stats.ProjectileSpeed);
                 projectile.Damage = damage;
                 projectile.IsCritical = critical;
+                projectile.CritLifestealPercent = critLifesteal;
                 context.Emit(new ProjectileLaunched(projectile.Id, unit.Id, target.Id, isAbility: false));
                 return;
             }
 
-            ApplyHit(context, unit, target, damage, critical);
+            ApplyHit(context, unit, target, damage, critical, critLifestealPercent: critLifesteal);
         }
 
         /// <summary>Split attacks: the other enemies nearest to the attacker (then by id) take an instant share of the attack.</summary>
@@ -744,13 +745,14 @@ namespace Dynasty.MatchSimulation.Systems
         /// <summary>An instant attack made by an ability, with a percent of the attack's damage; it lands at once, even for ranged units.</summary>
         internal static void Strike(SimulationContext<MatchState> context, MatchUnit unit, MatchUnit target, int damagePercent, bool spendsCharges = true)
         {
-            Fixed damage = RollDamage(context, unit, target, out bool critical);
-            ApplyHit(context, unit, target, damage * Fixed.FromInt(damagePercent) / Fixed.FromInt(100), critical, spendsCharges);
+            Fixed damage = RollDamage(context, unit, target, out bool critical, out int critLifesteal);
+            ApplyHit(context, unit, target, damage * Fixed.FromInt(damagePercent) / Fixed.FromInt(100), critical, spendsCharges, critLifesteal);
         }
 
         /// <summary>One attack's damage roll: critical strike, attack damage percent, attack and armor classes, structures.</summary>
-        private static Fixed RollDamage(SimulationContext<MatchState> context, MatchUnit unit, MatchUnit target, out bool critical)
+        private static Fixed RollDamage(SimulationContext<MatchState> context, MatchUnit unit, MatchUnit target, out bool critical, out int critLifesteal)
         {
+            critLifesteal = 0;
             int roll = context.Random("combat").NextInt(unit.AttackDamageMin, unit.AttackDamageMax + 1);
             Fixed damage = Fixed.FromInt(roll);
 
@@ -761,12 +763,23 @@ namespace Dynasty.MatchSimulation.Systems
                 // (and such attacks do not count as tries).
                 if (target.Kind != UnitKind.Structure)
                 {
+                    long now = context.Tick.Value;
                     foreach (ActiveModifier crit in unit.CritModifiers)
                     {
-                        if (!PseudoRandom.Roll(context, crit.Spec.CritChanceHundredths, ref crit.PrdTries))
+                        ModifierSpec spec = crit.Spec;
+                        if (spec.ProcCooldownMs > 0 && now < crit.NextProcTick)
+                            continue;   // Mortal Strike: on its cooldown
+                        if (!PseudoRandom.Roll(context, spec.CritChanceHundredths, ref crit.PrdTries))
                             continue;
                         critical = true;
-                        damage = damage * Fixed.FromInt(crit.Spec.CritMultiplierPercent) / Fixed.FromInt(100);
+                        // Chaos Strike: a multiplier drawn between its bounds, and lifesteal on the attack.
+                        int multiplier = spec.CritMultiplierMaxPercent > spec.CritMultiplierPercent
+                            ? context.Random("combat").NextInt(spec.CritMultiplierPercent, spec.CritMultiplierMaxPercent + 1)
+                            : spec.CritMultiplierPercent;
+                        damage = damage * Fixed.FromInt(multiplier) / Fixed.FromInt(100);
+                        critLifesteal = spec.CritLifestealPercent;
+                        if (spec.ProcCooldownMs > 0)
+                            crit.NextProcTick = now + context.TickRate.TicksFor(spec.ProcCooldownMs);
                         break;
                     }
                 }
@@ -798,7 +811,8 @@ namespace Dynasty.MatchSimulation.Systems
             : unit.Kind == UnitKind.Structure || unit.Stats.AttackClass == AttackClass.Reinforced ? DefenseClass.Reinforced
             : DefenseClass.Unit;
 
-        internal static void ApplyHit(SimulationContext<MatchState> context, MatchUnit attacker, MatchUnit target, Fixed damage, bool critical, bool spendsCharges = true)
+        internal static void ApplyHit(SimulationContext<MatchState> context, MatchUnit attacker, MatchUnit target, Fixed damage, bool critical, bool spendsCharges = true,
+            int critLifestealPercent = 0)
         {
             // Charged buffs count the attacks that land while they are on: not the hit that grants one, not the extra targets' hits.
             List<ActiveModifier>? charged = spendsCharges ? attacker.Modifiers.Where(m => m.Spec.AttackCharges > 0).ToList() : null;
@@ -816,8 +830,8 @@ namespace Dynasty.MatchSimulation.Systems
             if (block > 0)
                 damage = Fixed.Max(Fixed.Zero, damage - Fixed.FromInt(block));
             Fixed dealt = Damage.Deal(context, attacker.Id, target, damage, DamageType.Physical, critical);
-            if (attacker.LifestealPercent > 0 && attacker.IsAlive)
-                Damage.Heal(context, attacker.Id, attacker, dealt * Fixed.FromInt(attacker.LifestealPercent) / Fixed.FromInt(100));
+            if (attacker.LifestealPercent + critLifestealPercent > 0 && attacker.IsAlive)
+                Damage.Heal(context, attacker.Id, attacker, dealt * Fixed.FromInt(attacker.LifestealPercent + critLifestealPercent) / Fixed.FromInt(100));
 
             // Cleave: melee attacks splash a percent of their damage onto the other enemies near the target.
             if (attacker.Stats.ProjectileSpeed == 0)
@@ -840,6 +854,18 @@ namespace Dynasty.MatchSimulation.Systems
                     Damage.Deal(context, attacker.Id, other, share, DamageType.Physical);
             }
 
+            // Fervor: stacks gathered on one target are dropped when the attacks turn to another.
+            foreach (ActiveModifier tracker in attacker.Modifiers.Where(m => m.Spec.ResetStacksKey != null).ToList())
+            {
+                if (tracker.LastTarget.IsValid && tracker.LastTarget != target.Id)
+                {
+                    foreach (ActiveModifier stacks in attacker.Modifiers.Where(m => m.Spec.Key == tracker.Spec.ResetStacksKey).ToList())
+                        Modifiers.Remove(context, attacker, stacks, "new_target");
+                }
+
+                tracker.LastTarget = target.Id;
+            }
+
             // On-hit effects (bash, bonus magic damage, slows) of the attacker's modifiers, in their order on the unit.
             foreach (ActiveModifier modifier in attacker.Modifiers.Where(m => m.Spec.OnHit.Count > 0).ToList())
             {
@@ -850,9 +876,17 @@ namespace Dynasty.MatchSimulation.Systems
                 if (modifier.Spec.OnHitAfterAttacks > 0 && modifier.AttackCount++ < modifier.Spec.OnHitAfterAttacks)
                     continue;
                 modifier.AttackCount = 0;
+                // Impetus and Arcane Orb: the proc costs mana (a share of the current mana for the orb); without it there is none.
+                Fixed manaCost = Fixed.FromInt(modifier.Spec.OnHitManaCost);
+                if (modifier.Spec.OnHitManaCostPercent > 0 && attacker.Hero != null)
+                    manaCost += attacker.Hero.Mana * Fixed.FromInt(modifier.Spec.OnHitManaCostPercent) / Fixed.FromInt(100);
+                if (manaCost > Fixed.Zero && (attacker.Hero == null || attacker.Hero.Mana < manaCost))
+                    continue;
                 if (modifier.Spec.PseudoRandom ? !PseudoRandom.Roll(context, modifier.Spec.OnHitChanceHundredths, ref modifier.PrdTries)
                                                 : !Rolls(context, modifier.Spec.OnHitChanceHundredths))
                     continue;
+                if (manaCost > Fixed.Zero)
+                    attacker.Hero!.Mana -= manaCost;
                 StartProcCooldown(context, modifier);
                 modifier.Procing = true;
                 Effects.Run(context, attacker, modifier.Spec.OnHit, 1, target, target.Position);
@@ -944,7 +978,7 @@ namespace Dynasty.MatchSimulation.Systems
                 }
                 else if (source != null)
                 {
-                    AttackSystem.ApplyHit(context, source, target, projectile.Damage, projectile.IsCritical);
+                    AttackSystem.ApplyHit(context, source, target, projectile.Damage, projectile.IsCritical, critLifestealPercent: projectile.CritLifestealPercent);
                 }
                 else
                 {

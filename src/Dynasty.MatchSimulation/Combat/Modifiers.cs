@@ -207,8 +207,18 @@ namespace Dynasty.MatchSimulation.Combat
             Fixed manaCostPerSecond = default,
             int attributeShift = 0,
             int instanceBlock = 0,
-            bool damageHeals = false)
+            bool damageHeals = false,
+            int critMultiplierMaxPercent = 0,
+            int critLifestealPercent = 0,
+            string? resetStacksKey = null,
+            int onHitManaCost = 0,
+            int onHitManaCostPercent = 0)
         {
+            CritMultiplierMaxPercent = critMultiplierMaxPercent;
+            CritLifestealPercent = critLifestealPercent;
+            ResetStacksKey = resetStacksKey;
+            OnHitManaCost = onHitManaCost;
+            OnHitManaCostPercent = onHitManaCostPercent;
             InstanceBlock = instanceBlock;
             DamageHeals = damageHeals;
             AttributeShift = attributeShift;
@@ -567,6 +577,21 @@ namespace Dynasty.MatchSimulation.Combat
         /// <summary>Dota's Borrowed Time: damage taken, after its reductions, heals the bearer instead.</summary>
         public bool DamageHeals { get; }
 
+        /// <summary>Chaos Strike: the critical strike's multiplier is drawn between <see cref="CritMultiplierPercent"/> and this.</summary>
+        public int CritMultiplierMaxPercent { get; }
+
+        /// <summary>Chaos Strike: lifesteal of the attack this critical strike lands on.</summary>
+        public int CritLifestealPercent { get; }
+
+        /// <summary>Fervor: the stacking modifier with this key is dropped when the bearer attacks another target than the last.</summary>
+        public string? ResetStacksKey { get; }
+
+        /// <summary>Impetus: mana each on-hit proc costs; without it the attack does not proc.</summary>
+        public int OnHitManaCost { get; }
+
+        /// <summary>Arcane Orb: percent of the current mana each on-hit proc costs, spent before its effects.</summary>
+        public int OnHitManaCostPercent { get; }
+
         /// <summary><see cref="OnKill"/> runs only for hero victims (Flesh Heap).</summary>
         public bool OnKillHeroesOnly { get; }
 
@@ -748,6 +773,9 @@ namespace Dynasty.MatchSimulation.Combat
             w.WriteInt64(AttributeShift);
             w.WriteInt64(InstanceBlock);
             w.WriteBool(DamageHeals);
+            foreach (int value in new[] { CritMultiplierMaxPercent, CritLifestealPercent, OnHitManaCost, OnHitManaCostPercent })
+                w.WriteInt64(value);
+            w.WriteString(ResetStacksKey ?? "");
         }
 
         public static ModifierSpec Status(string key, int durationMs, ModifierFlags flags) => new ModifierSpec(key, durationMs, flags);
@@ -779,6 +807,9 @@ namespace Dynasty.MatchSimulation.Combat
         internal int InstancesLeft { get; set; }
 
         internal int InstanceBarrierLeft { get; set; }
+
+        /// <summary>The target of the bearer's last attack (<see cref="ModifierSpec.ResetStacksKey"/>).</summary>
+        internal EntityId LastTarget { get; set; }
 
         /// <summary>Damage from the rear counted toward <see cref="ModifierSpec.ReleaseThreshold"/>.</summary>
         internal Fixed ReleaseTaken { get; set; }

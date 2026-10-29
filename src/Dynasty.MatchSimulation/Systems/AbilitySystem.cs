@@ -260,6 +260,11 @@ namespace Dynasty.MatchSimulation.Systems
                     return caster.Intelligence * percent;
                 case DamageScaling.PerTargetStack:
                     return amount * Fixed.FromInt(target.FindModifier(effect.StackKey!, caster.Id)?.Stacks ?? 0);
+                case DamageScaling.CasterCurrentManaPercent:
+                    return caster.Hero == null ? Fixed.Zero : caster.Hero.Mana * percent;
+                case DamageScaling.DistanceToTargetPercent:
+                    Fixed distance = FixedVector2.Distance(caster.Position, target.Position);
+                    return (effect.Radius > 0 ? Fixed.Min(distance, Fixed.FromInt(effect.Radius)) : distance) * percent;
                 default:
                     return amount;
             }

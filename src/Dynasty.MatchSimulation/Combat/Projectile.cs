@@ -30,6 +30,9 @@ namespace Dynasty.MatchSimulation.Combat
         internal Fixed Damage { get; set; }
         internal bool IsCritical { get; set; }
 
+        /// <summary>Lifesteal of the critical strike the attack carries (Chaos Strike).</summary>
+        internal int CritLifestealPercent { get; set; }
+
         // Ability payload.
         internal IReadOnlyList<EffectDefinition>? Effects { get; set; }
         internal int Level { get; set; }

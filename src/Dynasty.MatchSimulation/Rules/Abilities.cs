@@ -125,6 +125,12 @@ namespace Dynasty.MatchSimulation.Rules
 
         /// <summary>Flat damage for each stack of the modifier <see cref="EffectDefinition.StackKey"/> the caster put on the target.</summary>
         PerTargetStack = 10,
+
+        /// <summary>Hundredths of a percent of the caster's current mana (Arcane Orb).</summary>
+        CasterCurrentManaPercent = 11,
+
+        /// <summary>Hundredths of a percent of the distance from the caster to the target, at most the effect's radius when set (Impetus).</summary>
+        DistanceToTargetPercent = 12,
     }
 
     public enum AreaCenter
@@ -242,6 +248,10 @@ namespace Dynasty.MatchSimulation.Rules
         /// <summary>Damage as a percent (per level, in hundredths of a percent) of the target's max, missing or current health or missing mana.</summary>
         public static EffectDefinition ScaledDamage(DamageType type, DamageScaling scaling, params int[] percentPerLevel) =>
             new EffectDefinition(EffectKind.Damage, percentPerLevel, type, scaling: scaling);
+
+        /// <summary>Scaled damage whose base is capped (Impetus: the distance counts up to <paramref name="cap"/>).</summary>
+        public static EffectDefinition CappedScaledDamage(DamageType type, DamageScaling scaling, int cap, params int[] percentPerLevel) =>
+            new EffectDefinition(EffectKind.Damage, percentPerLevel, type, scaling: scaling, radius: cap);
 
         /// <summary>Burns mana (per level) and deals the given percent of the mana burnt as damage.</summary>
         public static EffectDefinition ManaBurn(int damagePercent, DamageType type, params int[] manaPerLevel) =>

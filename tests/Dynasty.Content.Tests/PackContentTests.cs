@@ -47,7 +47,9 @@ public class PackContentTests
             ""onReturn"": [ { ""kind"": ""modifier"", ""modifiers"": [ { ""key"": ""stun"", ""duration"": 1, ""flags"": [""stunned""] } ] } ],
             ""damageBlock"": 30, ""damageBlockCreepReduction"": 50, ""cleanseThreshold"": 600, ""cleanseWindow"": 7,
             ""absorbInstances"": 3, ""absorbBarrier"": 30, ""layers"": 4, ""layerReduction"": 8, ""layerRecovery"": 7, ""layerMinimumDamage"": 40,
-            ""instanceBlock"": 26, ""damageHeals"": true } ] } ], ""autoCastBelowHealth"": 400 }";
+            ""instanceBlock"": 26, ""damageHeals"": true, ""critMultiplierMax"": 270, ""critLifesteal"": 30, ""resetStacksKey"": ""fervor_stack"",
+            ""onHitManaCost"": 40, ""onHitManaCostPercent"": 20,
+            ""onHit"": [ { ""kind"": ""damage"", ""damageType"": ""pure"", ""scaling"": ""distanceToTargetPercent"", ""cap"": 1750, ""amounts"": [10] } ] } ] } ], ""autoCastBelowHealth"": 400 }";
 
     [Fact]
     public void DamageTakenResponses_AreRead()
@@ -59,6 +61,9 @@ public class PackContentTests
         Assert.Equal((30, 50, 600, 7000, 3, 30), (m.DamageBlock, m.DamageBlockCreepPercent, m.CleanseThreshold, m.CleanseWindowMs, m.AbsorbInstances, m.AbsorbBarrier));
         Assert.Equal((4, 8, 7000, 40), (m.Layers, m.LayerReductionPercent, m.LayerRecoveryMs, m.LayerMinimumDamage));
         Assert.Equal((26, true, 400), (m.InstanceBlock, m.DamageHeals, rules.FindAbility("shells")!.AutoCastBelowHealth));
+        Assert.Equal((270, 30, "fervor_stack", 40, 20), (m.CritMultiplierMaxPercent, m.CritLifestealPercent, m.ResetStacksKey, m.OnHitManaCost, m.OnHitManaCostPercent));
+        EffectDefinition impetus = m.OnHit.Single();
+        Assert.Equal((DamageScaling.DistanceToTargetPercent, 1750, 1000), (impetus.Scaling, impetus.Radius, impetus.AmountAt(1)));
     }
 
     private const string Field = @"{
