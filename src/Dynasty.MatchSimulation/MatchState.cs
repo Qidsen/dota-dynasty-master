@@ -801,6 +801,15 @@ namespace Dynasty.MatchSimulation
 
         internal void RemoveZone(GroundZone zone) => _zones.Remove(zone);
 
+        /// <summary>Ring walls raised by abilities, in creation order.</summary>
+        public IReadOnlyList<GroundWall> Walls => _walls;
+
+        private readonly List<GroundWall> _walls = new List<GroundWall>();
+
+        internal void AddWall(GroundWall wall) => _walls.Add(wall);
+
+        internal void RemoveWall(GroundWall wall) => _walls.Remove(wall);
+
         /// <summary>Removes every projectile homing on the unit (blink, teleport); returns them for event reporting.</summary>
         internal List<Projectile> Disjoint(MatchUnit unit)
         {

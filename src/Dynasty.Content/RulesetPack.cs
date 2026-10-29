@@ -678,6 +678,9 @@ namespace Dynasty.Content
                 case "rewind":
                     effect = EffectDefinition.Rewind(e.Milliseconds("back"), e.OptionalBool("restoresVitals") ?? false, e.OptionalArray("effects").Select(ReadEffect).ToArray());
                     break;
+                case "wall":
+                    effect = EffectDefinition.Wall(e.Int("radius"), ReadCenter(e, "center"), ReadTeam(e, "team"), e.Milliseconds("formation"), e.Seconds("durations").ToArray());
+                    break;
                 case "lineArea":
                     effect = EffectDefinition.LineArea(e.OptionalInt("width") ?? 0, ReadTeam(e, "team"), e.Array("effects").Select(ReadEffect).ToArray());
                     break;

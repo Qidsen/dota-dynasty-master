@@ -12256,5 +12256,36 @@
         ]
       }
     ]
+  },
+  "disruptor_kinetic_field": {
+    "status": "full",
+    "targeting": "point",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "wall",
+        "radius": "$radius",
+        "center": "point",
+        "team": "enemy",
+        "formation": "$formation_time",
+        "durations": "$duration"
+      }
+    ]
+  },
+  "mars_arena_of_blood": {
+    "status": "simplified",
+    "note": "the arena blocks enemy movement only: no spears at the inside edge, enemy attacks across it are not blocked",
+    "targeting": "point",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "wall",
+        "radius": "$radius",
+        "center": "point",
+        "team": "enemy",
+        "formation": "$formation_time",
+        "durations": "$duration"
+      }
+    ]
   }
 }

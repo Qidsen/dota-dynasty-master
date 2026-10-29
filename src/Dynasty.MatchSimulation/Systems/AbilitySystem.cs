@@ -438,6 +438,11 @@ namespace Dynasty.MatchSimulation.Systems
                     FixedVector2 at = effect.Center == AreaCenter.Caster ? caster.Position : effect.Center == AreaCenter.Target ? target.Position : point;
                     context.State.AddZone(caster.Id, at, effect, level, context.Tick.Value);
                     break;
+                case EffectKind.Wall:
+                    long forms = context.Tick.Value + context.TickRate.TicksFor(effect.DurationMs);
+                    context.State.AddWall(new GroundWall(effect.Center == AreaCenter.Caster ? caster.Position : effect.Center == AreaCenter.Target ? target.Position : point,
+                        effect.Radius, caster.Team, effect.Team, forms, forms + context.TickRate.TicksFor(effect.AmountAt(level))));
+                    break;
                 case EffectKind.Pull:
                     Pull(context.State, caster, target, effect.Center == AreaCenter.Point ? point : caster.Position,
                         effect.Center == AreaCenter.Point ? 0 : caster.BoundingRadius + target.BoundingRadius, effect.AmountAt(level));

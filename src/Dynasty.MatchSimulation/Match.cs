@@ -78,6 +78,8 @@ namespace Dynasty.MatchSimulation
             // After attacks: a push must not move a unit out of the range it just walked into
             // before its attack is checked; the next tick's movement walks it back.
             kernel.AddSystem(new SeparationSystem());
+            // After every move of the tick (walking, pushes, separation): nobody blocked has crossed a wall.
+            kernel.AddSystem(new WallSystem());
             kernel.AddSystem(new CleanupSystem());
             return kernel;
         }

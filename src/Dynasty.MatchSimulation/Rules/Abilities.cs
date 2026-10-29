@@ -130,6 +130,13 @@ namespace Dynasty.MatchSimulation.Rules
         /// illusion is killed at once.
         /// </summary>
         Rewind = 29,
+
+        /// <summary>
+        /// A ring wall of <see cref="EffectDefinition.Radius"/> that stands after <see cref="EffectDefinition.DurationMs"/> (formation)
+        /// for <see cref="EffectDefinition.Amounts"/> milliseconds per level; units of <see cref="EffectDefinition.Team"/> to the caster
+        /// can't cross it either way, walking or pushed; debuff-immune units pass (Kinetic Field, Arena of Blood).
+        /// </summary>
+        Wall = 30,
     }
 
     /// <summary>What a damage effect's amounts mean: flat damage, or a percent of the target's health or mana.</summary>
@@ -294,6 +301,10 @@ namespace Dynasty.MatchSimulation.Rules
         /// <summary>Scaled damage kept between a floor and a ceiling per level (Glimpse).</summary>
         public static EffectDefinition BoundedScaledDamage(DamageType type, DamageScaling scaling, int[] floor, int[] ceiling, params int[] percentPerLevel) =>
             new EffectDefinition(EffectKind.Damage, percentPerLevel, type, scaling: scaling, floor: floor, ceiling: ceiling);
+
+        /// <summary>See <see cref="EffectKind.Wall"/>.</summary>
+        public static EffectDefinition Wall(int radius, AreaCenter center, TargetTeam team, int formationMs, params int[] durationMsPerLevel) =>
+            new EffectDefinition(EffectKind.Wall, durationMsPerLevel, radius: radius, center: center, team: team, durationMs: formationMs);
 
         /// <summary>See <see cref="EffectKind.Rewind"/>.</summary>
         public static EffectDefinition Rewind(int backMs, bool restoresVitals, params EffectDefinition[] inner) =>
