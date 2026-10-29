@@ -203,6 +203,29 @@ namespace Dynasty.MatchSimulation
         /// </summary>
         public FixedVector2 Facing { get; internal set; }
 
+        /// <summary>Where a hero was, with its health and mana, tick by tick over the last seconds (Time Lapse, Glimpse); oldest first.</summary>
+        internal Queue<PastState> History { get; } = new Queue<PastState>();
+
+        /// <summary>How far the last rewind moved the unit (Glimpse's damage by the distance).</summary>
+        internal Fixed LastRewindDistance { get; set; }
+
+        /// <summary>The unit's health at <paramref name="tick"/> as recorded (heroes, over the last seconds); null without a record.</summary>
+        public Fixed? HealthAt(long tick) => PastAt(tick)?.Hp;
+
+        /// <summary>The recorded state at <paramref name="tick"/>: the latest at or before it, else the oldest; null without a history.</summary>
+        internal PastState? PastAt(long tick)
+        {
+            PastState? found = null;
+            foreach (PastState past in History)
+            {
+                if (past.Tick > tick)
+                    break;
+                found = past;
+            }
+
+            return found ?? (History.Count > 0 ? History.Peek() : (PastState?)null);
+        }
+
         /// <summary>The slashes in progress (Dota's Omnislash); null when none.</summary>
         internal SlashState? Slashes { get; set; }
 
@@ -580,6 +603,23 @@ namespace Dynasty.MatchSimulation
 
         /// <summary>Hero-ticks of each team's capture (Dawn, Dusk).</summary>
         public long[] Progress { get; } = new long[2];
+    }
+
+    /// <summary>A hero's position, health and mana at a tick.</summary>
+    internal readonly struct PastState
+    {
+        public PastState(long tick, FixedVector2 position, Fixed hp, Fixed mana)
+        {
+            Tick = tick;
+            Position = position;
+            Hp = hp;
+            Mana = mana;
+        }
+
+        public long Tick { get; }
+        public FixedVector2 Position { get; }
+        public Fixed Hp { get; }
+        public Fixed Mana { get; }
     }
 
     /// <summary>Slashes in progress: the modifier that lasts them, where they reach and how often they come.</summary>

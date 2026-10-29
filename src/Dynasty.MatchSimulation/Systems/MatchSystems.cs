@@ -433,12 +433,23 @@ namespace Dynasty.MatchSimulation.Systems
     {
         public string Name => "tick-snapshot";
 
+        /// <summary>How far back heroes' positions are kept: Time Lapse's five seconds and a margin.</summary>
+        private const int HistoryMs = 6000;
+
         public void Tick(SimulationContext<MatchState> context)
         {
+            long now = context.Tick.Value;
+            long kept = context.TickRate.TicksFor(HistoryMs);
             foreach (MatchUnit unit in context.State.Units)
             {
                 unit.StartPosition = unit.Position;
                 unit.StartFlags = unit.Flags;
+                if (unit.Hero == null || unit.IllusionOf.IsValid)
+                    continue;
+                // Where heroes were over the last seconds (Time Lapse, Glimpse).
+                unit.History.Enqueue(new PastState(now, unit.Position, unit.Hp, unit.Hero.Mana));
+                while (unit.History.Count > 0 && unit.History.Peek().Tick < now - kept)
+                    unit.History.Dequeue();
             }
         }
     }

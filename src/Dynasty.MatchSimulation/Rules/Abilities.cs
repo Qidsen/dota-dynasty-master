@@ -123,6 +123,13 @@ namespace Dynasty.MatchSimulation.Rules
 
         /// <summary>The inner effects on the matching units within <see cref="EffectDefinition.Radius"/> of the line from the caster to the target (Tether's slow).</summary>
         LineArea = 28,
+
+        /// <summary>
+        /// The target goes back to where it was <see cref="EffectDefinition.DurationMs"/> ago (with its health and mana then when
+        /// <see cref="EffectDefinition.Strong"/>: Time Lapse), then the inner effects run on it (Glimpse's damage by the distance); an
+        /// illusion is killed at once.
+        /// </summary>
+        Rewind = 29,
     }
 
     /// <summary>What a damage effect's amounts mean: flat damage, or a percent of the target's health or mana.</summary>
@@ -146,6 +153,9 @@ namespace Dynasty.MatchSimulation.Rules
 
         /// <summary>Hundredths of a percent of the caster's current mana (Arcane Orb).</summary>
         CasterCurrentManaPercent = 11,
+
+        /// <summary>Hundredths of a percent of the distance the target's last rewind moved it (Glimpse).</summary>
+        RewoundDistancePercent = 13,
 
         /// <summary>Hundredths of a percent of the distance from the caster to the target, at most the effect's radius when set (Impetus).</summary>
         DistanceToTargetPercent = 12,
@@ -186,8 +196,12 @@ namespace Dynasty.MatchSimulation.Rules
             int minDistance = 0,
             int maxDistance = 0,
             bool abilitiesOnly = false,
-            int maxTargets = 0)
+            int maxTargets = 0,
+            int[]? floor = null,
+            int[]? ceiling = null)
         {
+            Floor = floor ?? Array.Empty<int>();
+            Ceiling = ceiling ?? Array.Empty<int>();
             MaxTargets = maxTargets;
             AbilitiesOnly = abilitiesOnly;
             MinDistance = minDistance;
@@ -213,6 +227,11 @@ namespace Dynasty.MatchSimulation.Rules
         }
 
         public EffectKind Kind { get; }
+
+        /// <summary>Scaled damage only: the least and the most per level (Glimpse: 25 to 100–280); empty for no bound.</summary>
+        public IReadOnlyList<int> Floor { get; }
+
+        public IReadOnlyList<int> Ceiling { get; }
 
         /// <summary>Areas only: at most this many units, the nearest to the centre first (Fatal Bonds); 0: all of them.</summary>
         public int MaxTargets { get; }
@@ -271,6 +290,14 @@ namespace Dynasty.MatchSimulation.Rules
         /// <summary>Damage as a percent (per level, in hundredths of a percent) of the target's max, missing or current health or missing mana.</summary>
         public static EffectDefinition ScaledDamage(DamageType type, DamageScaling scaling, params int[] percentPerLevel) =>
             new EffectDefinition(EffectKind.Damage, percentPerLevel, type, scaling: scaling);
+
+        /// <summary>Scaled damage kept between a floor and a ceiling per level (Glimpse).</summary>
+        public static EffectDefinition BoundedScaledDamage(DamageType type, DamageScaling scaling, int[] floor, int[] ceiling, params int[] percentPerLevel) =>
+            new EffectDefinition(EffectKind.Damage, percentPerLevel, type, scaling: scaling, floor: floor, ceiling: ceiling);
+
+        /// <summary>See <see cref="EffectKind.Rewind"/>.</summary>
+        public static EffectDefinition Rewind(int backMs, bool restoresVitals, params EffectDefinition[] inner) =>
+            new EffectDefinition(EffectKind.Rewind, durationMs: backMs, strong: restoresVitals, inner: inner);
 
         /// <summary>Scaled damage whose base is capped (Impetus: the distance counts up to <paramref name="cap"/>).</summary>
         public static EffectDefinition CappedScaledDamage(DamageType type, DamageScaling scaling, int cap, params int[] percentPerLevel) =>
@@ -425,6 +452,12 @@ namespace Dynasty.MatchSimulation.Rules
             w.WriteInt64(MaxDistance);
             w.WriteBool(AbilitiesOnly);
             w.WriteInt64(MaxTargets);
+            foreach (IReadOnlyList<int> bound in new[] { Floor, Ceiling })
+            {
+                w.WriteInt64(bound.Count);
+                foreach (int value in bound)
+                    w.WriteInt64(value);
+            }
             w.WriteInt64(Inner.Count);
             foreach (EffectDefinition child in Inner)
                 child.WriteCanonical(w);

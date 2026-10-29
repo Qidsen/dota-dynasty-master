@@ -49,7 +49,7 @@ public class PackContentTests
             ""absorbInstances"": 3, ""absorbBarrier"": 30, ""layers"": 4, ""layerReduction"": 8, ""layerRecovery"": 7, ""layerMinimumDamage"": 40,
             ""instanceBlock"": 26, ""damageHeals"": true, ""critMultiplierMax"": 270, ""critLifesteal"": 30, ""resetStacksKey"": ""fervor_stack"",
             ""onHitManaCost"": 40, ""onHitManaCostPercent"": 20, ""fullBelowHealthPercent"": 10, ""healthRegenStrengthPercent"": 50, ""invisibleAfterIdle"": 3,
-            ""shareDamagePercent"": 15, ""spreadDamagePercent"": 40, ""spreadRadius"": 675, ""breakDistance"": 800, ""healSharePercent"": 55, ""manaSharePercent"": 75,
+            ""shareDamagePercent"": 15, ""spreadDamagePercent"": 40, ""spreadRadius"": 675, ""breakDistance"": 800, ""healSharePercent"": 55, ""manaSharePercent"": 75, ""returnsOnExpiry"": true,
             ""periodicEffects"": [ { ""kind"": ""lineArea"", ""team"": ""enemy"", ""effects"": [ { ""kind"": ""heal"", ""amounts"": [1] } ] } ],
             ""onHit"": [ { ""kind"": ""damage"", ""damageType"": ""pure"", ""scaling"": ""distanceToTargetPercent"", ""cap"": 1750, ""amounts"": [10] } ] } ] } ], ""autoCastBelowHealth"": 400 }";
 
@@ -68,6 +68,7 @@ public class PackContentTests
         Assert.Equal((DamageScaling.DistanceToTargetPercent, 1750, 1000), (impetus.Scaling, impetus.Radius, impetus.AmountAt(1)));
         Assert.Equal((10, Fixed.FromInt(50), 3000), (m.FullBelowHealthPercent, m.HpRegenStrengthPercent, m.InvisibleAfterIdleMs));
         Assert.Equal((15, 40, 675, 800, 55, 75), (m.ShareDamagePercent, m.SpreadDamagePercent, m.SpreadRadius, m.BreakDistance, m.HealSharePercent, m.ManaSharePercent));
+        Assert.True(m.ReturnsOnExpiry);
         Assert.Equal((EffectKind.LineArea, 0), (m.PeriodicEffects.Single().Kind, m.PeriodicEffects.Single().Radius));
     }
 
@@ -75,7 +76,9 @@ public class PackContentTests
         ""id"": ""swaps"", ""name"": ""Swaps"", ""targeting"": ""unit"", ""targetTeam"": ""any"", ""castRange"": 800, ""castPoint"": 0,
         ""cooldown"": [30], ""manaCost"": [100], ""requiredLevels"": [1],
         ""effects"": [ { ""kind"": ""swapPositions"" }, { ""kind"": ""area"", ""radius"": 700, ""center"": ""target"", ""team"": ""enemy"", ""maxTargets"": 6, ""effects"": [ { ""kind"": ""heal"", ""amounts"": [1] } ] }, { ""kind"": ""ifTeam"", ""team"": ""enemy"", ""effects"": [ { ""kind"": ""experience"", ""amounts"": [130] } ] },
-            { ""kind"": ""swapHealthPercent"", ""amounts"": [25] } ] }";
+            { ""kind"": ""swapHealthPercent"", ""amounts"": [25] },
+            { ""kind"": ""rewind"", ""back"": 4, ""restoresVitals"": true, ""effects"": [ { ""kind"": ""damage"", ""damageType"": ""magical"", ""scaling"": ""rewoundDistancePercent"",
+                ""amounts"": [25], ""floor"": [25], ""ceiling"": [160] } ] } ] }";
 
     [Fact]
     public void SwapEffects_AreRead()
@@ -83,10 +86,14 @@ public class PackContentTests
         RulesetContent rules = Apply(@"""unitTypes"": " + Units + @", ""abilities"": [" + Spike + "," + WardPlace + "," + Swaps + @"], ""items"": " + Items);
 
         IReadOnlyList<EffectDefinition> effects = rules.FindAbility("swaps")!.Effects;
-        Assert.Equal(new[] { EffectKind.SwapPositions, EffectKind.Area, EffectKind.IfTeam, EffectKind.SwapHealthPercent }, effects.Select(e => e.Kind));
+        Assert.Equal(new[] { EffectKind.SwapPositions, EffectKind.Area, EffectKind.IfTeam, EffectKind.SwapHealthPercent, EffectKind.Rewind }, effects.Select(e => e.Kind));
         Assert.Equal(6, effects[1].MaxTargets);
         Assert.Equal((TargetTeam.Enemy, EffectKind.Experience, 130), (effects[2].Team, effects[2].Inner.Single().Kind, effects[2].Inner.Single().AmountAt(1)));
         Assert.Equal(25, effects[3].AmountAt(1));
+        EffectDefinition glimpse = effects[4];
+        Assert.Equal((EffectKind.Rewind, 4000, true), (glimpse.Kind, glimpse.DurationMs, glimpse.Strong));
+        EffectDefinition hit = glimpse.Inner.Single();
+        Assert.Equal((DamageScaling.RewoundDistancePercent, 2500, 25, 160), (hit.Scaling, hit.AmountAt(1), hit.Floor[0], hit.Ceiling[0]));
     }
 
     private const string Field = @"{

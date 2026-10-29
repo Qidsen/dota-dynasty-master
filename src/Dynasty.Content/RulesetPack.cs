@@ -650,6 +650,7 @@ namespace Dynasty.Content
                         ? EffectDefinition.Damage(ReadDamageType(e, "damageType"), e.Ints("amounts").ToArray())
                         : scaling == DamageScaling.PerTargetStack
                         ? EffectDefinition.DamagePerStack(ReadDamageType(e, "damageType"), e.String("stackKey"), e.Ints("amounts").ToArray())
+                        : e.Has("floor") ? EffectDefinition.BoundedScaledDamage(ReadDamageType(e, "damageType"), scaling, e.Ints("floor").ToArray(), e.Ints("ceiling").ToArray(), e.Hundredths("amounts").ToArray())
                         : e.Has("cap") ? EffectDefinition.CappedScaledDamage(ReadDamageType(e, "damageType"), scaling, e.Int("cap"), e.Hundredths("amounts").ToArray())
                         : EffectDefinition.ScaledDamage(ReadDamageType(e, "damageType"), scaling, e.Hundredths("amounts").ToArray());
                     break;
@@ -673,6 +674,9 @@ namespace Dynasty.Content
                     break;
                 case "dash":
                     effect = EffectDefinition.Dash();
+                    break;
+                case "rewind":
+                    effect = EffectDefinition.Rewind(e.Milliseconds("back"), e.OptionalBool("restoresVitals") ?? false, e.OptionalArray("effects").Select(ReadEffect).ToArray());
                     break;
                 case "lineArea":
                     effect = EffectDefinition.LineArea(e.OptionalInt("width") ?? 0, ReadTeam(e, "team"), e.Array("effects").Select(ReadEffect).ToArray());
@@ -792,8 +796,9 @@ namespace Dynasty.Content
             "perTargetStack" => DamageScaling.PerTargetStack,
             "casterCurrentManaPercent" => DamageScaling.CasterCurrentManaPercent,
             "distanceToTargetPercent" => DamageScaling.DistanceToTargetPercent,
+            "rewoundDistancePercent" => DamageScaling.RewoundDistancePercent,
             _ => throw r.Error(field, "expected flat, targetMaxHealthPercent, targetMissingHealthPercent, targetCurrentHealthPercent, targetMaxManaPercent, " +
-                                      "targetMissingManaPercent, casterAttackDamagePercent, casterStrengthPercent, casterAgilityPercent, casterIntelligencePercent, perTargetStack, casterCurrentManaPercent or distanceToTargetPercent"),
+                                      "targetMissingManaPercent, casterAttackDamagePercent, casterStrengthPercent, casterAgilityPercent, casterIntelligencePercent, perTargetStack, casterCurrentManaPercent, distanceToTargetPercent or rewoundDistancePercent"),
         };
 
         private static ModifierFlags ReadFlag(Reader r, string flag) => flag switch
@@ -880,7 +885,7 @@ namespace Dynasty.Content
                 shareDamagePercent: m.OptionalInt("shareDamagePercent") ?? 0, spreadDamagePercent: m.OptionalInt("spreadDamagePercent") ?? 0,
                 spreadRadius: m.OptionalInt("spreadRadius") ?? 0, periodicEffects: m.OptionalArray("periodicEffects").Select(ReadEffect).ToList(),
                 breakDistance: m.OptionalInt("breakDistance") ?? 0, healSharePercent: m.OptionalInt("healSharePercent") ?? 0,
-                manaSharePercent: m.OptionalInt("manaSharePercent") ?? 0,
+                manaSharePercent: m.OptionalInt("manaSharePercent") ?? 0, returnsOnExpiry: m.OptionalBool("returnsOnExpiry") ?? false,
                 attributeShift: m.OptionalString("attributeShift") switch
                 {
                     null => 0,

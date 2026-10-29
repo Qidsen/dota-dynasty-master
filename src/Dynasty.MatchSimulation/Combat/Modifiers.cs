@@ -222,8 +222,10 @@ namespace Dynasty.MatchSimulation.Combat
             IReadOnlyList<Rules.EffectDefinition>? periodicEffects = null,
             int breakDistance = 0,
             int healSharePercent = 0,
-            int manaSharePercent = 0)
+            int manaSharePercent = 0,
+            bool returnsOnExpiry = false)
         {
+            ReturnsOnExpiry = returnsOnExpiry;
             ShareDamagePercent = shareDamagePercent;
             SpreadDamagePercent = spreadDamagePercent;
             SpreadRadius = spreadRadius;
@@ -649,6 +651,9 @@ namespace Dynasty.MatchSimulation.Combat
 
         public int ManaSharePercent { get; }
 
+        /// <summary>X Marks the Spot: when the modifier runs out the bearer is put back where it was when it got it.</summary>
+        public bool ReturnsOnExpiry { get; }
+
         /// <summary><see cref="OnKill"/> runs only for hero victims (Flesh Heap).</summary>
         public bool OnKillHeroesOnly { get; }
 
@@ -833,6 +838,7 @@ namespace Dynasty.MatchSimulation.Combat
             foreach (int value in new[] { CritMultiplierMaxPercent, CritLifestealPercent, OnHitManaCost, OnHitManaCostPercent, FullBelowHealthPercent, InvisibleAfterIdleMs,
                                           ShareDamagePercent, SpreadDamagePercent, SpreadRadius, BreakDistance, HealSharePercent, ManaSharePercent })
                 w.WriteInt64(value);
+            w.WriteBool(ReturnsOnExpiry);
             w.WriteInt64(PeriodicEffects.Count);
             foreach (Rules.EffectDefinition effect in PeriodicEffects)
                 effect.WriteCanonical(w);
@@ -869,6 +875,9 @@ namespace Dynasty.MatchSimulation.Combat
         internal int InstancesLeft { get; set; }
 
         internal int InstanceBarrierLeft { get; set; }
+
+        /// <summary>Where the bearer was when it got the modifier (<see cref="ModifierSpec.ReturnsOnExpiry"/>).</summary>
+        internal FixedVector2 Mark { get; set; }
 
         /// <summary>The target of the bearer's last attack (<see cref="ModifierSpec.ResetStacksKey"/>).</summary>
         internal EntityId LastTarget { get; set; }
@@ -955,7 +964,7 @@ namespace Dynasty.MatchSimulation.Combat
             }
             else
             {
-                modifier = new ActiveModifier(spec, source, now, expires, now + context.TickRate.TicksFor(spec.PeriodMs));
+                modifier = new ActiveModifier(spec, source, now, expires, now + context.TickRate.TicksFor(spec.PeriodMs)) { Mark = target.Position };
                 if (spec.BarrierMaxHealthPercent > 0)
                     modifier.BarrierLeft = target.MaxHp * spec.BarrierMaxHealthPercent / 100;
                 target.AddModifier(modifier);
@@ -992,6 +1001,18 @@ namespace Dynasty.MatchSimulation.Combat
         internal static void Remove(SimulationContext<MatchState> context, MatchUnit target, ActiveModifier modifier, string reason)
         {
             target.RemoveModifier(modifier);
+            if (modifier.Spec.ReturnsOnExpiry && reason == "expired" && target.IsAlive)
+            {
+                // X Marks the Spot: back to the mark; a channel there is interrupted (the official note).
+                target.Position = modifier.Mark;
+                target.StartPosition = modifier.Mark;
+                if (target.Hero != null)
+                {
+                    target.Hero.Path = null;
+                    if (target.Hero.Channel != null)
+                        target.Hero.Channel.Cancelled = true;
+                }
+            }
             context.Emit(new ModifierRemoved(target.Id, modifier.Spec.Key, reason));
         }
     }

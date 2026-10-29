@@ -128,7 +128,9 @@ static class Abilities
                 throw new InvalidDataException($"abilities.json: {key}{path} = \"{written}\" is a number typed by hand; refer to the data (\"$key\")");
             case JsonValue v when v.TryGetValue(out decimal number):
                 bool allowed = ((path.EndsWith(".aura.modifier.duration") || (inContinuousZone && path.EndsWith(".modifiers.duration"))) && number == 1) ||
-                               number >= 20000 || path.Contains(".counts[") || (path.EndsWith(".critChance") && number == 100);
+                               number >= 20000 || path.Contains(".counts[") || (path.EndsWith(".critChance") && number == 100) ||
+                               // Time Lapse's five seconds are only in Valve's description (abilities_english.txt), not in the data.
+                               (key == "weaver_time_lapse" && path.EndsWith(".back") && number == 5);
                 if (!allowed)
                     throw new InvalidDataException($"abilities.json: {key}{path} = {number} is typed by hand; refer to the data (\"$key\")");
                 break;
@@ -406,7 +408,7 @@ static class Abilities
         {
             resolved[field] = field switch
             {
-                "amounts" or "counts" => PerLevel(node, values, levels, fallback: null),
+                "amounts" or "counts" or "floor" or "ceiling" => PerLevel(node, values, levels, fallback: null),
                 "modifiers" => node is JsonObject single ? Modifiers(single, values, levels) : node!.DeepClone(),
                 "effects" => new JsonArray(node!.AsArray().Select(e => (JsonNode)ResolveEffect(e!.AsObject(), values, levels)).ToArray()),
                 _ => node is JsonValue v && v.TryGetValue(out string? s) && IsReference(s) ? Scalar(node, values, levels, fallback: null) : node?.DeepClone(),

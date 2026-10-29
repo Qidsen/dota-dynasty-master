@@ -260,6 +260,8 @@ namespace Dynasty.MatchSimulation.Systems
                     return caster.Intelligence * percent;
                 case DamageScaling.PerTargetStack:
                     return amount * Fixed.FromInt(target.FindModifier(effect.StackKey!, caster.Id)?.Stacks ?? 0);
+                case DamageScaling.RewoundDistancePercent:
+                    return target.LastRewindDistance * percent;
                 case DamageScaling.CasterCurrentManaPercent:
                     return caster.Hero == null ? Fixed.Zero : caster.Hero.Mana * percent;
                 case DamageScaling.DistanceToTargetPercent:
@@ -316,7 +318,15 @@ namespace Dynasty.MatchSimulation.Systems
             switch (effect.Kind)
             {
                 case EffectKind.Damage:
-                    Damage.Deal(context, caster.Id, target, ScaledAmount(effect, level, caster, target), effect.DamageType);
+                    Fixed scaled = ScaledAmount(effect, level, caster, target);
+                    if (effect.Floor.Count > 0)
+                        scaled = Fixed.Max(scaled, Fixed.FromInt(EffectDefinition.ValueAt(effect.Floor, level)));
+                    if (effect.Ceiling.Count > 0)
+                        scaled = Fixed.Min(scaled, Fixed.FromInt(EffectDefinition.ValueAt(effect.Ceiling, level)));
+                    Damage.Deal(context, caster.Id, target, scaled, effect.DamageType);
+                    break;
+                case EffectKind.Rewind:
+                    Rewind(context, caster, effect, level, target, point);
                     break;
                 case EffectKind.ManaBurn:
                     if (target.Hero != null)
@@ -487,6 +497,39 @@ namespace Dynasty.MatchSimulation.Systems
                         AttackSystem.Strike(context, caster, target, effect.AmountAt(level));
                     break;
             }
+        }
+
+        /// <summary>Time Lapse and Glimpse: back to where the unit was then (with its health and mana for Time Lapse); illusions die.</summary>
+        private static void Rewind(SimulationContext<MatchState> context, MatchUnit caster, EffectDefinition effect, int level, MatchUnit target, FixedVector2 point)
+        {
+            if (!target.IsAlive)
+                return;
+            if (target.IllusionOf.IsValid)
+            {
+                Damage.Execute(context, caster.Id, target);
+                return;
+            }
+
+            PastState? past = target.PastAt(context.Tick.Value - context.TickRate.TicksFor(effect.DurationMs));
+            if (past is PastState then)
+            {
+                target.LastRewindDistance = FixedVector2.Distance(target.Position, then.Position);
+                target.Position = then.Position;
+                target.StartPosition = then.Position;
+                if (target.Hero != null)
+                    target.Hero.Path = null;
+                if (effect.Strong)
+                {
+                    target.Hp = Fixed.Max(Fixed.One, Fixed.Min(Fixed.FromInt(target.MaxHp), then.Hp));
+                    if (target.Hero != null)
+                        target.Hero.Mana = Fixed.Min(Fixed.FromInt(target.Hero.MaxMana), then.Mana);
+                }
+
+                DisjointProjectiles(context, target);
+            }
+
+            foreach (EffectDefinition inner in effect.Inner)
+                RunOne(context, caster, inner, level, target, point);
         }
 
         /// <summary>Whether the point is within <paramref name="reach"/> of the segment from <paramref name="a"/> to <paramref name="b"/>.</summary>

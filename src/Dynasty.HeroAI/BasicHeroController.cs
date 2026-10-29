@@ -509,6 +509,8 @@ namespace Dynasty.HeroAI
                 return;
             if (Decided(SwapHealthWhenLow(hpPercent), "SwapHealthWhenLow"))
                 return;
+            if (Decided(LapseBackWhenHurt(), "LapseBackWhenHurt"))
+                return;
             if (_memory.Retreating)
             {
                 Trace("Retreat");
@@ -1259,6 +1261,8 @@ namespace Dynasty.HeroAI
                     return HeroOrder.CastAtPoint(def.Id, point);
 
                 default:
+                    if (def.Effects.Any(e => e.Kind == EffectKind.Rewind))
+                        return null;   // Time Lapse is kept for when the hero has lost much health (LapseBackWhenHurt)
                     if (def.Effects.Any(e => e.Kind == EffectKind.Summon))
                         return HeroOrder.CastNoTarget(def.Id);
                     EffectDefinition? area = def.Effects.FirstOrDefault(e => e.Kind == EffectKind.Area);
@@ -1930,6 +1934,29 @@ namespace Dynasty.HeroAI
 
         private const int ShiftToStrengthHpPercent = 35;
         private const int ShiftToAgilityHpPercent = 75;
+
+        /// <summary>Time Lapse is worth it once the hero has lost this share of its max health over the time it would go back.</summary>
+        private const int LapseLostPercent = 30;
+
+        /// <summary>Time Lapse: back to where the hero was, with its health then, when much of it was lost since.</summary>
+        private bool LapseBackWhenHurt()
+        {
+            if ((_hero.Flags & ModifierFlags.Silenced) != 0)
+                return false;
+            foreach (AbilityState ability in ReadyAbilities().Where(a => a.Definition.Targeting == AbilityTargeting.NoTarget))
+            {
+                EffectDefinition? rewind = ability.Definition.Effects.FirstOrDefault(e => e.Kind == EffectKind.Rewind && e.Strong);
+                if (rewind == null)
+                    continue;
+                Fixed? then = _hero.HealthAt(_now - (long)rewind.DurationMs * TicksPerSecond / 1000);
+                if (then == null || (then.Value - _hero.Hp) * Fixed.FromInt(100) < Fixed.FromInt(_hero.MaxHp * LapseLostPercent))
+                    continue;
+                Issue(HeroOrder.CastNoTarget(ability.Definition.Id));
+                return true;
+            }
+
+            return false;
+        }
 
         private const int SwapHealthBelowPercent = 35;
         private const int SwapHealthGainPercent = 20;

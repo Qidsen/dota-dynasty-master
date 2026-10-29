@@ -12182,5 +12182,79 @@
         }
       }
     ]
+  },
+  "weaver_time_lapse": {
+    "status": "full",
+    "targeting": "noTarget",
+    "targetTeam": "ally",
+    "effects": [
+      {
+        "kind": "dispel",
+        "strong": true
+      },
+      {
+        "kind": "rewind",
+        "back": 5,
+        "restoresVitals": true
+      }
+    ]
+  },
+  "disruptor_glimpse": {
+    "status": "simplified",
+    "note": "the target is back at once (in Dota it travels there, the longer the farther)",
+    "targeting": "unit",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "rewind",
+        "back": "$backtrack_time",
+        "effects": [
+          {
+            "kind": "damage",
+            "damageType": "magical",
+            "scaling": "rewoundDistancePercent",
+            "amounts": "$damage_to_distance_pct",
+            "floor": "$min_damage",
+            "ceiling": "$max_damage"
+          }
+        ]
+      }
+    ]
+  },
+  "kunkka_x_marks_the_spot": {
+    "status": "simplified",
+    "note": "Kunkka cannot call the return early (Return); a channel is interrupted at the return",
+    "targeting": "unit",
+    "targetTeam": "any",
+    "effects": [
+      {
+        "kind": "ifTeam",
+        "team": "enemy",
+        "effects": [
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "kunkka_x_marks_the_spot",
+              "duration": "$duration",
+              "returnsOnExpiry": true
+            }
+          }
+        ]
+      },
+      {
+        "kind": "ifTeam",
+        "team": "ally",
+        "effects": [
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "kunkka_x_marks_the_spot",
+              "duration": "$allied_duration",
+              "returnsOnExpiry": true
+            }
+          }
+        ]
+      }
+    ]
   }
 }
