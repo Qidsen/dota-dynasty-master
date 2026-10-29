@@ -120,6 +120,9 @@ namespace Dynasty.MatchSimulation.Rules
         /// percent; a debuff-immune enemy keeps its health (Sunder).
         /// </summary>
         SwapHealthPercent = 27,
+
+        /// <summary>The inner effects on the matching units within <see cref="EffectDefinition.Radius"/> of the line from the caster to the target (Tether's slow).</summary>
+        LineArea = 28,
     }
 
     /// <summary>What a damage effect's amounts mean: flat damage, or a percent of the target's health or mana.</summary>
@@ -182,8 +185,10 @@ namespace Dynasty.MatchSimulation.Rules
             int periodMs = 0,
             int minDistance = 0,
             int maxDistance = 0,
-            bool abilitiesOnly = false)
+            bool abilitiesOnly = false,
+            int maxTargets = 0)
         {
+            MaxTargets = maxTargets;
             AbilitiesOnly = abilitiesOnly;
             MinDistance = minDistance;
             MaxDistance = maxDistance;
@@ -208,6 +213,9 @@ namespace Dynasty.MatchSimulation.Rules
         }
 
         public EffectKind Kind { get; }
+
+        /// <summary>Areas only: at most this many units, the nearest to the centre first (Fatal Bonds); 0: all of them.</summary>
+        public int MaxTargets { get; }
 
         /// <summary>Cooldown refreshes only: the hero's abilities, not its items (Dota's Rearm in 7.41).</summary>
         public bool AbilitiesOnly { get; }
@@ -316,6 +324,13 @@ namespace Dynasty.MatchSimulation.Rules
         public static EffectDefinition Area(int radius, AreaCenter center, TargetTeam team, params EffectDefinition[] inner) =>
             new EffectDefinition(EffectKind.Area, radius: radius, center: center, team: team, inner: inner);
 
+        /// <summary>An area taking at most <paramref name="maxTargets"/> units, the nearest to its centre first.</summary>
+        public static EffectDefinition Area(int radius, AreaCenter center, TargetTeam team, int maxTargets, params EffectDefinition[] inner) =>
+            new EffectDefinition(EffectKind.Area, radius: radius, center: center, team: team, inner: inner, maxTargets: maxTargets);
+
+        public static EffectDefinition LineArea(int width, TargetTeam team, params EffectDefinition[] inner) =>
+            new EffectDefinition(EffectKind.LineArea, radius: width, team: team, inner: inner);
+
         /// <summary>Area restricted to heroes when <paramref name="heroesOnly"/> (e.g. smoke).</summary>
         public static EffectDefinition Area(int radius, AreaCenter center, TargetTeam team, bool heroesOnly, params EffectDefinition[] inner) =>
             new EffectDefinition(EffectKind.Area, radius: radius, center: center, team: team, inner: inner, heroesOnly: heroesOnly);
@@ -409,6 +424,7 @@ namespace Dynasty.MatchSimulation.Rules
             w.WriteInt64(MinDistance);
             w.WriteInt64(MaxDistance);
             w.WriteBool(AbilitiesOnly);
+            w.WriteInt64(MaxTargets);
             w.WriteInt64(Inner.Count);
             foreach (EffectDefinition child in Inner)
                 child.WriteCanonical(w);

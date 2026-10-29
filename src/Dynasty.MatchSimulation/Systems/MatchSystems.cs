@@ -342,6 +342,7 @@ namespace Dynasty.MatchSimulation.Systems
                 if (unit.HasHealthScaledBonuses)
                     unit.Recalculate();   // Berserker's Blood follows the health
                 ModifierFading.FadeWhenIdle(context, unit, now);
+                ModifierFading.BreakLinks(context, unit);
                 _scratch.Clear();
                 _scratch.AddRange(unit.Modifiers);
                 foreach (ActiveModifier modifier in _scratch)
@@ -362,6 +363,9 @@ namespace Dynasty.MatchSimulation.Systems
 
                             unit.Hero.Mana -= upkeep;
                         }
+
+                        if (spec.PeriodicEffects.Count > 0 && context.State.Find(modifier.Source) is MatchUnit linker && linker.IsAlive)
+                            Effects.RunSpell(context, linker, spec.PeriodicEffects, 1, unit, unit.Position);
 
                         if (spec.AttributeShift != 0 && unit.Hero != null && unit.Hero.CanShiftAttribute(spec.AttributeShift))
                         {
@@ -652,6 +656,17 @@ namespace Dynasty.MatchSimulation.Systems
     /// <summary>Riki's Backstab (7.41): invisible after a while without starting an attack.</summary>
     internal static class ModifierFading
     {
+        /// <summary>Links (Static Link, Tether) end when the bearer and the caster are too far apart, or the caster is gone.</summary>
+        internal static void BreakLinks(SimulationContext<MatchState> context, MatchUnit unit)
+        {
+            foreach (ActiveModifier link in unit.Modifiers.Where(m => m.Spec.BreakDistance > 0).ToList())
+            {
+                MatchUnit? caster = context.State.Find(link.Source);
+                if (caster == null || !caster.IsAlive || !Geometry.WithinRange(unit.Position, caster.Position, link.Spec.BreakDistance))
+                    Modifiers.Remove(context, unit, link, "link_broken");
+            }
+        }
+
         internal static void FadeWhenIdle(SimulationContext<MatchState> context, MatchUnit unit, long now)
         {
             foreach (ActiveModifier fade in unit.Modifiers.Where(m => m.Spec.InvisibleAfterIdleMs > 0).ToList())

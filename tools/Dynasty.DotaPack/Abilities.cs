@@ -474,6 +474,14 @@ static class Abilities
     /// <summary>"$key", "-$key", or a product or quotient such as "$attack_damage*4" or "$a*$b/$c" (per level, element by element).</summary>
     private static decimal[] Resolve(string reference, Dictionary<string, JsonNode?> values)
     {
+        if (reference.Contains('+'))
+        {
+            // A sum of terms, each "$key" or a product (Static Link's break: "$abilitycastrange+$drain_range_buffer").
+            decimal[][] terms = reference.Split('+').Select(t => Resolve(t, values)).ToArray();
+            int n = terms.Max(t => t.Length);
+            return Enumerable.Range(0, n).Select(i => terms.Sum(t => At(t, i))).ToArray();
+        }
+
         bool negate = reference.StartsWith("-");
         decimal[] result = { negate ? -1 : 1 };
         string expression = reference.TrimStart('-');

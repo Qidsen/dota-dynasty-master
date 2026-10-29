@@ -667,11 +667,15 @@ namespace Dynasty.Content
                     break;
                 case "area":
                     AreaCenter center = ReadCenter(e, "center");
-                    effect = EffectDefinition.Area(e.Int("radius"), center, ReadTeam(e, "team"), e.OptionalBool("heroesOnly") ?? false,
-                        e.Array("effects").Select(ReadEffect).ToArray());
+                    effect = e.OptionalInt("maxTargets") is int most
+                        ? EffectDefinition.Area(e.Int("radius"), center, ReadTeam(e, "team"), most, e.Array("effects").Select(ReadEffect).ToArray())
+                        : EffectDefinition.Area(e.Int("radius"), center, ReadTeam(e, "team"), e.OptionalBool("heroesOnly") ?? false, e.Array("effects").Select(ReadEffect).ToArray());
                     break;
                 case "dash":
                     effect = EffectDefinition.Dash();
+                    break;
+                case "lineArea":
+                    effect = EffectDefinition.LineArea(e.OptionalInt("width") ?? 0, ReadTeam(e, "team"), e.Array("effects").Select(ReadEffect).ToArray());
                     break;
                 case "experience":
                     effect = EffectDefinition.Experience(e.Ints("amounts").ToArray());
@@ -873,6 +877,10 @@ namespace Dynasty.Content
                 resetStacksKey: m.OptionalString("resetStacksKey"), onHitManaCost: m.OptionalInt("onHitManaCost") ?? 0,
                 onHitManaCostPercent: m.OptionalInt("onHitManaCostPercent") ?? 0, fullBelowHealthPercent: m.OptionalInt("fullBelowHealthPercent") ?? 0,
                 hpRegenStrengthPercent: m.OptionalFixed("healthRegenStrengthPercent") ?? Fixed.Zero, invisibleAfterIdleMs: m.OptionalMilliseconds("invisibleAfterIdle") ?? 0,
+                shareDamagePercent: m.OptionalInt("shareDamagePercent") ?? 0, spreadDamagePercent: m.OptionalInt("spreadDamagePercent") ?? 0,
+                spreadRadius: m.OptionalInt("spreadRadius") ?? 0, periodicEffects: m.OptionalArray("periodicEffects").Select(ReadEffect).ToList(),
+                breakDistance: m.OptionalInt("breakDistance") ?? 0, healSharePercent: m.OptionalInt("healSharePercent") ?? 0,
+                manaSharePercent: m.OptionalInt("manaSharePercent") ?? 0,
                 attributeShift: m.OptionalString("attributeShift") switch
                 {
                     null => 0,

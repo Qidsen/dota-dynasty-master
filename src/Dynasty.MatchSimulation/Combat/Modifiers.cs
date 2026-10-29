@@ -215,8 +215,22 @@ namespace Dynasty.MatchSimulation.Combat
             int onHitManaCostPercent = 0,
             int fullBelowHealthPercent = 0,
             Fixed hpRegenStrengthPercent = default,
-            int invisibleAfterIdleMs = 0)
+            int invisibleAfterIdleMs = 0,
+            int shareDamagePercent = 0,
+            int spreadDamagePercent = 0,
+            int spreadRadius = 0,
+            IReadOnlyList<Rules.EffectDefinition>? periodicEffects = null,
+            int breakDistance = 0,
+            int healSharePercent = 0,
+            int manaSharePercent = 0)
         {
+            ShareDamagePercent = shareDamagePercent;
+            SpreadDamagePercent = spreadDamagePercent;
+            SpreadRadius = spreadRadius;
+            PeriodicEffects = (periodicEffects ?? Array.Empty<Rules.EffectDefinition>()).ToArray();
+            BreakDistance = breakDistance;
+            HealSharePercent = healSharePercent;
+            ManaSharePercent = manaSharePercent;
             FullBelowHealthPercent = fullBelowHealthPercent;
             HpRegenStrengthPercent = hpRegenStrengthPercent;
             InvisibleAfterIdleMs = invisibleAfterIdleMs;
@@ -610,6 +624,31 @@ namespace Dynasty.MatchSimulation.Combat
         /// <summary>Riki's Backstab (7.41): the bearer turns invisible after this long without starting an attack; an attack or a cast reveals it.</summary>
         public int InvisibleAfterIdleMs { get; }
 
+        /// <summary>
+        /// Fatal Bonds: this percent of the damage a bearer takes (after reductions) is dealt, as the same type, to every other bearer of
+        /// the same modifier from the same caster.
+        /// </summary>
+        public int ShareDamagePercent { get; }
+
+        /// <summary>
+        /// Disseminate: this percent of the damage the bearer takes (after reductions) is dealt, as the same type, to every enemy of the
+        /// modifier's caster within <see cref="SpreadRadius"/> of the bearer, the bearer itself included when it is one.
+        /// </summary>
+        public int SpreadDamagePercent { get; }
+
+        public int SpreadRadius { get; }
+
+        /// <summary>Effects run every period by the modifier's caster on the bearer (Static Link's drain).</summary>
+        public IReadOnlyList<Rules.EffectDefinition> PeriodicEffects { get; }
+
+        /// <summary>The modifier ends when the bearer and its caster are farther apart than this (a link breaking).</summary>
+        public int BreakDistance { get; }
+
+        /// <summary>Tether: this percent of the health and of the mana the modifier's caster restores is restored to the bearer too.</summary>
+        public int HealSharePercent { get; }
+
+        public int ManaSharePercent { get; }
+
         /// <summary><see cref="OnKill"/> runs only for hero victims (Flesh Heap).</summary>
         public bool OnKillHeroesOnly { get; }
 
@@ -693,7 +732,7 @@ namespace Dynasty.MatchSimulation.Combat
 
         public bool IsPeriodic => DamagePerSecond > Fixed.Zero || HealPerSecond > Fixed.Zero || DamagePerSecondMaxHealthPercent > Fixed.Zero ||
                                   HealPerSecondMaxHealthPercent > Fixed.Zero || ManaPerSecondMaxManaPercent > Fixed.Zero || ManaCostPerSecond > Fixed.Zero ||
-                                  AttributeShift != 0;
+                                  AttributeShift != 0 || PeriodicEffects.Count > 0;
 
         public bool IsPermanent => DurationMs < 0;
 
@@ -791,8 +830,12 @@ namespace Dynasty.MatchSimulation.Combat
             w.WriteInt64(AttributeShift);
             w.WriteInt64(InstanceBlock);
             w.WriteBool(DamageHeals);
-            foreach (int value in new[] { CritMultiplierMaxPercent, CritLifestealPercent, OnHitManaCost, OnHitManaCostPercent, FullBelowHealthPercent, InvisibleAfterIdleMs })
+            foreach (int value in new[] { CritMultiplierMaxPercent, CritLifestealPercent, OnHitManaCost, OnHitManaCostPercent, FullBelowHealthPercent, InvisibleAfterIdleMs,
+                                          ShareDamagePercent, SpreadDamagePercent, SpreadRadius, BreakDistance, HealSharePercent, ManaSharePercent })
                 w.WriteInt64(value);
+            w.WriteInt64(PeriodicEffects.Count);
+            foreach (Rules.EffectDefinition effect in PeriodicEffects)
+                effect.WriteCanonical(w);
             w.WriteFixed(HpRegenStrengthPercent);
             w.WriteString(ResetStacksKey ?? "");
         }
@@ -1069,6 +1112,8 @@ namespace Dynasty.MatchSimulation.Combat
                 CountTowardRelease(context, target, amount);
             if (healInstead > Fixed.Zero)
                 Heal(context, target.Id, target, healInstead);
+            if (!reflected && amount > Fixed.Zero && target.Modifiers.Count > 0)
+                PassOn(context, target, amount, type);
             if (amount > Fixed.Zero && target.Hero != null && target.IsAlive)
                 Systems.AbilitySystem.CastBelowHealth(context, target);
             if (reflections != null)
@@ -1270,7 +1315,69 @@ namespace Dynasty.MatchSimulation.Combat
             Fixed restored = target.Hp - before;
             if (restored > Fixed.Zero)
                 context.Emit(new HealApplied(source, target.Id, restored));
+            if (restored > Fixed.Zero)
+                ShareRestore(context, target, restored, health: true);
             return restored;
+        }
+
+        /// <summary>Mana restored to a unit (spells, items); Tether passes a share on.</summary>
+        public static void RestoreMana(SimulationContext<MatchState> context, MatchUnit target, Fixed amount)
+        {
+            if (target.Hero == null || !target.IsAlive)
+                return;
+            Fixed before = target.Hero.Mana;
+            target.Hero.Mana = Fixed.Min(Fixed.FromInt(target.Hero.MaxMana), target.Hero.Mana + amount);
+            Fixed restored = target.Hero.Mana - before;
+            if (restored > Fixed.Zero)
+                ShareRestore(context, target, restored, health: false);
+        }
+
+        /// <summary>Tether: the units tethered by <paramref name="caster"/> get their share of what it restored.</summary>
+        private static void ShareRestore(SimulationContext<MatchState> context, MatchUnit caster, Fixed restored, bool health)
+        {
+            foreach (MatchUnit tethered in context.State.Units)
+            {
+                if (tethered == caster || !tethered.IsAlive || tethered.Modifiers.Count == 0)
+                    continue;
+                foreach (ActiveModifier tether in tethered.Modifiers)
+                {
+                    int percent = health ? tether.Spec.HealSharePercent : tether.Spec.ManaSharePercent;
+                    if (percent <= 0 || tether.Source != caster.Id)
+                        continue;
+                    Fixed share = restored * Fixed.FromInt(percent) / Fixed.FromInt(100);
+                    if (health)
+                        tethered.Hp = Fixed.Min(Fixed.FromInt(tethered.MaxHp), tethered.Hp + share);
+                    else if (tethered.Hero != null)
+                        tethered.Hero.Mana = Fixed.Min(Fixed.FromInt(tethered.Hero.MaxMana), tethered.Hero.Mana + share);
+                }
+            }
+        }
+
+        /// <summary>Fatal Bonds and Disseminate: a part of the damage the unit took goes on to the bonded units or the enemies around.</summary>
+        private static void PassOn(SimulationContext<MatchState> context, MatchUnit target, Fixed amount, DamageType type)
+        {
+            MatchState state = context.State;
+            foreach (ActiveModifier link in target.Modifiers.Where(m => m.Spec.ShareDamagePercent > 0 || m.Spec.SpreadDamagePercent > 0).ToList())
+            {
+                ModifierSpec spec = link.Spec;
+                if (spec.ShareDamagePercent > 0)
+                {
+                    Fixed share = amount * Fixed.FromInt(spec.ShareDamagePercent) / Fixed.FromInt(100);
+                    foreach (MatchUnit other in state.Units.Where(u => u != target && u.IsAlive && u.Modifiers.Any(m => m.Spec.Key == spec.Key && m.Source == link.Source))
+                                 .OrderBy(u => u.Id.Value).ToList())
+                        Deal(context, link.Source, other, share, type, reflected: true);
+                }
+
+                MatchUnit? caster = state.Find(link.Source);
+                if (spec.SpreadDamagePercent > 0 && caster != null)
+                {
+                    Fixed share = amount * Fixed.FromInt(spec.SpreadDamagePercent) / Fixed.FromInt(100);
+                    foreach (MatchUnit enemy in state.Units.Where(u => Systems.Effects.Matches(state, caster, u, Rules.TargetTeam.Enemy) &&
+                                                                       Systems.Geometry.WithinRange(target.Position, u.Position, spec.SpreadRadius + u.BoundingRadius))
+                                 .OrderBy(u => u.Id.Value).ToList())
+                        Deal(context, link.Source, enemy, share, type, reflected: true);
+                }
+            }
         }
     }
 }

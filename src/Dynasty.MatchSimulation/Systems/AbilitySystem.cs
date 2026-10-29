@@ -329,8 +329,17 @@ namespace Dynasty.MatchSimulation.Systems
 
                     break;
                 case EffectKind.RestoreMana:
-                    if (target.Hero != null && target.IsAlive)
-                        target.Hero.Mana = Fixed.Min(Fixed.FromInt(target.Hero.MaxMana), target.Hero.Mana + Fixed.FromInt(effect.AmountAt(level)));
+                    Damage.RestoreMana(context, target, Fixed.FromInt(effect.AmountAt(level)));
+                    break;
+                case EffectKind.LineArea:
+                    foreach (MatchUnit unit in context.State.Units
+                                 .Where(u => Matches(context.State, caster, u, effect.Team) && NearSegment(u.Position, caster.Position, target.Position, effect.Radius + u.BoundingRadius))
+                                 .ToList())
+                    {
+                        foreach (EffectDefinition inner in effect.Inner)
+                            RunOne(context, caster, inner, level, unit, point);
+                    }
+
                     break;
                 case EffectKind.Heal:
                     Damage.Heal(context, caster.Id, target, Fixed.FromInt(effect.AmountAt(level)));
@@ -480,6 +489,16 @@ namespace Dynasty.MatchSimulation.Systems
             }
         }
 
+        /// <summary>Whether the point is within <paramref name="reach"/> of the segment from <paramref name="a"/> to <paramref name="b"/>.</summary>
+        private static bool NearSegment(FixedVector2 point, FixedVector2 a, FixedVector2 b, int reach)
+        {
+            FixedVector2 ab = b - a;
+            Fixed length = ab.LengthSquared;
+            Fixed t = length > Fixed.Zero ? Fixed.Max(Fixed.Zero, Fixed.Min(Fixed.One, ((point.X - a.X) * ab.X + (point.Y - a.Y) * ab.Y) / length)) : Fixed.Zero;
+            FixedVector2 nearest = new FixedVector2(a.X + ab.X * t, a.Y + ab.Y * t);
+            return Geometry.WithinRange(point, nearest, reach);
+        }
+
         /// <summary>Sunder: the shares of current health are exchanged, each kept at least at the minimum; a debuff-immune enemy keeps its own.</summary>
         private static void SwapHealth(MatchUnit caster, MatchUnit target, int minimumPercent)
         {
@@ -537,6 +556,8 @@ namespace Dynasty.MatchSimulation.Systems
                 .Where(u => Matches(context.State, caster, u, effect.Team) && (!effect.HeroesOnly || u.Hero != null) &&
                             Geometry.WithinRange(center, u.Position, effect.Radius + u.BoundingRadius))
                 .ToList();
+            if (effect.MaxTargets > 0 && affected.Count > effect.MaxTargets)
+                affected = affected.OrderBy(u => FixedVector2.DistanceSquared(center, u.Position)).ThenBy(u => u.Id.Value).Take(effect.MaxTargets).ToList();
             foreach (MatchUnit unit in affected)
             {
                 foreach (EffectDefinition inner in effect.Inner)

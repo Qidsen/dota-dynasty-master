@@ -12065,5 +12065,122 @@
         "amounts": "$hit_point_minimum_pct"
       }
     ]
+  },
+  "warlock_fatal_bonds": {
+    "status": "full",
+    "targeting": "unit",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "area",
+        "radius": "$search_aoe",
+        "center": "target",
+        "team": "enemy",
+        "maxTargets": "$count",
+        "effects": [
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "warlock_fatal_bonds",
+              "duration": "$duration",
+              "shareDamagePercent": "$damage_share_percentage"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "shadow_demon_disseminate": {
+    "status": "simplified",
+    "note": "Disruption does not pause it (Disruption is not carried over)",
+    "targeting": "unit",
+    "targetTeam": "any",
+    "effects": [
+      {
+        "kind": "modifier",
+        "modifiers": {
+          "key": "shadow_demon_disseminate",
+          "duration": "$duration",
+          "spreadDamagePercent": "$damage_reflection_pct",
+          "spreadRadius": "$radius"
+        }
+      }
+    ]
+  },
+  "razor_static_link": {
+    "status": "simplified",
+    "note": "no attacking while moving; the stolen damage of each second shares one duration (refreshed) instead of each its own",
+    "targeting": "unit",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "modifier",
+        "modifiers": {
+          "key": "razor_static_link",
+          "duration": "$drain_length",
+          "breakDistance": "$abilitycastrange+$drain_range_buffer",
+          "periodicEffects": [
+            {
+              "kind": "modifier",
+              "modifiers": {
+                "key": "razor_static_link_drained",
+                "duration": "$drain_duration",
+                "damage": "-$drain_rate",
+                "stacking": true
+              }
+            },
+            {
+              "kind": "onCaster",
+              "effects": [
+                {
+                  "kind": "modifier",
+                  "modifiers": {
+                    "key": "razor_static_link_gained",
+                    "duration": "$drain_duration",
+                    "damage": "$drain_rate",
+                    "stacking": true
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "wisp_tether": {
+    "status": "simplified",
+    "note": "no latching (Io is not pulled to a far ally); Io gets no movement speed of its own (it matches the ally's in Dota); the line slows the enemies whose body touches it (no width in the data)",
+    "targeting": "unit",
+    "targetTeam": "ally",
+    "effects": [
+      {
+        "kind": "modifier",
+        "modifiers": {
+          "key": "wisp_tether",
+          "breakDistance": "$radius",
+          "healSharePercent": "$tether_heal_amp",
+          "manaSharePercent": "$tether_mana_amp",
+          "moveSpeedPercent": "$movespeed",
+          "period": "$tick_rate",
+          "periodicEffects": [
+            {
+              "kind": "lineArea",
+              "team": "enemy",
+              "effects": [
+                {
+                  "kind": "modifier",
+                  "modifiers": {
+                    "key": "wisp_tether_slow",
+                    "duration": "$slow_duration",
+                    "moveSpeedPercent": "-$slow"
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      }
+    ]
   }
 }
