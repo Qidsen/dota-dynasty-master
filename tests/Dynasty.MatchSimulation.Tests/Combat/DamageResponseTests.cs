@@ -247,6 +247,77 @@ public class DamageResponseTests
         Assert.True(alpha.Y > Fixed.Zero && Fixed.Abs(alpha.X) < Fixed.Abs(alpha.Y), "alpha faces beta, north");
     }
 
+    /// <summary>Flesh Heap: a flat amount off every instance of damage of any type, before reductions; the strongest block counts.</summary>
+    [Fact]
+    public void InstanceBlock_TakesAFlatAmountOffEveryInstance_OfAnyType()
+    {
+        var kernel = Arena(("alpha", 5000, 5000), ("beta", 5300, 5000), ("delta", 9000, 9000), ("gamma", 3000, 5000));
+        Give(kernel, "alpha", new ModifierSpec("flesh", 7000, instanceBlock: 26));
+        Give(kernel, "alpha", new ModifierSpec("weaker", 7000, instanceBlock: 10));
+        At(kernel, 2, ctx =>
+        {
+            Damage.Deal(ctx, H(ctx.State, "beta").Id, H(ctx.State, "alpha"), Fixed.FromInt(100), DamageType.Pure);
+            Damage.Deal(ctx, H(ctx.State, "beta").Id, H(ctx.State, "alpha"), Fixed.FromInt(100), DamageType.Magical);   // any type
+            Damage.Deal(ctx, H(ctx.State, "beta").Id, H(ctx.State, "alpha"), Fixed.FromInt(20), DamageType.Pure);    // all blocked
+        });
+
+        kernel.RunTicks(3);
+
+        Assert.Equal(74 + 74, Lost(kernel.State, "alpha").ToDouble(), 2);
+    }
+
+    /// <summary>Borrowed Time: damage, after its reductions, heals the bearer instead.</summary>
+    [Fact]
+    public void DamageHeals_TheBearerIsHealedByTheDamageInstead()
+    {
+        var kernel = Arena(("alpha", 5000, 5000), ("beta", 5300, 5000), ("delta", 9000, 9000), ("gamma", 3000, 5000));
+        At(kernel, 1, ctx => H(ctx.State, "alpha").Hp = Fixed.FromInt(1000));
+        Give(kernel, "alpha", new ModifierSpec("borrowed", 5000, damageHeals: true));
+        Give(kernel, "alpha", new ModifierSpec("cloak", 5000, magicResistBonus: 50));
+        At(kernel, 2, ctx => Damage.Deal(ctx, H(ctx.State, "beta").Id, H(ctx.State, "alpha"), Fixed.FromInt(100), DamageType.Magical));
+
+        kernel.RunTicks(3);
+
+        Assert.Equal(1050, H(kernel.State, "alpha").Hp.ToDouble(), 2);   // after the 50% magic resistance
+    }
+
+    /// <summary>
+    /// Borrowed Time's automatic activation: when the bearer's health falls below the threshold and the ability is ready, it activates
+    /// by itself, even when silenced (the official note), and goes on cooldown; on cooldown it does not.
+    /// </summary>
+    [Fact]
+    public void AutoCast_ActivatesBelowTheHealthThreshold_WhenReady_EvenSilenced()
+    {
+        var draft = new RulesetDraft().WithoutWaves();
+        draft.Heroes.Clear();
+        foreach (string id in new[] { "alpha", "beta", "gamma", "delta" })
+            draft.Heroes.Add(new HeroDefinition(id, id, new[] { "carry" }, new UnitStats(2000, Fixed.Zero, 300, 50, 50, 150, 1500, 300, 800, 24, 0, visionRange: 1200),
+                hpPerLevel: 0, armorPerLevel: Fixed.Zero, damagePerLevel: 0, baseMana: 300, manaPerLevel: 0, hpRegenPerSecond: Fixed.Zero, manaRegenPerSecond: Fixed.Zero,
+                abilityIds: id == "alpha" ? new[] { "borrowed" } : null));
+        draft.Abilities.Add(new AbilityDefinition("borrowed", "Borrowed Time", AbilityTargeting.NoTarget, TargetTeam.Ally, 0, 0, new[] { 60000 }, new[] { 0 }, new[] { 1 },
+            new[] { EffectDefinition.OnCaster(EffectDefinition.Modifier(new ModifierSpec("borrowed", 5000, damageHeals: true))) }, autoCastBelowHealth: 400));
+        var kernel = draft.StartWithHeroes(new[] { ("alpha", "mid"), ("gamma", "mid") }, new[] { ("beta", "mid"), ("delta", "mid") });
+        At(kernel, 0, ctx =>
+        {
+            H(ctx.State, "alpha").Position = P(5000, 5000);   // away from the fountain's healing
+            H(ctx.State, "beta").Position = P(5300, 5000);
+        });
+        At(kernel, 2, ctx => Modifiers.Apply(ctx, H(ctx.State, "alpha"), ModifierSpec.Status("silence", 10000, ModifierFlags.Silenced), H(ctx.State, "beta").Id));
+        At(kernel, 3, ctx => Damage.Deal(ctx, H(ctx.State, "beta").Id, H(ctx.State, "alpha"), Fixed.FromInt(1500), DamageType.Pure));   // 2000 -> 500: above
+        At(kernel, 4, ctx => Damage.Deal(ctx, H(ctx.State, "beta").Id, H(ctx.State, "alpha"), Fixed.FromInt(200), DamageType.Pure));    // 500 -> 300: below
+        At(kernel, 5, ctx => Damage.Deal(ctx, H(ctx.State, "beta").Id, H(ctx.State, "alpha"), Fixed.FromInt(100), DamageType.Pure));    // heals now
+        double afterHeal = 0;
+        At(kernel, 6, ctx => afterHeal = H(ctx.State, "alpha").Hp.ToDouble());
+        At(kernel, 4 + 6 * 30, ctx => Damage.Deal(ctx, H(ctx.State, "beta").Id, H(ctx.State, "alpha"), Fixed.FromInt(50), DamageType.Pure));   // over, on cooldown: hurts
+
+        kernel.RunTicks(5 + 6 * 30);
+
+        Assert.Equal(400, afterHeal, 2);
+        Assert.Equal(350, H(kernel.State, "alpha").Hp.ToDouble(), 2);
+        Assert.Single(kernel.EventsOf<AbilityCast>(), c => c.AbilityId == "borrowed");
+        Assert.False(H(kernel.State, "alpha").Hero!.Ability("borrowed")!.IsReady(kernel.CurrentTick.Value));
+    }
+
     [Fact]
     public void AbsorbInstances_SwallowWholeHits_UntilTheChargesAreGone()
     {

@@ -461,8 +461,10 @@ namespace Dynasty.MatchSimulation.Rules
             IReadOnlyList<AbilityVariant>? variants = null,
             ChannelSpec? channel = null,
             IReadOnlyList<ModifierSpec>? toggle = null,
-            string? levelsWith = null)
+            string? levelsWith = null,
+            int autoCastBelowHealth = 0)
         {
+            AutoCastBelowHealth = autoCastBelowHealth;
             LevelsWith = levelsWith;
             Channel = channel;
             Toggle = (toggle ?? Array.Empty<ModifierSpec>()).ToArray();
@@ -512,6 +514,12 @@ namespace Dynasty.MatchSimulation.Rules
         /// linked so turn each other off. Null for abilities levelled on their own.
         /// </summary>
         public string? LevelsWith { get; }
+
+        /// <summary>
+        /// Dota's Borrowed Time: when damage leaves the hero below this much health and the ability is ready, it is cast by itself, free,
+        /// even when silenced. 0 for abilities cast only by order.
+        /// </summary>
+        public int AutoCastBelowHealth { get; }
 
         /// <summary>The channel the ability starts after its effects; null for abilities that are not channelled.</summary>
         public ChannelSpec? Channel { get; }
@@ -593,6 +601,7 @@ namespace Dynasty.MatchSimulation.Rules
             foreach (ModifierSpec modifier in Toggle)
                 modifier.WriteCanonical(w);
             w.WriteString(LevelsWith ?? "");
+            w.WriteInt64(AutoCastBelowHealth);
             w.WriteInt64(Variants.Count);
             foreach (AbilityVariant variant in Variants)
             {

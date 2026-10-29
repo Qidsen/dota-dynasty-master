@@ -176,6 +176,22 @@ namespace Dynasty.MatchSimulation.Systems
             }
         }
 
+        /// <summary>Abilities that cast themselves when damage leaves the hero below their health threshold (Borrowed Time).</summary>
+        internal static void CastBelowHealth(SimulationContext<MatchState> context, MatchUnit caster)
+        {
+            HeroState hero = caster.Hero!;
+            long now = context.Tick.Value;
+            foreach (AbilityState ability in hero.Abilities)
+            {
+                AbilityDefinition definition = ability.Definition;
+                if (definition.AutoCastBelowHealth <= 0 || ability.Level == 0 || !ability.IsReady(now) || caster.Hp >= Fixed.FromInt(definition.AutoCastBelowHealth))
+                    continue;
+                ability.CooldownReadyTick = now + context.TickRate.TicksFor((int)((long)definition.CooldownAt(ability.Level) * caster.CooldownLeftHundredths / 10000));
+                context.Emit(new AbilityCast(caster.Id, definition.Id, ability.Level, EntityId.None, caster.Position));
+                Effects.RunSpell(context, caster, definition.Effects, ability.Level, caster, caster.Position);
+            }
+        }
+
         private static bool Linked(AbilityDefinition a, AbilityDefinition b) =>
             a.LevelsWith == b.Id || b.LevelsWith == a.Id || (a.LevelsWith != null && a.LevelsWith == b.LevelsWith);
 

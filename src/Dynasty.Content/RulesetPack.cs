@@ -618,7 +618,7 @@ namespace Dynasty.Content
                 a.OptionalInts("charges"), a.Has("charges") ? a.Seconds("chargeRestore") : null,
                 a.OptionalArray("variants").Select(v => new AbilityVariant(v.Strings("upgrades"), ReadAbility(v))).ToList(),
                 a.OptionalObject("channel") is Reader c ? ReadChannel(c) : null, a.OptionalArray("toggle").Select(ReadModifier).ToList(),
-                a.OptionalString("levelsWith"));
+                a.OptionalString("levelsWith"), a.OptionalInt("autoCastBelowHealth") ?? 0);
             a.RejectUnknown();
             return ability;
         }
@@ -853,7 +853,8 @@ namespace Dynasty.Content
                 layerMinimumDamage: m.OptionalInt("layerMinimumDamage") ?? 0, sideReductionPercent: m.OptionalInt("sideReduction") ?? 0,
                 backReductionPercent: m.OptionalInt("backReduction") ?? 0, sideAngle: m.OptionalInt("sideAngle") ?? 0, backAngle: m.OptionalInt("backAngle") ?? 0,
                 releaseAbilityId: m.OptionalString("releaseAbility"), releaseThreshold: m.OptionalInt("releaseThreshold") ?? 0,
-                manaCostPerSecond: m.OptionalFixed("manaCostPerSecond") ?? Fixed.Zero, attributeShift: m.OptionalString("attributeShift") switch
+                manaCostPerSecond: m.OptionalFixed("manaCostPerSecond") ?? Fixed.Zero, instanceBlock: m.OptionalInt("instanceBlock") ?? 0, damageHeals: m.OptionalBool("damageHeals") ?? false,
+                attributeShift: m.OptionalString("attributeShift") switch
                 {
                     null => 0,
                     "toAgility" => 1,

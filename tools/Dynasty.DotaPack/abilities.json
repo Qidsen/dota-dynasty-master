@@ -11849,5 +11849,41 @@
       "manaCostPerSecond": "$mana_cost",
       "attributeShift": "toStrength"
     }
+  },
+  "pudge_flesh_heap": {
+    "status": "full",
+    "targeting": "noTarget",
+    "targetTeam": "ally",
+    "effects": [
+      {
+        "kind": "modifier",
+        "modifiers": {
+          "key": "pudge_flesh_heap",
+          "duration": "$duration",
+          "instanceBlock": "$damage_block"
+        }
+      }
+    ]
+  },
+  "abaddon_borrowed_time": {
+    "status": "simplified",
+    "note": "no Break in the engine (it would stop the automatic activation)",
+    "targeting": "noTarget",
+    "targetTeam": "ally",
+    "autoCastBelowHealth": "$hp_threshold",
+    "effects": [
+      {
+        "kind": "dispel",
+        "strong": true
+      },
+      {
+        "kind": "modifier",
+        "modifiers": {
+          "key": "abaddon_borrowed_time",
+          "duration": "$duration",
+          "damageHeals": true
+        }
+      }
+    ]
   }
 }

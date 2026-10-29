@@ -205,8 +205,12 @@ namespace Dynasty.MatchSimulation.Combat
             string? releaseAbilityId = null,
             int releaseThreshold = 0,
             Fixed manaCostPerSecond = default,
-            int attributeShift = 0)
+            int attributeShift = 0,
+            int instanceBlock = 0,
+            bool damageHeals = false)
         {
+            InstanceBlock = instanceBlock;
+            DamageHeals = damageHeals;
             AttributeShift = attributeShift;
             ManaCostPerSecond = manaCostPerSecond;
             SideReductionPercent = sideReductionPercent;
@@ -557,6 +561,12 @@ namespace Dynasty.MatchSimulation.Combat
         /// </summary>
         public int AttributeShift { get; }
 
+        /// <summary>Dota's Flesh Heap: this much off every instance of damage of any type, before reductions; the strongest counts.</summary>
+        public int InstanceBlock { get; }
+
+        /// <summary>Dota's Borrowed Time: damage taken, after its reductions, heals the bearer instead.</summary>
+        public bool DamageHeals { get; }
+
         /// <summary><see cref="OnKill"/> runs only for hero victims (Flesh Heap).</summary>
         public bool OnKillHeroesOnly { get; }
 
@@ -736,6 +746,8 @@ namespace Dynasty.MatchSimulation.Combat
             w.WriteString(ReleaseAbilityId ?? "");
             w.WriteFixed(ManaCostPerSecond);
             w.WriteInt64(AttributeShift);
+            w.WriteInt64(InstanceBlock);
+            w.WriteBool(DamageHeals);
         }
 
         public static ModifierSpec Status(string key, int durationMs, ModifierFlags flags) => new ModifierSpec(key, durationMs, flags);
@@ -923,6 +935,11 @@ namespace Dynasty.MatchSimulation.Combat
 
             MatchUnit? from = attacker.IsValid ? context.State.Find(attacker) : null;
             List<(MatchUnit Unit, Fixed Amount)>? reflections = reflected ? null : Reflections(context.State, target, ref rawAmount);
+            int instanceBlock = 0;
+            foreach (ActiveModifier blocking in target.Modifiers)
+                instanceBlock = Math.Max(instanceBlock, blocking.Spec.InstanceBlock);
+            if (instanceBlock > 0)
+                rawAmount = Fixed.Max(Fixed.Zero, rawAmount - Fixed.FromInt(instanceBlock));
 
             Fixed amount = type == DamageType.Physical && (target.Flags & ModifierFlags.PhysicalImmune) != 0 ? Fixed.Zero
                 : type == DamageType.Magical && context.State.Ruleset.Combat.DotaStacking
@@ -955,6 +972,12 @@ namespace Dynasty.MatchSimulation.Combat
 
             bool byPlayer = from != null && from.Team != target.Team && (from.Kind == UnitKind.Hero || from.Kind == UnitKind.Summon || from.IllusionOf.IsValid);
             amount = ThroughLayers(context, target, from, amount);
+            Fixed healInstead = Fixed.Zero;
+            if (amount > Fixed.Zero && target.Modifiers.Any(m => m.Spec.DamageHeals))
+            {
+                healInstead = amount;   // Borrowed Time: after the reductions, before any barrier (Aphotic Shield lets it through)
+                amount = Fixed.Zero;
+            }
             bool fromRear = false;
             amount = ByDirection(target, from, amount, ref fromRear);
             ActiveModifier? returning = null;
@@ -994,6 +1017,10 @@ namespace Dynasty.MatchSimulation.Combat
                 CountTowardCleanse(context, target, amount);
             if (fromRear && amount > Fixed.Zero)
                 CountTowardRelease(context, target, amount);
+            if (healInstead > Fixed.Zero)
+                Heal(context, target.Id, target, healInstead);
+            if (amount > Fixed.Zero && target.Hero != null && target.IsAlive)
+                Systems.AbilitySystem.CastBelowHealth(context, target);
             if (reflections != null)
             {
                 foreach (var (unit, share) in reflections)
