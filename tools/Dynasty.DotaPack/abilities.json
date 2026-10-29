@@ -12330,5 +12330,69 @@
         ]
       }
     ]
+  },
+  "techies_land_mines": {
+    "status": "simplified",
+    "note": "the mine is plainly invisible (true sight shows it; Dota: never by true sight, but seen when an enemy is within its radius); buildings are not hurt (30% in Dota); mines may be placed next to each other (350 apart in Dota)",
+    "targeting": "point",
+    "targetTeam": "enemy",
+    "charges": "$max_charges",
+    "chargeRestore": "$abilitychargerestoretime",
+    "unitTypes": [
+      {
+        "id": "techies_land_mine_unit",
+        "gameUnit": "npc_dota_techies_land_mine"
+      }
+    ],
+    "effects": [
+      {
+        "kind": "summon",
+        "unitType": "techies_land_mine_unit",
+        "counts": [
+          1
+        ],
+        "atPoint": true,
+        "effects": [
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "techies_land_mine",
+              "flags": [
+                "invisible"
+              ],
+              "proximityRadius": "$radius",
+              "proximityDelay": "$proximity_threshold",
+              "onProximity": [
+                {
+                  "kind": "area",
+                  "radius": "$radius",
+                  "center": "caster",
+                  "team": "enemy",
+                  "effects": [
+                    {
+                      "kind": "damage",
+                      "damageType": "magical",
+                      "scaling": "distanceFalloff",
+                      "amounts": "$damage",
+                      "fullRadius": "$min_distance",
+                      "edgeRadius": "$radius",
+                      "edgePercent": "$outer_damage"
+                    },
+                    {
+                      "kind": "modifier",
+                      "modifiers": {
+                        "key": "techies_land_mine_burn",
+                        "duration": "$burn_duration",
+                        "magicResist": "-$mres_reduction"
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        ]
+      }
+    ]
   }
 }

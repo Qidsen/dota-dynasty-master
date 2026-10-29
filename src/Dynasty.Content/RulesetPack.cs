@@ -650,6 +650,8 @@ namespace Dynasty.Content
                         ? EffectDefinition.Damage(ReadDamageType(e, "damageType"), e.Ints("amounts").ToArray())
                         : scaling == DamageScaling.PerTargetStack
                         ? EffectDefinition.DamagePerStack(ReadDamageType(e, "damageType"), e.String("stackKey"), e.Ints("amounts").ToArray())
+                        : scaling == DamageScaling.DistanceFalloff
+                        ? EffectDefinition.FalloffDamage(ReadDamageType(e, "damageType"), e.Int("fullRadius"), e.Int("edgeRadius"), e.Int("edgePercent"), e.Ints("amounts").ToArray())
                         : e.Has("floor") ? EffectDefinition.BoundedScaledDamage(ReadDamageType(e, "damageType"), scaling, e.Ints("floor").ToArray(), e.Ints("ceiling").ToArray(), e.Hundredths("amounts").ToArray())
                         : e.Has("cap") ? EffectDefinition.CappedScaledDamage(ReadDamageType(e, "damageType"), scaling, e.Int("cap"), e.Hundredths("amounts").ToArray())
                         : EffectDefinition.ScaledDamage(ReadDamageType(e, "damageType"), scaling, e.Hundredths("amounts").ToArray());
@@ -708,7 +710,7 @@ namespace Dynasty.Content
                     break;
                 case "summon":
                     string unit = e.String("unitType");
-                    int duration = e.Milliseconds("duration");
+                    int duration = e.OptionalMilliseconds("duration") ?? -1;   // none: until destroyed (mines)
                     int[] counts = e.Ints("counts").ToArray();
                     effect = EffectDefinition.Summon(unit, duration, e.OptionalBool("atPoint") == true, counts, e.OptionalArray("effects").Select(ReadEffect).ToArray());
                     break;
@@ -800,8 +802,9 @@ namespace Dynasty.Content
             "casterCurrentManaPercent" => DamageScaling.CasterCurrentManaPercent,
             "distanceToTargetPercent" => DamageScaling.DistanceToTargetPercent,
             "rewoundDistancePercent" => DamageScaling.RewoundDistancePercent,
+            "distanceFalloff" => DamageScaling.DistanceFalloff,
             _ => throw r.Error(field, "expected flat, targetMaxHealthPercent, targetMissingHealthPercent, targetCurrentHealthPercent, targetMaxManaPercent, " +
-                                      "targetMissingManaPercent, casterAttackDamagePercent, casterStrengthPercent, casterAgilityPercent, casterIntelligencePercent, perTargetStack, casterCurrentManaPercent, distanceToTargetPercent or rewoundDistancePercent"),
+                                      "targetMissingManaPercent, casterAttackDamagePercent, casterStrengthPercent, casterAgilityPercent, casterIntelligencePercent, perTargetStack, casterCurrentManaPercent, distanceToTargetPercent, rewoundDistancePercent or distanceFalloff"),
         };
 
         private static ModifierFlags ReadFlag(Reader r, string flag) => flag switch
@@ -890,6 +893,8 @@ namespace Dynasty.Content
                 breakDistance: m.OptionalInt("breakDistance") ?? 0, healSharePercent: m.OptionalInt("healSharePercent") ?? 0,
                 manaSharePercent: m.OptionalInt("manaSharePercent") ?? 0, returnsOnExpiry: m.OptionalBool("returnsOnExpiry") ?? false,
                 castDamage: m.OptionalInt("castDamage") ?? 0, castDamageManaPercent: m.OptionalInt("castDamageManaPercent") ?? 0,
+                proximityRadius: m.OptionalInt("proximityRadius") ?? 0, proximityDelayMs: m.OptionalMilliseconds("proximityDelay") ?? 0,
+                onProximity: m.OptionalArray("onProximity").Select(ReadEffect).ToList(),
                 attributeShift: m.OptionalString("attributeShift") switch
                 {
                     null => 0,

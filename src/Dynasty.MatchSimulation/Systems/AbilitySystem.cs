@@ -287,6 +287,13 @@ namespace Dynasty.MatchSimulation.Systems
                 case DamageScaling.DistanceToTargetPercent:
                     Fixed distance = FixedVector2.Distance(caster.Position, target.Position);
                     return (effect.Radius > 0 ? Fixed.Min(distance, Fixed.FromInt(effect.Radius)) : distance) * percent;
+                case DamageScaling.DistanceFalloff:
+                    Fixed beyond = FixedVector2.Distance(caster.Position, target.Position) - Fixed.FromInt(effect.MinDistance);
+                    if (beyond <= Fixed.Zero)
+                        return amount;
+                    Fixed span = Fixed.FromInt(System.Math.Max(1, effect.Radius - effect.MinDistance));
+                    Fixed lost = Fixed.FromInt(100 - effect.DamagePercent) * Fixed.Min(beyond, span) / span;
+                    return amount * (Fixed.FromInt(100) - lost) / Fixed.FromInt(100);
                 default:
                     return amount;
             }
@@ -734,7 +741,7 @@ namespace Dynasty.MatchSimulation.Systems
         {
             CreepType type = context.State.Ruleset.FindCreepType(effect.SummonTypeId!)!;
             long now = context.Tick.Value;
-            long expires = now + context.TickRate.TicksFor(effect.DurationMs);
+            long expires = effect.DurationMs < 0 ? -1 : now + context.TickRate.TicksFor(effect.DurationMs);   // mines last until destroyed
             for (int i = 0; i < effect.AmountAt(level); i++)
             {
                 MatchUnit unit = context.State.SpawnSummon(context.Ids.Allocate(), caster, type, now, expires);

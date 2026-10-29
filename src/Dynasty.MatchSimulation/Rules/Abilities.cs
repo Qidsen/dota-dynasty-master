@@ -166,6 +166,12 @@ namespace Dynasty.MatchSimulation.Rules
 
         /// <summary>Hundredths of a percent of the distance from the caster to the target, at most the effect's radius when set (Impetus).</summary>
         DistanceToTargetPercent = 12,
+
+        /// <summary>
+        /// Flat amounts, in full within <see cref="EffectDefinition.MinDistance"/> of the caster and falling evenly to
+        /// <see cref="EffectDefinition.DamagePercent"/> at <see cref="EffectDefinition.Radius"/> (Proximity Mines).
+        /// </summary>
+        DistanceFalloff = 14,
     }
 
     public enum AreaCenter
@@ -301,6 +307,10 @@ namespace Dynasty.MatchSimulation.Rules
         /// <summary>Scaled damage kept between a floor and a ceiling per level (Glimpse).</summary>
         public static EffectDefinition BoundedScaledDamage(DamageType type, DamageScaling scaling, int[] floor, int[] ceiling, params int[] percentPerLevel) =>
             new EffectDefinition(EffectKind.Damage, percentPerLevel, type, scaling: scaling, floor: floor, ceiling: ceiling);
+
+        /// <summary>See <see cref="DamageScaling.DistanceFalloff"/>.</summary>
+        public static EffectDefinition FalloffDamage(DamageType type, int fullRadius, int edgeRadius, int edgePercent, params int[] perLevel) =>
+            new EffectDefinition(EffectKind.Damage, perLevel, type, scaling: DamageScaling.DistanceFalloff, minDistance: fullRadius, radius: edgeRadius, damagePercent: edgePercent);
 
         /// <summary>See <see cref="EffectKind.Wall"/>.</summary>
         public static EffectDefinition Wall(int radius, AreaCenter center, TargetTeam team, int formationMs, params int[] durationMsPerLevel) =>

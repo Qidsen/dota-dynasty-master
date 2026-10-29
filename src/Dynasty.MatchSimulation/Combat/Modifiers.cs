@@ -225,8 +225,14 @@ namespace Dynasty.MatchSimulation.Combat
             int manaSharePercent = 0,
             bool returnsOnExpiry = false,
             int castDamage = 0,
-            int castDamageManaPercent = 0)
+            int castDamageManaPercent = 0,
+            int proximityRadius = 0,
+            int proximityDelayMs = 0,
+            IReadOnlyList<Rules.EffectDefinition>? onProximity = null)
         {
+            ProximityRadius = proximityRadius;
+            ProximityDelayMs = proximityDelayMs;
+            OnProximity = onProximity?.ToArray() ?? System.Array.Empty<Rules.EffectDefinition>();
             ReturnsOnExpiry = returnsOnExpiry;
             CastDamage = castDamage;
             CastDamageManaPercent = castDamageManaPercent;
@@ -666,6 +672,16 @@ namespace Dynasty.MatchSimulation.Combat
 
         public int CastDamageManaPercent { get; }
 
+        /// <summary>
+        /// Proximity Mines: once an enemy (hero, creep or summon, seen or not) has stood within this radius of the bearer for
+        /// <see cref="ProximityDelayMs"/> without a break, <see cref="OnProximity"/> runs with the bearer as the caster and the bearer is gone.
+        /// </summary>
+        public int ProximityRadius { get; }
+
+        public int ProximityDelayMs { get; }
+
+        public IReadOnlyList<Rules.EffectDefinition> OnProximity { get; }
+
         /// <summary><see cref="OnKill"/> runs only for hero victims (Flesh Heap).</summary>
         public bool OnKillHeroesOnly { get; }
 
@@ -832,7 +848,7 @@ namespace Dynasty.MatchSimulation.Combat
             w.WriteInt64(AttackCharges);
             w.WriteBool(ExtraTargetRadiusFromAttackRange);
             w.WriteInt64(ExtraTargetChancePercent);
-            foreach (IReadOnlyList<Rules.EffectDefinition> list in new[] { OnCast, OnKill, OnDeath, OnReturn })
+            foreach (IReadOnlyList<Rules.EffectDefinition> list in new[] { OnCast, OnKill, OnDeath, OnReturn, OnProximity })
             {
                 w.WriteInt64(list.Count);
                 foreach (Rules.EffectDefinition effect in list)
@@ -849,7 +865,7 @@ namespace Dynasty.MatchSimulation.Combat
             w.WriteBool(DamageHeals);
             foreach (int value in new[] { CritMultiplierMaxPercent, CritLifestealPercent, OnHitManaCost, OnHitManaCostPercent, FullBelowHealthPercent, InvisibleAfterIdleMs,
                                           ShareDamagePercent, SpreadDamagePercent, SpreadRadius, BreakDistance, HealSharePercent, ManaSharePercent,
-                                          CastDamage, CastDamageManaPercent })
+                                          CastDamage, CastDamageManaPercent, ProximityRadius, ProximityDelayMs })
                 w.WriteInt64(value);
             w.WriteBool(ReturnsOnExpiry);
             w.WriteInt64(PeriodicEffects.Count);
@@ -891,6 +907,9 @@ namespace Dynasty.MatchSimulation.Combat
 
         /// <summary>Where the bearer was when it got the modifier (<see cref="ModifierSpec.ReturnsOnExpiry"/>).</summary>
         internal FixedVector2 Mark { get; set; }
+
+        /// <summary>The tick an enemy came within the proximity radius and has stayed there since; -1 when none is near.</summary>
+        internal long ProximitySinceTick { get; set; } = -1;
 
         /// <summary>The target of the bearer's last attack (<see cref="ModifierSpec.ResetStacksKey"/>).</summary>
         internal EntityId LastTarget { get; set; }

@@ -174,6 +174,17 @@ if (mode == "casts")
                 casts[hero.Definition.Id + " " + c.AbilityId] = casts.GetValueOrDefault(hero.Definition.Id + " " + c.AbilityId) + 1;
     foreach (var kv in casts.OrderBy(x => x.Key, StringComparer.Ordinal))
         Console.WriteLine($"{kv.Key,-60} {kv.Value / (double)n,6:0.0}");
+    // Damage dealt by summoned units (wards, mines, spirits) per unit type.
+    var summonDamage = new Dictionary<string, double>();
+    foreach (var k in runs)
+    {
+        var typeOf = k.Events.Records.Select(r => r.Event).OfType<UnitSummoned>().ToDictionary(s => s.Unit.Value, s => s.CreepTypeId);
+        foreach (var d in k.Events.Records.Select(r => r.Event).OfType<DamageDealt>())
+            if (typeOf.TryGetValue(d.Attacker.Value, out string? type))
+                summonDamage[type] = summonDamage.GetValueOrDefault(type) + d.Amount.ToDouble();
+    }
+    foreach (var kv in summonDamage.OrderBy(x => x.Key, StringComparer.Ordinal))
+        Console.WriteLine($"damage by {kv.Key,-50} {kv.Value / n,8:0}");
     return;
 }
 
