@@ -12623,5 +12623,23 @@
         }
       ]
     }
+  },
+  "grimstroke_soul_chain": {
+    "status": "simplified",
+    "note": "the leash is the distance at binding times 1.3 plus 50 and holds every move, a teleport too (the project owner); no rebinding to another ally when the partner is gone; creeps are not bound for half the time (heroes only); no vision of the bound; an item on one is not copied to the other",
+    "targeting": "unit",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "bind",
+        "radius": "$chain_latch_radius",
+        "leashPercent": "$leash_limit_multiplier*100",
+        "leashBuffer": "$leash_radius_buffer",
+        "modifiers": {
+          "key": "grimstroke_soul_chain",
+          "duration": "$chain_duration"
+        }
+      }
+    ]
   }
 }

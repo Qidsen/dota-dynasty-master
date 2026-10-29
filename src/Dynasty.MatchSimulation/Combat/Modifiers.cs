@@ -927,6 +927,12 @@ namespace Dynasty.MatchSimulation.Combat
         /// <summary>Where the bearer was when it got the modifier (<see cref="ModifierSpec.ReturnsOnExpiry"/>).</summary>
         internal FixedVector2 Mark { get; set; }
 
+        /// <summary>The unit the bearer is bound to (Soulbind); none for other modifiers.</summary>
+        internal EntityId Partner { get; set; }
+
+        /// <summary>How far the bearer may be from <see cref="Partner"/>.</summary>
+        internal Fixed LeashDistance { get; set; }
+
         /// <summary>The share of the modifier's slow that applies: a sprung trap's charge (Psionic Trap); 100 otherwise.</summary>
         internal int SlowStrengthPercent { get; set; } = 100;
 

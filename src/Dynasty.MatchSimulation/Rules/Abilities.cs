@@ -152,6 +152,14 @@ namespace Dynasty.MatchSimulation.Rules
         /// <see cref="DamageScaling.FullChargeOnly"/> only at full charge), then it is gone.
         /// </summary>
         Spring = 32,
+
+        /// <summary>
+        /// Binds the target to its nearest allied hero within <see cref="EffectDefinition.Radius"/> (Soulbind): both get the level's
+        /// modifier, linked to each other; neither can go farther from the other than the distance at binding times
+        /// <see cref="EffectDefinition.DamagePercent"/> percent plus <see cref="EffectDefinition.MinDistance"/>; a unit-targeted ability
+        /// either receives is cast on the other too. With no ally near, the target alone gets the modifier.
+        /// </summary>
+        Bind = 33,
     }
 
     /// <summary>What a damage effect's amounts mean: flat damage, or a percent of the target's health or mana.</summary>
@@ -328,6 +336,10 @@ namespace Dynasty.MatchSimulation.Rules
         /// <summary>Scaled damage kept between a floor and a ceiling per level (Glimpse).</summary>
         public static EffectDefinition BoundedScaledDamage(DamageType type, DamageScaling scaling, int[] floor, int[] ceiling, params int[] percentPerLevel) =>
             new EffectDefinition(EffectKind.Damage, percentPerLevel, type, scaling: scaling, floor: floor, ceiling: ceiling);
+
+        /// <summary>See <see cref="EffectKind.Bind"/>.</summary>
+        public static EffectDefinition Bind(int radius, int leashPercent, int leashBuffer, params ModifierSpec[] perLevel) =>
+            new EffectDefinition(EffectKind.Bind, radius: radius, damagePercent: leashPercent, minDistance: leashBuffer, modifiers: perLevel);
 
         /// <summary>See <see cref="EffectKind.Spring"/>.</summary>
         public static EffectDefinition Spring(string trapTypeId, int chargeMs, int minChargePercent, params EffectDefinition[] inner) =>

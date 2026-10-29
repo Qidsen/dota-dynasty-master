@@ -162,6 +162,10 @@ namespace Dynasty.MatchSimulation.Systems
 
             FixedVector2 point = definition.Targeting == AbilityTargeting.Point ? order.Point : target.Position;
             Effects.RunSpell(context, caster, definition.Effects, ability.Level, target, point);
+            // Soulbind: a unit-targeted ability (not an item) on either bound hero is cast on the other too, once.
+            if (definition.Targeting == AbilityTargeting.Unit && hero.Abilities.Contains(ability) && caster.IsAlive &&
+                Effects.BoundPartner(context.State, target) is MatchUnit partner && Effects.Matches(context.State, caster, partner, definition.TargetTeam))
+                Effects.RunSpell(context, caster, definition.Effects, ability.Level, partner, partner.Position);
             foreach (ActiveModifier modifier in caster.Modifiers.Where(m => m.Spec.OnCast.Count > 0).ToList())
                 Effects.Run(context, caster, modifier.Spec.OnCast, 1, target, point);
             if (definition.Channel != null && caster.IsAlive)
@@ -399,6 +403,9 @@ namespace Dynasty.MatchSimulation.Systems
                     break;
                 case EffectKind.Spring:
                     Spring(context, caster, effect, level);
+                    break;
+                case EffectKind.Bind:
+                    Bind(context, caster, effect, level, target);
                     break;
                 case EffectKind.Area:
                     RunArea(context, caster, effect, level, target, point);
@@ -763,6 +770,47 @@ namespace Dynasty.MatchSimulation.Systems
                 return 100;
             long full = System.Math.Max(1, context.TickRate.TicksFor(fullAfterMs));
             return (int)(System.Math.Min(full, context.Tick.Value - channel.StartTick) * 100 / full);
+        }
+
+        /// <summary>Soulbind: the target and its nearest allied hero within the radius, each leashed to the other.</summary>
+        private static void Bind(SimulationContext<MatchState> context, MatchUnit caster, EffectDefinition effect, int level, MatchUnit target)
+        {
+            if (!target.IsAlive)
+                return;
+            MatchUnit? partner = null;
+            Fixed best = Fixed.Zero;
+            foreach (MatchUnit unit in context.State.Heroes)
+            {
+                if (unit == target || !unit.IsAlive || unit.Team != target.Team || unit.IllusionOf.IsValid || !Geometry.WithinRange(unit.Position, target.Position, effect.Radius))
+                    continue;
+                Fixed distance = (unit.Position - target.Position).LengthSquared;
+                if (partner == null || distance < best)
+                {
+                    partner = unit;
+                    best = distance;
+                }
+            }
+
+            ActiveModifier? bound = Modifiers.Apply(context, target, effect.ModifierAt(level), caster.Id);
+            if (partner == null || bound == null || Modifiers.Apply(context, partner, effect.ModifierAt(level), caster.Id) is not ActiveModifier other)
+                return;
+            Fixed leash = FixedVector2.Distance(target.Position, partner.Position) * Fixed.FromInt(effect.DamagePercent) / Fixed.FromInt(100) + Fixed.FromInt(effect.MinDistance);
+            bound.Partner = partner.Id;
+            bound.LeashDistance = leash;
+            other.Partner = target.Id;
+            other.LeashDistance = leash;
+        }
+
+        /// <summary>The unit a Soulbind ties the target to, if any (its unit-targeted abilities are copied there).</summary>
+        internal static MatchUnit? BoundPartner(MatchState state, MatchUnit unit)
+        {
+            foreach (ActiveModifier modifier in unit.Modifiers)
+            {
+                if (modifier.Partner.IsValid && state.Find(modifier.Partner) is MatchUnit partner && partner.IsAlive)
+                    return partner;
+            }
+
+            return null;
         }
 
         /// <summary>Psionic Trap's Trap: the caster's trap nearest to it goes off with its charge, then is gone.</summary>

@@ -684,6 +684,9 @@ namespace Dynasty.Content
                 case "rewind":
                     effect = EffectDefinition.Rewind(e.Milliseconds("back"), e.OptionalBool("restoresVitals") ?? false, e.OptionalArray("effects").Select(ReadEffect).ToArray());
                     break;
+                case "bind":
+                    effect = EffectDefinition.Bind(e.Int("radius"), e.Int("leashPercent"), e.Int("leashBuffer"), e.Array("modifiers").Select(ReadModifier).ToArray());
+                    break;
                 case "spring":
                     effect = EffectDefinition.Spring(e.String("unitType"), e.Milliseconds("charge"), e.Int("minChargePercent"), e.Array("effects").Select(ReadEffect).ToArray());
                     break;
