@@ -889,6 +889,7 @@ namespace Dynasty.Content
                 spreadRadius: m.OptionalInt("spreadRadius") ?? 0, periodicEffects: m.OptionalArray("periodicEffects").Select(ReadEffect).ToList(),
                 breakDistance: m.OptionalInt("breakDistance") ?? 0, healSharePercent: m.OptionalInt("healSharePercent") ?? 0,
                 manaSharePercent: m.OptionalInt("manaSharePercent") ?? 0, returnsOnExpiry: m.OptionalBool("returnsOnExpiry") ?? false,
+                castDamage: m.OptionalInt("castDamage") ?? 0, castDamageManaPercent: m.OptionalInt("castDamageManaPercent") ?? 0,
                 attributeShift: m.OptionalString("attributeShift") switch
                 {
                     null => 0,

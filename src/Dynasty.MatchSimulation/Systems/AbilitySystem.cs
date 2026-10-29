@@ -138,7 +138,8 @@ namespace Dynasty.MatchSimulation.Systems
                 return;
             }
 
-            hero.Mana -= ManaCost(caster, ability);
+            Fixed spent = ManaCost(caster, ability);
+            hero.Mana -= spent;
             ability.CooldownReadyTick = now + context.TickRate.TicksFor((int)((long)definition.CooldownAt(ability.Level) * caster.CooldownLeftHundredths / 10000));
             ability.SpendCharge(now, context.TickRate);
             ConsumeCharge(context, caster, hero, ability);
@@ -148,6 +149,8 @@ namespace Dynasty.MatchSimulation.Systems
 
             // Acting reveals the caster first, so a smoke being cast is not broken by its own cast.
             Modifiers.BreakOnAction(context, caster);
+            if (hero.Abilities.Contains(ability) && !PunishCast(context, caster, spent))
+                return;
             // Dota: a ready spell block on an enemy target stops a spell aimed at it (simplified: at the cast, not when the spell lands).
             ActiveModifier? block = definition.Targeting == AbilityTargeting.Unit && target.Team != caster.Team ? target.SpellBlocker : null;
             if (block != null && now >= block.NextProcTick)
@@ -174,6 +177,23 @@ namespace Dynasty.MatchSimulation.Systems
 
                 Modifiers.Apply(context, caster, definition.Toggle[System.Math.Min(ability.Level, definition.Toggle.Count) - 1], caster.Id);
             }
+        }
+
+        /// <summary>Nether Ward's damage for casting a spell, before the spell; false when it killed the caster (the spell has no effect).</summary>
+        private static bool PunishCast(SimulationContext<MatchState> context, MatchUnit caster, Fixed spent)
+        {
+            foreach (ActiveModifier modifier in caster.Modifiers.Where(m => m.Spec.CastDamage > 0 || m.Spec.CastDamageManaPercent > 0).ToList())
+            {
+                MatchUnit? source = context.State.Find(modifier.Source);
+                if (source == null || !source.IsAlive || source.Team == caster.Team)
+                    continue;
+                Fixed amount = Fixed.FromInt(modifier.Spec.CastDamage) + spent * Fixed.FromInt(modifier.Spec.CastDamageManaPercent) / Fixed.FromInt(100);
+                Damage.Deal(context, source.Id, caster, amount, DamageType.Magical);
+                if (!caster.IsAlive)
+                    return false;
+            }
+
+            return true;
         }
 
         /// <summary>Abilities that cast themselves when damage leaves the hero below their health threshold (Borrowed Time).</summary>

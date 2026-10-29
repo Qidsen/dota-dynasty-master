@@ -223,9 +223,13 @@ namespace Dynasty.MatchSimulation.Combat
             int breakDistance = 0,
             int healSharePercent = 0,
             int manaSharePercent = 0,
-            bool returnsOnExpiry = false)
+            bool returnsOnExpiry = false,
+            int castDamage = 0,
+            int castDamageManaPercent = 0)
         {
             ReturnsOnExpiry = returnsOnExpiry;
+            CastDamage = castDamage;
+            CastDamageManaPercent = castDamageManaPercent;
             ShareDamagePercent = shareDamagePercent;
             SpreadDamagePercent = spreadDamagePercent;
             SpreadRadius = spreadRadius;
@@ -654,6 +658,14 @@ namespace Dynasty.MatchSimulation.Combat
         /// <summary>X Marks the Spot: when the modifier runs out the bearer is put back where it was when it got it.</summary>
         public bool ReturnsOnExpiry { get; }
 
+        /// <summary>
+        /// Nether Ward: when the bearer casts a spell (not an item) the modifier's source deals it this much magical damage plus
+        /// <see cref="CastDamageManaPercent"/> of the mana spent, before the spell; a bearer killed by it casts nothing.
+        /// </summary>
+        public int CastDamage { get; }
+
+        public int CastDamageManaPercent { get; }
+
         /// <summary><see cref="OnKill"/> runs only for hero victims (Flesh Heap).</summary>
         public bool OnKillHeroesOnly { get; }
 
@@ -836,7 +848,8 @@ namespace Dynasty.MatchSimulation.Combat
             w.WriteInt64(InstanceBlock);
             w.WriteBool(DamageHeals);
             foreach (int value in new[] { CritMultiplierMaxPercent, CritLifestealPercent, OnHitManaCost, OnHitManaCostPercent, FullBelowHealthPercent, InvisibleAfterIdleMs,
-                                          ShareDamagePercent, SpreadDamagePercent, SpreadRadius, BreakDistance, HealSharePercent, ManaSharePercent })
+                                          ShareDamagePercent, SpreadDamagePercent, SpreadRadius, BreakDistance, HealSharePercent, ManaSharePercent,
+                                          CastDamage, CastDamageManaPercent })
                 w.WriteInt64(value);
             w.WriteBool(ReturnsOnExpiry);
             w.WriteInt64(PeriodicEffects.Count);

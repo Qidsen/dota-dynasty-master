@@ -12287,5 +12287,48 @@
         "durations": "$duration"
       }
     ]
+  },
+  "pugna_nether_ward": {
+    "status": "simplified",
+    "note": "the ward dies to damage like any 16-health unit, not to 4 attacks; it lasts the top level's duration at every level; items are not punished (the official text speaks of spells)",
+    "targeting": "point",
+    "targetTeam": "enemy",
+    "unitTypes": [
+      {
+        "id": "pugna_nether_ward_unit",
+        "gameUnit": "npc_dota_pugna_nether_ward"
+      }
+    ],
+    "effects": [
+      {
+        "kind": "summon",
+        "unitType": "pugna_nether_ward_unit",
+        "duration": "$abilityduration",
+        "counts": [
+          1
+        ],
+        "atPoint": true,
+        "effects": [
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "pugna_nether_ward",
+              "duration": "$abilityduration",
+              "aura": {
+                "radius": "$radius",
+                "team": "enemy",
+                "heroesOnly": true,
+                "modifier": {
+                  "key": "pugna_nether_ward_aura",
+                  "duration": 1,
+                  "castDamage": "$base_damage",
+                  "castDamageManaPercent": "$mana_multiplier*100"
+                }
+              }
+            }
+          }
+        ]
+      }
+    ]
   }
 }
