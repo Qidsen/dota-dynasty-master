@@ -115,10 +115,23 @@ namespace Dynasty.MatchSimulation.Vision
             {
                 if (unit.Team == knowledge.Team || !unit.IsAlive)
                     continue;
-                bool revealed = reveals > 0 && unit.Hero != null && unit.Hp * Fixed.FromInt(100) < Fixed.FromInt(unit.MaxHp * reveals);
+                bool revealed = (reveals > 0 && unit.Hero != null && unit.Hp * Fixed.FromInt(100) < Fixed.FromInt(unit.MaxHp * reveals)) ||
+                                Cursed(unit);
                 if (revealed || IsSeen(state.SightGrid, unit, state.ElevationAt(unit.Position)))
                     knowledge.MarkVisible(unit, now);
             }
+        }
+
+        /// <summary>Curse of the Oldgrowth: the unit is shown to its enemies through the fog.</summary>
+        private static bool Cursed(MatchUnit unit)
+        {
+            foreach (ActiveModifier modifier in unit.Modifiers)
+            {
+                if (modifier.Spec.Revealed)
+                    return true;
+            }
+
+            return false;
         }
 
         private bool IsSeen(NavGrid sight, MatchUnit target, int targetLevel)

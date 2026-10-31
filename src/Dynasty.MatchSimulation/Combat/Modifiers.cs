@@ -293,8 +293,14 @@ namespace Dynasty.MatchSimulation.Combat
             bool damageToOwner = false,
             int echoPercent = 0,
             int echoDurationMs = 0,
-            int wallHalfLength = 0)
+            int wallHalfLength = 0,
+            bool revealed = false,
+            int perTreeRadius = 0,
+            int damagePerTreePerSecond = 0)
         {
+            Revealed = revealed;
+            PerTreeRadius = perTreeRadius;
+            DamagePerTreePerSecond = damagePerTreePerSecond;
             WallHalfLength = wallHalfLength;
             EchoPercent = echoPercent;
             EchoDurationMs = echoDurationMs;
@@ -897,6 +903,17 @@ namespace Dynasty.MatchSimulation.Combat
         /// <summary>Unleash: effects of the attack that spends the last charge, run on its target.</summary>
         public IReadOnlyList<Rules.EffectDefinition> OnLastCharge { get; }
 
+        /// <summary>Curse of the Oldgrowth: the bearer is seen by its enemies through the fog.</summary>
+        public bool Revealed { get; }
+
+        /// <summary>
+        /// Curse of the Oldgrowth: the modifier's slow and <see cref="DamagePerTreePerSecond"/> (magical) count once for every tree within this
+        /// radius of the bearer, and every unit of the modifier's source there (Treants).
+        /// </summary>
+        public int PerTreeRadius { get; }
+
+        public int DamagePerTreePerSecond { get; }
+
         /// <summary>
         /// Wall of Replica: the bearer is a wall this long each way, across the way from the caster to it; a unit touching it gets
         /// <see cref="OnTrample"/> (once, with <see cref="TrampleMarker"/>).
@@ -1106,7 +1123,7 @@ namespace Dynasty.MatchSimulation.Combat
 
         public bool IsPeriodic => DamagePerSecond > Fixed.Zero || HealPerSecond > Fixed.Zero || DamagePerSecondMaxHealthPercent > Fixed.Zero ||
                                   HealPerSecondMaxHealthPercent > Fixed.Zero || ManaPerSecondMaxManaPercent > Fixed.Zero || ManaCostPerSecond > Fixed.Zero ||
-                                  AttributeShift != 0 || PeriodicEffects.Count > 0;
+                                  AttributeShift != 0 || PeriodicEffects.Count > 0 || PerTreeRadius > 0;
 
         public bool IsPermanent => DurationMs < 0;
 
@@ -1212,7 +1229,8 @@ namespace Dynasty.MatchSimulation.Combat
                                           ThirstMoveSpeedPercent, ThirstFromHealthPercent, ThirstFullBelowHealthPercent, RevealsBelowHealthPercent,
                                           AnchorChain, AnchorDragSpeed, CooldownSlowPercent, HealAtEndPercent, OnHeroDamageAtLeast, DelayedHealAmpPercent, TrampleRadius,
                                           MulticastStrengthPerPercent, EveryDistance, HeroAttacksToBreak, BeamLength, BeamTurnPerSecond, TriggerAtStacks, RechargeMs, CastRangeBonus, TravelDistance,
-                                          NearbyHeroDamageAbove, NearbyHeroDamageBelow, NearbyRadius, AnchorRadius, EchoPercent, EchoDurationMs, WallHalfLength })
+                                          NearbyHeroDamageAbove, NearbyHeroDamageBelow, NearbyRadius, AnchorRadius, EchoPercent, EchoDurationMs, WallHalfLength,
+                                          PerTreeRadius, DamagePerTreePerSecond })
                 w.WriteInt64(value);
             w.WriteBool(ReturnsOnExpiry);
             w.WriteBool(PeriodicFromBearer);
@@ -1227,6 +1245,7 @@ namespace Dynasty.MatchSimulation.Combat
             w.WriteBool(NoAttackSpeedLimit);
             w.WriteBool(TravelsToPoint);
             w.WriteBool(DamageToOwner);
+            w.WriteBool(Revealed);
             w.WriteString(TrampleMarker ?? "");
             w.WriteString(NoStacksWhile ?? "");
             w.WriteString(EndsWithOwnerModifier ?? "");
@@ -1413,6 +1432,8 @@ namespace Dynasty.MatchSimulation.Combat
                 target.AddModifier(modifier);
             }
 
+            if (spec.PerTreeRadius > 0)
+                CountTrees(context.State, target, modifier);   // Curse of the Oldgrowth: the slow from the start
             context.Emit(new ModifierApplied(target.Id, source, spec.Key, expires));
             if (spec.TriggerAtStacks > 0 && modifier.Stacks >= spec.TriggerAtStacks)
             {
@@ -1436,6 +1457,35 @@ namespace Dynasty.MatchSimulation.Combat
             target.AddModifier(modifier);
             context.Emit(new ModifierApplied(target.Id, source, spec.Key, -1));
             return modifier;
+        }
+
+        /// <summary>
+        /// Curse of the Oldgrowth: the trees within the modifier's radius of the bearer and its source's units there (Treants); the slow
+        /// counts that many times. Returns the count.
+        /// </summary>
+        internal static int CountTrees(MatchState state, MatchUnit bearer, ActiveModifier curse)
+        {
+            int radius = curse.Spec.PerTreeRadius;
+            int count = 0;
+            foreach (FixedVector2 tree in state.Ruleset.Map.Terrain?.Trees ?? System.Array.Empty<FixedVector2>())
+            {
+                if (Systems.Geometry.WithinRange(tree, bearer.Position, radius))
+                    count++;
+            }
+
+            foreach (MatchUnit unit in state.Units)
+            {
+                if (unit.IsAlive && unit != bearer && unit.Owner == curse.Source && Systems.Geometry.WithinRange(unit.Position, bearer.Position, radius))
+                    count++;
+            }
+
+            if (curse.SlowStrengthPercent != 100 * count)
+            {
+                curse.SlowStrengthPercent = 100 * count;
+                bearer.Recalculate();
+            }
+
+            return count;
         }
 
         /// <summary>A new instance that never merges with others of its key and lasts the spec's duration (Croak of Genius's echoes, one per hit).</summary>

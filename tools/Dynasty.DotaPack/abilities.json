@@ -15150,5 +15150,34 @@
         ]
       }
     ]
+  },
+  "furion_curse_of_the_forest": {
+    "status": "simplified",
+    "note": "Aghanim's Shard; the damage and slow count the map's trees within the radius of each cursed hero and Nature's Prophet's own units there (Treants), once a second; the trees never fall",
+    "grantedBy": "shard",
+    "targeting": "noTarget",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "area",
+        "radius": "$range",
+        "center": "caster",
+        "team": "enemy",
+        "heroesOnly": true,
+        "effects": [
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "furion_curse_of_the_forest",
+              "duration": "$duration",
+              "moveSpeedPercent": "-$slow_per_tree",
+              "revealed": true,
+              "perTreeRadius": "$radius",
+              "damagePerTreePerSecond": "$damage_per_tree"
+            }
+          }
+        ]
+      }
+    ]
   }
 }
