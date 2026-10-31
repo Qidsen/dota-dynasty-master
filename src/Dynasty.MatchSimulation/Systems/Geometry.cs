@@ -5,8 +5,16 @@ namespace Dynasty.MatchSimulation.Systems
     /// <summary>Range checks between units. Ranges are edge-to-edge: center distance minus both radii.</summary>
     internal static class Geometry
     {
+        /// <summary>
+        /// A range this long reaches anywhere on a map (the game's 99999 for a global cast range, Activate Fire Remnant); its square
+        /// would not fit a fixed-point number.
+        /// </summary>
+        private const int Global = 40000;
+
         public static bool WithinEdgeRange(MatchUnit a, MatchUnit b, int range)
         {
+            if (range >= Global)
+                return true;
             Fixed reach = Fixed.FromInt(range + a.BoundingRadius + b.BoundingRadius);
             return FixedVector2.DistanceSquared(a.Position, b.Position) <= reach * reach;
         }
@@ -14,12 +22,16 @@ namespace Dynasty.MatchSimulation.Systems
         /// <summary>Like <see cref="WithinEdgeRange(MatchUnit, MatchUnit, int)"/>, against the target's tick-start position.</summary>
         public static bool WithinEdgeRangeOfStart(MatchUnit unit, MatchUnit target, int range)
         {
+            if (range >= Global)
+                return true;
             Fixed reach = Fixed.FromInt(range + unit.BoundingRadius + target.BoundingRadius);
             return FixedVector2.DistanceSquared(unit.Position, target.StartPosition) <= reach * reach;
         }
 
         public static bool WithinRange(FixedVector2 a, FixedVector2 b, int range)
         {
+            if (range >= Global)
+                return true;
             Fixed reach = Fixed.FromInt(range);
             return FixedVector2.DistanceSquared(a, b) <= reach * reach;
         }

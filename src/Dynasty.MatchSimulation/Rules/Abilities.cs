@@ -212,6 +212,12 @@ namespace Dynasty.MatchSimulation.Rules
         IfTargetHas = 45,
 
         /// <summary>
+        /// Runs the inner effects on every one of the caster's units of type <see cref="EffectDefinition.SummonTypeId"/> (Fire Remnants
+        /// exploding); with <see cref="EffectDefinition.Strong"/> they are gone after.
+        /// </summary>
+        OnOwnUnits = 46,
+
+        /// <summary>
         /// The inner effects on one random enemy the caster's team sees within <see cref="EffectDefinition.Radius"/> that has fewer than
         /// <see cref="EffectDefinition.MaxTargets"/> stacks of the marker <see cref="EffectDefinition.StackKey"/> from the caster; the
         /// marker (the level's modifier) gets a stack (Eclipse's beams). Without a marker: <see cref="EffectDefinition.Amounts"/> strikes
@@ -500,7 +506,10 @@ namespace Dynasty.MatchSimulation.Rules
         /// <summary>See <see cref="EffectKind.Assume"/>.</summary>
         public static EffectDefinition Assume() => new EffectDefinition(EffectKind.Assume);
 
-        /// <summary>The caster moves to its newest unit of the type, which stays (Ethereal Jaunt to the Illusory Orb); see <see cref="EffectKind.Assume"/>.</summary>
+        /// <summary>
+        /// The caster moves to its unit of the type closest to the point (the newest of equals), which stays (Ethereal Jaunt to the Illusory
+        /// Orb, Activate Fire Remnant to a remnant); see <see cref="EffectKind.Assume"/>.
+        /// </summary>
         public static EffectDefinition JauntTo(string unitTypeId) => new EffectDefinition(EffectKind.Assume, summonTypeId: unitTypeId);
 
         /// <summary>See <see cref="EffectKind.Release"/>.</summary>
@@ -621,6 +630,10 @@ namespace Dynasty.MatchSimulation.Rules
         public static EffectDefinition IfHero(params EffectDefinition[] inner) => new EffectDefinition(EffectKind.IfHero, inner: inner);
 
         public static EffectDefinition IfNotHero(params EffectDefinition[] inner) => new EffectDefinition(EffectKind.IfNotHero, inner: inner);
+
+        /// <summary>See <see cref="EffectKind.OnOwnUnits"/>.</summary>
+        public static EffectDefinition OnOwnUnits(string unitTypeId, bool consume, params EffectDefinition[] inner) =>
+            new EffectDefinition(EffectKind.OnOwnUnits, summonTypeId: unitTypeId, strong: consume, inner: inner);
 
         /// <summary>See <see cref="EffectKind.IfTargetHas"/>.</summary>
         public static EffectDefinition IfTargetHas(string modifierKey, params EffectDefinition[] inner) =>

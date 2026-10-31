@@ -481,8 +481,9 @@ namespace Dynasty.MatchSimulation.Systems
                             continue;
                         if (effect.SummonTypeId != null)
                         {
-                            // Ethereal Jaunt: to the caster's newest unit of the type (its flying orb); units are in creation order.
-                            if (unit.Owner == caster.Id && unit.TypeId == effect.SummonTypeId)
+                            // Ethereal Jaunt, Activate Fire Remnant: to the caster's unit of the type closest to the point; units are in creation order.
+                            if (unit.Owner == caster.Id && unit.TypeId == effect.SummonTypeId &&
+                                (assumed == null || (unit.Position - point).LengthSquared <= (assumed.Position - point).LengthSquared))
                                 assumed = unit;
                         }
                         else if (unit.IllusionOf == caster.Id && (assumed == null || (unit.Position - point).LengthSquared < (assumed.Position - point).LengthSquared))
@@ -693,6 +694,17 @@ namespace Dynasty.MatchSimulation.Systems
                     {
                         foreach (EffectDefinition inner in effect.Inner)
                             RunOne(context, caster, inner, level, target, point);
+                    }
+
+                    break;
+                case EffectKind.OnOwnUnits:
+                    foreach (MatchUnit remnant in context.State.Units
+                                 .Where(u => u.IsAlive && u.Owner == caster.Id && u.TypeId == effect.SummonTypeId && u.ExpiresTick != context.Tick.Value).ToList())
+                    {
+                        foreach (EffectDefinition inner in effect.Inner)
+                            RunOne(context, caster, inner, level, remnant, point);
+                        if (effect.Strong)
+                            remnant.ExpiresTick = context.Tick.Value;   // the remnants are spent
                     }
 
                     break;

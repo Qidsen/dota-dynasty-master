@@ -4064,25 +4064,40 @@
   },
   "ember_spirit_fire_remnant": {
     "status": "simplified",
-    "note": "each charge dashes to the point at once and explodes there; no remnants left behind, the mana cost of the activation is not paid",
+    "note": "the remnant is at the point at once (no run at 250% of Ember's speed); it waits there until Activate Fire Remnant spends it or its duration ends",
     "targeting": "point",
     "targetTeam": "enemy",
     "charges": "$max_charges",
     "chargeRestore": "$abilitychargerestoretime",
+    "unitTypes": [
+      {
+        "id": "ember_spirit_remnant",
+        "gameUnit": "npc_dota_thinker",
+        "health": 1,
+        "armor": 0,
+        "moveSpeed": 0
+      }
+    ],
     "effects": [
       {
-        "kind": "dash"
-      },
-      {
-        "kind": "area",
-        "radius": "$radius",
-        "center": "point",
-        "team": "enemy",
+        "kind": "summon",
+        "unitType": "ember_spirit_remnant",
+        "counts": [
+          1
+        ],
+        "atPoint": true,
+        "duration": "$duration",
         "effects": [
           {
-            "kind": "damage",
-            "damageType": "magical",
-            "amounts": "$damage"
+            "kind": "modifier",
+            "modifiers": {
+              "key": "ember_spirit_fire_remnant",
+              "flags": [
+                "invulnerable",
+                "rooted"
+              ],
+              "dispellable": false
+            }
           }
         ]
       }
@@ -15015,6 +15030,43 @@
           "echoPercent": "$damage_portion_pct",
           "echoDuration": "$damage_duration"
         }
+      }
+    ]
+  },
+  "ember_spirit_activate_fire_remnant": {
+    "status": "simplified",
+    "note": "every remnant of Ember's explodes at once (no dash between them), each hurting the enemies around it; Ember ends at the remnant closest to the point; the AI activates when a remnant is by an enemy it sees",
+    "targeting": "point",
+    "targetTeam": "enemy",
+    "levelsWith": "ember_spirit_fire_remnant",
+    "effects": [
+      {
+        "kind": "onOwnUnits",
+        "unitType": "ember_spirit_remnant",
+        "effects": [
+          {
+            "kind": "area",
+            "radius": "$radius",
+            "center": "target",
+            "team": "enemy",
+            "effects": [
+              {
+                "kind": "damage",
+                "damageType": "magical",
+                "amounts": "$damage"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "kind": "assume",
+        "unitType": "ember_spirit_remnant"
+      },
+      {
+        "kind": "onOwnUnits",
+        "unitType": "ember_spirit_remnant",
+        "consume": true
       }
     ]
   }

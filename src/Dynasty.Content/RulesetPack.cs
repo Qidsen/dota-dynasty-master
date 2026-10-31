@@ -814,6 +814,9 @@ namespace Dynasty.Content
                 case "ifHero":
                     effect = EffectDefinition.IfHero(e.Array("effects").Select(ReadEffect).ToArray());
                     break;
+                case "onOwnUnits":
+                    effect = EffectDefinition.OnOwnUnits(e.String("unitType"), e.OptionalBool("consume") ?? false, e.OptionalArray("effects").Select(ReadEffect).ToArray());
+                    break;
                 case "ifTargetHas":
                     effect = EffectDefinition.IfTargetHas(e.String("modifier"), e.Array("effects").Select(ReadEffect).ToArray());
                     break;

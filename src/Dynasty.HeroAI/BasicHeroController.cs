@@ -1284,6 +1284,16 @@ namespace Dynasty.HeroAI
                         return null;
                     return Math.Within(_hero.Position, focus.Position, reach) ? HeroOrder.Cast(def.Id, focus.Id) : null;
 
+                case AbilityTargeting.Point when def.Effects.FirstOrDefault(e => e.Kind == EffectKind.OnOwnUnits && e.Inner.Count > 0) is EffectDefinition remnants:
+                {
+                    // Activate Fire Remnant: worth it with a remnant of the hero's by an enemy it sees; it ends at the one closest to the focus.
+                    int blast = AllEffects(remnants.Inner).Where(e => e.Kind == EffectKind.Area).Select(e => e.Radius).DefaultIfEmpty(300).Max();
+                    HeroDecision ember = this;
+                    bool worth = _state.Units.Any(u => u.IsAlive && u.Owner == ember._hero.Id && u.TypeId == remnants.SummonTypeId &&
+                                                       enemies.Any(e => Math.Within(e.Position, u.Position, blast)));
+                    return worth ? HeroOrder.CastAtPoint(def.Id, focus.Position) : null;
+                }
+
                 case AbilityTargeting.Point when def.Effects.Any(e => e.Kind == EffectKind.Assume):
                     // Reality: to an image of its own at the enemy it fights; none, no cast.
                     HeroDecision owner = this;
@@ -2443,6 +2453,8 @@ namespace Dynasty.HeroAI
     {
         public static bool Within(FixedVector2 a, FixedVector2 b, int range)
         {
+            if (range >= 40000)
+                return true;   // a global range (99999): anywhere, and its square would not fit
             Fixed r = Fixed.FromInt(range);
             return FixedVector2.DistanceSquared(a, b) <= r * r;
         }
