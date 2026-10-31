@@ -14573,5 +14573,35 @@
         }
       ]
     }
+  },
+  "earth_spirit_geomagnetic_grip": {
+    "status": "simplified",
+    "note": "allies only (no Stone Remnants in the engine, so no remnant damage): enemies on the line from Earth Spirit to the ally are silenced, then the ally is pulled to him at once (no travel at pull speed); the AI grips a hurt ally out",
+    "targeting": "unit",
+    "targetTeam": "ally",
+    "castRange": "$cast_range_heroes",
+    "effects": [
+      {
+        "kind": "lineArea",
+        "width": "$radius",
+        "team": "enemy",
+        "effects": [
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "earth_spirit_geomagnetic_grip_debuff",
+              "duration": "$duration",
+              "flags": [
+                "silenced"
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "kind": "pull",
+        "amounts": "$total_pull_distance"
+      }
+    ]
   }
 }
