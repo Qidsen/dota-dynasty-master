@@ -14167,5 +14167,56 @@
         ]
       }
     ]
+  },
+  "pangolier_gyroshell": {
+    "status": "simplified",
+    "note": "Pangolier rolls at full speed at once (no ramp up), turns freely and does not bounce off cliffs or pass trees; no basic dispel on the cast; an enemy within the hit radius takes a share of his attack damage, is knocked back and stunned, struck again only after that stun; the AI rolls into the enemy it fights",
+    "targeting": "noTarget",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "onCaster",
+        "effects": [
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "pangolier_gyroshell",
+              "duration": "$duration",
+              "flags": [
+                "debuffImmune",
+                "disarmed"
+              ],
+              "dispellable": false,
+              "magicResist": "$magic_resistance",
+              "fixedMoveSpeed": "$forward_move_speed",
+              "trampleRadius": "$hit_radius",
+              "trampleMarker": "pangolier_gyroshell_stun",
+              "onTrample": [
+                {
+                  "kind": "damage",
+                  "damageType": "physical",
+                  "scaling": "casterAttackDamagePercent",
+                  "amounts": "$damage_pct"
+                },
+                {
+                  "kind": "knockback",
+                  "amounts": "$knockback_radius"
+                },
+                {
+                  "kind": "modifier",
+                  "modifiers": {
+                    "key": "pangolier_gyroshell_stun",
+                    "duration": "$stun_duration",
+                    "flags": [
+                      "stunned"
+                    ]
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      }
+    ]
   }
 }

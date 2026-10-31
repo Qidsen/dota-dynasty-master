@@ -1049,6 +1049,12 @@ namespace Dynasty.HeroAI
                 return false;   // it gets away: back to farming
             }
 
+            if ((_hero.Flags & ModifierFlags.Disarmed) != 0 && _hero.Modifiers.Any(m => m.Spec.TrampleRadius > 0))
+            {
+                Issue(HeroOrder.Move(focus.Position));   // Gyroshell: no attacks, it rolls into the enemy
+                return true;
+            }
+
             Issue(HeroOrder.Attack(focus.Id));
             return true;
         }
