@@ -13433,5 +13433,44 @@
         }
       }
     ]
+  },
+  "luna_lunar_orbit": {
+    "status": "simplified",
+    "note": "the glaives do not turn: enemies within the glaives' circle and reach take a glaive's hit every 360 degrees / glaives / speed (the project owner), the inner ring too; no Aghanim's Shard",
+    "targeting": "noTarget",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "onCaster",
+        "effects": [
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "luna_lunar_orbit",
+              "duration": "$rotating_glaives_duration",
+              "incomingDamagePercent": "-$rotating_glaives_damage_reduction",
+              "period": "360/$rotating_glaives/$rotating_glaives_speed",
+              "periodicFromBearer": true,
+              "periodicEffects": [
+                {
+                  "kind": "area",
+                  "radius": "$rotating_glaives_movement_radius+$rotating_glaives_hit_radius",
+                  "center": "caster",
+                  "team": "enemy",
+                  "effects": [
+                    {
+                      "kind": "damage",
+                      "damageType": "physical",
+                      "scaling": "casterAttackDamagePercent",
+                      "amounts": "$rotating_glaives_collision_damage"
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        ]
+      }
+    ]
   }
 }

@@ -504,7 +504,7 @@ static class Abilities
         }
     }
 
-    private static bool IsReference(string s) => s.StartsWith("$") || s.StartsWith("-$");
+    private static bool IsReference(string s) => s.Contains('$');   // "$key", "-$key" or an expression with one ("360/$glaives/$speed")
 
     private static JsonArray PerLevel(JsonNode? node, Dictionary<string, JsonNode?> values, int levels, decimal? fallback)
     {
