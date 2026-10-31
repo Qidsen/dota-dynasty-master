@@ -183,6 +183,13 @@ namespace Dynasty.MatchSimulation.Rules
         Consume = 39,
 
         /// <summary>
+        /// The caster travels to the point paying mana (Ball Lightning): <see cref="EffectDefinition.MinDistance"/> hundredths of a percent
+        /// of its max mana to start, then for every 100 units <see cref="EffectDefinition.Amounts"/> plus
+        /// <see cref="EffectDefinition.DamagePercent"/> hundredths of a percent of it; it stops where the mana runs out.
+        /// </summary>
+        ManaTravel = 40,
+
+        /// <summary>
         /// The inner effects on one random enemy the caster's team sees within <see cref="EffectDefinition.Radius"/> that has fewer than
         /// <see cref="EffectDefinition.MaxTargets"/> stacks of the marker <see cref="EffectDefinition.StackKey"/> from the caster; the
         /// marker (the level's modifier) gets a stack (Eclipse's beams). Without a marker: <see cref="EffectDefinition.Amounts"/> strikes
@@ -423,6 +430,10 @@ namespace Dynasty.MatchSimulation.Rules
         /// <summary>See <see cref="DamageScaling.DoublingPerStack"/>.</summary>
         public static EffectDefinition DamageByStacksDoubling(DamageType type, int doublingStacks, int extraPerStack, params int[] stackDamagePerLevel) =>
             new EffectDefinition(EffectKind.Damage, stackDamagePerLevel, type, scaling: DamageScaling.DoublingPerStack, maxTargets: doublingStacks, damagePercent: extraPerStack);
+
+        /// <summary>See <see cref="EffectKind.ManaTravel"/>.</summary>
+        public static EffectDefinition ManaTravel(int startHundredthsOfMax, int flatPerHundred, int perHundredHundredthsOfMax) =>
+            new EffectDefinition(EffectKind.ManaTravel, new[] { flatPerHundred }, minDistance: startHundredthsOfMax, damagePercent: perHundredHundredthsOfMax);
 
         /// <summary>See <see cref="EffectKind.Consume"/>.</summary>
         public static EffectDefinition Consume(string modifierKey) => new EffectDefinition(EffectKind.Consume, stackKey: modifierKey);

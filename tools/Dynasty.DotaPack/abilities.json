@@ -13710,5 +13710,20 @@
         ]
       }
     ]
+  },
+  "storm_spirit_ball_lightning": {
+    "status": "simplified",
+    "note": "the travel is instant (no 1400-2300 flight, no invulnerability on the way); the start costs the ability's mana cost plus the share of the max mana",
+    "targeting": "point",
+    "targetTeam": "enemy",
+    "castRange": 30000,
+    "effects": [
+      {
+        "kind": "manaTravel",
+        "startPercentOfMaxMana": "$ball_lightning_initial_mana_percentage",
+        "perHundredUnits": "$ball_lightning_travel_cost_base",
+        "perHundredUnitsPercentOfMaxMana": "$ball_lightning_travel_cost_percent"
+      }
+    ]
   }
 }

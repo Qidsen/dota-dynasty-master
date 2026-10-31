@@ -489,6 +489,10 @@ namespace Dynasty.MatchSimulation.Systems
                     }
 
                     break;
+                case EffectKind.ManaTravel:
+                    if (caster.Hero != null)
+                        ManaTravel(caster, caster.Hero, effect, level, point);
+                    break;
                 case EffectKind.Consume:
                     foreach (ActiveModifier spent in target.Modifiers.Where(m => m.Spec.Key == effect.StackKey).ToList())
                         Modifiers.Remove(context, target, spent, "consumed");
@@ -756,6 +760,23 @@ namespace Dynasty.MatchSimulation.Systems
             bool immune = target.Team != caster.Team && (target.Flags & ModifierFlags.DebuffImmune) != 0;
             if (!immune)
                 target.Hp = Fixed.FromInt(target.MaxHp) * Fixed.Max(minimum, casterShare);
+        }
+
+        /// <summary>Ball Lightning: the start cost, then as far towards the point as the mana pays for.</summary>
+        private static void ManaTravel(MatchUnit caster, HeroState hero, EffectDefinition effect, int level, FixedVector2 point)
+        {
+            Fixed maxMana = Fixed.FromInt(hero.MaxMana);
+            Fixed start = maxMana * Fixed.FromInt(effect.MinDistance) / Fixed.FromInt(10000);
+            if (hero.Mana < start)
+                return;
+            hero.Mana -= start;
+            Fixed perHundred = Fixed.FromInt(effect.AmountAt(level)) + maxMana * Fixed.FromInt(effect.DamagePercent) / Fixed.FromInt(10000);
+            Fixed wanted = FixedVector2.Distance(caster.Position, point);
+            Fixed affordable = perHundred > Fixed.Zero ? hero.Mana / perHundred * Fixed.FromInt(100) : wanted;
+            Fixed travel = Fixed.Min(wanted, affordable);
+            hero.Mana = Fixed.Max(Fixed.Zero, hero.Mana - travel / Fixed.FromInt(100) * perHundred);
+            caster.Position = FixedVector2.MoveTowards(caster.Position, point, travel);
+            hero.Path = null;
         }
 
         /// <summary>Eclipse: a random enemy the caster's team sees around it, not yet struck the most times; it gets a marker stack.</summary>

@@ -726,6 +726,9 @@ namespace Dynasty.Content
                 case "assume":
                     effect = EffectDefinition.Assume();
                     break;
+                case "manaTravel":
+                    effect = EffectDefinition.ManaTravel(e.OptionalHundredth("startPercentOfMaxMana") ?? 0, e.Int("perHundredUnits"), e.OptionalHundredth("perHundredUnitsPercentOfMaxMana") ?? 0);
+                    break;
                 case "consume":
                     effect = EffectDefinition.Consume(e.String("modifier"));
                     break;
