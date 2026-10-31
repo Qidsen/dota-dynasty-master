@@ -142,7 +142,9 @@ static class Abilities
                                // Time Lapse's five seconds are only in Valve's description (abilities_english.txt), not in the data.
                                (key == "weaver_time_lapse" && path.EndsWith(".back") && number == 5) ||
                                // Eye of the Storm: "each blast targets the lowest health enemy unit" (Valve's note) - one a strike.
-                               (key == "razor_eye_of_the_storm" && path.EndsWith(".maxTargets") && number == 1);
+                               (key == "razor_eye_of_the_storm" && path.EndsWith(".maxTargets") && number == 1) ||
+                               // Exorcism: "deals 50% damage to buildings" is only in Valve's description, not in the data.
+                               (key == "death_prophet_exorcism" && path.EndsWith(".structurePercent") && number == 50);
                 if (!allowed)
                     throw new InvalidDataException($"abilities.json: {key}{path} = {number} is typed by hand; refer to the data (\"$key\")");
                 break;
@@ -450,7 +452,7 @@ static class Abilities
             {
                 "amounts" when effect["levelOf"] != null && node is JsonValue v && v.TryGetValue(out string? text) && IsReference(text) =>
                     new JsonArray(Resolve(text, values).Select(x => (JsonNode)JsonValue.Create(x)!).ToArray()),   // all levels of that other ability
-                "amounts" or "counts" or "floor" or "ceiling" or "durations" or "maxAlive" => PerLevel(node, values, levels, fallback: null),
+                "amounts" or "counts" or "floor" or "ceiling" or "durations" or "maxAlive" or "strikes" => PerLevel(node, values, levels, fallback: null),
                 "modifiers" => node is JsonObject single ? Modifiers(single, values, levels) : node!.DeepClone(),
                 "markerModifier" => ResolveAt(node, values, levels - 1),   // one marker for every level (Eclipse's hits on a unit)
                 "effects" => new JsonArray(node!.AsArray().Select(e => (JsonNode)ResolveEffect(e!.AsObject(), values, levels)).ToArray()),
@@ -481,7 +483,7 @@ static class Abilities
         {
             case JsonValue v when v.TryGetValue(out string? s) && IsReference(s):
                 decimal value = At(Resolve(s, values), level);
-                return field is "amounts" or "counts" ? new JsonArray(JsonValue.Create(value)) : JsonValue.Create(value);
+                return field is "amounts" or "counts" or "strikes" ? new JsonArray(JsonValue.Create(value)) : JsonValue.Create(value);
             case JsonObject obj when field == "modifiers":
                 return new JsonArray(ResolveAt(obj, values, level));
             case JsonObject obj:

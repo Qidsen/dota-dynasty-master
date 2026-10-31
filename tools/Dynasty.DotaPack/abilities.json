@@ -13306,5 +13306,46 @@
         ]
       }
     ]
+  },
+  "death_prophet_exorcism": {
+    "status": "simplified",
+    "note": "every spirit strikes a random enemy unit or building seen around on a timer of its round trip (the radius over the spirit speed), not flying (the project owner); no Aghanim's Scepter ghosts",
+    "targeting": "noTarget",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "onCaster",
+        "effects": [
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "death_prophet_exorcism",
+              "duration": "$abilityduration",
+              "dispellable": false,
+              "period": "$radius/$spirit_speed",
+              "periodicFromBearer": true,
+              "healAtEndPercent": "$heal_percent",
+              "periodicEffects": [
+                {
+                  "kind": "randomStrike",
+                  "radius": "$radius",
+                  "team": "enemy",
+                  "strikes": "$spirits",
+                  "buildings": true,
+                  "effects": [
+                    {
+                      "kind": "damage",
+                      "damageType": "physical",
+                      "amounts": "$average_damage",
+                      "structurePercent": 50
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        ]
+      }
+    ]
   }
 }

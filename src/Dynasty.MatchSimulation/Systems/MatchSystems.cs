@@ -371,7 +371,11 @@ namespace Dynasty.MatchSimulation.Systems
                         }
 
                         if (spec.PeriodicEffects.Count > 0 && spec.PeriodicFromBearer)
+                        {
+                            unit.Draining = spec.HealAtEndPercent > 0 ? modifier : null;
                             Effects.RunSpell(context, unit, spec.PeriodicEffects, 1, unit, unit.Position);
+                            unit.Draining = null;
+                        }
                         else if (spec.PeriodicEffects.Count > 0 && context.State.Find(modifier.Source) is MatchUnit linker && linker.IsAlive)
                             Effects.RunSpell(context, linker, spec.PeriodicEffects, 1, unit, unit.Position);
 

@@ -711,8 +711,11 @@ namespace Dynasty.Content
                     effect = EffectDefinition.LineArea(e.OptionalInt("width") ?? 0, ReadTeam(e, "team"), e.Array("effects").Select(ReadEffect).ToArray());
                     break;
                 case "randomStrike":
-                    effect = EffectDefinition.RandomStrike(e.Int("radius"), ReadTeam(e, "team"), e.String("marker"), e.Int("hitsPerUnit"),
-                        ReadModifier(e.OptionalObject("markerModifier") ?? throw e.Error("markerModifier", "missing")), e.Array("effects").Select(ReadEffect).ToArray());
+                    effect = e.Has("marker")
+                        ? EffectDefinition.RandomStrike(e.Int("radius"), ReadTeam(e, "team"), e.String("marker"), e.Int("hitsPerUnit"),
+                            ReadModifier(e.OptionalObject("markerModifier") ?? throw e.Error("markerModifier", "missing")), e.Array("effects").Select(ReadEffect).ToArray())
+                        : EffectDefinition.RandomStrike(e.Int("radius"), ReadTeam(e, "team"), e.Ints("strikes").ToArray(), e.OptionalBool("buildings") ?? false,
+                            e.Array("effects").Select(ReadEffect).ToArray());
                     break;
                 case "haunt":
                     effect = EffectDefinition.Haunt(e.Milliseconds("duration"), e.Array("modifiers").Select(ReadModifier).ToArray());
@@ -810,6 +813,8 @@ namespace Dynasty.Content
 
             if (e.OptionalString("levelOf") is string levelOf)
                 effect.LevelledBy(levelOf);   // Eclipse's beams at Lucent Beam's level
+            if (e.OptionalInt("structurePercent") is int structurePercent)
+                effect.WithStructurePercent(structurePercent);   // Exorcism's half to buildings
             e.RejectUnknown();
             return effect;
         }
@@ -948,7 +953,7 @@ namespace Dynasty.Content
                 critEveryAttacks: m.OptionalInt("critEveryAttacks") ?? 0, critHealPercent: m.OptionalInt("critHealPercent") ?? 0,
                 critHealRadius: m.OptionalInt("critHealRadius") ?? 0, critHealAlliesPercent: m.OptionalInt("critHealAlliesPercent") ?? 0,
                 critHealCreepPercent: m.OptionalInt("critHealCreepPercent") ?? 100,
-                onEnd: m.OptionalArray("onEnd").Select(ReadEffect).ToList(),
+                onEnd: m.OptionalArray("onEnd").Select(ReadEffect).ToList(), healAtEndPercent: m.OptionalInt("healAtEndPercent") ?? 0,
                 cooldownSlowPercent: m.OptionalInt("cooldownSlowPercent") ?? 0, stacksPerCooldown: m.OptionalBool("stacksPerCooldown") ?? false,
                 anchorChain: m.OptionalInt("anchorChain") ?? 0, anchorDragSpeed: m.OptionalInt("anchorDragSpeed") ?? 0, redirectsSpells: m.OptionalBool("redirectsSpells") ?? false,
                 thirstMoveSpeedPercent: m.OptionalInt("thirstMoveSpeedPercent") ?? 0, thirstFromHealthPercent: m.OptionalInt("thirstFromHealthPercent") ?? 100,

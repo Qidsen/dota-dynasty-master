@@ -258,6 +258,9 @@ namespace Dynasty.MatchSimulation
         /// <summary>Thirst's movement speed now, in hundredths of a percent (worked out every tick by the thirst system).</summary>
         internal int ThirstHundredths { get; set; }
 
+        /// <summary>The modifier whose periodic effects the unit is running, summing their damage (Exorcism); null otherwise.</summary>
+        internal Combat.ActiveModifier? Draining { get; set; }
+
         /// <summary>The stacks of a modifier ending on the unit while its end effects run (Shadow Poison).</summary>
         internal int EndingStacks { get; set; }
 

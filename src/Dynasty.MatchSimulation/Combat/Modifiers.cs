@@ -249,8 +249,10 @@ namespace Dynasty.MatchSimulation.Combat
             bool redirectsSpells = false,
             int cooldownSlowPercent = 0,
             bool stacksPerCooldown = false,
-            IReadOnlyList<Rules.EffectDefinition>? onEnd = null)
+            IReadOnlyList<Rules.EffectDefinition>? onEnd = null,
+            int healAtEndPercent = 0)
         {
+            HealAtEndPercent = healAtEndPercent;
             OnEnd = onEnd?.ToArray() ?? System.Array.Empty<Rules.EffectDefinition>();
             CooldownSlowPercent = cooldownSlowPercent;
             StacksPerCooldown = stacksPerCooldown;
@@ -759,6 +761,9 @@ namespace Dynasty.MatchSimulation.Combat
         /// </summary>
         public IReadOnlyList<Rules.EffectDefinition> OnEnd { get; }
 
+        /// <summary>Exorcism: when the modifier runs out the bearer heals by this share of the damage its periodic effects dealt.</summary>
+        public int HealAtEndPercent { get; }
+
         /// <summary>Time Dilation: the bearer's ability cooldowns (not items') run this much slower.</summary>
         public int CooldownSlowPercent { get; }
 
@@ -990,7 +995,7 @@ namespace Dynasty.MatchSimulation.Combat
                                           BaseArmorReductionPercent, BaseMagicResistReductionPercent, AttackDamageHundredths,
                                           CritEveryAttacks, CritHealPercent, CritHealRadius, CritHealAlliesPercent, CritHealCreepPercent,
                                           ThirstMoveSpeedPercent, ThirstFromHealthPercent, ThirstFullBelowHealthPercent, RevealsBelowHealthPercent,
-                                          AnchorChain, AnchorDragSpeed, CooldownSlowPercent })
+                                          AnchorChain, AnchorDragSpeed, CooldownSlowPercent, HealAtEndPercent })
                 w.WriteInt64(value);
             w.WriteBool(ReturnsOnExpiry);
             w.WriteBool(PeriodicFromBearer);
@@ -1035,6 +1040,9 @@ namespace Dynasty.MatchSimulation.Combat
 
         /// <summary>Where the bearer was when it got the modifier (<see cref="ModifierSpec.ReturnsOnExpiry"/>).</summary>
         internal FixedVector2 Mark { get; set; }
+
+        /// <summary>Damage the bearer's periodic effects of this modifier dealt (Exorcism's heal at the end).</summary>
+        internal Fixed Drained { get; set; }
 
         /// <summary>Time Dilation's lag in hundredths of a tick, not yet added to the cooldowns.</summary>
         internal int CooldownLag { get; set; }
@@ -1180,6 +1188,8 @@ namespace Dynasty.MatchSimulation.Combat
         internal static void Remove(SimulationContext<MatchState> context, MatchUnit target, ActiveModifier modifier, string reason)
         {
             target.RemoveModifier(modifier);
+            if (modifier.Spec.HealAtEndPercent > 0 && reason == "expired" && target.IsAlive && modifier.Drained > Fixed.Zero)
+                Damage.Heal(context, target.Id, target, modifier.Drained * Fixed.FromInt(modifier.Spec.HealAtEndPercent) / Fixed.FromInt(100));
             if (modifier.Spec.OnEnd.Count > 0 && (reason == "expired" || reason == "released") && target.IsAlive)
             {
                 // Shadow Poison: the deferred damage, by the stacks the poison had.

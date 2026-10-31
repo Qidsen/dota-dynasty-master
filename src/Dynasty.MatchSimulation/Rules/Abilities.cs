@@ -181,7 +181,8 @@ namespace Dynasty.MatchSimulation.Rules
         /// <summary>
         /// The inner effects on one random enemy the caster's team sees within <see cref="EffectDefinition.Radius"/> that has fewer than
         /// <see cref="EffectDefinition.MaxTargets"/> stacks of the marker <see cref="EffectDefinition.StackKey"/> from the caster; the
-        /// marker (the level's modifier) gets a stack (Eclipse's beams).
+        /// marker (the level's modifier) gets a stack (Eclipse's beams). Without a marker: <see cref="EffectDefinition.Amounts"/> strikes
+        /// per run, each at random, enemy buildings that can be hurt too when <see cref="EffectDefinition.Strong"/> (Exorcism's spirits).
         /// </summary>
         RandomStrike = 38,
     }
@@ -326,6 +327,16 @@ namespace Dynasty.MatchSimulation.Rules
         /// </summary>
         public string? LevelOf { get; private set; }
 
+        /// <summary>Damage only: the share of it a building takes (Exorcism: 50); 0 for the full damage.</summary>
+        public int StructurePercent { get; private set; }
+
+        /// <summary>The damage with <paramref name="percent"/> of it to buildings (see <see cref="StructurePercent"/>).</summary>
+        public EffectDefinition WithStructurePercent(int percent)
+        {
+            StructurePercent = percent;
+            return this;
+        }
+
         /// <summary>The effect at the caster's level of <paramref name="abilityId"/> (see <see cref="LevelOf"/>).</summary>
         public EffectDefinition LevelledBy(string abilityId)
         {
@@ -399,6 +410,14 @@ namespace Dynasty.MatchSimulation.Rules
         /// <summary>See <see cref="EffectKind.RandomStrike"/>.</summary>
         public static EffectDefinition RandomStrike(int radius, TargetTeam team, string markerKey, int hitsPerUnit, ModifierSpec marker, params EffectDefinition[] inner) =>
             new EffectDefinition(EffectKind.RandomStrike, radius: radius, team: team, stackKey: markerKey, maxTargets: hitsPerUnit, modifiers: new[] { marker }, inner: inner);
+
+        /// <summary><paramref name="strikesPerLevel"/> random strikes a run without a marker, on enemy buildings too when <paramref name="buildings"/> (Exorcism).</summary>
+        public static EffectDefinition RandomStrike(int radius, TargetTeam team, int[] strikesPerLevel, bool buildings, params EffectDefinition[] inner) =>
+            new EffectDefinition(EffectKind.RandomStrike, strikesPerLevel, radius: radius, team: team, strong: buildings, inner: inner);
+
+        /// <summary>Overload for a single level.</summary>
+        public static EffectDefinition RandomStrike(int radius, TargetTeam team, int strikes, bool buildings, params EffectDefinition[] inner) =>
+            RandomStrike(radius, team, new[] { strikes }, buildings, inner);
 
         /// <summary>See <see cref="EffectKind.Haunt"/>.</summary>
         public static EffectDefinition Haunt(int durationMs, ModifierSpec[] modifierPerLevel) =>
@@ -627,6 +646,7 @@ namespace Dynasty.MatchSimulation.Rules
             w.WriteInt64(MaxTargets);
             w.WriteBool(LowestHealthFirst);
             w.WriteString(LevelOf ?? "");
+            w.WriteInt64(StructurePercent);
             foreach (IReadOnlyList<int> bound in new[] { Floor, Ceiling })
             {
                 w.WriteInt64(bound.Count);
