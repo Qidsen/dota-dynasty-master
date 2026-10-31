@@ -252,8 +252,12 @@ namespace Dynasty.MatchSimulation.Combat
             IReadOnlyList<Rules.EffectDefinition>? onEnd = null,
             int healAtEndPercent = 0,
             int onHeroDamageAtLeast = 0,
-            IReadOnlyList<Rules.EffectDefinition>? onHeroDamage = null)
+            IReadOnlyList<Rules.EffectDefinition>? onHeroDamage = null,
+            bool delaysHealth = false,
+            int delayedHealAmpPercent = 0)
         {
+            DelaysHealth = delaysHealth;
+            DelayedHealAmpPercent = delayedHealAmpPercent;
             OnHeroDamageAtLeast = onHeroDamageAtLeast;
             OnHeroDamage = onHeroDamage?.ToArray() ?? System.Array.Empty<Rules.EffectDefinition>();
             HealAtEndPercent = healAtEndPercent;
@@ -773,6 +777,14 @@ namespace Dynasty.MatchSimulation.Combat
 
         public IReadOnlyList<Rules.EffectDefinition> OnHeroDamage { get; }
 
+        /// <summary>
+        /// False Promise: damage and healing to the bearer wait until the modifier ends; then the healing, amplified by
+        /// <see cref="DelayedHealAmpPercent"/>, and after it the damage, reduced as the bearer stands then, from who dealt it.
+        /// </summary>
+        public bool DelaysHealth { get; }
+
+        public int DelayedHealAmpPercent { get; }
+
         /// <summary>Exorcism: when the modifier runs out the bearer heals by this share of the damage its periodic effects dealt.</summary>
         public int HealAtEndPercent { get; }
 
@@ -1007,12 +1019,13 @@ namespace Dynasty.MatchSimulation.Combat
                                           BaseArmorReductionPercent, BaseMagicResistReductionPercent, AttackDamageHundredths,
                                           CritEveryAttacks, CritHealPercent, CritHealRadius, CritHealAlliesPercent, CritHealCreepPercent,
                                           ThirstMoveSpeedPercent, ThirstFromHealthPercent, ThirstFullBelowHealthPercent, RevealsBelowHealthPercent,
-                                          AnchorChain, AnchorDragSpeed, CooldownSlowPercent, HealAtEndPercent, OnHeroDamageAtLeast })
+                                          AnchorChain, AnchorDragSpeed, CooldownSlowPercent, HealAtEndPercent, OnHeroDamageAtLeast, DelayedHealAmpPercent })
                 w.WriteInt64(value);
             w.WriteBool(ReturnsOnExpiry);
             w.WriteBool(PeriodicFromBearer);
             w.WriteBool(RedirectsSpells);
             w.WriteBool(StacksPerCooldown);
+            w.WriteBool(DelaysHealth);
             w.WriteInt64(PeriodicEffects.Count);
             foreach (Rules.EffectDefinition effect in PeriodicEffects)
                 effect.WriteCanonical(w);
@@ -1052,6 +1065,11 @@ namespace Dynasty.MatchSimulation.Combat
 
         /// <summary>Where the bearer was when it got the modifier (<see cref="ModifierSpec.ReturnsOnExpiry"/>).</summary>
         internal FixedVector2 Mark { get; set; }
+
+        /// <summary>False Promise: the damage held off (who, how much before reductions, of what type) and the healing held off.</summary>
+        internal List<(EntityId Attacker, Fixed Raw, DamageType Type)> HeldDamage { get; } = new List<(EntityId, Fixed, DamageType)>();
+
+        internal Fixed HeldHealing { get; set; }
 
         /// <summary>Damage the bearer's periodic effects of this modifier dealt (Exorcism's heal at the end).</summary>
         internal Fixed Drained { get; set; }
@@ -1200,6 +1218,8 @@ namespace Dynasty.MatchSimulation.Combat
         internal static void Remove(SimulationContext<MatchState> context, MatchUnit target, ActiveModifier modifier, string reason)
         {
             target.RemoveModifier(modifier);
+            if (modifier.Spec.DelaysHealth && target.IsAlive)
+                Damage.KeepPromise(context, target, modifier);
             if (modifier.Spec.HealAtEndPercent > 0 && reason == "expired" && target.IsAlive && modifier.Drained > Fixed.Zero)
                 Damage.Heal(context, target.Id, target, modifier.Drained * Fixed.FromInt(modifier.Spec.HealAtEndPercent) / Fixed.FromInt(100));
             if (modifier.Spec.OnEnd.Count > 0 && (reason == "expired" || reason == "released") && target.IsAlive)
@@ -1257,6 +1277,11 @@ namespace Dynasty.MatchSimulation.Combat
         {
             if (!target.IsAlive || target.Kind == UnitKind.Outpost || (target.Flags & ModifierFlags.Invulnerable) != 0)
                 return Fixed.Zero;
+            if (Promised(target) is ActiveModifier promise)
+            {
+                promise.HeldDamage.Add((attacker, rawAmount, type));   // False Promise: it comes at the end
+                return Fixed.Zero;
+            }
 
             MatchUnit? from = attacker.IsValid ? context.State.Find(attacker) : null;
             List<(MatchUnit Unit, Fixed Amount)>? reflections = reflected ? null : Reflections(context.State, target, ref rawAmount);
@@ -1363,6 +1388,27 @@ namespace Dynasty.MatchSimulation.Combat
             }
 
             return amount;
+        }
+
+        /// <summary>The False Promise holding off the unit's damage and healing, if any.</summary>
+        private static ActiveModifier? Promised(MatchUnit target)
+        {
+            foreach (ActiveModifier modifier in target.Modifiers)
+            {
+                if (modifier.Spec.DelaysHealth)
+                    return modifier;
+            }
+
+            return null;
+        }
+
+        /// <summary>False Promise ends: the healing held off, amplified, then the damage held off as the bearer stands now.</summary>
+        internal static void KeepPromise(SimulationContext<MatchState> context, MatchUnit target, ActiveModifier promise)
+        {
+            if (promise.HeldHealing > Fixed.Zero)
+                Heal(context, target.Id, target, promise.HeldHealing * Fixed.FromInt(100 + promise.Spec.DelayedHealAmpPercent) / Fixed.FromInt(100));
+            foreach (var (attacker, raw, type) in promise.HeldDamage)
+                Deal(context, attacker, target, raw, type);
         }
 
         /// <summary>Uproar: a big enough instance of damage from an enemy hero runs the bearer's effects for it.</summary>
@@ -1556,6 +1602,11 @@ namespace Dynasty.MatchSimulation.Combat
         {
             if (!target.IsAlive)
                 return Fixed.Zero;
+            if (Promised(target) is ActiveModifier promise)
+            {
+                promise.HeldHealing += amount;   // False Promise: it comes at the end, amplified
+                return Fixed.Zero;
+            }
 
             Fixed before = target.Hp;
             target.Hp = Fixed.Min(Fixed.FromInt(target.MaxHp), target.Hp + amount);

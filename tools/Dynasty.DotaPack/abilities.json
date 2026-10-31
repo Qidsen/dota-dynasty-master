@@ -13411,5 +13411,27 @@
         ]
       }
     ]
+  },
+  "oracle_false_promise": {
+    "status": "simplified",
+    "note": "at the end the healing (doubled) comes first, then the damage (the project owner); health regeneration is not held off; the target does not turn invisible",
+    "targeting": "unit",
+    "targetTeam": "ally",
+    "effects": [
+      {
+        "kind": "dispel",
+        "strong": true
+      },
+      {
+        "kind": "modifier",
+        "modifiers": {
+          "key": "oracle_false_promise",
+          "duration": "$duration",
+          "dispellable": false,
+          "delaysHealth": true,
+          "delayedHealAmpPercent": "$heal_amp_pct"
+        }
+      }
+    ]
   }
 }
