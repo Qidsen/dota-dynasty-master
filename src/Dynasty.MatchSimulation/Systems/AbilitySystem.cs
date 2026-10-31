@@ -1214,6 +1214,15 @@ namespace Dynasty.MatchSimulation.Systems
                     unit.StartPosition = point;
                 }
 
+                if (effect.RowLength > 0 && count > 1 && point != caster.Position)
+                {
+                    // Burning Army: evenly along a row through the point, across the way from the caster.
+                    FixedVector2 way = point - caster.Position;
+                    FixedVector2 across = new FixedVector2(-way.Y, way.X) * (Fixed.FromInt(effect.RowLength) / way.Length);
+                    unit.Position = point + across * (Fixed.FromInt(2 * i - (count - 1)) / Fixed.FromInt(2 * (count - 1)));
+                    unit.StartPosition = unit.Position;
+                }
+
                 if (effect.RingRadius > 0)
                 {
                     // Wukong's Command: evenly round a ring about the point (or the caster).

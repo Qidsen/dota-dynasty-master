@@ -392,6 +392,16 @@ namespace Dynasty.MatchSimulation.Rules
         /// <summary>Summons only: placed evenly round a ring of this radius about the point (Wukong's soldiers); 0 for the usual place.</summary>
         public int RingRadius { get; private set; }
 
+        /// <summary>Summons only: placed evenly along a row this long through the point, across the way from the caster (Burning Army).</summary>
+        public int RowLength { get; private set; }
+
+        /// <summary>The summons in a row (see <see cref="RowLength"/>).</summary>
+        public EffectDefinition InRow(int length)
+        {
+            RowLength = length;
+            return this;
+        }
+
         /// <summary>The summons round a ring (see <see cref="RingRadius"/>).</summary>
         public EffectDefinition InRing(int radius)
         {
@@ -782,6 +792,7 @@ namespace Dynasty.MatchSimulation.Rules
             w.WriteInt64(StructurePercent);
             w.WriteString(StacksFrom ?? "");
             w.WriteInt64(RingRadius);
+            w.WriteInt64(RowLength);
             foreach (IReadOnlyList<int> bound in new[] { Floor, Ceiling })
             {
                 w.WriteInt64(bound.Count);

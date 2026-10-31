@@ -15179,5 +15179,41 @@
         ]
       }
     ]
+  },
+  "clinkz_burning_army": {
+    "status": "simplified",
+    "note": "Aghanim's Scepter; the archers appear at once in a row across the cast through the point, last Skeleton Walk's skeleton duration and deal less to buildings like its skeletons; they attack with their own data (no Clinkz damage share), take damage like other units (no hits-based health)",
+    "grantedBy": "scepter",
+    "targeting": "point",
+    "targetTeam": "enemy",
+    "valuesFrom": {
+      "walk_": "clinkz_wind_walk"
+    },
+    "unitTypes": [
+      {
+        "id": "clinkz_skeleton_archer",
+        "gameUnit": "npc_dota_clinkz_skeleton_archer"
+      }
+    ],
+    "effects": [
+      {
+        "kind": "summon",
+        "unitType": "clinkz_skeleton_archer",
+        "counts": "$count",
+        "atPoint": true,
+        "rowLength": "$range",
+        "duration": "$walk_skeleton_duration",
+        "effects": [
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "clinkz_burning_army_archer",
+              "structureDamage": "-$walk_skeleton_building_damage_reduction",
+              "dispellable": false
+            }
+          }
+        ]
+      }
+    ]
   }
 }

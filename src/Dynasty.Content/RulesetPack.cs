@@ -778,6 +778,8 @@ namespace Dynasty.Content
                         : EffectDefinition.Summon(unit, duration, e.OptionalBool("atPoint") == true, counts, e.OptionalArray("effects").Select(ReadEffect).ToArray());
                     if (e.OptionalInt("ringRadius") is int ring)
                         effect.InRing(ring);   // Wukong's soldiers
+                    if (e.OptionalInt("rowLength") is int row)
+                        effect.InRow(row);   // Burning Army
                     break;
                 case "teleport":
                     effect = EffectDefinition.Teleport();
