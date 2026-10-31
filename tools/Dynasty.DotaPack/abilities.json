@@ -12979,5 +12979,34 @@
         }
       }
     ]
+  },
+  "faceless_void_time_dilation": {
+    "status": "simplified",
+    "note": "the duration is not paused inside Chronosphere",
+    "targeting": "noTarget",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "area",
+        "radius": "$radius",
+        "center": "caster",
+        "team": "enemy",
+        "effects": [
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "faceless_void_time_dilation",
+              "duration": "$duration",
+              "moveSpeedPercent": "-$slow",
+              "attackSpeed": "-$attack_slow_tooltip_only",
+              "damagePerSecond": "$damage_per_stack",
+              "damageType": "magical",
+              "cooldownSlowPercent": "$cooldown_percentage",
+              "stacksPerCooldown": true
+            }
+          }
+        ]
+      }
+    ]
   }
 }

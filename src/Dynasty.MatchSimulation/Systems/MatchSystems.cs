@@ -347,6 +347,8 @@ namespace Dynasty.MatchSimulation.Systems
                     unit.Recalculate();   // Berserker's Blood follows the health
                 ModifierFading.FadeWhenIdle(context, unit, now);
                 ModifierFading.BreakLinks(context, unit);
+                if (unit.Hero != null)
+                    ModifierFading.Dilate(unit, now);
                 _scratch.Clear();
                 _scratch.AddRange(unit.Modifiers);
                 foreach (ActiveModifier modifier in _scratch)
@@ -698,6 +700,43 @@ namespace Dynasty.MatchSimulation.Systems
                 MatchUnit? caster = context.State.Find(link.Source);
                 if (caster == null || !caster.IsAlive || !Geometry.WithinRange(unit.Position, caster.Position, link.Spec.BreakDistance))
                     Modifiers.Remove(context, unit, link, "link_broken");
+            }
+        }
+
+        /// <summary>
+        /// Time Dilation: the stacks follow the abilities on cooldown (one of its own and one each), and the cooldowns of abilities (not
+        /// items) are pushed back by the slow's share of every tick.
+        /// </summary>
+        internal static void Dilate(MatchUnit unit, long now)
+        {
+            foreach (ActiveModifier dilation in unit.Modifiers)
+            {
+                ModifierSpec spec = dilation.Spec;
+                if (spec.CooldownSlowPercent == 0 && !spec.StacksPerCooldown)
+                    continue;
+                int cooling = 0;
+                foreach (Heroes.AbilityState ability in unit.Hero!.Abilities)
+                {
+                    if (ability.Level > 0 && ability.CooldownReadyTick > now)
+                        cooling++;
+                }
+
+                if (spec.StacksPerCooldown && dilation.Stacks != 1 + cooling)
+                {
+                    dilation.Stacks = 1 + cooling;
+                    unit.Recalculate();
+                }
+
+                dilation.CooldownLag += spec.CooldownSlowPercent;
+                while (dilation.CooldownLag >= 100)
+                {
+                    dilation.CooldownLag -= 100;
+                    foreach (Heroes.AbilityState ability in unit.Hero!.Abilities)
+                    {
+                        if (ability.Level > 0 && ability.CooldownReadyTick > now)
+                            ability.CooldownReadyTick++;
+                    }
+                }
             }
         }
 

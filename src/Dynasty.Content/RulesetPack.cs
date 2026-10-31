@@ -923,6 +923,7 @@ namespace Dynasty.Content
                 critEveryAttacks: m.OptionalInt("critEveryAttacks") ?? 0, critHealPercent: m.OptionalInt("critHealPercent") ?? 0,
                 critHealRadius: m.OptionalInt("critHealRadius") ?? 0, critHealAlliesPercent: m.OptionalInt("critHealAlliesPercent") ?? 0,
                 critHealCreepPercent: m.OptionalInt("critHealCreepPercent") ?? 100,
+                cooldownSlowPercent: m.OptionalInt("cooldownSlowPercent") ?? 0, stacksPerCooldown: m.OptionalBool("stacksPerCooldown") ?? false,
                 anchorChain: m.OptionalInt("anchorChain") ?? 0, anchorDragSpeed: m.OptionalInt("anchorDragSpeed") ?? 0, redirectsSpells: m.OptionalBool("redirectsSpells") ?? false,
                 thirstMoveSpeedPercent: m.OptionalInt("thirstMoveSpeedPercent") ?? 0, thirstFromHealthPercent: m.OptionalInt("thirstFromHealthPercent") ?? 100,
                 thirstFullBelowHealthPercent: m.OptionalInt("thirstFullBelowHealthPercent") ?? 0, revealsBelowHealthPercent: m.OptionalInt("revealsBelowHealthPercent") ?? 0, growsWithChannelMs: m.OptionalMilliseconds("growsWithChannel") ?? 0,

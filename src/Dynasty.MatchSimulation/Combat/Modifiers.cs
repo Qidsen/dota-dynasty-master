@@ -246,8 +246,12 @@ namespace Dynasty.MatchSimulation.Combat
             int revealsBelowHealthPercent = 0,
             int anchorChain = 0,
             int anchorDragSpeed = 0,
-            bool redirectsSpells = false)
+            bool redirectsSpells = false,
+            int cooldownSlowPercent = 0,
+            bool stacksPerCooldown = false)
         {
+            CooldownSlowPercent = cooldownSlowPercent;
+            StacksPerCooldown = stacksPerCooldown;
             AnchorChain = anchorChain;
             AnchorDragSpeed = anchorDragSpeed;
             RedirectsSpells = redirectsSpells;
@@ -747,6 +751,12 @@ namespace Dynasty.MatchSimulation.Combat
         /// </summary>
         public bool RedirectsSpells { get; }
 
+        /// <summary>Time Dilation: the bearer's ability cooldowns (not items') run this much slower.</summary>
+        public int CooldownSlowPercent { get; }
+
+        /// <summary>Time Dilation: the modifier has one stack and one more for every ability of the bearer on cooldown, worked out every tick.</summary>
+        public bool StacksPerCooldown { get; }
+
         /// <summary>Sets the bearer's base attack time while it lasts (Lil' Shredder); 0: the unit's own.</summary>
         public int BaseAttackTimeMs { get; }
 
@@ -972,11 +982,12 @@ namespace Dynasty.MatchSimulation.Combat
                                           BaseArmorReductionPercent, BaseMagicResistReductionPercent, AttackDamageHundredths,
                                           CritEveryAttacks, CritHealPercent, CritHealRadius, CritHealAlliesPercent, CritHealCreepPercent,
                                           ThirstMoveSpeedPercent, ThirstFromHealthPercent, ThirstFullBelowHealthPercent, RevealsBelowHealthPercent,
-                                          AnchorChain, AnchorDragSpeed })
+                                          AnchorChain, AnchorDragSpeed, CooldownSlowPercent })
                 w.WriteInt64(value);
             w.WriteBool(ReturnsOnExpiry);
             w.WriteBool(PeriodicFromBearer);
             w.WriteBool(RedirectsSpells);
+            w.WriteBool(StacksPerCooldown);
             w.WriteInt64(PeriodicEffects.Count);
             foreach (Rules.EffectDefinition effect in PeriodicEffects)
                 effect.WriteCanonical(w);
@@ -1016,6 +1027,9 @@ namespace Dynasty.MatchSimulation.Combat
 
         /// <summary>Where the bearer was when it got the modifier (<see cref="ModifierSpec.ReturnsOnExpiry"/>).</summary>
         internal FixedVector2 Mark { get; set; }
+
+        /// <summary>Time Dilation's lag in hundredths of a tick, not yet added to the cooldowns.</summary>
+        internal int CooldownLag { get; set; }
 
         /// <summary>Attacks counted towards a charged critical strike (<see cref="ModifierSpec.CritEveryAttacks"/>).</summary>
         internal int AttacksCounted { get; set; }
