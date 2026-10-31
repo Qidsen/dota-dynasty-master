@@ -691,6 +691,18 @@ namespace Dynasty.MatchSimulation.Systems
                     }
 
                     break;
+                case EffectKind.OnOwnUnit:
+                    MatchUnit? own = context.State.Units
+                        .Where(u => u.IsAlive && u.Owner == caster.Id && u.TypeId == effect.SummonTypeId && u.ExpiresTick != context.Tick.Value)
+                        .OrderBy(u => (u.Position - caster.Position).LengthSquared).ThenBy(u => u.Id.Value)
+                        .FirstOrDefault();
+                    if (own != null)
+                    {
+                        foreach (EffectDefinition inner in effect.Inner)
+                            RunOne(context, caster, inner, level, own, point);
+                    }
+
+                    break;
                 case EffectKind.IfCasterHas:
                     if (caster.Modifiers.Any(m => m.Spec.Key == effect.StackKey))
                     {

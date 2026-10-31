@@ -203,6 +203,12 @@ namespace Dynasty.MatchSimulation.Rules
         IfCasterHas = 43,
 
         /// <summary>
+        /// Runs the inner effects on the caster's own unit of type <see cref="EffectDefinition.SummonTypeId"/> closest to it (Stone Form on a
+        /// Familiar); nothing when it has none.
+        /// </summary>
+        OnOwnUnit = 44,
+
+        /// <summary>
         /// The inner effects on one random enemy the caster's team sees within <see cref="EffectDefinition.Radius"/> that has fewer than
         /// <see cref="EffectDefinition.MaxTargets"/> stacks of the marker <see cref="EffectDefinition.StackKey"/> from the caster; the
         /// marker (the level's modifier) gets a stack (Eclipse's beams). Without a marker: <see cref="EffectDefinition.Amounts"/> strikes
@@ -597,6 +603,10 @@ namespace Dynasty.MatchSimulation.Rules
         public static EffectDefinition IfHero(params EffectDefinition[] inner) => new EffectDefinition(EffectKind.IfHero, inner: inner);
 
         public static EffectDefinition IfNotHero(params EffectDefinition[] inner) => new EffectDefinition(EffectKind.IfNotHero, inner: inner);
+
+        /// <summary>See <see cref="EffectKind.OnOwnUnit"/>.</summary>
+        public static EffectDefinition OnOwnUnit(string unitTypeId, params EffectDefinition[] inner) =>
+            new EffectDefinition(EffectKind.OnOwnUnit, summonTypeId: unitTypeId, inner: inner);
 
         /// <summary>See <see cref="EffectKind.IfCasterHas"/>.</summary>
         public static EffectDefinition IfCasterHas(string modifierKey, params EffectDefinition[] inner) =>

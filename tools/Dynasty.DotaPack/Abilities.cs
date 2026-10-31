@@ -167,7 +167,7 @@ static class Abilities
     /// <summary>
     /// The ability's data with the values of other abilities it relies on, under a prefix: <c>"valuesFrom": {"deathstrike_":
     /// "undying_tombstone_zombie_deathstrike"}</c> makes that ability's <c>duration</c> available as <c>$deathstrike_duration</c>
-    /// (Tombstone's zombies carry their own ability).
+    /// (Tombstone's zombies carry their own ability); its cooldown and mana cost come as <c>$deathstrike_cd</c> and <c>$deathstrike_mc</c>.
     /// </summary>
     private static JsonObject WithValuesFrom(JsonObject source, JsonObject entry, JsonObject data)
     {
@@ -182,6 +182,11 @@ static class Abilities
             JsonObject donor = data[name]?.AsObject() ?? throw new InvalidDataException("valuesFrom: no ability " + name);
             foreach (JsonNode? attribute in donor["attrib"]?.AsArray() ?? new JsonArray())
                 attributes.Add(new JsonObject { ["key"] = prefix + attribute!["key"]!.GetValue<string>(), ["value"] = attribute["value"]?.DeepClone() });
+            foreach (string own in new[] { "cd", "mc" })
+            {
+                if (donor[own] is JsonNode value)
+                    attributes.Add(new JsonObject { ["key"] = prefix + own, ["value"] = value.DeepClone() });   // its cooldown (Stone Form's)
+            }
         }
 
         return merged;

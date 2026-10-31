@@ -1308,6 +1308,16 @@ namespace Dynasty.HeroAI
                             return null;
                     }
 
+                    if (def.Effects.FirstOrDefault(e => e.Kind == EffectKind.OnOwnUnit) is EffectDefinition onOwn)
+                    {
+                        // Stone Form: on the Familiar closest to the hero, worth it with an enemy within its smash.
+                        HeroDecision visage = this;
+                        MatchUnit? pet = _state.Units.Where(u => u.IsAlive && u.Owner == visage._hero.Id && u.TypeId == onOwn.SummonTypeId)
+                            .OrderBy(u => (u.Position - visage._hero.Position).LengthSquared).ThenBy(u => u.Id.Value).FirstOrDefault();
+                        int smash = SmashRadius(onOwn);
+                        return pet != null && enemies.Any(e => Math.Within(e.Position, pet.Position, smash)) ? HeroOrder.CastNoTarget(def.Id) : null;
+                    }
+
                     if (StasisRadius(def) > 0)
                         return null;   // Song of the Siren makes enemies unhurtable: kept for getting away (StasisToGetAway)
                     if (JauntsTo(def) != null)
@@ -1450,6 +1460,11 @@ namespace Dynasty.HeroAI
 
             return false;
         }
+
+        /// <summary>The radius of the area a unit's modifiers strike when they end (Stone Form's smash); 300 when there is none.</summary>
+        private static int SmashRadius(EffectDefinition onOwn) =>
+            AllEffects(onOwn.Inner).Where(e => e.Kind == EffectKind.ApplyModifier).SelectMany(e => e.Modifiers)
+                .SelectMany(m => m.OnEnd).Where(e => e.Kind == EffectKind.Area).Select(e => e.Radius).DefaultIfEmpty(300).Max();
 
         /// <summary>Health below which a hero with enemy heroes close goes supernova.</summary>
         private const int SunHpPercent = 35;

@@ -14357,5 +14357,96 @@
         ]
       }
     ]
+  },
+  "visage_summon_familiars": {
+    "status": "simplified",
+    "note": "familiars at the top level's stats (summon types do not grow with the level); they attack and follow Visage like other summons, no recall; Stone Form is Visage's self-cast (visage_stone_form_self_cast)",
+    "targeting": "noTarget",
+    "targetTeam": "enemy",
+    "unitTypes": [
+      {
+        "id": "visage_familiar",
+        "gameUnit": "npc_dota_visage_familiar1",
+        "health": "$familiar_hp",
+        "armor": "$familiar_armor",
+        "attackDamageMin": "$familiar_attack_damage",
+        "attackDamageMax": "$familiar_attack_damage",
+        "attackRange": "$familiar_attack_range",
+        "moveSpeed": "$familiar_base_movespeed"
+      }
+    ],
+    "effects": [
+      {
+        "kind": "summon",
+        "unitType": "visage_familiar",
+        "counts": "$familiar_count",
+        "maxAlive": "$familiar_count"
+      }
+    ]
+  },
+  "visage_stone_form_self_cast": {
+    "status": "simplified",
+    "note": "on the Familiar closest to Visage, where it stands (no alt-cast to a point); one cooldown for both Familiars (the Familiar's own Stone Form cooldown); the AI turns one to stone when an enemy is within its smash",
+    "targeting": "noTarget",
+    "targetTeam": "enemy",
+    "levelsWith": "visage_summon_familiars",
+    "valuesFrom": {
+      "familiar_": "visage_summon_familiars_stone_form"
+    },
+    "cooldown": "$familiar_cd",
+    "effects": [
+      {
+        "kind": "onOwnUnit",
+        "unitType": "visage_familiar",
+        "effects": [
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "visage_stone_form",
+              "duration": "$stone_duration",
+              "flags": [
+                "invulnerable",
+                "stunned"
+              ],
+              "dispellable": false,
+              "healPerSecond": "$hp_regen"
+            }
+          },
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "visage_stone_form_landing",
+              "duration": "$stun_delay",
+              "dispellable": false,
+              "onEnd": [
+                {
+                  "kind": "area",
+                  "radius": "$stun_radius",
+                  "center": "target",
+                  "team": "enemy",
+                  "effects": [
+                    {
+                      "kind": "damage",
+                      "damageType": "magical",
+                      "amounts": "$stun_damage"
+                    },
+                    {
+                      "kind": "modifier",
+                      "modifiers": {
+                        "key": "visage_stone_form_stun",
+                        "duration": "$stun_duration",
+                        "flags": [
+                          "stunned"
+                        ]
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        ]
+      }
+    ]
   }
 }
