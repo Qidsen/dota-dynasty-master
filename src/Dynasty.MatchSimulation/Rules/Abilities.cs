@@ -642,8 +642,10 @@ namespace Dynasty.MatchSimulation.Rules
             ChannelSpec? channel = null,
             IReadOnlyList<ModifierSpec>? toggle = null,
             string? levelsWith = null,
-            int autoCastBelowHealth = 0)
+            int autoCastBelowHealth = 0,
+            string? grantedBy = null)
         {
+            GrantedBy = grantedBy;
             AutoCastBelowHealth = autoCastBelowHealth;
             LevelsWith = levelsWith;
             Channel = channel;
@@ -713,6 +715,12 @@ namespace Dynasty.MatchSimulation.Rules
         /// <summary>Learned at level one for free and never levelled with skill points (Dota's innate abilities).</summary>
         public bool Innate { get; }
 
+        /// <summary>
+        /// The upgrade that grants the ability ("scepter" or "shard": Lightning Hands, Nosedive): the hero has it at its one level only
+        /// while it carries the upgrade; it takes no skill points.
+        /// </summary>
+        public string? GrantedBy { get; }
+
         /// <summary>Upgraded versions (talents, Aghanim's Scepter and Shard); the ability itself is the version without upgrades.</summary>
         public IReadOnlyList<AbilityVariant> Variants { get; }
 
@@ -781,6 +789,7 @@ namespace Dynasty.MatchSimulation.Rules
             foreach (ModifierSpec modifier in Toggle)
                 modifier.WriteCanonical(w);
             w.WriteString(LevelsWith ?? "");
+            w.WriteString(GrantedBy ?? "");
             w.WriteInt64(AutoCastBelowHealth);
             w.WriteInt64(Variants.Count);
             foreach (AbilityVariant variant in Variants)

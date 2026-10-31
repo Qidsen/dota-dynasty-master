@@ -12800,5 +12800,129 @@
       "thirstFullBelowHealthPercent": "$max_bonus_pct",
       "revealsBelowHealthPercent": "$visibility_threshold_pct"
     }
+  },
+  "bounty_hunter_wind_walk_ally": {
+    "status": "simplified",
+    "note": "Aghanim's Shard; Shadow Walk of its first level on the ally, without the fade time (as Shadow Walk itself)",
+    "grantedBy": "shard",
+    "targeting": "unit",
+    "targetTeam": "ally",
+    "valuesFrom": {
+      "walk_": "bounty_hunter_wind_walk"
+    },
+    "effects": [
+      {
+        "kind": "modifier",
+        "modifiers": {
+          "key": "bounty_hunter_wind_walk",
+          "duration": "$walk_duration",
+          "flags": [
+            "invisible"
+          ],
+          "moveSpeedPercent": "$walk_bonus_move_speed_pct",
+          "breakOnAction": true
+        }
+      }
+    ]
+  },
+  "juggernaut_swift_slash": {
+    "status": "simplified",
+    "note": "Aghanim's Scepter; a one-second Omnislash with Omnislash's first-level bonuses, whatever its level",
+    "grantedBy": "scepter",
+    "targeting": "unit",
+    "targetTeam": "enemy",
+    "valuesFrom": {
+      "omni_": "juggernaut_omni_slash"
+    },
+    "effects": [
+      {
+        "kind": "onCaster",
+        "effects": [
+          {
+            "kind": "dispel"
+          }
+        ]
+      },
+      {
+        "kind": "slashes",
+        "radius": "$omni_omni_slash_radius",
+        "amounts": "$omni_attack_rate_multiplier*100",
+        "modifiers": {
+          "key": "juggernaut_swift_slash",
+          "duration": "$duration",
+          "damage": "$omni_bonus_damage",
+          "attackSpeed": "$omni_bonus_attack_speed",
+          "flags": [
+            "invulnerable",
+            "busy"
+          ],
+          "dispellable": false
+        }
+      }
+    ]
+  },
+  "viper_nose_dive": {
+    "status": "simplified",
+    "note": "Aghanim's Scepter; Viper lands at the point at once (no 700 dive); the Corrosive Skin effect is of its first level",
+    "grantedBy": "scepter",
+    "targeting": "point",
+    "targetTeam": "enemy",
+    "valuesFrom": {
+      "skin_": "viper_corrosive_skin"
+    },
+    "effects": [
+      {
+        "kind": "dash"
+      },
+      {
+        "kind": "area",
+        "radius": "$corrosive_radius",
+        "center": "caster",
+        "team": "enemy",
+        "effects": [
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "viper_corrosive_skin_debuff",
+              "duration": "$effect_duration",
+              "damagePerSecond": "$skin_damage",
+              "damageType": "magical",
+              "attackSpeed": "-$skin_bonus_attack_speed"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "zuus_lightning_hands": {
+    "status": "simplified",
+    "note": "Aghanim's Shard; always on (Dota lets it be toggled off); the arc is Arc Lightning's simplification (every enemy around the target) at half its damage (rounded to whole numbers), as Arc Lightning's level; illusions do not get the reduced share",
+    "grantedBy": "shard",
+    "levelsWith": "zuus_arc_lightning",
+    "roundWhole": true,
+    "targeting": "passive",
+    "targetTeam": "ally",
+    "valuesFrom": {
+      "arc_": "zuus_arc_lightning"
+    },
+    "passive": {
+      "key": "zuus_lightning_hands",
+      "attackSpeed": "$attack_speed_bonus",
+      "onHit": [
+        {
+          "kind": "area",
+          "radius": "$arc_radius",
+          "center": "target",
+          "team": "enemy",
+          "effects": [
+            {
+              "kind": "damage",
+              "damageType": "magical",
+              "amounts": "$arc_arc_damage*$arc_lightning_damage_pct/100"
+            }
+          ]
+        }
+      ]
+    }
   }
 }

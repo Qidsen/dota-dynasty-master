@@ -618,7 +618,7 @@ namespace Dynasty.Content
                 a.OptionalInts("charges"), a.Has("charges") ? a.Seconds("chargeRestore") : null,
                 a.OptionalArray("variants").Select(v => new AbilityVariant(v.Strings("upgrades"), ReadAbility(v))).ToList(),
                 a.OptionalObject("channel") is Reader c ? ReadChannel(c) : null, a.OptionalArray("toggle").Select(ReadModifier).ToList(),
-                a.OptionalString("levelsWith"), a.OptionalInt("autoCastBelowHealth") ?? 0);
+                a.OptionalString("levelsWith"), a.OptionalInt("autoCastBelowHealth") ?? 0, a.OptionalString("grantedBy"));
             a.RejectUnknown();
             return ability;
         }

@@ -164,7 +164,7 @@ namespace Dynasty.MatchSimulation.Heroes
                 int spent = AttributeBonusLevel;
                 foreach (AbilityState ability in _abilities)
                 {
-                    if (!ability.Definition.Innate && ability.Definition.LevelsWith == null)
+                    if (!ability.Definition.Innate && ability.Definition.LevelsWith == null && ability.Base.GrantedBy == null)
                         spent += ability.Level;
                 }
 
@@ -231,6 +231,9 @@ namespace Dynasty.MatchSimulation.Heroes
         /// <summary>The ability without upgrades (the one listed by the hero).</summary>
         public AbilityDefinition Base { get; }
         public int Level { get; internal set; }
+
+        /// <summary>An ability of Aghanim's Scepter or Shard the hero has now (it carries the upgrade).</summary>
+        public bool Granted { get; internal set; }
 
         /// <summary>First tick the ability can be cast again.</summary>
         public long CooldownReadyTick { get; internal set; }
@@ -381,7 +384,7 @@ namespace Dynasty.MatchSimulation.Heroes
             foreach (string abilityId in state.Definition.SkillPriority)
             {
                 AbilityState? candidate = state.Ability(abilityId);
-                if (candidate != null && !candidate.Definition.Innate && candidate.Definition.LevelsWith == null && (!unlearnedOnly || candidate.Level == 0) && candidate.Level < candidate.Definition.MaxLevel &&
+                if (candidate != null && !candidate.Definition.Innate && candidate.Definition.LevelsWith == null && candidate.Base.GrantedBy == null && (!unlearnedOnly || candidate.Level == 0) && candidate.Level < candidate.Definition.MaxLevel &&
                     candidate.Definition.RequiredHeroLevel[candidate.Level] <= state.Level)
                     return candidate;
             }
@@ -432,11 +435,14 @@ namespace Dynasty.MatchSimulation.Heroes
                 if (next.Definition.Targeting == AbilityTargeting.Passive)
                     Combat.Modifiers.Apply(context, hero, next.Definition.PassiveModifiers[next.Level - 1], hero.Id);
                 context.Emit(new AbilityLearned(hero.Id, next.Definition.Id, next.Level));
-                foreach (AbilityState follower in state.Abilities.Where(a => a.Definition.LevelsWith == next.Definition.Id && a.Level < next.Level && a.Level < a.Definition.MaxLevel))
+                foreach (AbilityState follower in state.Abilities.Where(a => a.Definition.LevelsWith == next.Definition.Id && a.Level < next.Level && a.Level < a.Definition.MaxLevel &&
+                                                                             (a.Base.GrantedBy == null || a.Granted)))
                 {
-                    // Levelled together, for one skill point (Morphling's two Attribute Shifts).
+                    // Levelled together, for one skill point (Morphling's two Attribute Shifts; Lightning Hands with the Shard).
                     follower.Level = System.Math.Min(next.Level, follower.Definition.MaxLevel);
                     follower.GainLevelCharges(follower.Level - 1);
+                    if (follower.Definition.Targeting == AbilityTargeting.Passive && follower.Definition.PassiveModifiers.Count > 0)
+                        Combat.Modifiers.Apply(context, hero, follower.Definition.PassiveModifiers[System.Math.Min(follower.Level, follower.Definition.PassiveModifiers.Count) - 1], hero.Id);
                     context.Emit(new AbilityLearned(hero.Id, follower.Definition.Id, follower.Level));
                 }
             }
@@ -470,6 +476,8 @@ namespace Dynasty.MatchSimulation.Heroes
 
             foreach (AbilityState ability in state.Abilities)
             {
+                if (ability.Base.GrantedBy is string grant && ability.Granted != upgrades.Contains(grant))
+                    Grant(context, state, hero, ability, upgrades.Contains(grant));
                 AbilityDefinition variant = ability.Base.VariantFor(upgrades);
                 if (ReferenceEquals(variant, ability.Definition))
                     continue;
@@ -477,6 +485,28 @@ namespace Dynasty.MatchSimulation.Heroes
                 if (variant.Targeting == AbilityTargeting.Passive && ability.Level > 0)
                     Combat.Modifiers.Apply(context, hero, variant.PassiveModifiers[System.Math.Min(ability.Level, variant.PassiveModifiers.Count) - 1], hero.Id);
             }
+        }
+
+        /// <summary>
+        /// An ability of Aghanim's Scepter or Shard comes with the upgrade and goes with it: at its one level, or at the level of the
+        /// ability it grows with (Lightning Hands with Arc Lightning; none while that one is not learned).
+        /// </summary>
+        private static void Grant(SimulationContext<MatchState> context, HeroState state, MatchUnit hero, AbilityState ability, bool granted)
+        {
+            AbilityDefinition definition = ability.Definition;
+            AbilityState? leader = definition.LevelsWith != null ? state.Abilities.FirstOrDefault(a => a.Definition.Id == definition.LevelsWith) : null;
+            ability.Granted = granted;
+            ability.Level = !granted ? 0 : leader != null ? System.Math.Min(leader.Level, definition.MaxLevel) : 1;
+            if (definition.Targeting == AbilityTargeting.Passive && definition.PassiveModifiers.Count > 0)
+            {
+                foreach (Combat.ActiveModifier modifier in hero.Modifiers.Where(m => definition.PassiveModifiers.Any(p => p.Key == m.Spec.Key)).ToList())
+                    Combat.Modifiers.Remove(context, hero, modifier, "upgrade_lost");
+                if (ability.Level > 0)
+                    Combat.Modifiers.Apply(context, hero, definition.PassiveModifiers[System.Math.Min(ability.Level, definition.PassiveModifiers.Count) - 1], hero.Id);
+            }
+
+            if (ability.Level > 0)
+                context.Emit(new AbilityLearned(hero.Id, definition.Id, ability.Level));
         }
 
         public static void GrantGold(SimulationContext<MatchState> context, MatchUnit hero, int amount, string reason)

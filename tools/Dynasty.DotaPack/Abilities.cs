@@ -74,8 +74,17 @@ static class Abilities
 
                 bool ultimate = slot == visible.Count - 1 && visible.Count >= 4;
                 JsonObject source = WithValuesFrom(data[key]!.AsObject(), entry, data);
-                JsonObject built = Build(key, source, entry, ultimate);
-                AddVariants(hero, built, key, source, entry, ultimate, false, links(hero), heroTalents(node), upgraded, rounded);
+                // Abilities of Aghanim's Scepter or Shard: one level, there only with the upgrade (no skill points).
+                // One that grows with another ability (Lightning Hands with Arc Lightning) keeps that ability's levels.
+                bool granted = entry["grantedBy"] != null;
+                bool oneLevel = granted && entry["levelsWith"] == null;
+                JsonObject built = Build(key, source, entry, ultimate && !granted, innate: oneLevel);
+                if (granted)
+                    built["grantedBy"] = entry["grantedBy"]!.DeepClone();
+                // A share of another ability's damage can come out fractional (Lightning Hands: half of 105): rounded, and reported.
+                if (entry["roundWhole"] is JsonValue round && round.GetValue<bool>())
+                    RoundWholeFields(built, "", key, rounded);
+                AddVariants(hero, built, key, source, entry, ultimate && !granted, oneLevel, links(hero), heroTalents(node), upgraded, rounded);
                 abilities.Add(built);
                 foreach (JsonNode? unit in entry["unitTypes"] as JsonArray ?? new JsonArray())
                     unitTypes.Add(ResolveUnit(unit!.AsObject(), source, gameUnits));
@@ -303,7 +312,7 @@ static class Abilities
     {
         "amounts", "counts", "castRange", "radius", "speed", "damage", "attackSpeed", "magicResist", "maxHealth", "maxMana", "strength", "agility",
         "intelligence", "moveSpeed", "attackRange", "critMultiplier", "structureDamage", "lifesteal", "cleavePercent", "cleaveRadius", "barrier",
-        "attackDamagePercent", "damagePercent", "onHitAfterAttacks", "whenAttackedEvery", "maxStacks", "breakRadius", "extraTargets",
+        "damagePercent", "onHitAfterAttacks", "whenAttackedEvery", "maxStacks", "breakRadius", "extraTargets",
         "extraTargetRadius", "extraTargetDamagePercent", "extraTargetDamageReduction", "extraTargetChance", "attackCharges", "charges", "requiredLevels", "manaCost",
     };
 
