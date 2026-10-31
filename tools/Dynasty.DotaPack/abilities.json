@@ -12924,5 +12924,60 @@
         }
       ]
     }
+  },
+  "tidehunter_dead_in_the_water": {
+    "status": "simplified",
+    "note": "Aghanim's Shard; the anchor cannot be destroyed by attacks (4 hero attacks in Dota)",
+    "grantedBy": "shard",
+    "targeting": "unit",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "projectile",
+        "speed": "$projectile_speed",
+        "effects": [
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "tidehunter_dead_in_the_water",
+              "duration": "$duration",
+              "anchorChain": "$chain_length",
+              "anchorDragSpeed": "$max_movement_speed"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "spirit_breaker_planar_pocket": {
+    "status": "simplified",
+    "note": "Aghanim's Shard; only spells aimed at the chosen hero itself are taken (not those on units around it); items are not taken",
+    "grantedBy": "shard",
+    "targeting": "unit",
+    "targetTeam": "any",
+    "effects": [
+      {
+        "kind": "onCaster",
+        "effects": [
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "spirit_breaker_planar_pocket_resistance",
+              "duration": "$duration",
+              "magicResist": "$magic_resistance"
+            }
+          }
+        ]
+      },
+      {
+        "kind": "modifier",
+        "modifiers": {
+          "key": "spirit_breaker_planar_pocket",
+          "duration": "$duration",
+          "redirectsSpells": true,
+          "breakDistance": "$break_distance"
+        }
+      }
+    ]
   }
 }

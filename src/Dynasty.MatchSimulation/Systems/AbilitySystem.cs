@@ -129,6 +129,10 @@ namespace Dynasty.MatchSimulation.Systems
                 return;
             }
 
+            // Planar Pocket: the pocket's caster takes a unit-targeted ability its enemies cast on the pocketed hero.
+            if (definition.Targeting == AbilityTargeting.Unit && hero.Abilities.Contains(ability) && Effects.Pocketed(context.State, target, caster) is MatchUnit pocket)
+                target = pocket;
+
             if (ToggledOn(caster, definition) is ActiveModifier on)
             {
                 hero.CastEndTick = -1;
@@ -818,6 +822,18 @@ namespace Dynasty.MatchSimulation.Systems
             bound.LeashDistance = leash;
             other.Partner = target.Id;
             other.LeashDistance = leash;
+        }
+
+        /// <summary>The Planar Pocket caster that takes <paramref name="caster"/>'s ability aimed at <paramref name="target"/>, if any.</summary>
+        internal static MatchUnit? Pocketed(MatchState state, MatchUnit target, MatchUnit caster)
+        {
+            foreach (ActiveModifier modifier in target.Modifiers)
+            {
+                if (modifier.Spec.RedirectsSpells && state.Find(modifier.Source) is MatchUnit pocket && pocket.IsAlive && pocket != target && pocket.Team != caster.Team)
+                    return pocket;
+            }
+
+            return null;
         }
 
         /// <summary>The unit a Soulbind ties the target to, if any (its unit-targeted abilities are copied there).</summary>

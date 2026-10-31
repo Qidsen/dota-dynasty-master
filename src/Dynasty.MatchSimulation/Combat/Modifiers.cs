@@ -243,8 +243,14 @@ namespace Dynasty.MatchSimulation.Combat
             int thirstMoveSpeedPercent = 0,
             int thirstFromHealthPercent = 100,
             int thirstFullBelowHealthPercent = 0,
-            int revealsBelowHealthPercent = 0)
+            int revealsBelowHealthPercent = 0,
+            int anchorChain = 0,
+            int anchorDragSpeed = 0,
+            bool redirectsSpells = false)
         {
+            AnchorChain = anchorChain;
+            AnchorDragSpeed = anchorDragSpeed;
+            RedirectsSpells = redirectsSpells;
             ThirstMoveSpeedPercent = thirstMoveSpeedPercent;
             ThirstFromHealthPercent = thirstFromHealthPercent;
             ThirstFullBelowHealthPercent = thirstFullBelowHealthPercent;
@@ -727,6 +733,20 @@ namespace Dynasty.MatchSimulation.Combat
         /// <summary>Thirst: enemy heroes below this share of their health are seen by the bearer's team, invisible or not.</summary>
         public int RevealsBelowHealthPercent { get; }
 
+        /// <summary>
+        /// Dead in the Water: the bearer moves freely within this distance of the anchor (where it was when the modifier came) and
+        /// beyond it only at <see cref="AnchorDragSpeed"/>, dragging the anchor along.
+        /// </summary>
+        public int AnchorChain { get; }
+
+        public int AnchorDragSpeed { get; }
+
+        /// <summary>
+        /// Planar Pocket: a unit-targeted ability (not an item) the modifier's caster's enemies cast on the bearer goes to the caster
+        /// instead (the link breaks with <see cref="BreakDistance"/>).
+        /// </summary>
+        public bool RedirectsSpells { get; }
+
         /// <summary>Sets the bearer's base attack time while it lasts (Lil' Shredder); 0: the unit's own.</summary>
         public int BaseAttackTimeMs { get; }
 
@@ -951,10 +971,12 @@ namespace Dynasty.MatchSimulation.Combat
                                           CastDamage, CastDamageManaPercent, ProximityRadius, ProximityDelayMs, BaseAttackTimeMs, GrowsWithChannelMs,
                                           BaseArmorReductionPercent, BaseMagicResistReductionPercent, AttackDamageHundredths,
                                           CritEveryAttacks, CritHealPercent, CritHealRadius, CritHealAlliesPercent, CritHealCreepPercent,
-                                          ThirstMoveSpeedPercent, ThirstFromHealthPercent, ThirstFullBelowHealthPercent, RevealsBelowHealthPercent })
+                                          ThirstMoveSpeedPercent, ThirstFromHealthPercent, ThirstFullBelowHealthPercent, RevealsBelowHealthPercent,
+                                          AnchorChain, AnchorDragSpeed })
                 w.WriteInt64(value);
             w.WriteBool(ReturnsOnExpiry);
             w.WriteBool(PeriodicFromBearer);
+            w.WriteBool(RedirectsSpells);
             w.WriteInt64(PeriodicEffects.Count);
             foreach (Rules.EffectDefinition effect in PeriodicEffects)
                 effect.WriteCanonical(w);

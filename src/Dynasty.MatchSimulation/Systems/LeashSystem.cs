@@ -14,6 +14,27 @@ namespace Dynasty.MatchSimulation.Systems
     {
         public string Name => "leash";
 
+        /// <summary>
+        /// Dead in the Water: the unit ends a tick at most the chain's length and one drag step from the anchor, and the anchor follows
+        /// to the chain's length: within the chain it walks freely, beyond it gains only the drag speed.
+        /// </summary>
+        private static void Drag(SimulationContext<MatchState> context, MatchUnit unit, ActiveModifier anchor)
+        {
+            Fixed chain = Fixed.FromInt(anchor.Spec.AnchorChain);
+            FixedVector2 offset = unit.Position - anchor.Mark;
+            if (offset.LengthSquared <= chain * chain)
+                return;
+            Fixed reach = chain + Fixed.FromRatio(anchor.Spec.AnchorDragSpeed, context.TickRate.TicksPerSecond);
+            Fixed length = offset.Length;
+            if (length > reach)
+            {
+                unit.Position = anchor.Mark + offset * (reach / length);
+                length = reach;
+            }
+
+            anchor.Mark = unit.Position - (unit.Position - anchor.Mark) * (chain / length);
+        }
+
         public void Tick(SimulationContext<MatchState> context)
         {
             MatchState state = context.State;
@@ -21,6 +42,12 @@ namespace Dynasty.MatchSimulation.Systems
             {
                 if (!unit.IsAlive || unit.Modifiers.Count == 0)
                     continue;
+                foreach (ActiveModifier anchor in unit.Modifiers)
+                {
+                    if (anchor.Spec.AnchorChain > 0)
+                        Drag(context, unit, anchor);
+                }
+
                 foreach (ActiveModifier bind in unit.Modifiers.Where(m => m.Partner.IsValid).ToList())
                 {
                     MatchUnit? partner = state.Find(bind.Partner);
