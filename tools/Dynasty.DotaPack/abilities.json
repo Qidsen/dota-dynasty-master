@@ -15069,5 +15069,86 @@
         "consume": true
       }
     ]
+  },
+  "dark_seer_wall_of_replica": {
+    "status": "simplified",
+    "note": "a straight wall of the data's width across the way from Dark Seer to the point; an enemy hero touching it is damaged, slowed and replicated once per wall (not again on a later crossing); the replica lasts the wall's whole duration from then",
+    "targeting": "point",
+    "targetTeam": "enemy",
+    "unitTypes": [
+      {
+        "id": "dark_seer_wall",
+        "gameUnit": "npc_dota_thinker",
+        "health": 1,
+        "armor": 0,
+        "moveSpeed": 0
+      }
+    ],
+    "effects": [
+      {
+        "kind": "summon",
+        "unitType": "dark_seer_wall",
+        "counts": [
+          1
+        ],
+        "atPoint": true,
+        "duration": "$duration",
+        "effects": [
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "dark_seer_wall_of_replica",
+              "flags": [
+                "invulnerable",
+                "rooted"
+              ],
+              "dispellable": false,
+              "wallHalfLength": "$width/2",
+              "trampleMarker": "dark_seer_wall_of_replica_struck",
+              "onTrample": [
+                {
+                  "kind": "ifHero",
+                  "effects": [
+                    {
+                      "kind": "damage",
+                      "damageType": "magical",
+                      "amounts": "$wall_damage"
+                    },
+                    {
+                      "kind": "modifier",
+                      "modifiers": {
+                        "key": "dark_seer_wall_of_replica_slow",
+                        "duration": "$slow_duration",
+                        "moveSpeedPercent": "-$movement_slow"
+                      }
+                    },
+                    {
+                      "kind": "modifier",
+                      "modifiers": {
+                        "key": "dark_seer_wall_of_replica_struck",
+                        "duration": "$duration",
+                        "dispellable": false
+                      }
+                    },
+                    {
+                      "kind": "illusion",
+                      "counts": [
+                        1
+                      ],
+                      "duration": "$duration",
+                      "modifiers": {
+                        "key": "dark_seer_wall_of_replica_replica",
+                        "attackDamagePercent": "$replica_damage_outgoing",
+                        "incomingDamagePercent": "$replica_damage_incoming"
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        ]
+      }
+    ]
   }
 }

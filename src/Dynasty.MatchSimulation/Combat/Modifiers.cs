@@ -292,8 +292,10 @@ namespace Dynasty.MatchSimulation.Combat
             string? endsWithOwnerModifier = null,
             bool damageToOwner = false,
             int echoPercent = 0,
-            int echoDurationMs = 0)
+            int echoDurationMs = 0,
+            int wallHalfLength = 0)
         {
+            WallHalfLength = wallHalfLength;
             EchoPercent = echoPercent;
             EchoDurationMs = echoDurationMs;
             DamageToOwner = damageToOwner;
@@ -896,6 +898,12 @@ namespace Dynasty.MatchSimulation.Combat
         public IReadOnlyList<Rules.EffectDefinition> OnLastCharge { get; }
 
         /// <summary>
+        /// Wall of Replica: the bearer is a wall this long each way, across the way from the caster to it; a unit touching it gets
+        /// <see cref="OnTrample"/> (once, with <see cref="TrampleMarker"/>).
+        /// </summary>
+        public int WallHalfLength { get; }
+
+        /// <summary>
         /// Croak of Genius: this percent of the damage the bearer's spells and items deal reverberates on the target, spread over
         /// <see cref="EchoDurationMs"/> (a second at a time); attacks and the echo itself do not.
         /// </summary>
@@ -1204,7 +1212,7 @@ namespace Dynasty.MatchSimulation.Combat
                                           ThirstMoveSpeedPercent, ThirstFromHealthPercent, ThirstFullBelowHealthPercent, RevealsBelowHealthPercent,
                                           AnchorChain, AnchorDragSpeed, CooldownSlowPercent, HealAtEndPercent, OnHeroDamageAtLeast, DelayedHealAmpPercent, TrampleRadius,
                                           MulticastStrengthPerPercent, EveryDistance, HeroAttacksToBreak, BeamLength, BeamTurnPerSecond, TriggerAtStacks, RechargeMs, CastRangeBonus, TravelDistance,
-                                          NearbyHeroDamageAbove, NearbyHeroDamageBelow, NearbyRadius, AnchorRadius, EchoPercent, EchoDurationMs })
+                                          NearbyHeroDamageAbove, NearbyHeroDamageBelow, NearbyRadius, AnchorRadius, EchoPercent, EchoDurationMs, WallHalfLength })
                 w.WriteInt64(value);
             w.WriteBool(ReturnsOnExpiry);
             w.WriteBool(PeriodicFromBearer);

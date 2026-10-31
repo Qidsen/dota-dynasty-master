@@ -556,6 +556,8 @@ namespace Dynasty.MatchSimulation.Systems
                             target.Recalculate();
                         }
 
+                        if (applied.Spec.WallHalfLength > 0)
+                            applied.Aim = new FixedVector2(caster.Position.Y - target.Position.Y, target.Position.X - caster.Position.X);   // across the cast's way
                         if (applied.Spec.AnchorRadius > 0)
                             applied.Destination = point;   // Wukong's Command: where the soldiers stand
                         if (applied.Spec.TravelsToPoint)
@@ -805,7 +807,7 @@ namespace Dynasty.MatchSimulation.Systems
         }
 
         /// <summary>Whether the point is within <paramref name="reach"/> of the segment from <paramref name="a"/> to <paramref name="b"/>.</summary>
-        private static bool NearSegment(FixedVector2 point, FixedVector2 a, FixedVector2 b, int reach)
+        internal static bool NearSegment(FixedVector2 point, FixedVector2 a, FixedVector2 b, int reach)
         {
             FixedVector2 ab = b - a;
             Fixed length = ab.LengthSquared;

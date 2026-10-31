@@ -16,8 +16,10 @@ namespace Dynasty.MatchSimulation.Systems
         public void Tick(SimulationContext<MatchState> context)
         {
             MatchState state = context.State;
-            foreach (MatchUnit bearer in state.Units)   // heroes, and a flying orb
+            // Heroes, a flying orb, a wall; units these effects add (a Wall of Replica's replicas) wait for the next tick.
+            for (int i = 0, count = state.Units.Count; i < count; i++)
             {
+                MatchUnit bearer = state.Units[i];
                 if (!bearer.IsAlive || bearer.Modifiers.Count == 0)
                     continue;
                 foreach (ActiveModifier stepping in bearer.Modifiers.Where(m => m.Spec.EveryDistance > 0).ToList())
@@ -32,13 +34,18 @@ namespace Dynasty.MatchSimulation.Systems
                     }
                 }
 
-                foreach (ActiveModifier stampede in bearer.Modifiers.Where(m => m.Spec.TrampleRadius > 0).ToList())
+                foreach (ActiveModifier stampede in bearer.Modifiers.Where(m => m.Spec.TrampleRadius > 0 || m.Spec.WallHalfLength > 0).ToList())
                 {
                     MatchUnit caster = state.Find(stampede.Source) ?? bearer;
+                    // Wall of Replica: a line across the cast's way through the bearer instead of a circle round it.
+                    FixedVector2 along = stampede.Spec.WallHalfLength > 0 && stampede.Aim != FixedVector2.Zero
+                        ? stampede.Aim * (Fixed.FromInt(stampede.Spec.WallHalfLength) / stampede.Aim.Length) : FixedVector2.Zero;
                     foreach (MatchUnit enemy in state.Units.Where(u => u.IsAlive && u.Team != bearer.Team &&
                                                                        (u.Kind == UnitKind.Hero || u.Kind == UnitKind.Creep || u.Kind == UnitKind.Summon) &&
                                                                        (u.Flags & ModifierFlags.Invulnerable) == 0 &&
-                                                                       Geometry.WithinRange(u.Position, bearer.Position, stampede.Spec.TrampleRadius + u.BoundingRadius)).ToList())
+                                                                       (stampede.Spec.WallHalfLength > 0
+                                                                           ? Effects.NearSegment(u.Position, bearer.Position - along, bearer.Position + along, stampede.Spec.TrampleRadius + u.BoundingRadius)
+                                                                           : Geometry.WithinRange(u.Position, bearer.Position, stampede.Spec.TrampleRadius + u.BoundingRadius))).ToList())
                     {
                         if (enemy.Modifiers.Any(m => m.Spec.Key == stampede.Spec.TrampleMarker && m.Source == caster.Id))
                             continue;
