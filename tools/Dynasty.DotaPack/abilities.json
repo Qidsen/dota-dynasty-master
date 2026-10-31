@@ -14999,5 +14999,23 @@
         ]
       }
     ]
+  },
+  "largo_croak_of_genius": {
+    "status": "simplified",
+    "note": "the echo of a spell's or item's damage comes a second at a time over damage_duration, of the same type; the buff does not shorten when the hero spends mana; the AI croaks in a fight for the ally hero (or Largo) with the most mana",
+    "targeting": "unit",
+    "targetTeam": "ally",
+    "effects": [
+      {
+        "kind": "modifier",
+        "modifiers": {
+          "key": "largo_croak_of_genius",
+          "duration": "$duration",
+          "manaCostReduction": "$mana_cost_reduction",
+          "echoPercent": "$damage_portion_pct",
+          "echoDuration": "$damage_duration"
+        }
+      }
+    ]
   }
 }

@@ -290,8 +290,12 @@ namespace Dynasty.MatchSimulation.Combat
             IReadOnlyList<Rules.EffectDefinition>? onNearbyHeroDamage = null,
             int anchorRadius = 0,
             string? endsWithOwnerModifier = null,
-            bool damageToOwner = false)
+            bool damageToOwner = false,
+            int echoPercent = 0,
+            int echoDurationMs = 0)
         {
+            EchoPercent = echoPercent;
+            EchoDurationMs = echoDurationMs;
             DamageToOwner = damageToOwner;
             AnchorRadius = anchorRadius;
             EndsWithOwnerModifier = endsWithOwnerModifier;
@@ -891,6 +895,14 @@ namespace Dynasty.MatchSimulation.Combat
         /// <summary>Unleash: effects of the attack that spends the last charge, run on its target.</summary>
         public IReadOnlyList<Rules.EffectDefinition> OnLastCharge { get; }
 
+        /// <summary>
+        /// Croak of Genius: this percent of the damage the bearer's spells and items deal reverberates on the target, spread over
+        /// <see cref="EchoDurationMs"/> (a second at a time); attacks and the echo itself do not.
+        /// </summary>
+        public int EchoPercent { get; }
+
+        public int EchoDurationMs { get; }
+
         /// <summary>Nothl Projection's body: damage to the bearer is dealt to its owner instead (untouchable as it is), and the bearer's health follows.</summary>
         public bool DamageToOwner { get; }
 
@@ -1192,7 +1204,7 @@ namespace Dynasty.MatchSimulation.Combat
                                           ThirstMoveSpeedPercent, ThirstFromHealthPercent, ThirstFullBelowHealthPercent, RevealsBelowHealthPercent,
                                           AnchorChain, AnchorDragSpeed, CooldownSlowPercent, HealAtEndPercent, OnHeroDamageAtLeast, DelayedHealAmpPercent, TrampleRadius,
                                           MulticastStrengthPerPercent, EveryDistance, HeroAttacksToBreak, BeamLength, BeamTurnPerSecond, TriggerAtStacks, RechargeMs, CastRangeBonus, TravelDistance,
-                                          NearbyHeroDamageAbove, NearbyHeroDamageBelow, NearbyRadius, AnchorRadius })
+                                          NearbyHeroDamageAbove, NearbyHeroDamageBelow, NearbyRadius, AnchorRadius, EchoPercent, EchoDurationMs })
                 w.WriteInt64(value);
             w.WriteBool(ReturnsOnExpiry);
             w.WriteBool(PeriodicFromBearer);
@@ -1418,6 +1430,17 @@ namespace Dynasty.MatchSimulation.Combat
             return modifier;
         }
 
+        /// <summary>A new instance that never merges with others of its key and lasts the spec's duration (Croak of Genius's echoes, one per hit).</summary>
+        internal static ActiveModifier AddTimedInstance(SimulationContext<MatchState> context, MatchUnit target, ModifierSpec spec, EntityId source)
+        {
+            long now = context.Tick.Value;
+            long expires = spec.DurationMs < 0 ? -1 : now + context.TickRate.TicksFor(spec.DurationMs);
+            var modifier = new ActiveModifier(spec, source, now, expires, now + context.TickRate.TicksFor(spec.PeriodMs));
+            target.AddModifier(modifier);
+            context.Emit(new ModifierApplied(target.Id, source, spec.Key, expires));
+            return modifier;
+        }
+
         /// <summary>Removes the unit's break-on-action modifiers (it just attacked or cast).</summary>
         internal static void BreakOnAction(SimulationContext<MatchState> context, MatchUnit unit)
         {
@@ -1598,6 +1621,8 @@ namespace Dynasty.MatchSimulation.Combat
             if (amount > Fixed.Zero && target.Hero != null && from != null && from != target &&
                 (from.Kind == UnitKind.Hero || from.Kind == UnitKind.Summon || from.Kind == UnitKind.Boss || from.IllusionOf.IsValid))
                 Gathered(context, target, amount);
+            if (amount > Fixed.Zero && from != null && from.CastingSpell > 0 && target.IsAlive && from.Modifiers.Count > 0)
+                Echo(context, from, target, amount, type);
             if (amount > Fixed.Zero && target.Hero != null && target.IsAlive)
                 Systems.AbilitySystem.CastBelowHealth(context, target);
             if (reflections != null)
@@ -1656,6 +1681,17 @@ namespace Dynasty.MatchSimulation.Combat
                 Heal(context, target.Id, target, promise.HeldHealing * Fixed.FromInt(100 + promise.Spec.DelayedHealAmpPercent) / Fixed.FromInt(100));
             foreach (var (attacker, raw, type) in promise.HeldDamage)
                 Deal(context, attacker, target, raw, type);
+        }
+
+        /// <summary>Croak of Genius: the spell's damage again, a share of it, a second at a time over the echo's duration (from the echoing hero).</summary>
+        private static void Echo(SimulationContext<MatchState> context, MatchUnit from, MatchUnit target, Fixed amount, DamageType type)
+        {
+            foreach (ActiveModifier croak in from.Modifiers.Where(m => m.Spec.EchoPercent > 0 && m.Spec.EchoDurationMs > 0).ToList())
+            {
+                Fixed perSecond = amount * Fixed.FromInt(croak.Spec.EchoPercent) / Fixed.FromInt(100) * Fixed.FromInt(1000) / Fixed.FromInt(croak.Spec.EchoDurationMs);
+                Modifiers.AddTimedInstance(context, target, new ModifierSpec(croak.Spec.Key + "_echo", croak.Spec.EchoDurationMs, damagePerSecond: perSecond, damageType: type,
+                    dispellable: false), from.Id);
+            }
         }
 
         /// <summary>Soul Assumption: a big enough instance of damage on a hero runs the effects of the bearers near it.</summary>

@@ -1004,6 +1004,7 @@ namespace Dynasty.Content
                 nearbyRadius: m.OptionalInt("nearbyRadius") ?? 0, onNearbyHeroDamage: m.OptionalArray("onNearbyHeroDamage").Select(ReadEffect).ToList(),
                 anchorRadius: m.OptionalInt("anchorRadius") ?? 0, endsWithOwnerModifier: m.OptionalString("endsWithOwnerModifier"),
                 damageToOwner: m.OptionalBool("damageToOwner") ?? false,
+                echoPercent: m.OptionalInt("echoPercent") ?? 0, echoDurationMs: m.OptionalMilliseconds("echoDuration") ?? 0,
                 beamLength: m.OptionalInt("beamLength") ?? 0, beamTurnPerSecond: m.OptionalInt("beamTurnPerSecond") ?? 0,
                 endsWhenStunnedOrSilenced: m.OptionalBool("endsWhenStunnedOrSilenced") ?? false,
                 attacksMagical: m.OptionalBool("attacksMagical") ?? false, attacksMagicalOnEthereal: m.OptionalBool("attacksMagicalOnEthereal") ?? false,

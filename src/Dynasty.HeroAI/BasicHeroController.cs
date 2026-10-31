@@ -1258,6 +1258,13 @@ namespace Dynasty.HeroAI
             int minTargets = Math.IsUltimate(def) && enemies.Count > 1 && _skill.InitiationPatience ? 2 : 1;
             switch (def.Targeting)
             {
+                case AbilityTargeting.Unit when def.TargetTeam == TargetTeam.Ally && AllEffects(def.Effects).Any(e => e.Kind == EffectKind.ApplyModifier && e.Modifiers.Any(m => m.EchoPercent > 0)):
+                    // Croak of Genius: on the ally hero (the hero itself too) with the most mana for spells.
+                    HeroDecision largo = this;
+                    MatchUnit? caster = allies.Where(a => a.Hero != null && !a.IllusionOf.IsValid && Math.Within(largo._hero.Position, a.Position, reach))
+                        .OrderByDescending(a => a.Hero!.Mana).ThenBy(a => a.Id.Value).FirstOrDefault();
+                    return caster != null ? HeroOrder.Cast(def.Id, caster.Id) : null;
+
                 case AbilityTargeting.Unit when def.TargetTeam == TargetTeam.Ally:
                     MatchUnit? hurt = allies.Where(a => Math.HpPercent(a) < 60 && Math.Within(_hero.Position, a.Position, reach)).OrderBy(a => a.Hp).FirstOrDefault();
                     return hurt != null ? HeroOrder.Cast(def.Id, hurt.Id) : null;
