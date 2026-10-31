@@ -964,7 +964,7 @@ namespace Dynasty.HeroAI
                     continue;
 
                 MatchUnit? ally = _state.Heroes
-                    .Where(h => h.Team == self._hero.Team && h.IsAlive && Math.Within(h.Position, self._hero.Position, def.CastRange + 200) &&
+                    .Where(h => h.Team == self._hero.Team && h.IsAlive && Math.Within(h.Position, self._hero.Position, self._hero.CastRangeOf(def) + 200) &&
                                 h.Modifiers.Any(m => Math.WorthCleansing(m.Spec, dispel.Strong)))
                     .OrderBy(h => h.Hp)
                     .FirstOrDefault();
@@ -1195,7 +1195,7 @@ namespace Dynasty.HeroAI
             {
                 AbilityDefinition def = ability.Definition;
                 if (def.Targeting == AbilityTargeting.Unit && def.TargetTeam == TargetTeam.Enemy && !Math.IsUltimate(def) &&
-                    Math.Within(_hero.Position, target.Position, def.CastRange + 200))
+                    Math.Within(_hero.Position, target.Position, _hero.CastRangeOf(def) + 200))
                 {
                     Issue(HeroOrder.Cast(def.Id, target.Id));
                     return true;
@@ -1247,7 +1247,7 @@ namespace Dynasty.HeroAI
 
         private HeroOrder? ChooseFightCast(AbilityDefinition def, MatchUnit focus, List<MatchUnit> enemies, List<MatchUnit> allies)
         {
-            int reach = def.CastRange + 200;
+            int reach = _hero.CastRangeOf(def) + 200;
             int minTargets = Math.IsUltimate(def) && enemies.Count > 1 && _skill.InitiationPatience ? 2 : 1;
             switch (def.Targeting)
             {
@@ -1429,7 +1429,7 @@ namespace Dynasty.HeroAI
                 return false;
             foreach (AbilityState ability in ReadyAbilities().Where(a => a.Definition.TargetsCreepsOnly && a.Definition.Targeting == AbilityTargeting.Unit))
             {
-                HeroOrder? order = FeastOn(ability.Definition, ability.Definition.CastRange + 200);
+                HeroOrder? order = FeastOn(ability.Definition, _hero.CastRangeOf(ability.Definition) + 200);
                 if (order == null)
                     continue;
                 Issue(order);
@@ -2101,7 +2101,7 @@ namespace Dynasty.HeroAI
             foreach (AbilityState ability in ReadyAbilities().Where(a => Math.SpellDamage(a.Definition, a.Level) > 0))
             {
                 AbilityDefinition def = ability.Definition;
-                int reach = def.CastRange + 200;
+                int reach = _hero.CastRangeOf(def) + 200;
                 HeroOrder? order = def.Targeting switch
                 {
                     AbilityTargeting.Unit when def.TargetTeam != TargetTeam.Ally && Math.Within(_hero.Position, objective.Position, reach) => HeroOrder.Cast(def.Id, objective.Id),
@@ -2166,7 +2166,7 @@ namespace Dynasty.HeroAI
             AbilityState? sunder = ReadyAbilities().FirstOrDefault(a => a.Definition.Targeting == AbilityTargeting.Unit && a.Definition.Effects.Any(e => e.Kind == EffectKind.SwapHealthPercent));
             if (sunder == null)
                 return false;
-            MatchUnit? best = VisibleEnemyHeroes(_hero.Position, sunder.Definition.CastRange + 100)
+            MatchUnit? best = VisibleEnemyHeroes(_hero.Position, _hero.CastRangeOf(sunder.Definition) + 100)
                 .Where(h => Math.HpPercent(h) >= hpPercent + SwapHealthGainPercent)
                 .OrderByDescending(h => Math.HpPercent(h)).ThenBy(h => h.Id.Value).FirstOrDefault();
             if (best == null)

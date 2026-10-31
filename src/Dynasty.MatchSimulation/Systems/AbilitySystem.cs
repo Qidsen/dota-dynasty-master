@@ -116,9 +116,9 @@ namespace Dynasty.MatchSimulation.Systems
             {
                 case AbilityTargeting.Unit:
                     MatchUnit? target = state.Find(order.Target);
-                    return target != null && Geometry.WithinEdgeRange(caster, target, ability.CastRange);
+                    return target != null && Geometry.WithinEdgeRange(caster, target, caster.CastRangeOf(ability));
                 case AbilityTargeting.Point:
-                    return Geometry.WithinRange(caster.Position, order.Point, ability.CastRange);
+                    return Geometry.WithinRange(caster.Position, order.Point, caster.CastRangeOf(ability));
                 default:
                     return true;
             }
@@ -224,7 +224,7 @@ namespace Dynasty.MatchSimulation.Systems
                 {
                     List<MatchUnit> others = context.State.Units
                         .Where(u => !struck.Contains(u.Id) && Effects.Matches(context.State, caster, u, definition.TargetTeam, definition.TargetsStructures) &&
-                                    context.State.IsVisibleTo(caster.Team, u) && Geometry.WithinEdgeRange(caster, u, definition.CastRange))
+                                    context.State.IsVisibleTo(caster.Team, u) && Geometry.WithinEdgeRange(caster, u, caster.CastRangeOf(definition)))
                         .OrderBy(u => u.Id.Value)
                         .ToList();
                     if (others.Count > 0)
@@ -672,6 +672,14 @@ namespace Dynasty.MatchSimulation.Systems
                 case EffectKind.IfMelee:
                 case EffectKind.IfRanged:
                     if ((target.Stats.ProjectileSpeed == 0) == (effect.Kind == EffectKind.IfMelee))
+                    {
+                        foreach (EffectDefinition inner in effect.Inner)
+                            RunOne(context, caster, inner, level, target, point);
+                    }
+
+                    break;
+                case EffectKind.IfCasterHas:
+                    if (caster.Modifiers.Any(m => m.Spec.Key == effect.StackKey))
                     {
                         foreach (EffectDefinition inner in effect.Inner)
                             RunOne(context, caster, inner, level, target, point);

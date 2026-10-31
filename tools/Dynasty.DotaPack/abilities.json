@@ -4364,10 +4364,13 @@
   },
   "keeper_of_the_light_illuminate": {
     "status": "simplified",
-    "note": "always channelled fully (the channel time as the cast point); hits a circle at the point instead of a wave along the path; no vision",
+    "note": "always channelled fully (the channel time as the cast point), in Spirit Form too (no separate spirit); hits a circle at the point instead of a wave along the path; no vision; in Spirit Form it also heals allies in the circle",
     "targeting": "point",
     "targetTeam": "enemy",
     "castPoint": "$abilitychanneltime",
+    "valuesFrom": {
+      "spirit_": "keeper_of_the_light_spirit_form"
+    },
     "effects": [
       {
         "kind": "area",
@@ -4379,6 +4382,24 @@
             "kind": "damage",
             "damageType": "magical",
             "amounts": "$total_damage"
+          }
+        ]
+      },
+      {
+        "kind": "ifCasterHas",
+        "modifier": "keeper_of_the_light_spirit_form",
+        "effects": [
+          {
+            "kind": "area",
+            "radius": "$radius",
+            "center": "point",
+            "team": "ally",
+            "effects": [
+              {
+                "kind": "heal",
+                "amounts": "$total_damage*$spirit_illuminate_heal/100"
+              }
+            ]
           }
         ]
       }
@@ -14213,6 +14234,28 @@
                   }
                 }
               ]
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "keeper_of_the_light_spirit_form": {
+    "status": "simplified",
+    "note": "more cast range for Keeper's abilities and Illuminate heals allies; no Bright Speed (not in the engine), Illuminate is not channelled by a separate spirit",
+    "targeting": "noTarget",
+    "targetTeam": "ally",
+    "effects": [
+      {
+        "kind": "onCaster",
+        "effects": [
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "keeper_of_the_light_spirit_form",
+              "duration": "$duration",
+              "dispellable": false,
+              "castRangeBonus": "$cast_range"
             }
           }
         ]

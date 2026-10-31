@@ -174,6 +174,12 @@ namespace Dynasty.MatchSimulation
         public ModifierFlags Flags { get; private set; }
         public int AttackRange { get; private set; }
 
+        /// <summary>Added to the cast range of its abilities that have one (<see cref="ModifierSpec.CastRangeBonus"/>).</summary>
+        public int CastRangeBonus { get; private set; }
+
+        /// <summary>The ability's cast range for this unit: with its bonus, when the ability has a range at all.</summary>
+        public int CastRangeOf(Rules.AbilityDefinition ability) => ability.CastRange > 0 ? ability.CastRange + CastRangeBonus : ability.CastRange;
+
         /// <summary>Percent added to damage taken, to the unit's attack damage, and the chance attacks on it miss (from modifiers).</summary>
         /// <summary>Change of damage taken in hundredths of a percent.</summary>
         public int IncomingDamageHundredths { get; private set; }
@@ -445,6 +451,7 @@ namespace Dynasty.MatchSimulation
             long cooldownLeft = 10000, manaCostLeft = 10000;   // Dota: the parts of cooldowns and mana costs left, every source multiplied
             Fixed regenStrengthPercent = Fixed.Zero;
             bool noAttackSpeedLimit = false;
+            int castRangeBonus = 0;
             SpellBlocker = null;
             foreach (ActiveModifier modifier in _modifiers)
             {
@@ -514,6 +521,7 @@ namespace Dynasty.MatchSimulation
                         (crits ??= new List<ActiveModifier>()).Add(modifier);
                 }
                 attackRangeBonus += spec.AttackRangeBonus * n;
+                castRangeBonus += spec.CastRangeBonus * n;
                 if (spec.BaseAttackTimeMs > 0 && (baseAttackTime == 0 || spec.BaseAttackTimeMs < baseAttackTime))
                     baseAttackTime = spec.BaseAttackTimeMs;
                 manaRegenBonus += spec.ManaRegenBonus * Fixed.FromInt(n);
@@ -616,6 +624,7 @@ namespace Dynasty.MatchSimulation
             int speed = Math.Min((Stats.MoveSpeed + moveFlat) * (10000 + movePercent) / 10000, ThirstHundredths > 0 ? int.MaxValue : MaxMoveSpeed);   // movePercent in hundredths
             MoveSpeed = Stats.MoveSpeed == 0 ? 0 : fixedSpeed > 0 ? fixedSpeed : Math.Max(speed, Math.Min(100, Stats.MoveSpeed));
             AttackRange = Stats.AttackRange + attackRangeBonus;
+            CastRangeBonus = castRangeBonus;
             IncomingDamageHundredths = Math.Max(incomingDamage, -10000);
             AttackDamageHundredths = Math.Max(attackDamagePercent, -10000);
             EvasionHundredths = dota ? (int)(10000 - evasionLeft) : Math.Min(evasion, 10000);

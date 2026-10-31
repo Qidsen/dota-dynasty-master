@@ -805,6 +805,9 @@ namespace Dynasty.Content
                 case "ifHero":
                     effect = EffectDefinition.IfHero(e.Array("effects").Select(ReadEffect).ToArray());
                     break;
+                case "ifCasterHas":
+                    effect = EffectDefinition.IfCasterHas(e.String("modifier"), e.Array("effects").Select(ReadEffect).ToArray());
+                    break;
                 case "ifNotHero":
                     effect = EffectDefinition.IfNotHero(e.Array("effects").Select(ReadEffect).ToArray());
                     break;
@@ -979,7 +982,7 @@ namespace Dynasty.Content
                 triggerAtStacks: m.OptionalInt("triggerAtStacks") ?? 0, onStacks: m.OptionalArray("onStacks").Select(ReadEffect).ToList(),
                 noStacksWhile: m.OptionalString("noStacksWhile"),
                 rechargeMs: m.OptionalMilliseconds("recharge") ?? 0, onLastCharge: m.OptionalArray("onLastCharge").Select(ReadEffect).ToList(),
-                noAttackSpeedLimit: m.OptionalBool("noAttackSpeedLimit") ?? false,
+                noAttackSpeedLimit: m.OptionalBool("noAttackSpeedLimit") ?? false, castRangeBonus: m.OptionalInt("castRangeBonus") ?? 0,
                 beamLength: m.OptionalInt("beamLength") ?? 0, beamTurnPerSecond: m.OptionalInt("beamTurnPerSecond") ?? 0,
                 endsWhenStunnedOrSilenced: m.OptionalBool("endsWhenStunnedOrSilenced") ?? false,
                 attacksMagical: m.OptionalBool("attacksMagical") ?? false, attacksMagicalOnEthereal: m.OptionalBool("attacksMagicalOnEthereal") ?? false,

@@ -39,6 +39,7 @@ static class Items
         ["self_movement_speed"] = "moveSpeed",
         ["bonus_movement_speed_ranged"] = "moveSpeed",   // Power Treads: the ranged value (simplification, backlog)
         ["movement_speed_percent_bonus"] = "moveSpeedPercent",
+        ["cast_range_bonus"] = "castRangeBonus",                 // Aether Lens, Dagon: added like other sources (backlog B-173)
         ["tooltip_resist"] = "magicResist",
         ["bonus_spell_resist"] = "magicResist",
         ["bonus_magical_armor"] = "magicResist",

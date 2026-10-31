@@ -280,8 +280,10 @@ namespace Dynasty.MatchSimulation.Combat
             string? noStacksWhile = null,
             int rechargeMs = 0,
             IReadOnlyList<Rules.EffectDefinition>? onLastCharge = null,
-            bool noAttackSpeedLimit = false)
+            bool noAttackSpeedLimit = false,
+            int castRangeBonus = 0)
         {
+            CastRangeBonus = castRangeBonus;
             RechargeMs = rechargeMs;
             OnLastCharge = onLastCharge?.ToArray() ?? System.Array.Empty<Rules.EffectDefinition>();
             NoAttackSpeedLimit = noAttackSpeedLimit;
@@ -871,6 +873,9 @@ namespace Dynasty.MatchSimulation.Combat
         /// <summary>Unleash: effects of the attack that spends the last charge, run on its target.</summary>
         public IReadOnlyList<Rules.EffectDefinition> OnLastCharge { get; }
 
+        /// <summary>Added to the cast range of the bearer's abilities that have one (Spirit Form, Aether Lens); sources add up.</summary>
+        public int CastRangeBonus { get; }
+
         /// <summary>Unleash: the bearer's attack speed is not held to the ruleset's limit.</summary>
         public bool NoAttackSpeedLimit { get; }
 
@@ -1140,7 +1145,7 @@ namespace Dynasty.MatchSimulation.Combat
                                           CritEveryAttacks, CritHealPercent, CritHealRadius, CritHealAlliesPercent, CritHealCreepPercent,
                                           ThirstMoveSpeedPercent, ThirstFromHealthPercent, ThirstFullBelowHealthPercent, RevealsBelowHealthPercent,
                                           AnchorChain, AnchorDragSpeed, CooldownSlowPercent, HealAtEndPercent, OnHeroDamageAtLeast, DelayedHealAmpPercent, TrampleRadius,
-                                          MulticastStrengthPerPercent, EveryDistance, HeroAttacksToBreak, BeamLength, BeamTurnPerSecond, TriggerAtStacks, RechargeMs })
+                                          MulticastStrengthPerPercent, EveryDistance, HeroAttacksToBreak, BeamLength, BeamTurnPerSecond, TriggerAtStacks, RechargeMs, CastRangeBonus })
                 w.WriteInt64(value);
             w.WriteBool(ReturnsOnExpiry);
             w.WriteBool(PeriodicFromBearer);

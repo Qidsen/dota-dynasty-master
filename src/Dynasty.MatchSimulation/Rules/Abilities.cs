@@ -199,6 +199,9 @@ namespace Dynasty.MatchSimulation.Rules
         /// <summary>Runs the inner effects only when the effect's unit is not a hero (Entangle: creeps are entangled at once).</summary>
         IfNotHero = 42,
 
+        /// <summary>Runs the inner effects only when the caster has a modifier of key <see cref="EffectDefinition.StackKey"/> (Illuminate in Spirit Form).</summary>
+        IfCasterHas = 43,
+
         /// <summary>
         /// The inner effects on one random enemy the caster's team sees within <see cref="EffectDefinition.Radius"/> that has fewer than
         /// <see cref="EffectDefinition.MaxTargets"/> stacks of the marker <see cref="EffectDefinition.StackKey"/> from the caster; the
@@ -584,6 +587,10 @@ namespace Dynasty.MatchSimulation.Rules
         public static EffectDefinition IfHero(params EffectDefinition[] inner) => new EffectDefinition(EffectKind.IfHero, inner: inner);
 
         public static EffectDefinition IfNotHero(params EffectDefinition[] inner) => new EffectDefinition(EffectKind.IfNotHero, inner: inner);
+
+        /// <summary>See <see cref="EffectKind.IfCasterHas"/>.</summary>
+        public static EffectDefinition IfCasterHas(string modifierKey, params EffectDefinition[] inner) =>
+            new EffectDefinition(EffectKind.IfCasterHas, stackKey: modifierKey, inner: inner);
 
         /// <summary>Kills a unit whose health is at or below the threshold (per level).</summary>
         public static EffectDefinition Execute(params int[] thresholdPerLevel) => new EffectDefinition(EffectKind.Execute, thresholdPerLevel);

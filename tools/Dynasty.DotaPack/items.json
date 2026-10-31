@@ -233,7 +233,7 @@
   },
   "dagon_2": {
     "status": "simplified",
-    "note": "the cast range bonus for other spells is not modelled",
+    "note": "the item cast range bonus adds to other sources instead of the highest item bonus counting",
     "active": {
       "targeting": "unit",
       "targetTeam": "enemy",
@@ -662,7 +662,7 @@
   },
   "dagon_3": {
     "status": "simplified",
-    "note": "does not kill illusions instantly; the cast range bonus for other spells is not modelled",
+    "note": "does not kill illusions instantly; the item cast range bonus adds to other sources instead of the highest item bonus counting",
     "active": {
       "targeting": "unit",
       "targetTeam": "enemy",
@@ -1803,7 +1803,7 @@
   },
   "dagon": {
     "status": "simplified",
-    "note": "does not kill illusions instantly; the cast range bonus for other spells is not modelled",
+    "note": "does not kill illusions instantly; the item cast range bonus adds to other sources instead of the highest item bonus counting",
     "active": {
       "targeting": "unit",
       "targetTeam": "enemy",
@@ -1818,7 +1818,7 @@
   },
   "dagon_4": {
     "status": "simplified",
-    "note": "does not kill illusions instantly; the cast range bonus for other spells is not modelled",
+    "note": "does not kill illusions instantly; the item cast range bonus adds to other sources instead of the highest item bonus counting",
     "active": {
       "targeting": "unit",
       "targetTeam": "enemy",
@@ -1833,7 +1833,7 @@
   },
   "dagon_5": {
     "status": "simplified",
-    "note": "does not kill illusions instantly; the cast range bonus for other spells is not modelled",
+    "note": "does not kill illusions instantly; the item cast range bonus adds to other sources instead of the highest item bonus counting",
     "active": {
       "targeting": "unit",
       "targetTeam": "enemy",

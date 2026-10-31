@@ -250,7 +250,7 @@ namespace Dynasty.MatchSimulation.Systems
             if (ability.Definition.Targeting == AbilityTargeting.Unit)
             {
                 MatchUnit? target = state.Find(order.Target);
-                return target != null && Chase(state, unit, hero, target, ability.Definition.CastRange);
+                return target != null && Chase(state, unit, hero, target, unit.CastRangeOf(ability.Definition));
             }
 
             return WalkTo(state, unit, hero, order.Point);
