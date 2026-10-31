@@ -269,8 +269,14 @@ namespace Dynasty.MatchSimulation.Combat
             int heroAttacksToBreak = 0,
             int beamLength = 0,
             int beamTurnPerSecond = 0,
-            bool endsWhenStunnedOrSilenced = false)
+            bool endsWhenStunnedOrSilenced = false,
+            int triggerAtStacks = 0,
+            IReadOnlyList<Rules.EffectDefinition>? onStacks = null,
+            string? noStacksWhile = null)
         {
+            TriggerAtStacks = triggerAtStacks;
+            OnStacks = onStacks?.ToArray() ?? System.Array.Empty<Rules.EffectDefinition>();
+            NoStacksWhile = noStacksWhile;
             BeamLength = beamLength;
             BeamTurnPerSecond = beamTurnPerSecond;
             EndsWhenStunnedOrSilenced = endsWhenStunnedOrSilenced;
@@ -838,6 +844,16 @@ namespace Dynasty.MatchSimulation.Combat
 
         public int BeamTurnPerSecond { get; }
 
+        /// <summary>
+        /// Entangle: at this many stacks the modifier goes and <see cref="OnStacks"/> run on the bearer from the modifier's source.
+        /// </summary>
+        public int TriggerAtStacks { get; }
+
+        public IReadOnlyList<Rules.EffectDefinition> OnStacks { get; }
+
+        /// <summary>Entangle: not applied (no stack gained) while the bearer has a modifier of this key.</summary>
+        public string? NoStacksWhile { get; }
+
         /// <summary>Sun Ray: a stun or silence on the bearer ends it.</summary>
         public bool EndsWhenStunnedOrSilenced { get; }
 
@@ -1079,7 +1095,7 @@ namespace Dynasty.MatchSimulation.Combat
             w.WriteInt64(AttackCharges);
             w.WriteBool(ExtraTargetRadiusFromAttackRange);
             w.WriteInt64(ExtraTargetChancePercent);
-            foreach (IReadOnlyList<Rules.EffectDefinition> list in new[] { OnCast, OnKill, OnDeath, OnReturn, OnProximity, OnEnd, OnHeroDamage, OnTrample, OnDistance })
+            foreach (IReadOnlyList<Rules.EffectDefinition> list in new[] { OnCast, OnKill, OnDeath, OnReturn, OnProximity, OnEnd, OnHeroDamage, OnTrample, OnDistance, OnStacks })
             {
                 w.WriteInt64(list.Count);
                 foreach (Rules.EffectDefinition effect in list)
@@ -1101,7 +1117,7 @@ namespace Dynasty.MatchSimulation.Combat
                                           CritEveryAttacks, CritHealPercent, CritHealRadius, CritHealAlliesPercent, CritHealCreepPercent,
                                           ThirstMoveSpeedPercent, ThirstFromHealthPercent, ThirstFullBelowHealthPercent, RevealsBelowHealthPercent,
                                           AnchorChain, AnchorDragSpeed, CooldownSlowPercent, HealAtEndPercent, OnHeroDamageAtLeast, DelayedHealAmpPercent, TrampleRadius,
-                                          MulticastStrengthPerPercent, EveryDistance, HeroAttacksToBreak, BeamLength, BeamTurnPerSecond })
+                                          MulticastStrengthPerPercent, EveryDistance, HeroAttacksToBreak, BeamLength, BeamTurnPerSecond, TriggerAtStacks })
                 w.WriteInt64(value);
             w.WriteBool(ReturnsOnExpiry);
             w.WriteBool(PeriodicFromBearer);
@@ -1114,6 +1130,7 @@ namespace Dynasty.MatchSimulation.Combat
             w.WriteBool(DelaysHealth);
             w.WriteBool(EndsWhenStunnedOrSilenced);
             w.WriteString(TrampleMarker ?? "");
+            w.WriteString(NoStacksWhile ?? "");
             w.WriteInt64(MulticastHundredths.Count);
             foreach (int chance in MulticastHundredths)
                 w.WriteInt64(chance);
@@ -1246,6 +1263,8 @@ namespace Dynasty.MatchSimulation.Combat
         {
             if (spec.IsDebuff && (target.Flags & ModifierFlags.DebuffImmune) != 0 && context.State.Find(source)?.Team != target.Team)
                 return null;
+            if (spec.NoStacksWhile != null && target.Modifiers.Any(m => m.Spec.Key == spec.NoStacksWhile))
+                return null;   // Entangle: no stacks while entangled
             long now = context.Tick.Value;
             int durationMs = spec.DurationMs;
             // Dota: status resistance shortens enemy debuffs (not damage over time: its total stays).
@@ -1288,6 +1307,12 @@ namespace Dynasty.MatchSimulation.Combat
             }
 
             context.Emit(new ModifierApplied(target.Id, source, spec.Key, expires));
+            if (spec.TriggerAtStacks > 0 && modifier.Stacks >= spec.TriggerAtStacks)
+            {
+                // Entangle: the stacks go, their effect comes.
+                Remove(context, target, modifier, "triggered");
+                Systems.Effects.Run(context, context.State.Find(source) ?? target, spec.OnStacks, 1, target, target.Position);
+            }
             if (spec.IsDebuff && target.Hero != null && context.State.Ruleset.HeroRules?.Economy != null &&
                 context.State.Find(source) is MatchUnit by && by.Hero != null && by.Team != target.Team)
                 target.Hero.RecentHeroAttackers[source.Value] = now;   // Dota: debuffing a hero counts for its assists

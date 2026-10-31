@@ -196,6 +196,9 @@ namespace Dynasty.MatchSimulation.Rules
         /// </summary>
         Persuade = 41,
 
+        /// <summary>Runs the inner effects only when the effect's unit is not a hero (Entangle: creeps are entangled at once).</summary>
+        IfNotHero = 42,
+
         /// <summary>
         /// The inner effects on one random enemy the caster's team sees within <see cref="EffectDefinition.Radius"/> that has fewer than
         /// <see cref="EffectDefinition.MaxTargets"/> stacks of the marker <see cref="EffectDefinition.StackKey"/> from the caster; the
@@ -579,6 +582,8 @@ namespace Dynasty.MatchSimulation.Rules
             new EffectDefinition(EffectKind.Illusion, countPerLevel, modifiers: modifierPerLevel, durationMs: durationMs);
 
         public static EffectDefinition IfHero(params EffectDefinition[] inner) => new EffectDefinition(EffectKind.IfHero, inner: inner);
+
+        public static EffectDefinition IfNotHero(params EffectDefinition[] inner) => new EffectDefinition(EffectKind.IfNotHero, inner: inner);
 
         /// <summary>Kills a unit whose health is at or below the threshold (per level).</summary>
         public static EffectDefinition Execute(params int[] thresholdPerLevel) => new EffectDefinition(EffectKind.Execute, thresholdPerLevel);

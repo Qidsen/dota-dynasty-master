@@ -679,7 +679,8 @@ namespace Dynasty.MatchSimulation.Systems
 
                     break;
                 case EffectKind.IfHero:
-                    if (target.Hero != null)
+                case EffectKind.IfNotHero:
+                    if ((target.Hero != null) == (effect.Kind == EffectKind.IfHero))
                     {
                         foreach (EffectDefinition inner in effect.Inner)
                             RunOne(context, caster, inner, level, target, point);

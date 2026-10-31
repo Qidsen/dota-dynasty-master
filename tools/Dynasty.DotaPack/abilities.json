@@ -13940,5 +13940,134 @@
         ]
       }
     ]
+  },
+  "lone_druid_entangle": {
+    "status": "simplified",
+    "note": "Lone Druid only (no Spirit Bear in the engine, so no Entangling Claws); the cast gives each enemy hero in the area two stacks (hits_incremented_on_active) and entangles creeps at once; for 10 s each of Lone Druid's attacks on an enemy hero adds a stack; the root does not reveal invisible units",
+    "targeting": "point",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "area",
+        "radius": "$active_radius",
+        "center": "point",
+        "team": "enemy",
+        "effects": [
+          {
+            "kind": "ifHero",
+            "effects": [
+              {
+                "kind": "modifier",
+                "modifiers": {
+                  "key": "lone_druid_entangle_stacks",
+                  "duration": "$counter_duration",
+                  "stacking": true,
+                  "dispellable": false,
+                  "triggerAtStacks": "$hits_required",
+                  "onStacks": [
+                    {
+                      "kind": "modifier",
+                      "modifiers": {
+                        "key": "lone_druid_entangle_root",
+                        "duration": "$entangle_duration",
+                        "flags": [
+                          "rooted"
+                        ],
+                        "damagePerSecond": "$damage",
+                        "damageType": "magical"
+                      }
+                    }
+                  ],
+                  "noStacksWhile": "lone_druid_entangle_root"
+                }
+              },
+              {
+                "kind": "modifier",
+                "modifiers": {
+                  "key": "lone_druid_entangle_stacks",
+                  "duration": "$counter_duration",
+                  "stacking": true,
+                  "dispellable": false,
+                  "triggerAtStacks": "$hits_required",
+                  "onStacks": [
+                    {
+                      "kind": "modifier",
+                      "modifiers": {
+                        "key": "lone_druid_entangle_root",
+                        "duration": "$entangle_duration",
+                        "flags": [
+                          "rooted"
+                        ],
+                        "damagePerSecond": "$damage",
+                        "damageType": "magical"
+                      }
+                    }
+                  ],
+                  "noStacksWhile": "lone_druid_entangle_root"
+                }
+              }
+            ]
+          },
+          {
+            "kind": "ifNotHero",
+            "effects": [
+              {
+                "kind": "modifier",
+                "modifiers": {
+                  "key": "lone_druid_entangle_root",
+                  "duration": "$entangle_duration",
+                  "flags": [
+                    "rooted"
+                  ],
+                  "damagePerSecond": "$damage",
+                  "damageType": "magical"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "kind": "onCaster",
+        "effects": [
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "lone_druid_entangle_empowered",
+              "duration": "$lone_druid_buff_duration",
+              "dispellable": false,
+              "onHitHeroesOnly": true,
+              "onHit": [
+                {
+                  "kind": "modifier",
+                  "modifiers": {
+                    "key": "lone_druid_entangle_stacks",
+                    "duration": "$counter_duration",
+                    "stacking": true,
+                    "dispellable": false,
+                    "triggerAtStacks": "$hits_required",
+                    "onStacks": [
+                      {
+                        "kind": "modifier",
+                        "modifiers": {
+                          "key": "lone_druid_entangle_root",
+                          "duration": "$entangle_duration",
+                          "flags": [
+                            "rooted"
+                          ],
+                          "damagePerSecond": "$damage",
+                          "damageType": "magical"
+                        }
+                      }
+                    ],
+                    "noStacksWhile": "lone_druid_entangle_root"
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      }
+    ]
   }
 }

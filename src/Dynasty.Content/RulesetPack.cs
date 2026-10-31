@@ -805,6 +805,9 @@ namespace Dynasty.Content
                 case "ifHero":
                     effect = EffectDefinition.IfHero(e.Array("effects").Select(ReadEffect).ToArray());
                     break;
+                case "ifNotHero":
+                    effect = EffectDefinition.IfNotHero(e.Array("effects").Select(ReadEffect).ToArray());
+                    break;
                 case "execute":
                     effect = EffectDefinition.Execute(e.Ints("amounts").ToArray());
                     break;
@@ -973,6 +976,8 @@ namespace Dynasty.Content
                 multicastHundredths: m.Has("multicast") ? m.Hundredths("multicast") : null,
                 everyDistance: m.OptionalInt("everyDistance") ?? 0, onDistance: m.OptionalArray("onDistance").Select(ReadEffect).ToList(),
                 heroAttacksToBreak: m.OptionalInt("heroAttacksToBreak") ?? 0,
+                triggerAtStacks: m.OptionalInt("triggerAtStacks") ?? 0, onStacks: m.OptionalArray("onStacks").Select(ReadEffect).ToList(),
+                noStacksWhile: m.OptionalString("noStacksWhile"),
                 beamLength: m.OptionalInt("beamLength") ?? 0, beamTurnPerSecond: m.OptionalInt("beamTurnPerSecond") ?? 0,
                 endsWhenStunnedOrSilenced: m.OptionalBool("endsWhenStunnedOrSilenced") ?? false,
                 attacksMagical: m.OptionalBool("attacksMagical") ?? false, attacksMagicalOnEthereal: m.OptionalBool("attacksMagicalOnEthereal") ?? false,
