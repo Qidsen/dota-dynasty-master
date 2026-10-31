@@ -1395,7 +1395,7 @@
         "id": "puck_illusory_orb_unit",
         "gameUnit": "npc_dota_thinker",
         "health": 1,
-          "armor": 0,
+        "armor": 0,
         "moveSpeed": "$orb_speed",
         "visionRange": "$orb_vision"
       }
@@ -2791,7 +2791,7 @@
   },
   "keeper_of_the_light_blinding_light": {
     "status": "simplified",
-    "note": "damage and knockback only, pushed away from Keeper rather than from the center: no blind (miss chance)",
+    "note": "damage, knockback (away from Keeper rather than from the center) and blind (miss chance) for the duration",
     "targeting": "point",
     "targetTeam": "enemy",
     "effects": [
@@ -2809,6 +2809,14 @@
           {
             "kind": "knockback",
             "amounts": "$knockback_distance"
+          },
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "keeper_of_the_light_blinding_light",
+              "duration": "$duration",
+              "missChance": "$miss_rate"
+            }
           }
         ]
       }
@@ -8251,7 +8259,7 @@
   },
   "broodmother_incapacitating_bite": {
     "status": "simplified",
-    "note": "the slow only: no miss chance, no extra damage taken from attacks",
+    "note": "the slow and the miss chance; no extra damage taken from attacks",
     "targeting": "passive",
     "targetTeam": "ally",
     "passive": {
@@ -8262,7 +8270,8 @@
           "modifiers": {
             "key": "broodmother_incapacitating_bite_debuff",
             "duration": "$duration",
-            "moveSpeedPercent": "$bonus_movespeed"
+            "moveSpeedPercent": "$bonus_movespeed",
+            "missChance": "$miss_chance"
           }
         }
       ]
@@ -9228,7 +9237,7 @@
   },
   "troll_warlord_whirling_axes_melee": {
     "status": "simplified",
-    "note": "damage around Troll at once instead of spinning axes; no blind (miss chance)",
+    "note": "damage and blind around Troll at once instead of spinning axes",
     "targeting": "noTarget",
     "targetTeam": "enemy",
     "effects": [
@@ -9242,6 +9251,14 @@
             "kind": "damage",
             "damageType": "magical",
             "amounts": "$damage"
+          },
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "troll_warlord_whirling_axes_blind",
+              "duration": "$blind_duration",
+              "missChance": "$blind_pct"
+            }
           }
         ]
       }
@@ -9537,7 +9554,7 @@
   },
   "riki_smoke_screen": {
     "status": "simplified",
-    "note": "a lingering cloud that silences enemies inside (lost 1 s after leaving); no miss chance",
+    "note": "a lingering cloud that silences and blinds enemies inside (lost 1 s after leaving)",
     "targeting": "point",
     "targetTeam": "enemy",
     "effects": [
@@ -9555,7 +9572,8 @@
               "duration": 1,
               "flags": [
                 "silenced"
-              ]
+              ],
+              "missChance": "$miss_rate"
             }
           }
         ]
@@ -9614,7 +9632,7 @@
   },
   "tinker_laser": {
     "status": "simplified",
-    "note": "damage only: no blind (miss chance)",
+    "note": "damage and blind (miss chance) on the target",
     "targeting": "unit",
     "targetTeam": "enemy",
     "effects": [
@@ -9622,6 +9640,14 @@
         "kind": "damage",
         "damageType": "pure",
         "amounts": "$laser_damage"
+      },
+      {
+        "kind": "modifier",
+        "modifiers": {
+          "key": "tinker_laser_blind",
+          "duration": "$duration",
+          "missChance": "$miss_rate"
+        }
       }
     ]
   },
@@ -13600,33 +13626,33 @@
             "modifiers": {
               "key": "centaur_stampede",
               "duration": "$duration",
-          "fixedMoveSpeed": 550,
-          "trampleRadius": "$radius",
-          "trampleMarker": "centaur_stampede_trampled",
-          "onTrample": [
-            {
-              "kind": "damage",
-              "damageType": "magical",
-              "scaling": "casterStrengthPercent",
-              "amounts": "$strength_damage*100"
-            },
-            {
-              "kind": "modifier",
-              "modifiers": {
-                "key": "centaur_stampede_slow",
-                "duration": "$slow_duration",
-                "moveSpeedPercent": "-$slow_movement_speed"
-              }
-            },
-            {
-              "kind": "modifier",
-              "modifiers": {
-                "key": "centaur_stampede_trampled",
-                "duration": "$duration",
-                "dispellable": false
-              }
-            }
-          ]
+              "fixedMoveSpeed": 550,
+              "trampleRadius": "$radius",
+              "trampleMarker": "centaur_stampede_trampled",
+              "onTrample": [
+                {
+                  "kind": "damage",
+                  "damageType": "magical",
+                  "scaling": "casterStrengthPercent",
+                  "amounts": "$strength_damage*100"
+                },
+                {
+                  "kind": "modifier",
+                  "modifiers": {
+                    "key": "centaur_stampede_slow",
+                    "duration": "$slow_duration",
+                    "moveSpeedPercent": "-$slow_movement_speed"
+                  }
+                },
+                {
+                  "kind": "modifier",
+                  "modifiers": {
+                    "key": "centaur_stampede_trampled",
+                    "duration": "$duration",
+                    "dispellable": false
+                  }
+                }
+              ]
             }
           }
         ]
@@ -13652,33 +13678,33 @@
             "modifiers": {
               "key": "centaur_work_horse",
               "duration": "$duration",
-          "fixedMoveSpeed": 550,
-          "trampleRadius": "$st_radius",
-          "trampleMarker": "centaur_stampede_trampled",
-          "onTrample": [
-            {
-              "kind": "damage",
-              "damageType": "magical",
-              "scaling": "casterStrengthPercent",
-              "amounts": "$st_strength_damage*100"
-            },
-            {
-              "kind": "modifier",
-              "modifiers": {
-                "key": "centaur_stampede_slow",
-                "duration": "$st_slow_duration",
-                "moveSpeedPercent": "-$st_slow_movement_speed"
-              }
-            },
-            {
-              "kind": "modifier",
-              "modifiers": {
-                "key": "centaur_stampede_trampled",
-                "duration": "$duration",
-                "dispellable": false
-              }
-            }
-          ]
+              "fixedMoveSpeed": 550,
+              "trampleRadius": "$st_radius",
+              "trampleMarker": "centaur_stampede_trampled",
+              "onTrample": [
+                {
+                  "kind": "damage",
+                  "damageType": "magical",
+                  "scaling": "casterStrengthPercent",
+                  "amounts": "$st_strength_damage*100"
+                },
+                {
+                  "kind": "modifier",
+                  "modifiers": {
+                    "key": "centaur_stampede_slow",
+                    "duration": "$st_slow_duration",
+                    "moveSpeedPercent": "-$st_slow_movement_speed"
+                  }
+                },
+                {
+                  "kind": "modifier",
+                  "modifiers": {
+                    "key": "centaur_stampede_trampled",
+                    "duration": "$duration",
+                    "dispellable": false
+                  }
+                }
+              ]
             }
           }
         ]
@@ -15245,5 +15271,48 @@
         }
       ]
     }
+  },
+  "ringmaster_spotlight": {
+    "status": "simplified",
+    "note": "Aghanim's Shard; one light over the sweep's whole circle for the duration instead of three beams sweeping it; enemies in it miss by the chance and are seen, illusions fade; the effects linger after leaving",
+    "grantedBy": "shard",
+    "targeting": "point",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "zone",
+        "radius": "$sweep_radius",
+        "center": "point",
+        "team": "enemy",
+        "duration": "$duration",
+        "effects": [
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "ringmaster_spotlight",
+              "duration": "$linger_duration",
+              "missChance": "$miss_chance",
+              "revealed": true
+            }
+          },
+          {
+            "kind": "ifIllusion",
+            "effects": [
+              {
+                "kind": "modifier",
+                "modifiers": {
+                  "key": "ringmaster_spotlight_fade",
+                  "duration": "$linger_duration",
+                  "damagePerSecondMaxHealthPercent": "$illusion_percent_damage",
+                  "damageType": "pure",
+                  "period": "$pulse_interval"
+                }
+              }
+            ]
+          }
+        ],
+        "period": "$pulse_interval"
+      }
+    ]
   }
 }

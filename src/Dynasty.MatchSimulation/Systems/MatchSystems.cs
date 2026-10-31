@@ -1073,6 +1073,8 @@ namespace Dynasty.MatchSimulation.Systems
             if (target.EvasionHundredths > 0 &&
                 (context.State.Ruleset.Combat.DotaStacking ? PseudoRandom.Roll(context, target.EvasionHundredths, ref target.EvasionTries) : Draw(context, target.EvasionHundredths)))
                 return;
+            if (attacker.MissChanceHundredths > 0 && Draw(context, attacker.MissChanceHundredths))
+                return;   // blinded: a miss
             int block = 0;
             foreach (ActiveModifier blocking in target.Modifiers)
             {

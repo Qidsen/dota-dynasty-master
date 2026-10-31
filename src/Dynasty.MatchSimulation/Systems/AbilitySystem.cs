@@ -738,6 +738,14 @@ namespace Dynasty.MatchSimulation.Systems
                     }
 
                     break;
+                case EffectKind.IfIllusion:
+                    if (target.IllusionOf.IsValid)
+                    {
+                        foreach (EffectDefinition inner in effect.Inner)
+                            RunOne(context, caster, inner, level, target, point);
+                    }
+
+                    break;
                 case EffectKind.IfHero:
                 case EffectKind.IfNotHero:
                     if ((target.Hero != null) == (effect.Kind == EffectKind.IfHero))

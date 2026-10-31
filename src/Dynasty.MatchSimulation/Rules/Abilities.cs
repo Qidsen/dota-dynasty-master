@@ -217,6 +217,9 @@ namespace Dynasty.MatchSimulation.Rules
         /// </summary>
         OnOwnUnits = 46,
 
+        /// <summary>Runs the inner effects only when the effect's unit is an illusion (Spotlight's fade).</summary>
+        IfIllusion = 47,
+
         /// <summary>
         /// The inner effects on one random enemy the caster's team sees within <see cref="EffectDefinition.Radius"/> that has fewer than
         /// <see cref="EffectDefinition.MaxTargets"/> stacks of the marker <see cref="EffectDefinition.StackKey"/> from the caster; the
@@ -650,6 +653,8 @@ namespace Dynasty.MatchSimulation.Rules
         public static EffectDefinition IfHero(params EffectDefinition[] inner) => new EffectDefinition(EffectKind.IfHero, inner: inner);
 
         public static EffectDefinition IfNotHero(params EffectDefinition[] inner) => new EffectDefinition(EffectKind.IfNotHero, inner: inner);
+
+        public static EffectDefinition IfIllusion(params EffectDefinition[] inner) => new EffectDefinition(EffectKind.IfIllusion, inner: inner);
 
         /// <summary>See <see cref="EffectKind.OnOwnUnits"/>.</summary>
         public static EffectDefinition OnOwnUnits(string unitTypeId, bool consume, params EffectDefinition[] inner) =>

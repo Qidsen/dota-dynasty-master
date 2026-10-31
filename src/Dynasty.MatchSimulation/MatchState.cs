@@ -194,6 +194,9 @@ namespace Dynasty.MatchSimulation
 
         public int EvasionPercent => EvasionHundredths / 100;
 
+        /// <summary>The chance its attacks miss (blind), hundredths of a percent; with Dota's stacking the sources multiply like evasion.</summary>
+        public int MissChanceHundredths { get; private set; }
+
         private const int MaxMoveSpeed = 550;
         public int AcquisitionRange => Stats.AcquisitionRange;
         public int BoundingRadius => Stats.BoundingRadius;
@@ -444,6 +447,8 @@ namespace Dynasty.MatchSimulation
             ModifierFlags flags = Stats.InnateFlags;
             bool dota = Combat?.DotaStacking == true;
             long evasionLeft = 10000;          // Dota: the chance not to evade, multiplied by every source
+            long missLeft = 10000;             // Dota: the chance not to miss (blind), the same way
+            int miss = 0;
             Fixed magicTakenFactor = Fixed.One; // Dota: the part of magic damage taken after the bonus sources
             List<ActiveModifier>? crits = null;
             long statusLeft = 10000, slowLeft = 10000;   // Dota: the parts left after status and slow resistance, every source multiplied
@@ -511,8 +516,11 @@ namespace Dynasty.MatchSimulation
                 baseArmorCut = Math.Max(baseArmorCut, spec.BaseArmorReductionPercent);
                 baseMagicResistCut = Math.Max(baseMagicResistCut, spec.BaseMagicResistReductionPercent);
                 evasion += spec.EvasionHundredths * n;
+                miss += spec.MissChanceHundredths * n;
                 if (dota)
                 {
+                    for (int i = 0; i < n && spec.MissChanceHundredths != 0; i++)
+                        missLeft = missLeft * (10000 - spec.MissChanceHundredths) / 10000;
                     for (int i = 0; i < n && spec.EvasionHundredths != 0; i++)
                         evasionLeft = evasionLeft * (10000 - spec.EvasionHundredths) / 10000;
                     for (int i = 0; i < n && spec.MagicResistBonus != 0; i++)
@@ -628,6 +636,7 @@ namespace Dynasty.MatchSimulation
             IncomingDamageHundredths = Math.Max(incomingDamage, -10000);
             AttackDamageHundredths = Math.Max(attackDamagePercent, -10000);
             EvasionHundredths = dota ? (int)(10000 - evasionLeft) : Math.Min(evasion, 10000);
+            MissChanceHundredths = dota ? (int)(10000 - missLeft) : Math.Min(miss, 10000);
             StepPerTick = Fixed.FromRatio(MoveSpeed, _rate.TicksPerSecond);
             AttackIntervalTicks = Math.Max(1, _rate.TicksFor((baseAttackTime > 0 ? baseAttackTime : Stats.AttackIntervalMs) * 100 / (100 + AttackSpeedBonus)));
             AttackPointTicks = _rate.TicksFor(Stats.AttackPointMs * 100 / (100 + AttackSpeedBonus));

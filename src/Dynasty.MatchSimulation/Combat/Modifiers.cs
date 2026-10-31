@@ -296,8 +296,10 @@ namespace Dynasty.MatchSimulation.Combat
             int wallHalfLength = 0,
             bool revealed = false,
             int perTreeRadius = 0,
-            int damagePerTreePerSecond = 0)
+            int damagePerTreePerSecond = 0,
+            int missChanceHundredths = 0)
         {
+            MissChanceHundredths = missChanceHundredths;
             Revealed = revealed;
             PerTreeRadius = perTreeRadius;
             DamagePerTreePerSecond = damagePerTreePerSecond;
@@ -903,6 +905,9 @@ namespace Dynasty.MatchSimulation.Combat
         /// <summary>Unleash: effects of the attack that spends the last charge, run on its target.</summary>
         public IReadOnlyList<Rules.EffectDefinition> OnLastCharge { get; }
 
+        /// <summary>Blind (Blinding Light, Smoke Screen, Laser): the bearer's attacks miss by this chance, in hundredths of a percent.</summary>
+        public int MissChanceHundredths { get; }
+
         /// <summary>Curse of the Oldgrowth: the bearer is seen by its enemies through the fog.</summary>
         public bool Revealed { get; }
 
@@ -1230,7 +1235,7 @@ namespace Dynasty.MatchSimulation.Combat
                                           AnchorChain, AnchorDragSpeed, CooldownSlowPercent, HealAtEndPercent, OnHeroDamageAtLeast, DelayedHealAmpPercent, TrampleRadius,
                                           MulticastStrengthPerPercent, EveryDistance, HeroAttacksToBreak, BeamLength, BeamTurnPerSecond, TriggerAtStacks, RechargeMs, CastRangeBonus, TravelDistance,
                                           NearbyHeroDamageAbove, NearbyHeroDamageBelow, NearbyRadius, AnchorRadius, EchoPercent, EchoDurationMs, WallHalfLength,
-                                          PerTreeRadius, DamagePerTreePerSecond })
+                                          PerTreeRadius, DamagePerTreePerSecond, MissChanceHundredths })
                 w.WriteInt64(value);
             w.WriteBool(ReturnsOnExpiry);
             w.WriteBool(PeriodicFromBearer);
