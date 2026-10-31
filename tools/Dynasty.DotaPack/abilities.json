@@ -13665,5 +13665,50 @@
         ]
       }
     ]
+  },
+  "primal_beast_trample": {
+    "status": "simplified",
+    "note": "no attack modifiers procced; the AI tramples when enemies are near and keeps chasing them",
+    "targeting": "noTarget",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "onCaster",
+        "effects": [
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "primal_beast_trample",
+              "duration": "$duration",
+              "flags": [
+                "disarmed"
+              ],
+              "everyDistance": "$step_distance",
+              "onDistance": [
+                {
+                  "kind": "area",
+                  "radius": "$effect_radius",
+                  "center": "caster",
+                  "team": "enemy",
+                  "effects": [
+                    {
+                      "kind": "damage",
+                      "damageType": "magical",
+                      "amounts": "$base_damage"
+                    },
+                    {
+                      "kind": "damage",
+                      "damageType": "magical",
+                      "scaling": "casterAttackDamagePercent",
+                      "amounts": "$attack_damage"
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        ]
+      }
+    ]
   }
 }

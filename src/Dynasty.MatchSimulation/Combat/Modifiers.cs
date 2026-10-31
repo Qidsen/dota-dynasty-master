@@ -263,8 +263,12 @@ namespace Dynasty.MatchSimulation.Combat
             bool extraTargetHeroesFirst = false,
             bool extraTargetElseSame = false,
             bool attacksMagical = false,
-            bool attacksMagicalOnEthereal = false)
+            bool attacksMagicalOnEthereal = false,
+            int everyDistance = 0,
+            IReadOnlyList<Rules.EffectDefinition>? onDistance = null)
         {
+            EveryDistance = everyDistance;
+            OnDistance = onDistance?.ToArray() ?? System.Array.Empty<Rules.EffectDefinition>();
             AttacksMagical = attacksMagical;
             AttacksMagicalOnEthereal = attacksMagicalOnEthereal;
             ExtraTargetHeroesFirst = extraTargetHeroesFirst;
@@ -813,6 +817,11 @@ namespace Dynasty.MatchSimulation.Combat
 
         public IReadOnlyList<Rules.EffectDefinition> OnTrample { get; }
 
+        /// <summary>Trample: <see cref="OnDistance"/> runs from the bearer (its caster) for every this many units it travels.</summary>
+        public int EveryDistance { get; }
+
+        public IReadOnlyList<Rules.EffectDefinition> OnDistance { get; }
+
         /// <summary>Pierce the Veil: the bearer's attacks deal magical damage.</summary>
         public bool AttacksMagical { get; }
 
@@ -1046,7 +1055,7 @@ namespace Dynasty.MatchSimulation.Combat
             w.WriteInt64(AttackCharges);
             w.WriteBool(ExtraTargetRadiusFromAttackRange);
             w.WriteInt64(ExtraTargetChancePercent);
-            foreach (IReadOnlyList<Rules.EffectDefinition> list in new[] { OnCast, OnKill, OnDeath, OnReturn, OnProximity, OnEnd, OnHeroDamage, OnTrample })
+            foreach (IReadOnlyList<Rules.EffectDefinition> list in new[] { OnCast, OnKill, OnDeath, OnReturn, OnProximity, OnEnd, OnHeroDamage, OnTrample, OnDistance })
             {
                 w.WriteInt64(list.Count);
                 foreach (Rules.EffectDefinition effect in list)
@@ -1068,7 +1077,7 @@ namespace Dynasty.MatchSimulation.Combat
                                           CritEveryAttacks, CritHealPercent, CritHealRadius, CritHealAlliesPercent, CritHealCreepPercent,
                                           ThirstMoveSpeedPercent, ThirstFromHealthPercent, ThirstFullBelowHealthPercent, RevealsBelowHealthPercent,
                                           AnchorChain, AnchorDragSpeed, CooldownSlowPercent, HealAtEndPercent, OnHeroDamageAtLeast, DelayedHealAmpPercent, TrampleRadius,
-                                          MulticastStrengthPerPercent })
+                                          MulticastStrengthPerPercent, EveryDistance })
                 w.WriteInt64(value);
             w.WriteBool(ReturnsOnExpiry);
             w.WriteBool(PeriodicFromBearer);
@@ -1130,6 +1139,9 @@ namespace Dynasty.MatchSimulation.Combat
 
         /// <summary>Damage the bearer's periodic effects of this modifier dealt (Exorcism's heal at the end).</summary>
         internal Fixed Drained { get; set; }
+
+        /// <summary>Trample: the distance travelled since the last step's effects.</summary>
+        internal Fixed Travelled { get; set; }
 
         /// <summary>Time Dilation's lag in hundredths of a tick, not yet added to the cooldowns.</summary>
         internal int CooldownLag { get; set; }
