@@ -38,8 +38,12 @@ namespace Dynasty.MatchSimulation.Combat
     /// <summary>A ring wall standing from <see cref="FormsTick"/> to <see cref="ExpiresTick"/> that units of the blocked team can't cross.</summary>
     public sealed class GroundWall
     {
-        internal GroundWall(FixedVector2 position, int radius, Team team, TargetTeam blocks, long formsTick, long expiresTick)
+        internal GroundWall(FixedVector2 position, int radius, Team team, TargetTeam blocks, long formsTick, long expiresTick, int arcDegrees = 0,
+            FixedVector2 opening = default, bool blocksImmune = false)
         {
+            ArcDegrees = arcDegrees;
+            Opening = opening;
+            BlocksImmune = blocksImmune;
             Position = position;
             Radius = radius;
             Team = team;
@@ -55,6 +59,15 @@ namespace Dynasty.MatchSimulation.Combat
         public Team Team { get; }
         public TargetTeam Blocks { get; }
         public long FormsTick { get; }
+
+        /// <summary>The wall's size in degrees when an arc (Ice Shards), centred away from <see cref="Opening"/>; 0: a whole ring.</summary>
+        public int ArcDegrees { get; }
+
+        /// <summary>The way out of an arc, from the centre (towards where the caster stood).</summary>
+        public FixedVector2 Opening { get; }
+
+        /// <summary>A barrier of ice: the debuff-immune do not pass either.</summary>
+        public bool BlocksImmune { get; }
         public long ExpiresTick { get; }
 
         /// <summary>The units inside when the wall formed or when they first came under it, by id; kept on their side while it stands.</summary>

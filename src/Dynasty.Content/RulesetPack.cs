@@ -699,7 +699,8 @@ namespace Dynasty.Content
                         e.OptionalArray("effects").Select(ReadEffect).ToArray());
                     break;
                 case "wall":
-                    effect = EffectDefinition.Wall(e.Int("radius"), ReadCenter(e, "center"), ReadTeam(e, "team"), e.Milliseconds("formation"), e.Seconds("durations").ToArray());
+                    effect = EffectDefinition.Wall(e.Int("radius"), ReadCenter(e, "center"), ReadTeam(e, "team"), e.OptionalMilliseconds("formation") ?? 0,
+                        e.OptionalInt("arc") ?? 0, e.OptionalBool("blocksImmune") ?? false, e.Seconds("durations").ToArray());
                     break;
                 case "lineArea":
                     effect = EffectDefinition.LineArea(e.OptionalInt("width") ?? 0, ReadTeam(e, "team"), e.Array("effects").Select(ReadEffect).ToArray());

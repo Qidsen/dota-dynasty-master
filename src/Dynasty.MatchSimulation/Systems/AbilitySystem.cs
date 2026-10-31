@@ -383,8 +383,10 @@ namespace Dynasty.MatchSimulation.Systems
                     Damage.RestoreMana(context, target, Fixed.FromInt(effect.AmountAt(level)));
                     break;
                 case EffectKind.LineArea:
+                    // To the target unit (Tether), or to the point for a point ability (Ice Shards' ball).
+                    FixedVector2 lineEnd = target == caster ? point : target.Position;
                     foreach (MatchUnit unit in context.State.Units
-                                 .Where(u => Matches(context.State, caster, u, effect.Team) && NearSegment(u.Position, caster.Position, target.Position, effect.Radius + u.BoundingRadius))
+                                 .Where(u => Matches(context.State, caster, u, effect.Team) && NearSegment(u.Position, caster.Position, lineEnd, effect.Radius + u.BoundingRadius))
                                  .ToList())
                     {
                         foreach (EffectDefinition inner in effect.Inner)
@@ -499,8 +501,9 @@ namespace Dynasty.MatchSimulation.Systems
                     break;
                 case EffectKind.Wall:
                     long forms = context.Tick.Value + context.TickRate.TicksFor(effect.DurationMs);
-                    context.State.AddWall(new GroundWall(effect.Center == AreaCenter.Caster ? caster.Position : effect.Center == AreaCenter.Target ? target.Position : point,
-                        effect.Radius, caster.Team, effect.Team, forms, forms + context.TickRate.TicksFor(effect.AmountAt(level))));
+                    FixedVector2 wallAt = effect.Center == AreaCenter.Caster ? caster.Position : effect.Center == AreaCenter.Target ? target.Position : point;
+                    context.State.AddWall(new GroundWall(wallAt, effect.Radius, caster.Team, effect.Team, forms, forms + context.TickRate.TicksFor(effect.AmountAt(level)),
+                        effect.MaxDistance, caster.Position - wallAt, effect.Strong));
                     break;
                 case EffectKind.Pull:
                     Pull(context.State, caster, target, effect.Center == AreaCenter.Point ? point : caster.Position,

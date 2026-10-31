@@ -13008,5 +13008,34 @@
         ]
       }
     ]
+  },
+  "tusk_ice_shards": {
+    "status": "simplified",
+    "note": "the ball hits along the line at once (no 1200 travel); the shards are an arc of 240 degrees around the point, open towards Tusk (the project owner), holding every unit but blinks and teleports",
+    "targeting": "point",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "lineArea",
+        "width": "$shard_width",
+        "team": "enemy",
+        "effects": [
+          {
+            "kind": "damage",
+            "damageType": "magical",
+            "amounts": "$shard_damage"
+          }
+        ]
+      },
+      {
+        "kind": "wall",
+        "radius": "$shard_distance",
+        "center": "point",
+        "team": "any",
+        "arc": "$shard_count*$shard_angle_step+-$shard_angle_step",
+        "blocksImmune": true,
+        "durations": "$shard_duration"
+      }
+    ]
   }
 }

@@ -162,4 +162,41 @@ public class WallTests
 
         Assert.True(FromCenter(H(kernel.State, "beta")) < Fixed.FromInt(Radius));
     }
+
+    /// <summary>
+    /// Ice Shards (the project owner: an arc of 240 degrees, open towards the caster): an arc around the point blocks everyone, the
+    /// debuff-immune too (a barrier of ice), except through the opening.
+    /// </summary>
+    private static void Shards(SimulationKernel<MatchState> kernel) =>
+        At(kernel, 1, ctx => Effects.Run(ctx, H(ctx.State, "alpha"),
+            new[] { EffectDefinition.Wall(Radius, AreaCenter.Point, TargetTeam.Any, 0, 240, true, 10000) }, 1, H(ctx.State, "alpha"), Center));
+
+    [Theory]
+    [InlineData(3000, 3000, true)]    // towards alpha (the caster, south-west): through the opening
+    [InlineData(7000, 7000, false)]   // away from alpha: the shards
+    [InlineData(5000, 7000, false)]   // north: the shards
+    public void Shards_HoldEveryoneExceptThroughTheOpening(int toX, int toY, bool getsOut)
+    {
+        var kernel = Arena(Center, P(toX, toY));
+        Shards(kernel);
+        At(kernel, 1, ctx => Modifiers.Apply(ctx, H(ctx.State, "beta"), ModifierSpec.Status("bkb", 10000, ModifierFlags.DebuffImmune), H(ctx.State, "beta").Id));
+
+        kernel.RunTicks(4 * 30);
+
+        Assert.Equal(getsOut, FromCenter(H(kernel.State, "beta")) > Fixed.FromInt(Radius + 100));
+        Assert.Equal(getsOut, FromCenter(H(kernel.State, "gamma")) > Fixed.FromInt(Radius + 100));   // the caster's ally too
+    }
+
+    /// <summary>A line area of a point ability runs from the caster to the point (Ice Shards' ball).</summary>
+    [Fact]
+    public void LineArea_OfAPointAbility_RunsToThePoint()
+    {
+        var kernel = Arena(P(4000, 4000), P(4000, 4000));   // beta on the way from alpha (3000, 3000) to the centre
+        At(kernel, 1, ctx => Effects.Run(ctx, H(ctx.State, "alpha"),
+            new[] { EffectDefinition.LineArea(100, TargetTeam.Enemy, EffectDefinition.Damage(DamageType.Pure, 75)) }, 1, H(ctx.State, "alpha"), Center));
+
+        kernel.RunTicks(3);
+
+        Assert.Equal(75, (Fixed.FromInt(2000) - H(kernel.State, "beta").Hp).ToDouble(), 0);
+    }
 }

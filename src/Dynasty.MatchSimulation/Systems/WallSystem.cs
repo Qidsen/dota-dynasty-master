@@ -52,6 +52,16 @@ namespace Dynasty.MatchSimulation.Systems
                     bool wasInside = wall.Inside.Contains(unit.Id);
                     if (wasInside == inside)
                         continue;
+                    if (ThroughOpening(wall, offset))
+                    {
+                        // An arc's way out: the unit crossed where there is no wall.
+                        if (inside)
+                            wall.Inside.Add(unit.Id);
+                        else
+                            wall.Inside.Remove(unit.Id);
+                        continue;
+                    }
+
                     Fixed length = offset.Length;
                     if (length == Fixed.Zero)
                         offset = FixedVector2.FromInts(1, 0);   // only when a unit outside landed on the center
@@ -61,9 +71,20 @@ namespace Dynasty.MatchSimulation.Systems
             }
         }
 
+        /// <summary>Whether a unit at <paramref name="offset"/> from an arc's centre is in its opening (within half the gap of the way out).</summary>
+        private static bool ThroughOpening(GroundWall wall, FixedVector2 offset)
+        {
+            if (wall.ArcDegrees <= 0 || wall.ArcDegrees >= 360 || wall.Opening == FixedVector2.Zero || offset == FixedVector2.Zero)
+                return false;
+            int halfGap = (360 - wall.ArcDegrees) / 2;
+            // The offset's length along the way out, against cos(half the gap) times its length (no overflow: lengths of a few hundred).
+            Fixed along = (offset.X * wall.Opening.X + offset.Y * wall.Opening.Y) / wall.Opening.Length;
+            return along * Fixed.FromInt(10000) >= Fixed.FromInt(Damage.CosTenThousandths[halfGap]) * offset.Length;
+        }
+
         private static bool Blocks(GroundWall wall, MatchUnit unit)
         {
-            if ((unit.Flags & ModifierFlags.DebuffImmune) != 0)
+            if ((unit.Flags & ModifierFlags.DebuffImmune) != 0 && !wall.BlocksImmune)
                 return false;
             switch (wall.Blocks)
             {

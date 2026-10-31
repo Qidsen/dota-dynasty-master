@@ -134,7 +134,9 @@ namespace Dynasty.MatchSimulation.Rules
         /// <summary>
         /// A ring wall of <see cref="EffectDefinition.Radius"/> that stands after <see cref="EffectDefinition.DurationMs"/> (formation)
         /// for <see cref="EffectDefinition.Amounts"/> milliseconds per level; units of <see cref="EffectDefinition.Team"/> to the caster
-        /// can't cross it either way, walking or pushed; debuff-immune units pass (Kinetic Field, Arena of Blood).
+        /// can't cross it either way, walking or pushed; debuff-immune units pass (Kinetic Field, Arena of Blood) unless
+        /// <see cref="EffectDefinition.Strong"/> (a barrier of ice). With <see cref="EffectDefinition.MaxDistance"/> degrees the wall is
+        /// an arc of that size, open towards the caster (Ice Shards).
         /// </summary>
         Wall = 30,
 
@@ -387,6 +389,10 @@ namespace Dynasty.MatchSimulation.Rules
         /// <summary>See <see cref="EffectKind.Wall"/>.</summary>
         public static EffectDefinition Wall(int radius, AreaCenter center, TargetTeam team, int formationMs, params int[] durationMsPerLevel) =>
             new EffectDefinition(EffectKind.Wall, durationMsPerLevel, radius: radius, center: center, team: team, durationMs: formationMs);
+
+        /// <summary>An arc of <paramref name="arcDegrees"/> open towards the caster (0: a ring), holding the debuff-immune too when <paramref name="blocksImmune"/>.</summary>
+        public static EffectDefinition Wall(int radius, AreaCenter center, TargetTeam team, int formationMs, int arcDegrees, bool blocksImmune, params int[] durationMsPerLevel) =>
+            new EffectDefinition(EffectKind.Wall, durationMsPerLevel, radius: radius, center: center, team: team, durationMs: formationMs, maxDistance: arcDegrees, strong: blocksImmune);
 
         /// <summary>See <see cref="EffectKind.Rewind"/>.</summary>
         public static EffectDefinition Rewind(int backMs, bool restoresVitals, params EffectDefinition[] inner) =>
