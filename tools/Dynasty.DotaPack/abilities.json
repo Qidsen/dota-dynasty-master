@@ -1367,20 +1367,57 @@
   },
   "puck_illusory_orb": {
     "status": "simplified",
-    "note": "damage around the target point instead of along the path; no teleport to the orb",
+    "note": "the orb flies straight its whole distance towards the point (no curve), striking each enemy on its way once; it sees around it; Ethereal Jaunt takes Puck to it; the AI throws it at the enemy it fights, and towards home when it retreats to jaunt after it",
     "targeting": "point",
     "targetTeam": "enemy",
+    "unitTypes": [
+      {
+        "id": "puck_illusory_orb_unit",
+        "gameUnit": "npc_dota_thinker",
+        "health": 1,
+          "armor": 0,
+        "moveSpeed": "$orb_speed",
+        "visionRange": "$orb_vision"
+      }
+    ],
     "effects": [
       {
-        "kind": "area",
-        "radius": "$radius",
-        "center": "point",
-        "team": "enemy",
+        "kind": "summon",
+        "unitType": "puck_illusory_orb_unit",
+        "counts": [
+          1
+        ],
+        "duration": "$max_orb_duration_tooltip",
         "effects": [
           {
-            "kind": "damage",
-            "damageType": "magical",
-            "amounts": "$damage"
+            "kind": "modifier",
+            "modifiers": {
+              "key": "puck_illusory_orb_unit",
+              "flags": [
+                "invulnerable"
+              ],
+              "dispellable": false,
+              "travelsToPoint": true,
+              "travelDistance": "$max_distance",
+              "fixedMoveSpeed": "$orb_speed",
+              "trampleRadius": "$radius",
+              "trampleMarker": "puck_illusory_orb_struck",
+              "onTrample": [
+                {
+                  "kind": "damage",
+                  "damageType": "magical",
+                  "amounts": "$damage"
+                },
+                {
+                  "kind": "modifier",
+                  "modifiers": {
+                    "key": "puck_illusory_orb_struck",
+                    "duration": "$max_orb_duration_tooltip",
+                    "dispellable": false
+                  }
+                }
+              ]
+            }
           }
         ]
       }
@@ -14259,6 +14296,18 @@
             }
           }
         ]
+      }
+    ]
+  },
+  "puck_ethereal_jaunt": {
+    "status": "full",
+    "targeting": "noTarget",
+    "targetTeam": "enemy",
+    "levelsWith": "puck_illusory_orb",
+    "effects": [
+      {
+        "kind": "assume",
+        "unitType": "puck_illusory_orb_unit"
       }
     ]
   }

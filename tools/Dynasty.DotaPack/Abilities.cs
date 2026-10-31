@@ -148,7 +148,9 @@ static class Abilities
                                // Stampede: "at max speed" - Dota's movement speed limit, 550 (not in the ability's data).
                                ((key == "centaur_stampede" || key == "centaur_work_horse") && path.EndsWith(".fixedMoveSpeed") && number == 550) ||
                                // Supernova: "restoring Phoenix to full health and mana" (Valve's description) - all of the max.
-                               (key == "phoenix_supernova" && path.EndsWith(".amounts[0]") && number == 100);
+                               (key == "phoenix_supernova" && path.EndsWith(".amounts[0]") && number == 100) ||
+                               // Illusory Orb: the game's thinker unit has no health or armor; the orb is invulnerable, these only fill the fields.
+                               (key == "puck_illusory_orb" && ((path.EndsWith(".unitTypes[0].health") && number == 1) || (path.EndsWith(".unitTypes[0].armor") && number == 0)));
                 if (!allowed)
                     throw new InvalidDataException($"abilities.json: {key}{path} = {number} is typed by hand; refer to the data (\"$key\")");
                 break;
@@ -384,6 +386,8 @@ static class Abilities
         int levels = new[] { Count(source["cd"]), Count(source["mc"]) }.Concat(values.Values.Select(Count)).Max();
         if (levels <= 1)
             levels = Count(source["cd"]) == 1 && Count(source["mc"]) <= 1 && values.Values.All(v => Count(v) <= 1) ? (ultimate ? 3 : 4) : levels;
+        if (levels == 0)
+            levels = ultimate ? 3 : 4;   // no data at all (Ethereal Jaunt): it goes with its leading ability's levels
         int[] required = innate ? new[] { 1 } : (ultimate ? UltimateLevels : BasicLevels).Take(levels).ToArray();
         levels = required.Length;
 

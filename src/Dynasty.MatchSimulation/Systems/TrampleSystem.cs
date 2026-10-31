@@ -16,7 +16,7 @@ namespace Dynasty.MatchSimulation.Systems
         public void Tick(SimulationContext<MatchState> context)
         {
             MatchState state = context.State;
-            foreach (MatchUnit bearer in state.Heroes)
+            foreach (MatchUnit bearer in state.Units)   // heroes, and a flying orb
             {
                 if (!bearer.IsAlive || bearer.Modifiers.Count == 0)
                     continue;

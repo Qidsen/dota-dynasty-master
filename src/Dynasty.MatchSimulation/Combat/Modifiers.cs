@@ -281,8 +281,12 @@ namespace Dynasty.MatchSimulation.Combat
             int rechargeMs = 0,
             IReadOnlyList<Rules.EffectDefinition>? onLastCharge = null,
             bool noAttackSpeedLimit = false,
-            int castRangeBonus = 0)
+            int castRangeBonus = 0,
+            bool travelsToPoint = false,
+            int travelDistance = 0)
         {
+            TravelDistance = travelDistance;
+            TravelsToPoint = travelsToPoint;
             CastRangeBonus = castRangeBonus;
             RechargeMs = rechargeMs;
             OnLastCharge = onLastCharge?.ToArray() ?? System.Array.Empty<Rules.EffectDefinition>();
@@ -873,6 +877,12 @@ namespace Dynasty.MatchSimulation.Combat
         /// <summary>Unleash: effects of the attack that spends the last charge, run on its target.</summary>
         public IReadOnlyList<Rules.EffectDefinition> OnLastCharge { get; }
 
+        /// <summary>Illusory Orb: the bearer flies at its speed to the point of the effect that applied it, and is gone there.</summary>
+        public bool TravelsToPoint { get; }
+
+        /// <summary>Illusory Orb: with <see cref="TravelsToPoint"/>, it flies this far towards the point, whether the point is nearer or farther.</summary>
+        public int TravelDistance { get; }
+
         /// <summary>Added to the cast range of the bearer's abilities that have one (Spirit Form, Aether Lens); sources add up.</summary>
         public int CastRangeBonus { get; }
 
@@ -1145,7 +1155,7 @@ namespace Dynasty.MatchSimulation.Combat
                                           CritEveryAttacks, CritHealPercent, CritHealRadius, CritHealAlliesPercent, CritHealCreepPercent,
                                           ThirstMoveSpeedPercent, ThirstFromHealthPercent, ThirstFullBelowHealthPercent, RevealsBelowHealthPercent,
                                           AnchorChain, AnchorDragSpeed, CooldownSlowPercent, HealAtEndPercent, OnHeroDamageAtLeast, DelayedHealAmpPercent, TrampleRadius,
-                                          MulticastStrengthPerPercent, EveryDistance, HeroAttacksToBreak, BeamLength, BeamTurnPerSecond, TriggerAtStacks, RechargeMs, CastRangeBonus })
+                                          MulticastStrengthPerPercent, EveryDistance, HeroAttacksToBreak, BeamLength, BeamTurnPerSecond, TriggerAtStacks, RechargeMs, CastRangeBonus, TravelDistance })
                 w.WriteInt64(value);
             w.WriteBool(ReturnsOnExpiry);
             w.WriteBool(PeriodicFromBearer);
@@ -1158,6 +1168,7 @@ namespace Dynasty.MatchSimulation.Combat
             w.WriteBool(DelaysHealth);
             w.WriteBool(EndsWhenStunnedOrSilenced);
             w.WriteBool(NoAttackSpeedLimit);
+            w.WriteBool(TravelsToPoint);
             w.WriteString(TrampleMarker ?? "");
             w.WriteString(NoStacksWhile ?? "");
             w.WriteInt64(MulticastHundredths.Count);
@@ -1210,6 +1221,9 @@ namespace Dynasty.MatchSimulation.Combat
 
         /// <summary>Damage the bearer's periodic effects of this modifier dealt (Exorcism's heal at the end).</summary>
         internal Fixed Drained { get; set; }
+
+        /// <summary>Illusory Orb: where the bearer flies (<see cref="ModifierSpec.TravelsToPoint"/>).</summary>
+        internal FixedVector2 Destination { get; set; }
 
         /// <summary>Unleash: the tick its charges are back (<see cref="ModifierSpec.RechargeMs"/>); -1 when it is not recharging.</summary>
         internal long RechargedTick { get; set; } = -1;

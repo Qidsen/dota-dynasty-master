@@ -475,8 +475,15 @@ namespace Dynasty.MatchSimulation.Systems
                     MatchUnit? assumed = null;
                     foreach (MatchUnit unit in context.State.Units)
                     {
-                        if (unit.IsAlive && unit.IllusionOf == caster.Id && unit.ExpiresTick != context.Tick.Value &&
-                            (assumed == null || (unit.Position - point).LengthSquared < (assumed.Position - point).LengthSquared))
+                        if (!unit.IsAlive || unit.ExpiresTick == context.Tick.Value)
+                            continue;
+                        if (effect.SummonTypeId != null)
+                        {
+                            // Ethereal Jaunt: to the caster's newest unit of the type (its flying orb); units are in creation order.
+                            if (unit.Owner == caster.Id && unit.TypeId == effect.SummonTypeId)
+                                assumed = unit;
+                        }
+                        else if (unit.IllusionOf == caster.Id && (assumed == null || (unit.Position - point).LengthSquared < (assumed.Position - point).LengthSquared))
                             assumed = unit;
                     }
 
@@ -484,10 +491,12 @@ namespace Dynasty.MatchSimulation.Systems
                     {
                         caster.Position = assumed.Position;
                         caster.StartPosition = assumed.Position;
+                        caster.TeleportedTick = context.Tick.Value;
                         if (caster.Hero != null)
                             caster.Hero.Path = null;
                         DisjointProjectiles(context, caster);
-                        assumed.ExpiresTick = context.Tick.Value;
+                        if (effect.SummonTypeId == null)
+                            assumed.ExpiresTick = context.Tick.Value;   // Reality: the illusion is replaced; the orb flies on
                     }
 
                     break;
@@ -541,6 +550,8 @@ namespace Dynasty.MatchSimulation.Systems
                             target.Recalculate();
                         }
 
+                        if (applied.Spec.TravelsToPoint)
+                            applied.Destination = TravelEnd(target.Position, point, applied.Spec.TravelDistance);   // Illusory Orb
                         if (applied.Spec.BeamLength > 0)
                             applied.Aim = point - target.Position;   // Sun Ray: first towards the cast point
                         int strength = applied.Spec.GrowsWithChannelMs > 0 ? ChannelStrength(context, caster, applied.Spec.GrowsWithChannelMs) : caster.ChargePercent;
@@ -776,6 +787,15 @@ namespace Dynasty.MatchSimulation.Systems
             bool immune = target.Team != caster.Team && (target.Flags & ModifierFlags.DebuffImmune) != 0;
             if (!immune)
                 target.Hp = Fixed.FromInt(target.MaxHp) * Fixed.Max(minimum, casterShare);
+        }
+
+        /// <summary>Where a unit flying from its place towards the point ends: the point, or the given distance that way.</summary>
+        private static FixedVector2 TravelEnd(FixedVector2 from, FixedVector2 point, int distance)
+        {
+            Fixed length = FixedVector2.Distance(from, point);
+            if (distance <= 0 || length == Fixed.Zero)
+                return point;
+            return from + (point - from) * (Fixed.FromInt(distance) / length);
         }
 
         /// <summary>Holy Persuasion: the creep changes sides and follows the caster; the caster's oldest such creep over the limit goes.</summary>

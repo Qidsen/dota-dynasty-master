@@ -519,6 +519,8 @@ namespace Dynasty.HeroAI
                 return;
             if (_memory.Retreating && Decided(StasisToGetAway(), "StasisToGetAway"))
                 return;
+            if (_memory.Retreating && Decided(JauntToGetAway(), "JauntToGetAway"))
+                return;
             if (_memory.Retreating)
             {
                 Trace("Retreat");
@@ -1305,6 +1307,8 @@ namespace Dynasty.HeroAI
 
                     if (StasisRadius(def) > 0)
                         return null;   // Song of the Siren makes enemies unhurtable: kept for getting away (StasisToGetAway)
+                    if (JauntsTo(def) != null)
+                        return null;   // Ethereal Jaunt is kept for getting away (JauntToGetAway)
                     if (MakesSun(def))
                         return null;   // Supernova is kept for when the hero is about to die (SunWhenDying)
                     if (def.Effects.Any(e => e.Kind == EffectKind.Summon))
@@ -1394,6 +1398,50 @@ namespace Dynasty.HeroAI
                 if (_state.Units.Any(u => u.IsAlive && u.Owner == self._hero.Id && u.TypeId == web && Math.Within(u.Position, self._hero.Position, aura.Radius)))
                     continue;
                 Issue(HeroOrder.CastAtPoint(ability.Definition.Id, _hero.Position));
+                return true;
+            }
+
+            return false;
+        }
+
+        /// <summary>The unit type the ability takes the hero to (Ethereal Jaunt to its orb); null for other abilities.</summary>
+        private static string? JauntsTo(AbilityDefinition def) =>
+            def.Effects.FirstOrDefault(e => e.Kind == EffectKind.Assume && e.SummonTypeId != null)?.SummonTypeId;
+
+        /// <summary>How much farther from the enemy heroes the orb must be than the hero for a jaunt to get it away.</summary>
+        private const int JauntGainRange = 300;
+
+        /// <summary>Ethereal Jaunt when retreating: to its orb when that is well farther from the enemy heroes it sees than the hero is.</summary>
+        private bool JauntToGetAway()
+        {
+            if ((_hero.Flags & ModifierFlags.Silenced) != 0)
+                return false;
+            List<MatchUnit> enemies = VisibleEnemyHeroes(_hero.Position, _settings.EngageRange);
+            if (enemies.Count == 0)
+                return false;
+            foreach (AbilityState ability in ReadyAbilities().Where(a => a.Definition.Targeting == AbilityTargeting.NoTarget))
+            {
+                string? type = JauntsTo(ability.Definition);
+                if (type == null)
+                    continue;
+                HeroDecision self = this;
+                MatchUnit? orb = _state.Units.LastOrDefault(u => u.IsAlive && u.Owner == self._hero.Id && u.TypeId == type);
+                if (orb == null)
+                {
+                    // No orb flying: throw one towards home first.
+                    AbilityState? thrower = ReadyAbilities().FirstOrDefault(a => a.Definition.Targeting == AbilityTargeting.Point &&
+                                                                                 a.Definition.Effects.Any(e => e.Kind == EffectKind.Summon && e.SummonTypeId == type));
+                    if (thrower == null)
+                        continue;
+                    Issue(HeroOrder.CastAtPoint(thrower.Definition.Id, FixedVector2.MoveTowards(_hero.Position, Home, Fixed.FromInt(_hero.CastRangeOf(thrower.Definition)))));
+                    return true;
+                }
+
+                Fixed fromHero = enemies.Min(e => FixedVector2.Distance(e.Position, self._hero.Position));
+                Fixed fromOrb = enemies.Min(e => FixedVector2.Distance(e.Position, orb.Position));
+                if (fromOrb < fromHero + Fixed.FromInt(JauntGainRange))
+                    continue;
+                Issue(HeroOrder.CastNoTarget(ability.Definition.Id));
                 return true;
             }
 

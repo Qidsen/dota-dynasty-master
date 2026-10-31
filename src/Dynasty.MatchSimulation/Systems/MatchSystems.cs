@@ -654,6 +654,8 @@ namespace Dynasty.MatchSimulation.Systems
             {
                 if ((unit.Kind != UnitKind.Creep && unit.Kind != UnitKind.Summon) || unit.Team == Team.Neutral || !unit.CanMove)
                     continue;
+                if (unit.Kind == UnitKind.Summon && Travel(unit, now))
+                    continue;
 
                 MatchUnit? target = state.Find(unit.TargetId);
                 if (target == null || !state.CanAttack(unit, target))
@@ -676,6 +678,22 @@ namespace Dynasty.MatchSimulation.Systems
                     unit.LastActiveTick = now;
                 }
             }
+        }
+
+        /// <summary>Illusory Orb: a unit flying to its point goes there whatever is around, and is gone on arrival.</summary>
+        private static bool Travel(MatchUnit unit, long now)
+        {
+            foreach (ActiveModifier modifier in unit.Modifiers)
+            {
+                if (!modifier.Spec.TravelsToPoint)
+                    continue;
+                unit.Position = FixedVector2.MoveTowards(unit.Position, modifier.Destination, unit.StepPerTick);
+                if (unit.Position == modifier.Destination)
+                    unit.ExpiresTick = now;
+                return true;
+            }
+
+            return false;
         }
 
         /// <summary>Summons without a target stay near their owner.</summary>

@@ -724,7 +724,7 @@ namespace Dynasty.Content
                     effect = EffectDefinition.Haunt(e.Milliseconds("duration"), e.Array("modifiers").Select(ReadModifier).ToArray());
                     break;
                 case "assume":
-                    effect = EffectDefinition.Assume();
+                    effect = e.OptionalString("unitType") is string orb ? EffectDefinition.JauntTo(orb) : EffectDefinition.Assume();
                     break;
                 case "persuade":
                     effect = EffectDefinition.Persuade(e.String("marker"), e.Ints("unitLimit").ToArray(), e.Ints("bountyPercent").ToArray(),
@@ -983,6 +983,7 @@ namespace Dynasty.Content
                 noStacksWhile: m.OptionalString("noStacksWhile"),
                 rechargeMs: m.OptionalMilliseconds("recharge") ?? 0, onLastCharge: m.OptionalArray("onLastCharge").Select(ReadEffect).ToList(),
                 noAttackSpeedLimit: m.OptionalBool("noAttackSpeedLimit") ?? false, castRangeBonus: m.OptionalInt("castRangeBonus") ?? 0,
+                travelsToPoint: m.OptionalBool("travelsToPoint") ?? false, travelDistance: m.OptionalInt("travelDistance") ?? 0,
                 beamLength: m.OptionalInt("beamLength") ?? 0, beamTurnPerSecond: m.OptionalInt("beamTurnPerSecond") ?? 0,
                 endsWhenStunnedOrSilenced: m.OptionalBool("endsWhenStunnedOrSilenced") ?? false,
                 attacksMagical: m.OptionalBool("attacksMagical") ?? false, attacksMagicalOnEthereal: m.OptionalBool("attacksMagicalOnEthereal") ?? false,

@@ -477,6 +477,9 @@ namespace Dynasty.MatchSimulation.Rules
         /// <summary>See <see cref="EffectKind.Assume"/>.</summary>
         public static EffectDefinition Assume() => new EffectDefinition(EffectKind.Assume);
 
+        /// <summary>The caster moves to its newest unit of the type, which stays (Ethereal Jaunt to the Illusory Orb); see <see cref="EffectKind.Assume"/>.</summary>
+        public static EffectDefinition JauntTo(string unitTypeId) => new EffectDefinition(EffectKind.Assume, summonTypeId: unitTypeId);
+
         /// <summary>See <see cref="EffectKind.Release"/>.</summary>
         public static EffectDefinition Release(string modifierKey) => new EffectDefinition(EffectKind.Release, stackKey: modifierKey);
 
