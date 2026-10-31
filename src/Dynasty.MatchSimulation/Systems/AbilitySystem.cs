@@ -175,6 +175,8 @@ namespace Dynasty.MatchSimulation.Systems
             if (definition.Targeting == AbilityTargeting.Unit && hero.Abilities.Contains(ability) && caster.IsAlive &&
                 Effects.BoundPartner(context.State, target) is MatchUnit partner && Effects.Matches(context.State, caster, partner, definition.TargetTeam))
                 Effects.RunSpell(context, caster, definition.Effects, ability.Level, partner, partner.Position);
+            if (definition.Targeting == AbilityTargeting.Unit && caster.IsAlive)
+                Multicast(context, caster, definition, ability.Level, target);
             foreach (ActiveModifier modifier in caster.Modifiers.Where(m => m.Spec.OnCast.Count > 0).ToList())
                 Effects.Run(context, caster, modifier.Spec.OnCast, 1, target, point);
             if (definition.Channel != null && caster.IsAlive)
@@ -189,6 +191,50 @@ namespace Dynasty.MatchSimulation.Systems
                 }
 
                 Modifiers.Apply(context, caster, definition.Toggle[System.Math.Min(ability.Level, definition.Toggle.Count) - 1], caster.Id);
+            }
+        }
+
+        /// <summary>
+        /// Multicast: four, three or two times by chance (in that order), the extra casts on other targets the caster may cast it on
+        /// within its range, at random, or on the same target when there is none left or the ability says so (Fireblast).
+        /// </summary>
+        private static void Multicast(SimulationContext<MatchState> context, MatchUnit caster, AbilityDefinition definition, int level, MatchUnit target)
+        {
+            ActiveModifier? multicast = caster.Modifiers.FirstOrDefault(m => m.Spec.MulticastHundredths.Count > 0);
+            if (multicast == null)
+                return;
+            ModifierSpec spec = multicast.Spec;
+            int strengthBonus = spec.MulticastStrengthPerPercent > 0 ? (caster.Strength * Fixed.FromInt(100) / Fixed.FromInt(spec.MulticastStrengthPerPercent)).ToIntFloor() : 0;
+            int casts = 1;
+            for (int times = spec.MulticastHundredths.Count + 1; times >= 2; times--)
+            {
+                int chance = spec.MulticastHundredths[times - 2];
+                if (chance > 0 && context.Random("abilities").NextInt(0, 10000) < chance + strengthBonus)
+                {
+                    casts = times;
+                    break;
+                }
+            }
+
+            var struck = new HashSet<EntityId> { target.Id };
+            for (int i = 1; i < casts; i++)
+            {
+                MatchUnit next = target;
+                if (!definition.MulticastSameTarget)
+                {
+                    List<MatchUnit> others = context.State.Units
+                        .Where(u => !struck.Contains(u.Id) && Effects.Matches(context.State, caster, u, definition.TargetTeam, definition.TargetsStructures) &&
+                                    context.State.IsVisibleTo(caster.Team, u) && Geometry.WithinEdgeRange(caster, u, definition.CastRange))
+                        .OrderBy(u => u.Id.Value)
+                        .ToList();
+                    if (others.Count > 0)
+                        next = others[context.Random("abilities").NextInt(0, others.Count)];
+                }
+
+                if (!next.IsAlive)
+                    continue;
+                struck.Add(next.Id);
+                Effects.RunSpell(context, caster, definition.Effects, level, next, next.Position);
             }
         }
 

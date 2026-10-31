@@ -7294,6 +7294,7 @@
   },
   "ogre_magi_fireblast": {
     "status": "full",
+    "multicastSameTarget": true,
     "targeting": "unit",
     "targetTeam": "enemy",
     "effects": [
@@ -13606,5 +13607,20 @@
         ]
       }
     ]
+  },
+  "ogre_magi_multicast": {
+    "status": "simplified",
+    "note": "unit-targeted abilities and items; the extra casts at once, on other targets within the cast range at random (the project owner), Fireblast's on the same target; strength adds to each chance that is not zero",
+    "targeting": "passive",
+    "targetTeam": "ally",
+    "passive": {
+      "key": "ogre_magi_multicast",
+      "multicast": [
+        "$multicast_2_times",
+        "$multicast_3_times",
+        "$multicast_4_times"
+      ],
+      "multicastStrengthPerPercent": "$strength_for_one_pct"
+    }
   }
 }

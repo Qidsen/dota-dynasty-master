@@ -257,8 +257,12 @@ namespace Dynasty.MatchSimulation.Combat
             int delayedHealAmpPercent = 0,
             int trampleRadius = 0,
             string? trampleMarker = null,
-            IReadOnlyList<Rules.EffectDefinition>? onTrample = null)
+            IReadOnlyList<Rules.EffectDefinition>? onTrample = null,
+            IReadOnlyList<int>? multicastHundredths = null,
+            int multicastStrengthPerPercent = 0)
         {
+            MulticastHundredths = (multicastHundredths ?? System.Array.Empty<int>()).ToArray();
+            MulticastStrengthPerPercent = multicastStrengthPerPercent;
             TrampleRadius = trampleRadius;
             TrampleMarker = trampleMarker;
             OnTrample = onTrample?.ToArray() ?? System.Array.Empty<Rules.EffectDefinition>();
@@ -801,6 +805,14 @@ namespace Dynasty.MatchSimulation.Combat
 
         public IReadOnlyList<Rules.EffectDefinition> OnTrample { get; }
 
+        /// <summary>
+        /// Multicast: the chances, in hundredths of a percent, that a unit-targeted ability or item is cast two, three and four times;
+        /// each chance that is not zero grows by a percent for every <see cref="MulticastStrengthPerPercent"/> strength.
+        /// </summary>
+        public IReadOnlyList<int> MulticastHundredths { get; }
+
+        public int MulticastStrengthPerPercent { get; }
+
         /// <summary>Exorcism: when the modifier runs out the bearer heals by this share of the damage its periodic effects dealt.</summary>
         public int HealAtEndPercent { get; }
 
@@ -1035,7 +1047,8 @@ namespace Dynasty.MatchSimulation.Combat
                                           BaseArmorReductionPercent, BaseMagicResistReductionPercent, AttackDamageHundredths,
                                           CritEveryAttacks, CritHealPercent, CritHealRadius, CritHealAlliesPercent, CritHealCreepPercent,
                                           ThirstMoveSpeedPercent, ThirstFromHealthPercent, ThirstFullBelowHealthPercent, RevealsBelowHealthPercent,
-                                          AnchorChain, AnchorDragSpeed, CooldownSlowPercent, HealAtEndPercent, OnHeroDamageAtLeast, DelayedHealAmpPercent, TrampleRadius })
+                                          AnchorChain, AnchorDragSpeed, CooldownSlowPercent, HealAtEndPercent, OnHeroDamageAtLeast, DelayedHealAmpPercent, TrampleRadius,
+                                          MulticastStrengthPerPercent })
                 w.WriteInt64(value);
             w.WriteBool(ReturnsOnExpiry);
             w.WriteBool(PeriodicFromBearer);
@@ -1043,6 +1056,9 @@ namespace Dynasty.MatchSimulation.Combat
             w.WriteBool(StacksPerCooldown);
             w.WriteBool(DelaysHealth);
             w.WriteString(TrampleMarker ?? "");
+            w.WriteInt64(MulticastHundredths.Count);
+            foreach (int chance in MulticastHundredths)
+                w.WriteInt64(chance);
             w.WriteInt64(PeriodicEffects.Count);
             foreach (Rules.EffectDefinition effect in PeriodicEffects)
                 effect.WriteCanonical(w);

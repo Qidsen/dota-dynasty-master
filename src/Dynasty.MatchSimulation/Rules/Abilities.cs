@@ -776,8 +776,10 @@ namespace Dynasty.MatchSimulation.Rules
             int autoCastBelowHealth = 0,
             string? grantedBy = null,
             bool nightOnly = false,
-            bool targetsCreepsOnly = false)
+            bool targetsCreepsOnly = false,
+            bool multicastSameTarget = false)
         {
+            MulticastSameTarget = multicastSameTarget;
             NightOnly = nightOnly;
             TargetsCreepsOnly = targetsCreepsOnly;
             GrantedBy = grantedBy;
@@ -856,6 +858,9 @@ namespace Dynasty.MatchSimulation.Rules
         /// </summary>
         public string? GrantedBy { get; }
 
+        /// <summary>Multicast casts it again on the same target (Fireblast), not on others around.</summary>
+        public bool MulticastSameTarget { get; }
+
         /// <summary>Castable only at night (Midnight Feast).</summary>
         public bool NightOnly { get; }
 
@@ -933,6 +938,7 @@ namespace Dynasty.MatchSimulation.Rules
             w.WriteString(GrantedBy ?? "");
             w.WriteBool(NightOnly);
             w.WriteBool(TargetsCreepsOnly);
+            w.WriteBool(MulticastSameTarget);
             w.WriteInt64(AutoCastBelowHealth);
             w.WriteInt64(Variants.Count);
             foreach (AbilityVariant variant in Variants)

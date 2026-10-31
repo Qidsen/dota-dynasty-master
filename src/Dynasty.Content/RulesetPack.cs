@@ -619,7 +619,7 @@ namespace Dynasty.Content
                 a.OptionalArray("variants").Select(v => new AbilityVariant(v.Strings("upgrades"), ReadAbility(v))).ToList(),
                 a.OptionalObject("channel") is Reader c ? ReadChannel(c) : null, a.OptionalArray("toggle").Select(ReadModifier).ToList(),
                 a.OptionalString("levelsWith"), a.OptionalInt("autoCastBelowHealth") ?? 0, a.OptionalString("grantedBy"), a.OptionalBool("nightOnly") ?? false,
-                a.OptionalBool("targetsCreepsOnly") ?? false);
+                a.OptionalBool("targetsCreepsOnly") ?? false, a.OptionalBool("multicastSameTarget") ?? false);
             a.RejectUnknown();
             return ability;
         }
@@ -962,6 +962,7 @@ namespace Dynasty.Content
                 critHealRadius: m.OptionalInt("critHealRadius") ?? 0, critHealAlliesPercent: m.OptionalInt("critHealAlliesPercent") ?? 0,
                 critHealCreepPercent: m.OptionalInt("critHealCreepPercent") ?? 100,
                 onEnd: m.OptionalArray("onEnd").Select(ReadEffect).ToList(), healAtEndPercent: m.OptionalInt("healAtEndPercent") ?? 0,
+                multicastHundredths: m.Has("multicast") ? m.Hundredths("multicast") : null, multicastStrengthPerPercent: m.OptionalInt("multicastStrengthPerPercent") ?? 0,
                 trampleRadius: m.OptionalInt("trampleRadius") ?? 0, trampleMarker: m.OptionalString("trampleMarker"),
                 onTrample: m.OptionalArray("onTrample").Select(ReadEffect).ToList(),
                 delaysHealth: m.OptionalBool("delaysHealth") ?? false, delayedHealAmpPercent: m.OptionalInt("delayedHealAmpPercent") ?? 0,
