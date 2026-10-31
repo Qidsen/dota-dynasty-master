@@ -289,8 +289,10 @@ namespace Dynasty.MatchSimulation.Combat
             int nearbyRadius = 0,
             IReadOnlyList<Rules.EffectDefinition>? onNearbyHeroDamage = null,
             int anchorRadius = 0,
-            string? endsWithOwnerModifier = null)
+            string? endsWithOwnerModifier = null,
+            bool damageToOwner = false)
         {
+            DamageToOwner = damageToOwner;
             AnchorRadius = anchorRadius;
             EndsWithOwnerModifier = endsWithOwnerModifier;
             NearbyHeroDamageAbove = nearbyHeroDamageAbove;
@@ -889,6 +891,9 @@ namespace Dynasty.MatchSimulation.Combat
         /// <summary>Unleash: effects of the attack that spends the last charge, run on its target.</summary>
         public IReadOnlyList<Rules.EffectDefinition> OnLastCharge { get; }
 
+        /// <summary>Nothl Projection's body: damage to the bearer is dealt to its owner instead (untouchable as it is), and the bearer's health follows.</summary>
+        public bool DamageToOwner { get; }
+
         /// <summary>Wukong's Command: the modifier goes when the bearer is farther than this from the point of the effect that applied it.</summary>
         public int AnchorRadius { get; }
 
@@ -1201,6 +1206,7 @@ namespace Dynasty.MatchSimulation.Combat
             w.WriteBool(EndsWhenStunnedOrSilenced);
             w.WriteBool(NoAttackSpeedLimit);
             w.WriteBool(TravelsToPoint);
+            w.WriteBool(DamageToOwner);
             w.WriteString(TrampleMarker ?? "");
             w.WriteString(NoStacksWhile ?? "");
             w.WriteString(EndsWithOwnerModifier ?? "");
@@ -1479,10 +1485,18 @@ namespace Dynasty.MatchSimulation.Combat
     {
         /// <summary>Deals damage; <c>reflected</c> marks damage a unit reflects or returns (Dispersion, Spiked Carapace), which is not reflected or returned again.</summary>
         public static Fixed Deal(SimulationContext<MatchState> context, EntityId attacker, MatchUnit target, Fixed rawAmount, DamageType type, bool isCritical = false,
-            bool reflected = false)
+            bool reflected = false, bool throughBody = false)
         {
-            if (!target.IsAlive || target.Kind == UnitKind.Outpost || (target.Flags & ModifierFlags.Invulnerable) != 0)
+            if (!target.IsAlive || target.Kind == UnitKind.Outpost || ((target.Flags & ModifierFlags.Invulnerable) != 0 && !throughBody))
                 return Fixed.Zero;
+            if (target.Modifiers.Count > 0 && target.Modifiers.Any(m => m.Spec.DamageToOwner) && context.State.Find(target.Owner) is MatchUnit owner && owner.IsAlive)
+            {
+                // Nothl Projection: the body is Dazzle's, his spirit untouchable elsewhere.
+                Fixed taken = Deal(context, attacker, owner, rawAmount, type, isCritical, reflected, throughBody: true);
+                target.Hp = Fixed.Min(owner.Hp, Fixed.FromInt(target.MaxHp));
+                return taken;
+            }
+
             if (Promised(target) is ActiveModifier promise)
             {
                 promise.HeldDamage.Add((attacker, rawAmount, type));   // False Promise: it comes at the end

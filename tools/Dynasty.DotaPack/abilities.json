@@ -781,9 +781,12 @@
   },
   "dazzle_poison_touch": {
     "status": "simplified",
-    "note": "the target only instead of a cone; no refresh on attacks",
+    "note": "the target only instead of a cone; no refresh on attacks; during Nothl Projection it also hexes (disarm and silence)",
     "targeting": "unit",
     "targetTeam": "enemy",
+    "valuesFrom": {
+      "nothl_": "dazzle_nothl_projection"
+    },
     "effects": [
       {
         "kind": "modifier",
@@ -794,6 +797,23 @@
           "damageType": "physical",
           "moveSpeedPercent": "$slow"
         }
+      },
+      {
+        "kind": "ifCasterHas",
+        "modifier": "dazzle_nothl_projection",
+        "effects": [
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "dazzle_poison_touch_hex",
+              "duration": "$nothl_poison_touch_hex",
+              "flags": [
+                "disarmed",
+                "silenced"
+              ]
+            }
+          }
+        ]
       }
     ]
   },
@@ -1470,9 +1490,12 @@
   },
   "dazzle_shallow_grave": {
     "status": "simplified",
-    "note": "no healing amplification",
+    "note": "no healing amplification; when it ends with Dazzle in Nothl Projection, it heals",
     "targeting": "unit",
     "targetTeam": "ally",
+    "valuesFrom": {
+      "nothl_": "dazzle_nothl_projection"
+    },
     "effects": [
       {
         "kind": "modifier",
@@ -1481,6 +1504,18 @@
           "duration": "$duration",
           "flags": [
             "cannotDie"
+          ],
+          "onEnd": [
+            {
+              "kind": "ifCasterHas",
+              "modifier": "dazzle_nothl_projection",
+              "effects": [
+                {
+                  "kind": "heal",
+                  "amounts": "$nothl_shallow_grave_heal"
+                }
+              ]
+            }
           ]
         }
       }
@@ -14722,6 +14757,56 @@
             }
           }
         ]
+      }
+    ]
+  },
+  "dazzle_nothl_projection": {
+    "status": "simplified",
+    "note": "the body is a still copy of Dazzle where he cast it (the project owner): damage to it is damage to him (his armor and resistances), its death is his; his spirit goes to the point at once, untouchable, acting as usual; at the end (always the max duration, no early end, no leash pull) he is back in the body; empowers Poison Touch (hex) and Shallow Grave (heal at its end), not Shadow Wave's cooldown",
+    "targeting": "point",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "onCaster",
+        "effects": [
+          {
+            "kind": "illusion",
+            "counts": [
+              1
+            ],
+            "duration": "$max_duration",
+            "modifiers": {
+              "key": "dazzle_nothl_projection_body",
+              "flags": [
+                "rooted",
+                "disarmed",
+                "silenced"
+              ],
+              "dispellable": false,
+              "damageToOwner": true
+            }
+          }
+        ]
+      },
+      {
+        "kind": "onCaster",
+        "effects": [
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "dazzle_nothl_projection",
+              "duration": "$max_duration",
+              "flags": [
+                "invulnerable"
+              ],
+              "dispellable": false,
+              "returnsOnExpiry": true
+            }
+          }
+        ]
+      },
+      {
+        "kind": "dash"
       }
     ]
   }
