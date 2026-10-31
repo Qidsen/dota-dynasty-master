@@ -285,3 +285,4 @@
 - Wall of Replica: `wallHalfLength` — растаптывание по отрезку поперёк направления каста (`Effects.NearSegment`); `TrampleSystem` обходит юнитов по индексу (созданные эффектами — со следующего тика). TDD, саботаж (3 случая). 545/685.
 - Curse of the Oldgrowth: `revealed` (носитель виден врагам сквозь туман, `TeamVision`), `perTreeRadius`/`damagePerTreePerSecond` — замедление и урон по числу деревьев карты (`MapTerrain.Trees`) и юнитов источника рядом (`Modifiers.CountTrees`, сила замедления — `SlowStrengthPercent`). TDD, саботаж (5 случаев). 546/685.
 - Burning Army: `summon` с `rowLength` — призванные ровно в ряд через точку поперёк направления каста. TDD, саботаж (3 случая). 547/685.
+- Side Gunner: область с `radiusFromAttackRange` — радиус по дальности атаки кастующего. TDD, саботаж (2 случая). 548/685.

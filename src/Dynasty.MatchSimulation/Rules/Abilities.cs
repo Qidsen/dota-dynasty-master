@@ -392,6 +392,16 @@ namespace Dynasty.MatchSimulation.Rules
         /// <summary>Summons only: placed evenly round a ring of this radius about the point (Wukong's soldiers); 0 for the usual place.</summary>
         public int RingRadius { get; private set; }
 
+        /// <summary>Areas only: the radius is the caster's attack range (Side Gunner), not <see cref="Radius"/>.</summary>
+        public bool RadiusFromAttackRange { get; private set; }
+
+        /// <summary>The area with the caster's attack range as its radius (see <see cref="RadiusFromAttackRange"/>).</summary>
+        public static EffectDefinition InAttackRange(EffectDefinition area)
+        {
+            area.RadiusFromAttackRange = true;
+            return area;
+        }
+
         /// <summary>Summons only: placed evenly along a row this long through the point, across the way from the caster (Burning Army).</summary>
         public int RowLength { get; private set; }
 
@@ -793,6 +803,7 @@ namespace Dynasty.MatchSimulation.Rules
             w.WriteString(StacksFrom ?? "");
             w.WriteInt64(RingRadius);
             w.WriteInt64(RowLength);
+            w.WriteBool(RadiusFromAttackRange);
             foreach (IReadOnlyList<int> bound in new[] { Floor, Ceiling })
             {
                 w.WriteInt64(bound.Count);

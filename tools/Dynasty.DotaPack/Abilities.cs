@@ -166,7 +166,9 @@ static class Abilities
                                (key is "puck_illusory_orb" or "monkey_king_wukongs_command" or "ember_spirit_fire_remnant" or "dark_seer_wall_of_replica" && ((path.EndsWith(".unitTypes[0].health") && number == 1) ||
                                    ((path.EndsWith(".unitTypes[0].armor") || path.EndsWith(".unitTypes[0].moveSpeed")) && number == 0))) ||
                                // Wukong's soldiers strike with Monkey King's attack: his attack range (the hero's data, 300), one hero each (the project owner).
-                               (key == "monkey_king_wukongs_command" && ((path.EndsWith("periodicEffects[0].radius") && number == 300) || (path.EndsWith("periodicEffects[0].maxTargets") && number == 1)));
+                               (key == "monkey_king_wukongs_command" && ((path.EndsWith("periodicEffects[0].radius") && number == 300) || (path.EndsWith("periodicEffects[0].maxTargets") && number == 1))) ||
+                               // Side Gunner: one enemy at a time, struck with Gyrocopter's whole attack (the data gives only the rate).
+                               (key == "gyrocopter_side_gunner_spawn_ability" && ((path.EndsWith(".maxTargets") && number == 1) || (path.EndsWith(".amounts[0]") && number == 100)));
                 if (!allowed)
                     throw new InvalidDataException($"abilities.json: {key}{path} = {number} is typed by hand; refer to the data (\"$key\")");
                 break;

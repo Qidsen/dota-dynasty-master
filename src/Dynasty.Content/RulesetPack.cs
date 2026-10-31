@@ -686,11 +686,15 @@ namespace Dynasty.Content
                     break;
                 case "area":
                     AreaCenter center = ReadCenter(e, "center");
+                    bool attackRange = e.OptionalBool("radiusFromAttackRange") == true;   // Side Gunner
+                    int areaRadius = attackRange ? e.OptionalInt("radius") ?? 0 : e.Int("radius");
                     effect = e.OptionalInt("maxTargets") is int nearest && e.OptionalBool("heroesOnly") == true
-                        ? EffectDefinition.NearestHeroes(e.Int("radius"), center, ReadTeam(e, "team"), nearest, e.Array("effects").Select(ReadEffect).ToArray())
+                        ? EffectDefinition.NearestHeroes(areaRadius, center, ReadTeam(e, "team"), nearest, e.Array("effects").Select(ReadEffect).ToArray())
                         : e.OptionalInt("maxTargets") is int most
-                        ? EffectDefinition.Area(e.Int("radius"), center, ReadTeam(e, "team"), most, e.OptionalBool("lowestHealthFirst") ?? false, e.Array("effects").Select(ReadEffect).ToArray())
-                        : EffectDefinition.Area(e.Int("radius"), center, ReadTeam(e, "team"), e.OptionalBool("heroesOnly") ?? false, e.Array("effects").Select(ReadEffect).ToArray());
+                        ? EffectDefinition.Area(areaRadius, center, ReadTeam(e, "team"), most, e.OptionalBool("lowestHealthFirst") ?? false, e.Array("effects").Select(ReadEffect).ToArray())
+                        : EffectDefinition.Area(areaRadius, center, ReadTeam(e, "team"), e.OptionalBool("heroesOnly") ?? false, e.Array("effects").Select(ReadEffect).ToArray());
+                    if (attackRange)
+                        effect = EffectDefinition.InAttackRange(effect);
                     break;
                 case "dash":
                     effect = EffectDefinition.Dash();

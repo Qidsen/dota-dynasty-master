@@ -15215,5 +15215,35 @@
         ]
       }
     ]
+  },
+  "gyrocopter_side_gunner_spawn_ability": {
+    "status": "simplified",
+    "note": "Aghanim's Scepter; every sidegunner_fire_rate s the gunner strikes with Gyrocopter's attack (its on-hit effects too) the nearest enemy unit within his attack range, whatever he does; not affected by his own disables",
+    "grantedBy": "scepter",
+    "targeting": "passive",
+    "targetTeam": "enemy",
+    "passive": {
+      "key": "gyrocopter_side_gunner",
+      "dispellable": false,
+      "period": "$sidegunner_fire_rate",
+      "periodicFromBearer": true,
+      "periodicEffects": [
+        {
+          "kind": "area",
+          "radiusFromAttackRange": true,
+          "center": "caster",
+          "team": "enemy",
+          "maxTargets": 1,
+          "effects": [
+            {
+              "kind": "attack",
+              "amounts": [
+                100
+              ]
+            }
+          ]
+        }
+      ]
+    }
   }
 }

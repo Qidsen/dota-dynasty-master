@@ -952,7 +952,7 @@ namespace Dynasty.MatchSimulation.Systems
         {
             List<MatchUnit> affected = context.State.Units
                 .Where(u => Matches(context.State, caster, u, effect.Team) && (!effect.HeroesOnly || u.Hero != null) &&
-                            Geometry.WithinRange(center, u.Position, effect.Radius + u.BoundingRadius))
+                            Geometry.WithinRange(center, u.Position, (effect.RadiusFromAttackRange ? caster.AttackRange + caster.BoundingRadius : effect.Radius) + u.BoundingRadius))
                 .ToList();
             if (effect.MaxTargets > 0 && affected.Count > effect.MaxTargets)
                 affected = (effect.LowestHealthFirst ? affected.OrderBy(u => u.Hp) : affected.OrderBy(u => FixedVector2.DistanceSquared(center, u.Position)))
