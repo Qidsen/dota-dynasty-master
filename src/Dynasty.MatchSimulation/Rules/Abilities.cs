@@ -197,6 +197,13 @@ namespace Dynasty.MatchSimulation.Rules
         PerChannelSecond = 16,
 
         /// <summary>
+        /// Amounts for every unit within <see cref="EffectDefinition.Radius"/> of the caster that its team sees, up to
+        /// <see cref="EffectDefinition.MaxTargets"/>: heroes, creeps and summons of both teams, not the caster, not invulnerable ones nor
+        /// debuff-immune enemies (Soul Rip; damage or healing).
+        /// </summary>
+        PerUnitAround = 17,
+
+        /// <summary>
         /// Flat amounts, in full within <see cref="EffectDefinition.MinDistance"/> of the caster and falling evenly to
         /// <see cref="EffectDefinition.DamagePercent"/> at <see cref="EffectDefinition.Radius"/> (Proximity Mines).
         /// </summary>
@@ -349,6 +356,10 @@ namespace Dynasty.MatchSimulation.Rules
         /// <summary>See <see cref="EffectKind.Spring"/>.</summary>
         public static EffectDefinition Spring(string trapTypeId, int chargeMs, int minChargePercent, params EffectDefinition[] inner) =>
             new EffectDefinition(EffectKind.Spring, summonTypeId: trapTypeId, durationMs: chargeMs, damagePercent: minChargePercent, inner: inner);
+
+        /// <summary>Damage or healing (<paramref name="kind"/>) of <see cref="DamageScaling.PerUnitAround"/>.</summary>
+        public static EffectDefinition PerUnitAround(EffectKind kind, DamageType type, int radius, int maxUnits, params int[] perUnit) =>
+            new EffectDefinition(kind, perUnit, type, scaling: DamageScaling.PerUnitAround, radius: radius, maxTargets: maxUnits);
 
         /// <summary>See <see cref="DamageScaling.PerChannelSecond"/>.</summary>
         public static EffectDefinition ChannelGrowthDamage(DamageType type, int[] maximum, params int[] perSecond) =>

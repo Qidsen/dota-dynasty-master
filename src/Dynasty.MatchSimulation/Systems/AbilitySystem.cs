@@ -291,6 +291,8 @@ namespace Dynasty.MatchSimulation.Systems
                 case DamageScaling.DistanceToTargetPercent:
                     Fixed distance = FixedVector2.Distance(caster.Position, target.Position);
                     return (effect.Radius > 0 ? Fixed.Min(distance, Fixed.FromInt(effect.Radius)) : distance) * percent;
+                case DamageScaling.PerUnitAround:
+                    return amount * Fixed.FromInt(System.Math.Min(effect.MaxTargets, UnitsAround(context.State, caster, effect.Radius)));
                 case DamageScaling.PerChannelSecond:
                     ChannelState? channel = caster.Hero?.Channel;
                     return channel == null ? Fixed.Zero : amount * Fixed.FromRatio((int)(context.Tick.Value - channel.StartTick), context.TickRate.TicksPerSecond);
@@ -387,7 +389,7 @@ namespace Dynasty.MatchSimulation.Systems
 
                     break;
                 case EffectKind.Heal:
-                    Damage.Heal(context, caster.Id, target, Fixed.FromInt(effect.AmountAt(level)));
+                    Damage.Heal(context, caster.Id, target, effect.Scaling == DamageScaling.Flat ? Fixed.FromInt(effect.AmountAt(level)) : ScaledAmount(context, effect, level, caster, target));
                     break;
                 case EffectKind.ApplyModifier:
                     if (target.IsAlive && Modifiers.Apply(context, target, effect.ModifierAt(level), caster.Id) is ActiveModifier applied)
@@ -761,6 +763,22 @@ namespace Dynasty.MatchSimulation.Systems
             target.Position = position;
             if (target.Hero != null)
                 target.Hero.Path = null;
+        }
+
+        /// <summary>Soul Rip's count: units the caster's team sees around it (see <see cref="DamageScaling.PerUnitAround"/>).</summary>
+        private static int UnitsAround(MatchState state, MatchUnit caster, int radius)
+        {
+            int count = 0;
+            foreach (MatchUnit unit in state.Units)
+            {
+                if (unit == caster || !unit.IsAlive || (unit.Kind != UnitKind.Hero && unit.Kind != UnitKind.Creep && unit.Kind != UnitKind.Summon) ||
+                    (unit.Flags & ModifierFlags.Invulnerable) != 0 || (unit.Team != caster.Team && (unit.Flags & ModifierFlags.DebuffImmune) != 0) ||
+                    !state.IsVisibleTo(caster.Team, unit) || !Geometry.WithinRange(unit.Position, caster.Position, radius))
+                    continue;
+                count++;
+            }
+
+            return count;
         }
 
         /// <summary>The share of a growing slow (<see cref="ModifierSpec.GrowsWithChannelMs"/>) after the caster's channel so far.</summary>

@@ -33,6 +33,9 @@ namespace Dynasty.MatchSimulation.Combat
         /// <summary>Lifesteal of the critical strike the attack carries (Chaos Strike).</summary>
         internal int CritLifestealPercent { get; set; }
 
+        /// <summary>A charged critical strike's healing (Luminosity) the attack carries.</summary>
+        internal ModifierSpec? CritHeal { get; set; }
+
         // Ability payload.
         internal IReadOnlyList<EffectDefinition>? Effects { get; set; }
         internal int Level { get; set; }

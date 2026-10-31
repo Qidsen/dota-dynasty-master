@@ -650,6 +650,8 @@ namespace Dynasty.Content
                         ? EffectDefinition.Damage(ReadDamageType(e, "damageType"), e.Ints("amounts").ToArray())
                         : scaling == DamageScaling.PerTargetStack
                         ? EffectDefinition.DamagePerStack(ReadDamageType(e, "damageType"), e.String("stackKey"), e.Ints("amounts").ToArray())
+                        : scaling == DamageScaling.PerUnitAround
+                        ? EffectDefinition.PerUnitAround(EffectKind.Damage, ReadDamageType(e, "damageType"), e.Int("radius"), e.Int("maxUnits"), e.Ints("amounts").ToArray())
                         : scaling == DamageScaling.PerChannelSecond
                         ? EffectDefinition.ChannelGrowthDamage(ReadDamageType(e, "damageType"), e.Ints("ceiling").ToArray(), e.Ints("amounts").ToArray())
                         : scaling == DamageScaling.FullChargeOnly
@@ -664,7 +666,9 @@ namespace Dynasty.Content
                     effect = EffectDefinition.ManaBurn(e.OptionalInt("damagePercent") ?? 0, ReadDamageType(e, "damageType"), e.Ints("amounts").ToArray());
                     break;
                 case "heal":
-                    effect = EffectDefinition.Heal(e.Ints("amounts").ToArray());
+                    effect = e.Has("scaling") && ReadScaling(e, "scaling") == DamageScaling.PerUnitAround
+                        ? EffectDefinition.PerUnitAround(EffectKind.Heal, DamageType.Magical, e.Int("radius"), e.Int("maxUnits"), e.Ints("amounts").ToArray())
+                        : EffectDefinition.Heal(e.Ints("amounts").ToArray());
                     break;
                 case "restoreMana":
                     effect = EffectDefinition.RestoreMana(e.Ints("amounts").ToArray());
@@ -821,8 +825,9 @@ namespace Dynasty.Content
             "distanceFalloff" => DamageScaling.DistanceFalloff,
             "fullChargeOnly" => DamageScaling.FullChargeOnly,
             "perChannelSecond" => DamageScaling.PerChannelSecond,
+            "perUnitAround" => DamageScaling.PerUnitAround,
             _ => throw r.Error(field, "expected flat, targetMaxHealthPercent, targetMissingHealthPercent, targetCurrentHealthPercent, targetMaxManaPercent, " +
-                                      "targetMissingManaPercent, casterAttackDamagePercent, casterStrengthPercent, casterAgilityPercent, casterIntelligencePercent, perTargetStack, casterCurrentManaPercent, distanceToTargetPercent, rewoundDistancePercent, distanceFalloff, fullChargeOnly or perChannelSecond"),
+                                      "targetMissingManaPercent, casterAttackDamagePercent, casterStrengthPercent, casterAgilityPercent, casterIntelligencePercent, perTargetStack, casterCurrentManaPercent, distanceToTargetPercent, rewoundDistancePercent, distanceFalloff, fullChargeOnly, perChannelSecond or perUnitAround"),
         };
 
         private static ModifierFlags ReadFlag(Reader r, string flag) => flag switch
@@ -914,7 +919,10 @@ namespace Dynasty.Content
                 proximityRadius: m.OptionalInt("proximityRadius") ?? 0, proximityDelayMs: m.OptionalMilliseconds("proximityDelay") ?? 0,
                 onProximity: m.OptionalArray("onProximity").Select(ReadEffect).ToList(), periodicFromBearer: m.OptionalBool("periodicFromBearer") ?? false,
                 baseArmorReductionPercent: m.OptionalInt("baseArmorReductionPercent") ?? 0, baseMagicResistReductionPercent: m.OptionalInt("baseMagicResistReductionPercent") ?? 0,
-                baseAttackTimeMs: m.OptionalMilliseconds("baseAttackTime") ?? 0, growsWithChannelMs: m.OptionalMilliseconds("growsWithChannel") ?? 0,
+                baseAttackTimeMs: m.OptionalMilliseconds("baseAttackTime") ?? 0,
+                critEveryAttacks: m.OptionalInt("critEveryAttacks") ?? 0, critHealPercent: m.OptionalInt("critHealPercent") ?? 0,
+                critHealRadius: m.OptionalInt("critHealRadius") ?? 0, critHealAlliesPercent: m.OptionalInt("critHealAlliesPercent") ?? 0,
+                critHealCreepPercent: m.OptionalInt("critHealCreepPercent") ?? 100, growsWithChannelMs: m.OptionalMilliseconds("growsWithChannel") ?? 0,
                 attributeShift: m.OptionalString("attributeShift") switch
                 {
                     null => 0,

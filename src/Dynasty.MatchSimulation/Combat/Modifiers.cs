@@ -234,8 +234,18 @@ namespace Dynasty.MatchSimulation.Combat
             int growsWithChannelMs = 0,
             int baseArmorReductionPercent = 0,
             int baseMagicResistReductionPercent = 0,
-            int attackDamageHundredths = 0)
+            int attackDamageHundredths = 0,
+            int critEveryAttacks = 0,
+            int critHealPercent = 0,
+            int critHealRadius = 0,
+            int critHealAlliesPercent = 0,
+            int critHealCreepPercent = 100)
         {
+            CritEveryAttacks = critEveryAttacks;
+            CritHealPercent = critHealPercent;
+            CritHealRadius = critHealRadius;
+            CritHealAlliesPercent = critHealAlliesPercent;
+            CritHealCreepPercent = critHealCreepPercent;
             BaseArmorReductionPercent = baseArmorReductionPercent;
             BaseMagicResistReductionPercent = baseMagicResistReductionPercent;
             AttackDamageHundredths = attackDamagePercent * 100 + attackDamageHundredths;
@@ -679,6 +689,22 @@ namespace Dynasty.MatchSimulation.Combat
         /// <summary>Attack damage change in hundredths of a percent (Corrosive Weaponry: −2.5% a stack is −250).</summary>
         public int AttackDamageHundredths { get; }
 
+        /// <summary>
+        /// Luminosity: after this many attacks the next one is a critical strike of <see cref="CritMultiplierPercent"/> (not against
+        /// buildings, whose attacks do not count) that heals the attacker by <see cref="CritHealPercent"/> of the damage dealt (
+        /// <see cref="CritHealCreepPercent"/> as much from a non-hero) and allied heroes within <see cref="CritHealRadius"/> by
+        /// <see cref="CritHealAlliesPercent"/> of that.
+        /// </summary>
+        public int CritEveryAttacks { get; }
+
+        public int CritHealPercent { get; }
+
+        public int CritHealRadius { get; }
+
+        public int CritHealAlliesPercent { get; }
+
+        public int CritHealCreepPercent { get; }
+
         /// <summary>Sets the bearer's base attack time while it lasts (Lil' Shredder); 0: the unit's own.</summary>
         public int BaseAttackTimeMs { get; }
 
@@ -901,7 +927,8 @@ namespace Dynasty.MatchSimulation.Combat
             foreach (int value in new[] { CritMultiplierMaxPercent, CritLifestealPercent, OnHitManaCost, OnHitManaCostPercent, FullBelowHealthPercent, InvisibleAfterIdleMs,
                                           ShareDamagePercent, SpreadDamagePercent, SpreadRadius, BreakDistance, HealSharePercent, ManaSharePercent,
                                           CastDamage, CastDamageManaPercent, ProximityRadius, ProximityDelayMs, BaseAttackTimeMs, GrowsWithChannelMs,
-                                          BaseArmorReductionPercent, BaseMagicResistReductionPercent, AttackDamageHundredths })
+                                          BaseArmorReductionPercent, BaseMagicResistReductionPercent, AttackDamageHundredths,
+                                          CritEveryAttacks, CritHealPercent, CritHealRadius, CritHealAlliesPercent, CritHealCreepPercent })
                 w.WriteInt64(value);
             w.WriteBool(ReturnsOnExpiry);
             w.WriteBool(PeriodicFromBearer);
@@ -944,6 +971,9 @@ namespace Dynasty.MatchSimulation.Combat
 
         /// <summary>Where the bearer was when it got the modifier (<see cref="ModifierSpec.ReturnsOnExpiry"/>).</summary>
         internal FixedVector2 Mark { get; set; }
+
+        /// <summary>Attacks counted towards a charged critical strike (<see cref="ModifierSpec.CritEveryAttacks"/>).</summary>
+        internal int AttacksCounted { get; set; }
 
         /// <summary>The unit the bearer is bound to (Soulbind); none for other modifiers.</summary>
         internal EntityId Partner { get; set; }

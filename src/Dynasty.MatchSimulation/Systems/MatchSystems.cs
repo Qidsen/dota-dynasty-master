@@ -773,7 +773,7 @@ namespace Dynasty.MatchSimulation.Systems
             if (target == null || !context.State.CanAttack(unit, target))
                 return;
 
-            Fixed damage = RollDamage(context, unit, target, out bool critical, out int critLifesteal);
+            Fixed damage = RollDamage(context, unit, target, out bool critical, out int critLifesteal, out ModifierSpec? critHeal);
             HitExtraTargets(context, unit, target);
             if (unit.Stats.ProjectileSpeed > 0)
             {
@@ -782,11 +782,12 @@ namespace Dynasty.MatchSimulation.Systems
                 projectile.Damage = damage;
                 projectile.IsCritical = critical;
                 projectile.CritLifestealPercent = critLifesteal;
+                projectile.CritHeal = critHeal;
                 context.Emit(new ProjectileLaunched(projectile.Id, unit.Id, target.Id, isAbility: false));
                 return;
             }
 
-            ApplyHit(context, unit, target, damage, critical, critLifestealPercent: critLifesteal);
+            ApplyHit(context, unit, target, damage, critical, critLifestealPercent: critLifesteal, critHeal: critHeal);
         }
 
         /// <summary>Split attacks: the other enemies nearest to the attacker (then by id) take an instant share of the attack.</summary>
@@ -814,19 +815,39 @@ namespace Dynasty.MatchSimulation.Systems
         /// <summary>An instant attack made by an ability, with a percent of the attack's damage; it lands at once, even for ranged units.</summary>
         internal static void Strike(SimulationContext<MatchState> context, MatchUnit unit, MatchUnit target, int damagePercent, bool spendsCharges = true)
         {
-            Fixed damage = RollDamage(context, unit, target, out bool critical, out int critLifesteal);
-            ApplyHit(context, unit, target, damage * Fixed.FromInt(damagePercent) / Fixed.FromInt(100), critical, spendsCharges, critLifesteal);
+            Fixed damage = RollDamage(context, unit, target, out bool critical, out int critLifesteal, out ModifierSpec? critHeal, spendsCharges);
+            ApplyHit(context, unit, target, damage * Fixed.FromInt(damagePercent) / Fixed.FromInt(100), critical, spendsCharges, critLifesteal, critHeal);
         }
 
         /// <summary>One attack's damage roll: critical strike, attack damage percent, attack and armor classes, structures.</summary>
-        private static Fixed RollDamage(SimulationContext<MatchState> context, MatchUnit unit, MatchUnit target, out bool critical, out int critLifesteal)
+        private static Fixed RollDamage(SimulationContext<MatchState> context, MatchUnit unit, MatchUnit target, out bool critical, out int critLifesteal,
+            out ModifierSpec? critHeal, bool counts = true)
         {
             critLifesteal = 0;
+            critHeal = null;
             int roll = context.Random("combat").NextInt(unit.AttackDamageMin, unit.AttackDamageMax + 1);
             Fixed damage = Fixed.FromInt(roll);
 
             critical = false;
-            if (unit.Combat?.DotaStacking == true)
+            // Luminosity: every so many attacks the next is a critical strike (not against buildings, which do not count).
+            ActiveModifier? charged = counts && target.Kind != UnitKind.Structure ? unit.Modifiers.FirstOrDefault(m => m.Spec.CritEveryAttacks > 0) : null;
+            if (charged != null && charged.AttacksCounted >= charged.Spec.CritEveryAttacks)
+            {
+                charged.AttacksCounted = 0;
+                critical = true;
+                critHeal = charged.Spec;
+                damage = damage * Fixed.FromInt(charged.Spec.CritMultiplierPercent) / Fixed.FromInt(100);
+            }
+            else if (charged != null)
+            {
+                charged.AttacksCounted++;
+            }
+
+            if (critical)
+            {
+                // a charged critical strike: no other one rolls
+            }
+            else if (unit.Combat?.DotaStacking == true)
             {
                 // Dota: from the strongest multiplier down, each pseudo-random; the first that procs counts. Not against buildings
                 // (and such attacks do not count as tries).
@@ -880,8 +901,21 @@ namespace Dynasty.MatchSimulation.Systems
             : unit.Kind == UnitKind.Structure || unit.Stats.AttackClass == AttackClass.Reinforced ? DefenseClass.Reinforced
             : DefenseClass.Unit;
 
+        /// <summary>Luminosity's heal: the attacker by a share of the damage (less from a non-hero), allied heroes around by a share of that.</summary>
+        private static void LuminousHeal(SimulationContext<MatchState> context, MatchUnit attacker, MatchUnit target, Fixed dealt, ModifierSpec spec)
+        {
+            Fixed own = dealt * Fixed.FromInt(spec.CritHealPercent) / Fixed.FromInt(100);
+            if (target.Kind != UnitKind.Hero || target.IllusionOf.IsValid)
+                own = own * Fixed.FromInt(spec.CritHealCreepPercent) / Fixed.FromInt(100);
+            Damage.Heal(context, attacker.Id, attacker, own);
+            Fixed shared = own * Fixed.FromInt(spec.CritHealAlliesPercent) / Fixed.FromInt(100);
+            foreach (MatchUnit ally in context.State.Heroes.Where(h => h != attacker && h.IsAlive && h.Team == attacker.Team && !h.IllusionOf.IsValid &&
+                                                                     Geometry.WithinRange(h.Position, attacker.Position, spec.CritHealRadius)).ToList())
+                Damage.Heal(context, attacker.Id, ally, shared);
+        }
+
         internal static void ApplyHit(SimulationContext<MatchState> context, MatchUnit attacker, MatchUnit target, Fixed damage, bool critical, bool spendsCharges = true,
-            int critLifestealPercent = 0)
+            int critLifestealPercent = 0, ModifierSpec? critHeal = null)
         {
             // Charged buffs count the attacks that land while they are on: not the hit that grants one, not the extra targets' hits.
             List<ActiveModifier>? charged = spendsCharges ? attacker.Modifiers.Where(m => m.Spec.AttackCharges > 0).ToList() : null;
@@ -901,6 +935,8 @@ namespace Dynasty.MatchSimulation.Systems
             Fixed dealt = Damage.Deal(context, attacker.Id, target, damage, DamageType.Physical, critical);
             if (attacker.LifestealPercent + critLifestealPercent > 0 && attacker.IsAlive)
                 Damage.Heal(context, attacker.Id, attacker, dealt * Fixed.FromInt(attacker.LifestealPercent + critLifestealPercent) / Fixed.FromInt(100));
+            if (critHeal != null && attacker.IsAlive)
+                LuminousHeal(context, attacker, target, dealt, critHeal);
 
             // Cleave: melee attacks splash a percent of their damage onto the other enemies near the target.
             if (attacker.Stats.ProjectileSpeed == 0)
@@ -1047,7 +1083,8 @@ namespace Dynasty.MatchSimulation.Systems
                 }
                 else if (source != null)
                 {
-                    AttackSystem.ApplyHit(context, source, target, projectile.Damage, projectile.IsCritical, critLifestealPercent: projectile.CritLifestealPercent);
+                    AttackSystem.ApplyHit(context, source, target, projectile.Damage, projectile.IsCritical, critLifestealPercent: projectile.CritLifestealPercent,
+                        critHeal: projectile.CritHeal);
                 }
                 else
                 {

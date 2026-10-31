@@ -12737,5 +12737,55 @@
         }
       }
     ]
+  },
+  "dawnbreaker_luminosity": {
+    "status": "simplified",
+    "note": "a creep or neutral target heals 60% as much (the 40% penalty, the project owner); no health restoration amplification; Celestial Hammer does not charge it",
+    "targeting": "passive",
+    "targetTeam": "ally",
+    "passive": {
+      "key": "dawnbreaker_luminosity",
+      "critMultiplier": "$bonus_damage",
+      "critEveryAttacks": "$attack_count",
+      "critHealPercent": "$heal_pct",
+      "critHealRadius": "$heal_radius",
+      "critHealAlliesPercent": "$allied_healing_pct",
+      "critHealCreepPercent": "-$heal_from_creeps+100"
+    }
+  },
+  "undying_soul_rip": {
+    "status": "simplified",
+    "note": "the units around lose no health, they are counted (the project owner); Tombstone is not healed",
+    "targeting": "unit",
+    "targetTeam": "any",
+    "effects": [
+      {
+        "kind": "ifTeam",
+        "team": "enemy",
+        "effects": [
+          {
+            "kind": "damage",
+            "damageType": "magical",
+            "scaling": "perUnitAround",
+            "radius": "$radius",
+            "maxUnits": "$max_units",
+            "amounts": "$damage_per_unit"
+          }
+        ]
+      },
+      {
+        "kind": "ifTeam",
+        "team": "ally",
+        "effects": [
+          {
+            "kind": "heal",
+            "scaling": "perUnitAround",
+            "radius": "$radius",
+            "maxUnits": "$max_units",
+            "amounts": "$damage_per_unit"
+          }
+        ]
+      }
+    ]
   }
 }
