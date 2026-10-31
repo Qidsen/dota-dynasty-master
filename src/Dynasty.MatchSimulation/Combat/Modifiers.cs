@@ -261,8 +261,12 @@ namespace Dynasty.MatchSimulation.Combat
             IReadOnlyList<int>? multicastHundredths = null,
             int multicastStrengthPerPercent = 0,
             bool extraTargetHeroesFirst = false,
-            bool extraTargetElseSame = false)
+            bool extraTargetElseSame = false,
+            bool attacksMagical = false,
+            bool attacksMagicalOnEthereal = false)
         {
+            AttacksMagical = attacksMagical;
+            AttacksMagicalOnEthereal = attacksMagicalOnEthereal;
             ExtraTargetHeroesFirst = extraTargetHeroesFirst;
             ExtraTargetElseSame = extraTargetElseSame;
             MulticastHundredths = (multicastHundredths ?? System.Array.Empty<int>()).ToArray();
@@ -809,6 +813,12 @@ namespace Dynasty.MatchSimulation.Combat
 
         public IReadOnlyList<Rules.EffectDefinition> OnTrample { get; }
 
+        /// <summary>Pierce the Veil: the bearer's attacks deal magical damage.</summary>
+        public bool AttacksMagical { get; }
+
+        /// <summary>Pierce the Veil, passively: the bearer's attacks on an ethereal (physically immune) target deal magical damage.</summary>
+        public bool AttacksMagicalOnEthereal { get; }
+
         /// <summary>Gunslinger: the extra shots take heroes first, then other units (by distance within each).</summary>
         public bool ExtraTargetHeroesFirst { get; }
 
@@ -1066,6 +1076,8 @@ namespace Dynasty.MatchSimulation.Combat
             w.WriteBool(StacksPerCooldown);
             w.WriteBool(ExtraTargetHeroesFirst);
             w.WriteBool(ExtraTargetElseSame);
+            w.WriteBool(AttacksMagical);
+            w.WriteBool(AttacksMagicalOnEthereal);
             w.WriteBool(DelaysHealth);
             w.WriteString(TrampleMarker ?? "");
             w.WriteInt64(MulticastHundredths.Count);

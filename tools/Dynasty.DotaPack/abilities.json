@@ -13636,5 +13636,34 @@
       "extraTargetHeroesFirst": true,
       "extraTargetElseSame": true
     }
+  },
+  "muerta_pierce_the_veil": {
+    "status": "simplified",
+    "note": "the bonus is to the whole attack damage, not only the base; she can still attack buildings; no projectile dodge on transforming; no phased movement",
+    "targeting": "noTarget",
+    "targetTeam": "ally",
+    "passive": {
+      "key": "muerta_pierce_the_veil_passive",
+      "attacksMagicalOnEthereal": true
+    },
+    "effects": [
+      {
+        "kind": "onCaster",
+        "effects": [
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "muerta_pierce_the_veil",
+              "duration": "$duration",
+              "flags": [
+                "physicalImmune"
+              ],
+              "attackDamagePercent": "$base_damage_percent",
+              "attacksMagical": true
+            }
+          }
+        ]
+      }
+    ]
   }
 }

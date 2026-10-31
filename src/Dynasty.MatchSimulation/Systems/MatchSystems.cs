@@ -947,6 +947,18 @@ namespace Dynasty.MatchSimulation.Systems
             : unit.Kind == UnitKind.Structure || unit.Stats.AttackClass == AttackClass.Reinforced ? DefenseClass.Reinforced
             : DefenseClass.Unit;
 
+        /// <summary>Physical, or magical under Pierce the Veil (always, or on an ethereal target with its passive).</summary>
+        private static DamageType AttackDamageType(MatchUnit attacker, MatchUnit target)
+        {
+            foreach (ActiveModifier modifier in attacker.Modifiers)
+            {
+                if (modifier.Spec.AttacksMagical || (modifier.Spec.AttacksMagicalOnEthereal && (target.Flags & ModifierFlags.PhysicalImmune) != 0))
+                    return DamageType.Magical;
+            }
+
+            return DamageType.Physical;
+        }
+
         /// <summary>Luminosity's heal: the attacker by a share of the damage (less from a non-hero), allied heroes around by a share of that.</summary>
         private static void LuminousHeal(SimulationContext<MatchState> context, MatchUnit attacker, MatchUnit target, Fixed dealt, ModifierSpec spec)
         {
@@ -978,7 +990,7 @@ namespace Dynasty.MatchSimulation.Systems
             }
             if (block > 0)
                 damage = Fixed.Max(Fixed.Zero, damage - Fixed.FromInt(block));
-            Fixed dealt = Damage.Deal(context, attacker.Id, target, damage, DamageType.Physical, critical);
+            Fixed dealt = Damage.Deal(context, attacker.Id, target, damage, AttackDamageType(attacker, target), critical);
             if (attacker.LifestealPercent + critLifestealPercent > 0 && attacker.IsAlive)
                 Damage.Heal(context, attacker.Id, attacker, dealt * Fixed.FromInt(attacker.LifestealPercent + critLifestealPercent) / Fixed.FromInt(100));
             if (critHeal != null && attacker.IsAlive)

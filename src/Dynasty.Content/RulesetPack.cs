@@ -963,6 +963,7 @@ namespace Dynasty.Content
                 critHealCreepPercent: m.OptionalInt("critHealCreepPercent") ?? 100,
                 onEnd: m.OptionalArray("onEnd").Select(ReadEffect).ToList(), healAtEndPercent: m.OptionalInt("healAtEndPercent") ?? 0,
                 multicastHundredths: m.Has("multicast") ? m.Hundredths("multicast") : null,
+                attacksMagical: m.OptionalBool("attacksMagical") ?? false, attacksMagicalOnEthereal: m.OptionalBool("attacksMagicalOnEthereal") ?? false,
                 extraTargetHeroesFirst: m.OptionalBool("extraTargetHeroesFirst") ?? false, extraTargetElseSame: m.OptionalBool("extraTargetElseSame") ?? false, multicastStrengthPerPercent: m.OptionalInt("multicastStrengthPerPercent") ?? 0,
                 trampleRadius: m.OptionalInt("trampleRadius") ?? 0, trampleMarker: m.OptionalString("trampleMarker"),
                 onTrample: m.OptionalArray("onTrample").Select(ReadEffect).ToList(),
