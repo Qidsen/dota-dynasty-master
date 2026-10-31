@@ -1116,9 +1116,11 @@ namespace Dynasty.MatchSimulation.Combat
             long expires = spec.DurationMs < 0 ? -1 : now + context.TickRate.TicksFor(durationMs);
 
             ActiveModifier? existing = target.FindModifier(spec.Key, source);
+            int carriedStacks = 0;
             if (existing != null && !ReferenceEquals(existing.Spec, spec))
             {
-                // Same key, different spec (e.g. a passive's next level): replace, don't refresh.
+                // Same key, different spec (e.g. a passive's next level): replace, don't refresh; a stacking one keeps its stacks.
+                carriedStacks = spec.MaxStacks > 0 ? existing.Stacks : 0;
                 target.RemoveModifier(existing);
                 existing = null;
             }
@@ -1140,6 +1142,8 @@ namespace Dynasty.MatchSimulation.Combat
             else
             {
                 modifier = new ActiveModifier(spec, source, now, expires, now + context.TickRate.TicksFor(spec.PeriodMs)) { Mark = target.Position };
+                if (carriedStacks > 0)
+                    modifier.Stacks = System.Math.Min(carriedStacks + 1, spec.MaxStacks);   // counted when added below
                 if (spec.BarrierMaxHealthPercent > 0)
                     modifier.BarrierLeft = target.MaxHp * spec.BarrierMaxHealthPercent / 100;
                 target.AddModifier(modifier);

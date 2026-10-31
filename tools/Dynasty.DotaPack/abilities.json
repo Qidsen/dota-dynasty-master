@@ -13236,5 +13236,75 @@
         "kind": "assume"
       }
     ]
+  },
+  "luna_eclipse": {
+    "status": "simplified",
+    "note": "all the beams 0.6 s apart, the first at once (the project owner; the duration in the data is a tooltip); no night; no Aghanim's Scepter (cast on an ally or a point)",
+    "targeting": "noTarget",
+    "targetTeam": "enemy",
+    "valuesFrom": {
+      "beam_": "luna_lucent_beam"
+    },
+    "effects": [
+      {
+        "kind": "randomStrike",
+        "radius": "$radius",
+        "team": "enemy",
+        "marker": "luna_eclipse_hits",
+        "hitsPerUnit": "$hit_count",
+        "markerModifier": {
+          "key": "luna_eclipse_hits",
+          "duration": "$beams*$beam_interval",
+          "stacking": true,
+          "dispellable": false
+        },
+        "effects": [
+          {
+            "kind": "damage",
+            "damageType": "magical",
+            "levelOf": "luna_lucent_beam",
+            "amounts": "$beam_beam_damage"
+          }
+        ]
+      },
+      {
+        "kind": "onCaster",
+        "effects": [
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "luna_eclipse",
+              "duration": "$beams*$beam_interval+-$beam_interval",
+              "dispellable": false,
+              "period": "$beam_interval",
+              "periodicFromBearer": true,
+              "periodicEffects": [
+                {
+                  "kind": "randomStrike",
+                  "radius": "$radius",
+                  "team": "enemy",
+                  "marker": "luna_eclipse_hits",
+                  "hitsPerUnit": "$hit_count",
+                  "markerModifier": {
+                    "key": "luna_eclipse_hits",
+                    "duration": "$beams*$beam_interval",
+                    "stacking": true,
+                    "dispellable": false
+                  },
+                  "effects": [
+                    {
+                      "kind": "damage",
+                      "damageType": "magical",
+                      "levelOf": "luna_lucent_beam",
+                      "amounts": "$beam_beam_damage"
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        ]
+      }
+    ]
   }
 }

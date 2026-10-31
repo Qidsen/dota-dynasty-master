@@ -366,6 +366,14 @@ namespace Dynasty.MatchSimulation.Systems
 
         private static void RunOne(SimulationContext<MatchState> context, MatchUnit caster, EffectDefinition effect, int level, MatchUnit target, FixedVector2 point)
         {
+            if (effect.LevelOf != null)
+            {
+                // Eclipse: the beam is Lucent Beam's of its current level; without it learned, nothing.
+                level = caster.Hero?.Abilities.FirstOrDefault(a => a.Definition.Id == effect.LevelOf)?.Level ?? 0;
+                if (level == 0)
+                    return;
+            }
+
             switch (effect.Kind)
             {
                 case EffectKind.Damage:
@@ -511,6 +519,9 @@ namespace Dynasty.MatchSimulation.Systems
                     break;
                 case EffectKind.SwapHealthPercent:
                     SwapHealth(caster, target, effect.AmountAt(level));
+                    break;
+                case EffectKind.RandomStrike:
+                    RandomStrike(context, caster, effect, level, point);
                     break;
                 case EffectKind.RandomArea:
                     RunAround(context, caster, effect, level, RandomPointAround(context, caster.Position, effect.MinDistance, effect.MaxDistance), point);
@@ -680,6 +691,24 @@ namespace Dynasty.MatchSimulation.Systems
             bool immune = target.Team != caster.Team && (target.Flags & ModifierFlags.DebuffImmune) != 0;
             if (!immune)
                 target.Hp = Fixed.FromInt(target.MaxHp) * Fixed.Max(minimum, casterShare);
+        }
+
+        /// <summary>Eclipse: a random enemy the caster's team sees around it, not yet struck the most times; it gets a marker stack.</summary>
+        private static void RandomStrike(SimulationContext<MatchState> context, MatchUnit caster, EffectDefinition effect, int level, FixedVector2 point)
+        {
+            List<MatchUnit> candidates = context.State.Units
+                .Where(u => u.IsAlive && Matches(context.State, caster, u, effect.Team) && context.State.IsVisibleTo(caster.Team, u) &&
+                            Geometry.WithinRange(u.Position, caster.Position, effect.Radius) &&
+                            u.Modifiers.Where(m => m.Spec.Key == effect.StackKey && m.Source == caster.Id).Sum(m => m.Stacks) < effect.MaxTargets)   // markers by key, whatever the spec object
+                .OrderBy(u => u.Id.Value)
+                .ToList();
+            if (candidates.Count == 0)
+                return;
+            MatchUnit struck = candidates[context.Random("abilities").NextInt(0, candidates.Count)];
+            foreach (EffectDefinition inner in effect.Inner)
+                RunOne(context, caster, inner, level, struck, point);
+            if (struck.IsAlive)
+                Modifiers.Apply(context, struck, effect.ModifierAt(level), caster.Id);
         }
 
         /// <summary>A random point at least <paramref name="min"/> and at most <paramref name="max"/> from the centre (drawn in the square, kept in the ring).</summary>

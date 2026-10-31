@@ -177,6 +177,13 @@ namespace Dynasty.MatchSimulation.Rules
 
         /// <summary>The caster goes to its own illusion nearest to the point, which is destroyed (Reality).</summary>
         Assume = 37,
+
+        /// <summary>
+        /// The inner effects on one random enemy the caster's team sees within <see cref="EffectDefinition.Radius"/> that has fewer than
+        /// <see cref="EffectDefinition.MaxTargets"/> stacks of the marker <see cref="EffectDefinition.StackKey"/> from the caster; the
+        /// marker (the level's modifier) gets a stack (Eclipse's beams).
+        /// </summary>
+        RandomStrike = 38,
     }
 
     /// <summary>What a damage effect's amounts mean: flat damage, or a percent of the target's health or mana.</summary>
@@ -313,6 +320,19 @@ namespace Dynasty.MatchSimulation.Rules
         /// <summary>Areas with <see cref="MaxTargets"/>: the units with the least health first (Eye of the Storm), not the nearest.</summary>
         public bool LowestHealthFirst { get; }
 
+        /// <summary>
+        /// The effect works at the caster's current level of this ability, not of its own (Eclipse's beams are Lucent Beam's); nothing
+        /// while that ability is not learned.
+        /// </summary>
+        public string? LevelOf { get; private set; }
+
+        /// <summary>The effect at the caster's level of <paramref name="abilityId"/> (see <see cref="LevelOf"/>).</summary>
+        public EffectDefinition LevelledBy(string abilityId)
+        {
+            LevelOf = abilityId;
+            return this;
+        }
+
         /// <summary>Cooldown refreshes only: the hero's abilities, not its items (Dota's Rearm in 7.41).</summary>
         public bool AbilitiesOnly { get; }
 
@@ -375,6 +395,10 @@ namespace Dynasty.MatchSimulation.Rules
         /// <summary>See <see cref="DamageScaling.DoublingPerStack"/>.</summary>
         public static EffectDefinition DamageByStacksDoubling(DamageType type, int doublingStacks, int extraPerStack, params int[] stackDamagePerLevel) =>
             new EffectDefinition(EffectKind.Damage, stackDamagePerLevel, type, scaling: DamageScaling.DoublingPerStack, maxTargets: doublingStacks, damagePercent: extraPerStack);
+
+        /// <summary>See <see cref="EffectKind.RandomStrike"/>.</summary>
+        public static EffectDefinition RandomStrike(int radius, TargetTeam team, string markerKey, int hitsPerUnit, ModifierSpec marker, params EffectDefinition[] inner) =>
+            new EffectDefinition(EffectKind.RandomStrike, radius: radius, team: team, stackKey: markerKey, maxTargets: hitsPerUnit, modifiers: new[] { marker }, inner: inner);
 
         /// <summary>See <see cref="EffectKind.Haunt"/>.</summary>
         public static EffectDefinition Haunt(int durationMs, ModifierSpec[] modifierPerLevel) =>
@@ -602,6 +626,7 @@ namespace Dynasty.MatchSimulation.Rules
             w.WriteBool(AbilitiesOnly);
             w.WriteInt64(MaxTargets);
             w.WriteBool(LowestHealthFirst);
+            w.WriteString(LevelOf ?? "");
             foreach (IReadOnlyList<int> bound in new[] { Floor, Ceiling })
             {
                 w.WriteInt64(bound.Count);

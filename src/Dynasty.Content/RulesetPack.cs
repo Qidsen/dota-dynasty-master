@@ -710,6 +710,10 @@ namespace Dynasty.Content
                 case "lineArea":
                     effect = EffectDefinition.LineArea(e.OptionalInt("width") ?? 0, ReadTeam(e, "team"), e.Array("effects").Select(ReadEffect).ToArray());
                     break;
+                case "randomStrike":
+                    effect = EffectDefinition.RandomStrike(e.Int("radius"), ReadTeam(e, "team"), e.String("marker"), e.Int("hitsPerUnit"),
+                        ReadModifier(e.OptionalObject("markerModifier") ?? throw e.Error("markerModifier", "missing")), e.Array("effects").Select(ReadEffect).ToArray());
+                    break;
                 case "haunt":
                     effect = EffectDefinition.Haunt(e.Milliseconds("duration"), e.Array("modifiers").Select(ReadModifier).ToArray());
                     break;
@@ -804,6 +808,8 @@ namespace Dynasty.Content
                     throw e.Error("kind", "unknown effect kind");
             }
 
+            if (e.OptionalString("levelOf") is string levelOf)
+                effect.LevelledBy(levelOf);   // Eclipse's beams at Lucent Beam's level
             e.RejectUnknown();
             return effect;
         }
