@@ -544,6 +544,9 @@ namespace Dynasty.MatchSimulation.Systems
                     int byStacks = effect.StacksFrom == null ? 0 : caster.Modifiers.Where(m => m.Spec.Key == effect.StacksFrom).Sum(m => m.Stacks);
                     if (effect.StacksFrom != null && byStacks == 0)
                         break;   // Uproar without stacks: nothing
+                    // Applied several times at once (Bone Guard: four half charges for a hero), the last one below.
+                    for (int time = 1; time < (effect.Amounts.Count > 0 ? effect.AmountAt(level) : 1) && target.IsAlive; time++)
+                        Modifiers.Apply(context, target, effect.ModifierAt(level), caster.Id);
                     if (target.IsAlive && Modifiers.Apply(context, target, effect.ModifierAt(level), caster.Id) is ActiveModifier applied)
                     {
                         if (byStacks > 0)
@@ -1168,7 +1171,9 @@ namespace Dynasty.MatchSimulation.Systems
             CreepType type = context.State.Ruleset.FindCreepType(effect.SummonTypeId!)!;
             long now = context.Tick.Value;
             long expires = effect.DurationMs < 0 ? -1 : now + context.TickRate.TicksFor(effect.DurationMs);   // mines last until destroyed
-            for (int i = 0; i < effect.AmountAt(level); i++)
+            int count = effect.StacksFrom == null ? effect.AmountAt(level)
+                : caster.Modifiers.Where(m => m.Spec.Key == effect.StacksFrom).Sum(m => m.Stacks) / System.Math.Max(1, effect.AmountAt(level));   // Bone Guard
+            for (int i = 0; i < count; i++)
             {
                 if (effect.Ceiling.Count > 0)
                 {

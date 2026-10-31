@@ -465,7 +465,7 @@ static class Abilities
             {
                 "amounts" when effect["levelOf"] != null && node is JsonValue v && v.TryGetValue(out string? text) && IsReference(text) =>
                     new JsonArray(Resolve(text, values).Select(x => (JsonNode)JsonValue.Create(x)!).ToArray()),   // all levels of that other ability
-                "amounts" or "counts" or "floor" or "ceiling" or "durations" or "maxAlive" or "strikes" or "unitLimit" or "bountyPercent" => PerLevel(node, values, levels, fallback: null),
+                "amounts" or "counts" or "floor" or "ceiling" or "durations" or "maxAlive" or "strikes" or "unitLimit" or "bountyPercent" or "times" => PerLevel(node, values, levels, fallback: null),
                 "modifiers" => node is JsonObject single ? Modifiers(single, values, levels) : node!.DeepClone(),
                 "markerModifier" => ResolveAt(node, values, levels - 1),   // one marker for every level (Eclipse's hits on a unit)
                 "effects" or "shock" => new JsonArray(node!.AsArray().Select(e => (JsonNode)ResolveEffect(e!.AsObject(), values, levels)).ToArray()),
@@ -496,7 +496,7 @@ static class Abilities
         {
             case JsonValue v when v.TryGetValue(out string? s) && IsReference(s):
                 decimal value = At(Resolve(s, values), level);
-                return field is "amounts" or "counts" or "strikes" ? new JsonArray(JsonValue.Create(value)) : JsonValue.Create(value);
+                return field is "amounts" or "counts" or "strikes" or "times" ? new JsonArray(JsonValue.Create(value)) : JsonValue.Create(value);
             case JsonObject obj when field == "modifiers":
                 return new JsonArray(ResolveAt(obj, values, level));
             case JsonObject obj:

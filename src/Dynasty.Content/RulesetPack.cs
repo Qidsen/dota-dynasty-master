@@ -681,7 +681,8 @@ namespace Dynasty.Content
                         : EffectDefinition.RestoreMana(e.Ints("amounts").ToArray());
                     break;
                 case "modifier":
-                    effect = EffectDefinition.Modifier(e.Array("modifiers").Select(ReadModifier).ToArray());
+                    effect = e.Has("times") ? EffectDefinition.ModifierTimes(e.Ints("times").ToArray(), e.Array("modifiers").Select(ReadModifier).ToArray())
+                        : EffectDefinition.Modifier(e.Array("modifiers").Select(ReadModifier).ToArray());
                     break;
                 case "area":
                     AreaCenter center = ReadCenter(e, "center");

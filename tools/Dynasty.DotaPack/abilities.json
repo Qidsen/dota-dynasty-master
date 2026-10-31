@@ -14448,5 +14448,100 @@
         ]
       }
     ]
+  },
+  "skeleton_king_bone_guard": {
+    "status": "simplified",
+    "note": "counted in half charges: a creep (any non-hero unit) Wraith King kills gives one, a hero skeleton_charges_per_hero_multiplier; a skeleton for every two (counts: 2), at the top level's damage; a skeleton comes back once at once (no reincarnate_time), no bonus hero damage, no Vampiric Spirit lifesteal, Break does not stop the charges; the AI calls them in a fight with charges for two",
+    "targeting": "noTarget",
+    "targetTeam": "enemy",
+    "unitTypes": [
+      {
+        "id": "skeleton_king_skeleton",
+        "gameUnit": "npc_dota_wraith_king_skeleton_warrior",
+        "attackDamageMin": "$skeleton_damage_tooltip",
+        "attackDamageMax": "$skeleton_damage_tooltip",
+        "bounty": {
+          "goldMin": "$gold_bounty",
+          "goldMax": "$gold_bounty",
+          "xp": "$xp_bounty"
+        }
+      }
+    ],
+    "passive": {
+      "key": "skeleton_king_bone_guard",
+      "onKill": [
+        {
+          "kind": "ifHero",
+          "effects": [
+            {
+              "kind": "onCaster",
+              "effects": [
+                {
+                  "kind": "modifier",
+                  "times": "$skeleton_charges_per_hero_multiplier",
+                  "modifiers": {
+                    "key": "skeleton_king_bone_guard_charges",
+                    "stacking": true,
+                    "maxStacks": "$max_skeleton_charges*2",
+                    "dispellable": false
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "kind": "ifNotHero",
+          "effects": [
+            {
+              "kind": "onCaster",
+              "effects": [
+                {
+                  "kind": "modifier",
+                  "modifiers": {
+                    "key": "skeleton_king_bone_guard_charges",
+                    "stacking": true,
+                    "maxStacks": "$max_skeleton_charges*2",
+                    "dispellable": false
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "effects": [
+      {
+        "kind": "summon",
+        "unitType": "skeleton_king_skeleton",
+        "counts": [
+          2
+        ],
+        "stacksFrom": "skeleton_king_bone_guard_charges",
+        "duration": "$skeleton_duration",
+        "effects": [
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "skeleton_king_bone_guard_skeleton",
+              "revives": true,
+              "consumedOnRevive": true,
+              "dispellable": false,
+              "structureDamage": "-$skeleton_building_damage_reduction"
+            }
+          }
+        ]
+      },
+      {
+        "kind": "onCaster",
+        "effects": [
+          {
+            "kind": "consume",
+            "modifier": "skeleton_king_bone_guard_charges"
+          }
+        ]
+      }
+    ]
   }
 }

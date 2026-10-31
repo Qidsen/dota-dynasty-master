@@ -365,7 +365,8 @@ namespace Dynasty.MatchSimulation.Rules
 
         /// <summary>
         /// Modifiers: applied with as many stacks as the caster has of this modifier (Uproar's roar by its stacks); not at all with none.
-        /// Damage of <see cref="DamageScaling.PerCasterStack"/>: the modifier whose stacks it counts.
+        /// Damage of <see cref="DamageScaling.PerCasterStack"/>: the modifier whose stacks it counts. Summons: one unit for every
+        /// <see cref="EffectDefinition.Amounts"/> of the caster's stacks of it (Bone Guard's skeletons by its half charges).
         /// </summary>
         public string? StacksFrom { get; private set; }
 
@@ -625,6 +626,10 @@ namespace Dynasty.MatchSimulation.Rules
 
         public static EffectDefinition Modifier(params ModifierSpec[] perLevel) =>
             new EffectDefinition(EffectKind.ApplyModifier, modifiers: perLevel);
+
+        /// <summary>The modifier applied this many times (per level): a stacking one gets as many stacks (Bone Guard: 4 half charges a hero).</summary>
+        public static EffectDefinition ModifierTimes(int[] timesPerLevel, params ModifierSpec[] perLevel) =>
+            new EffectDefinition(EffectKind.ApplyModifier, timesPerLevel, modifiers: perLevel);
 
         public static EffectDefinition Area(int radius, AreaCenter center, TargetTeam team, params EffectDefinition[] inner) =>
             new EffectDefinition(EffectKind.Area, radius: radius, center: center, team: team, inner: inner);
