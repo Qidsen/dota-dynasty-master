@@ -686,7 +686,9 @@ namespace Dynasty.Content
                     break;
                 case "area":
                     AreaCenter center = ReadCenter(e, "center");
-                    effect = e.OptionalInt("maxTargets") is int most
+                    effect = e.OptionalInt("maxTargets") is int nearest && e.OptionalBool("heroesOnly") == true
+                        ? EffectDefinition.NearestHeroes(e.Int("radius"), center, ReadTeam(e, "team"), nearest, e.Array("effects").Select(ReadEffect).ToArray())
+                        : e.OptionalInt("maxTargets") is int most
                         ? EffectDefinition.Area(e.Int("radius"), center, ReadTeam(e, "team"), most, e.OptionalBool("lowestHealthFirst") ?? false, e.Array("effects").Select(ReadEffect).ToArray())
                         : EffectDefinition.Area(e.Int("radius"), center, ReadTeam(e, "team"), e.OptionalBool("heroesOnly") ?? false, e.Array("effects").Select(ReadEffect).ToArray());
                     break;
@@ -774,6 +776,8 @@ namespace Dynasty.Content
                     effect = e.Has("maxAlive")
                         ? EffectDefinition.Summon(unit, duration, e.OptionalBool("atPoint") == true, counts, e.Ints("maxAlive").ToArray(), e.OptionalArray("effects").Select(ReadEffect).ToArray())
                         : EffectDefinition.Summon(unit, duration, e.OptionalBool("atPoint") == true, counts, e.OptionalArray("effects").Select(ReadEffect).ToArray());
+                    if (e.OptionalInt("ringRadius") is int ring)
+                        effect.InRing(ring);   // Wukong's soldiers
                     break;
                 case "teleport":
                     effect = EffectDefinition.Teleport();
@@ -998,6 +1002,7 @@ namespace Dynasty.Content
                 travelsToPoint: m.OptionalBool("travelsToPoint") ?? false, travelDistance: m.OptionalInt("travelDistance") ?? 0,
                 nearbyHeroDamageAbove: m.OptionalInt("nearbyHeroDamageAbove") ?? 0, nearbyHeroDamageBelow: m.OptionalInt("nearbyHeroDamageBelow") ?? 0,
                 nearbyRadius: m.OptionalInt("nearbyRadius") ?? 0, onNearbyHeroDamage: m.OptionalArray("onNearbyHeroDamage").Select(ReadEffect).ToList(),
+                anchorRadius: m.OptionalInt("anchorRadius") ?? 0, endsWithOwnerModifier: m.OptionalString("endsWithOwnerModifier"),
                 beamLength: m.OptionalInt("beamLength") ?? 0, beamTurnPerSecond: m.OptionalInt("beamTurnPerSecond") ?? 0,
                 endsWhenStunnedOrSilenced: m.OptionalBool("endsWhenStunnedOrSilenced") ?? false,
                 attacksMagical: m.OptionalBool("attacksMagical") ?? false, attacksMagicalOnEthereal: m.OptionalBool("attacksMagicalOnEthereal") ?? false,

@@ -149,8 +149,11 @@ static class Abilities
                                ((key == "centaur_stampede" || key == "centaur_work_horse") && path.EndsWith(".fixedMoveSpeed") && number == 550) ||
                                // Supernova: "restoring Phoenix to full health and mana" (Valve's description) - all of the max.
                                (key == "phoenix_supernova" && path.EndsWith(".amounts[0]") && number == 100) ||
-                               // Illusory Orb: the game's thinker unit has no health or armor; the orb is invulnerable, these only fill the fields.
-                               (key == "puck_illusory_orb" && ((path.EndsWith(".unitTypes[0].health") && number == 1) || (path.EndsWith(".unitTypes[0].armor") && number == 0)));
+                               // Illusory Orb and Wukong's soldiers: the game's thinker unit has no health, armor or speed; they are invulnerable (and the soldiers stand), these only fill the fields.
+                               (key is "puck_illusory_orb" or "monkey_king_wukongs_command" && ((path.EndsWith(".unitTypes[0].health") && number == 1) ||
+                                   ((path.EndsWith(".unitTypes[0].armor") || path.EndsWith(".unitTypes[0].moveSpeed")) && number == 0))) ||
+                               // Wukong's soldiers strike with Monkey King's attack: his attack range (the hero's data, 300), one hero each (the project owner).
+                               (key == "monkey_king_wukongs_command" && ((path.EndsWith("periodicEffects[0].radius") && number == 300) || (path.EndsWith("periodicEffects[0].maxTargets") && number == 1)));
                 if (!allowed)
                     throw new InvalidDataException($"abilities.json: {key}{path} = {number} is typed by hand; refer to the data (\"$key\")");
                 break;

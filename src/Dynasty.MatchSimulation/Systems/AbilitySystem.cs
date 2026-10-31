@@ -555,6 +555,8 @@ namespace Dynasty.MatchSimulation.Systems
                             target.Recalculate();
                         }
 
+                        if (applied.Spec.AnchorRadius > 0)
+                            applied.Destination = point;   // Wukong's Command: where the soldiers stand
                         if (applied.Spec.TravelsToPoint)
                             applied.Destination = TravelEnd(target.Position, point, applied.Spec.TravelDistance);   // Illusory Orb
                         if (applied.Spec.BeamLength > 0)
@@ -1196,6 +1198,14 @@ namespace Dynasty.MatchSimulation.Systems
                 {
                     unit.Position = point;
                     unit.StartPosition = point;
+                }
+
+                if (effect.RingRadius > 0)
+                {
+                    // Wukong's Command: evenly round a ring about the point (or the caster).
+                    FixedVector2 around = effect.AtPoint ? point : caster.Position;
+                    unit.Position = around + Geometry.Direction(360 * i / count) * Fixed.FromInt(effect.RingRadius);
+                    unit.StartPosition = unit.Position;
                 }
 
                 context.Emit(new UnitSummoned(unit.Id, caster.Id, type.Id, expires));

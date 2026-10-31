@@ -14613,5 +14613,116 @@
       "key": "oracle_diviners_deck",
       "dispellable": false
     }
+  },
+  "monkey_king_wukongs_command": {
+    "status": "simplified",
+    "note": "soldiers stand evenly round the two rings at once (no spreading out); every attack_speed s each strikes with Monkey King's attack (from wherever he is) the nearest enemy hero within his attack range of it (the project owner); they disperse when he is farther than the outer ring from the point; no transforming into a soldier",
+    "targeting": "point",
+    "targetTeam": "enemy",
+    "castRange": "$cast_range",
+    "unitTypes": [
+      {
+        "id": "monkey_king_soldier",
+        "gameUnit": "npc_dota_thinker",
+        "health": 1,
+        "armor": 0,
+        "moveSpeed": 0
+      }
+    ],
+    "effects": [
+      {
+        "kind": "onCaster",
+        "effects": [
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "monkey_king_wukongs_command",
+              "duration": "$duration",
+              "armor": "$bonus_armor",
+              "anchorRadius": "$second_radius",
+              "dispellable": false
+            }
+          }
+        ]
+      },
+      {
+        "kind": "summon",
+        "unitType": "monkey_king_soldier",
+        "counts": "$num_first_soldiers",
+        "atPoint": true,
+        "ringRadius": "$first_radius",
+        "duration": "$duration",
+        "effects": [
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "monkey_king_wukongs_command_soldier",
+              "flags": [
+                "invulnerable",
+                "rooted"
+              ],
+              "dispellable": false,
+              "endsWithOwnerModifier": "monkey_king_wukongs_command",
+              "period": "$attack_speed",
+              "periodicEffects": [
+                {
+                  "kind": "area",
+                  "radius": 300,
+                  "center": "target",
+                  "team": "enemy",
+                  "heroesOnly": true,
+                  "maxTargets": 1,
+                  "effects": [
+                    {
+                      "kind": "attack",
+                      "amounts": "$damage_pct+100"
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "kind": "summon",
+        "unitType": "monkey_king_soldier",
+        "counts": "$num_second_soldiers",
+        "atPoint": true,
+        "ringRadius": "$second_radius",
+        "duration": "$duration",
+        "effects": [
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "monkey_king_wukongs_command_soldier",
+              "flags": [
+                "invulnerable",
+                "rooted"
+              ],
+              "dispellable": false,
+              "endsWithOwnerModifier": "monkey_king_wukongs_command",
+              "period": "$attack_speed",
+              "periodicEffects": [
+                {
+                  "kind": "area",
+                  "radius": 300,
+                  "center": "target",
+                  "team": "enemy",
+                  "heroesOnly": true,
+                  "maxTargets": 1,
+                  "effects": [
+                    {
+                      "kind": "attack",
+                      "amounts": "$damage_pct+100"
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        ]
+      }
+    ]
   }
 }

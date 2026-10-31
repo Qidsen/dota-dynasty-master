@@ -287,8 +287,12 @@ namespace Dynasty.MatchSimulation.Combat
             int nearbyHeroDamageAbove = 0,
             int nearbyHeroDamageBelow = 0,
             int nearbyRadius = 0,
-            IReadOnlyList<Rules.EffectDefinition>? onNearbyHeroDamage = null)
+            IReadOnlyList<Rules.EffectDefinition>? onNearbyHeroDamage = null,
+            int anchorRadius = 0,
+            string? endsWithOwnerModifier = null)
         {
+            AnchorRadius = anchorRadius;
+            EndsWithOwnerModifier = endsWithOwnerModifier;
             NearbyHeroDamageAbove = nearbyHeroDamageAbove;
             NearbyHeroDamageBelow = nearbyHeroDamageBelow;
             NearbyRadius = nearbyRadius;
@@ -885,6 +889,12 @@ namespace Dynasty.MatchSimulation.Combat
         /// <summary>Unleash: effects of the attack that spends the last charge, run on its target.</summary>
         public IReadOnlyList<Rules.EffectDefinition> OnLastCharge { get; }
 
+        /// <summary>Wukong's Command: the modifier goes when the bearer is farther than this from the point of the effect that applied it.</summary>
+        public int AnchorRadius { get; }
+
+        /// <summary>Wukong's soldiers: the bearer is gone when its owner no longer has a modifier of this key.</summary>
+        public string? EndsWithOwnerModifier { get; }
+
         /// <summary>
         /// Soul Assumption: <see cref="OnNearbyHeroDamage"/> run on the bearer each time a hero within <see cref="NearbyRadius"/> of it takes
         /// more than this much damage at once (and less than <see cref="NearbyHeroDamageBelow"/>, when set) from a player's unit or the boss,
@@ -1177,7 +1187,7 @@ namespace Dynasty.MatchSimulation.Combat
                                           ThirstMoveSpeedPercent, ThirstFromHealthPercent, ThirstFullBelowHealthPercent, RevealsBelowHealthPercent,
                                           AnchorChain, AnchorDragSpeed, CooldownSlowPercent, HealAtEndPercent, OnHeroDamageAtLeast, DelayedHealAmpPercent, TrampleRadius,
                                           MulticastStrengthPerPercent, EveryDistance, HeroAttacksToBreak, BeamLength, BeamTurnPerSecond, TriggerAtStacks, RechargeMs, CastRangeBonus, TravelDistance,
-                                          NearbyHeroDamageAbove, NearbyHeroDamageBelow, NearbyRadius })
+                                          NearbyHeroDamageAbove, NearbyHeroDamageBelow, NearbyRadius, AnchorRadius })
                 w.WriteInt64(value);
             w.WriteBool(ReturnsOnExpiry);
             w.WriteBool(PeriodicFromBearer);
@@ -1193,6 +1203,7 @@ namespace Dynasty.MatchSimulation.Combat
             w.WriteBool(TravelsToPoint);
             w.WriteString(TrampleMarker ?? "");
             w.WriteString(NoStacksWhile ?? "");
+            w.WriteString(EndsWithOwnerModifier ?? "");
             w.WriteInt64(MulticastHundredths.Count);
             foreach (int chance in MulticastHundredths)
                 w.WriteInt64(chance);

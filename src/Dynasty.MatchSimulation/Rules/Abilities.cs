@@ -383,6 +383,16 @@ namespace Dynasty.MatchSimulation.Rules
         /// <summary>Damage only: the share of it a building takes (Exorcism: 50); 0 for the full damage.</summary>
         public int StructurePercent { get; private set; }
 
+        /// <summary>Summons only: placed evenly round a ring of this radius about the point (Wukong's soldiers); 0 for the usual place.</summary>
+        public int RingRadius { get; private set; }
+
+        /// <summary>The summons round a ring (see <see cref="RingRadius"/>).</summary>
+        public EffectDefinition InRing(int radius)
+        {
+            RingRadius = radius;
+            return this;
+        }
+
         /// <summary>The damage with <paramref name="percent"/> of it to buildings (see <see cref="StructurePercent"/>).</summary>
         public EffectDefinition WithStructurePercent(int percent)
         {
@@ -653,6 +663,10 @@ namespace Dynasty.MatchSimulation.Rules
         public static EffectDefinition Area(int radius, AreaCenter center, TargetTeam team, int maxTargets, bool lowestHealthFirst, params EffectDefinition[] inner) =>
             new EffectDefinition(EffectKind.Area, radius: radius, center: center, team: team, inner: inner, maxTargets: maxTargets, lowestHealthFirst: lowestHealthFirst);
 
+        /// <summary>An area of heroes only taking at most <paramref name="maxTargets"/>, the nearest to its centre first (a Wukong soldier's strike).</summary>
+        public static EffectDefinition NearestHeroes(int radius, AreaCenter center, TargetTeam team, int maxTargets, params EffectDefinition[] inner) =>
+            new EffectDefinition(EffectKind.Area, radius: radius, center: center, team: team, inner: inner, maxTargets: maxTargets, heroesOnly: true);
+
         public static EffectDefinition LineArea(int width, TargetTeam team, params EffectDefinition[] inner) =>
             new EffectDefinition(EffectKind.LineArea, radius: width, team: team, inner: inner);
 
@@ -754,6 +768,7 @@ namespace Dynasty.MatchSimulation.Rules
             w.WriteString(LevelOf ?? "");
             w.WriteInt64(StructurePercent);
             w.WriteString(StacksFrom ?? "");
+            w.WriteInt64(RingRadius);
             foreach (IReadOnlyList<int> bound in new[] { Floor, Ceiling })
             {
                 w.WriteInt64(bound.Count);

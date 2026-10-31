@@ -361,6 +361,16 @@ namespace Dynasty.MatchSimulation.Systems
                         unit.Recalculate();
                     }
 
+                    if (spec.AnchorRadius > 0 && !Geometry.WithinRange(unit.Position, modifier.Destination, spec.AnchorRadius))
+                    {
+                        Modifiers.Remove(context, unit, modifier, "left");   // Wukong's Command: Monkey King left the rings
+                        continue;
+                    }
+
+                    if (spec.EndsWithOwnerModifier != null && unit.ExpiresTick != now &&
+                        !(context.State.Find(unit.Owner) is MatchUnit owner && owner.IsAlive && owner.Modifiers.Any(m => m.Spec.Key == spec.EndsWithOwnerModifier)))
+                        unit.ExpiresTick = now;   // its soldiers disperse
+
                     if (spec.EndsWhenStunnedOrSilenced && (unit.Flags & (ModifierFlags.Stunned | ModifierFlags.Silenced)) != 0)
                     {
                         Modifiers.Remove(context, unit, modifier, "interrupted");
