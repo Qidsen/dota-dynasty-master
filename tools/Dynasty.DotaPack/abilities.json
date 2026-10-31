@@ -14603,5 +14603,15 @@
         "amounts": "$total_pull_distance"
       }
     ]
+  },
+  "oracle_diviners_deck": {
+    "status": "full",
+    "note": "disabled in the 7.41f data (enabled = 0): it does nothing (the project owner)",
+    "targeting": "passive",
+    "targetTeam": "ally",
+    "passive": {
+      "key": "oracle_diviners_deck",
+      "dispellable": false
+    }
   }
 }
