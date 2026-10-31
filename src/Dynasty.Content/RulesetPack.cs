@@ -946,7 +946,8 @@ namespace Dynasty.Content
                 strengthBonus: m.OptionalInt("strength") ?? 0, agilityBonus: m.OptionalInt("agility") ?? 0, intelligenceBonus: m.OptionalInt("intelligence") ?? 0,
                 manaRegenBonus: m.OptionalFixed("manaRegen") ?? Fixed.Zero, moveSpeedBonus: m.OptionalInt("moveSpeed") ?? 0, attackRangeBonus: m.OptionalInt("attackRange") ?? 0,
                 incomingDamageHundredths: m.OptionalHundredth("incomingDamagePercent") ?? 0, attackDamageHundredths: m.OptionalHundredth("attackDamagePercent") ?? 0,
-                evasionHundredths: m.OptionalHundredth("evasion") ?? 0, missChanceHundredths: m.OptionalHundredth("missChance") ?? 0, onHit: m.OptionalArray("onHit").Select(ReadEffect).ToList(),
+                evasionHundredths: m.OptionalHundredth("evasion") ?? 0, missChanceHundredths: m.OptionalHundredth("missChance") ?? 0,
+                drum: m.OptionalObject("drum") is Reader drum ? ReadDrum(drum) : null, onHit: m.OptionalArray("onHit").Select(ReadEffect).ToList(),
                 onHitChancePercent: 0, onHitChanceHundredths: m.OptionalHundredth("onHitChance") ?? 10000, aura: m.OptionalObject("aura") is Reader a ? ReadAura(a) : null,
                 cleavePercent: m.OptionalInt("cleavePercent") ?? 0, cleaveRadius: m.OptionalInt("cleaveRadius") ?? 0,
                 splashPercent: m.OptionalInt("splash") ?? 0, splashRadius: m.OptionalInt("splashRadius") ?? 0,
@@ -1040,6 +1041,14 @@ namespace Dynasty.Content
                 });
             m.RejectUnknown();
             return spec;
+        }
+
+        private static DrumSpec ReadDrum(Reader d)
+        {
+            var drum = new DrumSpec(d.Int("radius"), d.Int("damage"), d.Int("heroHealPercent"), d.Int("creepHealPercent"), d.Milliseconds("minInterval"),
+                d.Milliseconds("maxInterval"), d.Int("maxStacks"), d.Milliseconds("stackDecay"), d.Int("auraRadius"));
+            d.RejectUnknown();
+            return drum;
         }
 
         private static AuraSpec ReadAura(Reader a)

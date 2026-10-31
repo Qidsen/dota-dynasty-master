@@ -61,6 +61,49 @@ namespace Dynasty.MatchSimulation.Combat
     /// An aura: while the modifier carrying it is active, units of the given team within the radius around its
     /// bearer keep receiving the aura's own modifier (refreshed regularly, so it fades soon after leaving).
     /// </summary>
+    /// <summary>
+    /// Drums of Slom: attacks by the bearer or its units within <see cref="AuraRadius"/> of it bang the drum - <see cref="Damage"/> magical to
+    /// the enemies within <see cref="Radius"/> of the bearer, healing it and those units by <see cref="HeroHealPercent"/> of the damage to heroes
+    /// and <see cref="CreepHealPercent"/> of the rest - no more often than the interval, which goes from <see cref="MaxIntervalMs"/> down to
+    /// <see cref="MinIntervalMs"/> with every attack counted, up to <see cref="MaxStacks"/>; a count goes every <see cref="StackDecayMs"/>
+    /// without attacks.
+    /// </summary>
+    public sealed class DrumSpec
+    {
+        public DrumSpec(int radius, int damage, int heroHealPercent, int creepHealPercent, int minIntervalMs, int maxIntervalMs, int maxStacks, int stackDecayMs,
+            int auraRadius)
+        {
+            Radius = radius;
+            Damage = damage;
+            HeroHealPercent = heroHealPercent;
+            CreepHealPercent = creepHealPercent;
+            MinIntervalMs = minIntervalMs;
+            MaxIntervalMs = maxIntervalMs;
+            MaxStacks = maxStacks;
+            StackDecayMs = stackDecayMs;
+            AuraRadius = auraRadius;
+        }
+
+        public int Radius { get; }
+        public int Damage { get; }
+        public int HeroHealPercent { get; }
+        public int CreepHealPercent { get; }
+        public int MinIntervalMs { get; }
+        public int MaxIntervalMs { get; }
+        public int MaxStacks { get; }
+        public int StackDecayMs { get; }
+        public int AuraRadius { get; }
+
+        /// <summary>The interval between bangs with this many attacks counted.</summary>
+        public int IntervalMs(int stacks) => MaxIntervalMs - (MaxIntervalMs - MinIntervalMs) * System.Math.Min(stacks, MaxStacks) / System.Math.Max(1, MaxStacks);
+
+        internal void WriteCanonical(Dynasty.Core.Hashing.CanonicalWriter w)
+        {
+            foreach (int value in new[] { Radius, Damage, HeroHealPercent, CreepHealPercent, MinIntervalMs, MaxIntervalMs, MaxStacks, StackDecayMs, AuraRadius })
+                w.WriteInt64(value);
+        }
+    }
+
     public sealed class AuraSpec
     {
         public AuraSpec(int radius, Rules.TargetTeam team, bool heroesOnly, ModifierSpec modifier, bool creepsOnly = false, bool ownerOnly = false)
@@ -297,8 +340,10 @@ namespace Dynasty.MatchSimulation.Combat
             bool revealed = false,
             int perTreeRadius = 0,
             int damagePerTreePerSecond = 0,
-            int missChanceHundredths = 0)
+            int missChanceHundredths = 0,
+            DrumSpec? drum = null)
         {
+            Drum = drum;
             MissChanceHundredths = missChanceHundredths;
             Revealed = revealed;
             PerTreeRadius = perTreeRadius;
@@ -905,6 +950,9 @@ namespace Dynasty.MatchSimulation.Combat
         /// <summary>Unleash: effects of the attack that spends the last charge, run on its target.</summary>
         public IReadOnlyList<Rules.EffectDefinition> OnLastCharge { get; }
 
+        /// <summary>Drums of Slom (see <see cref="DrumSpec"/>); null for other modifiers.</summary>
+        public DrumSpec? Drum { get; }
+
         /// <summary>Blind (Blinding Light, Smoke Screen, Laser): the bearer's attacks miss by this chance, in hundredths of a percent.</summary>
         public int MissChanceHundredths { get; }
 
@@ -1251,6 +1299,8 @@ namespace Dynasty.MatchSimulation.Combat
             w.WriteBool(TravelsToPoint);
             w.WriteBool(DamageToOwner);
             w.WriteBool(Revealed);
+            w.WriteBool(Drum != null);
+            Drum?.WriteCanonical(w);
             w.WriteString(TrampleMarker ?? "");
             w.WriteString(NoStacksWhile ?? "");
             w.WriteString(EndsWithOwnerModifier ?? "");
@@ -1304,6 +1354,13 @@ namespace Dynasty.MatchSimulation.Combat
 
         /// <summary>Damage the bearer's periodic effects of this modifier dealt (Exorcism's heal at the end).</summary>
         internal Fixed Drained { get; set; }
+
+        /// <summary>Drums of Slom: the attacks counted, when the last was counted or let go, and when the drum last banged.</summary>
+        internal int DrumStacks { get; set; }
+
+        internal long DrumStackTick { get; set; }
+
+        internal long LastDrumTick { get; set; } = -1000000;
 
         /// <summary>Illusory Orb: where the bearer flies (<see cref="ModifierSpec.TravelsToPoint"/>).</summary>
         internal FixedVector2 Destination { get; set; }

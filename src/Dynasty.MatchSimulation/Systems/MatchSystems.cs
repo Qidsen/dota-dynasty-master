@@ -355,6 +355,12 @@ namespace Dynasty.MatchSimulation.Systems
                 foreach (ActiveModifier modifier in _scratch)
                 {
                     ModifierSpec spec = modifier.Spec;
+                    if (spec.Drum != null && modifier.DrumStacks > 0 && now - modifier.DrumStackTick >= context.TickRate.TicksFor(spec.Drum.StackDecayMs))
+                    {
+                        modifier.DrumStacks--;   // Drums of Slom: no attacks, a slower beat
+                        modifier.DrumStackTick = now;
+                    }
+
                     if (modifier.Recharging && now >= modifier.RechargedTick)
                     {
                         modifier.RechargedTick = -1;   // Unleash: the next Fury combo
@@ -1075,6 +1081,7 @@ namespace Dynasty.MatchSimulation.Systems
                 return;
             if (attacker.MissChanceHundredths > 0 && Draw(context, attacker.MissChanceHundredths))
                 return;   // blinded: a miss
+            Drums(context, attacker);
             int block = 0;
             foreach (ActiveModifier blocking in target.Modifiers)
             {
@@ -1179,6 +1186,42 @@ namespace Dynasty.MatchSimulation.Systems
                 else
                     Modifiers.Remove(context, attacker, buff, "consumed");
             }
+        }
+
+        /// <summary>
+        /// Drums of Slom: the attack of a drummer or of its unit near it counts, and the drum bangs when the interval for the count has passed
+        /// since the last bang.
+        /// </summary>
+        private static void Drums(SimulationContext<MatchState> context, MatchUnit attacker)
+        {
+            MatchUnit? drummer = attacker.Modifiers.Count > 0 && attacker.Modifiers.Any(m => m.Spec.Drum != null) ? attacker
+                : attacker.Owner.IsValid ? context.State.Find(attacker.Owner) : null;
+            ActiveModifier? drum = drummer?.Modifiers.FirstOrDefault(m => m.Spec.Drum != null);
+            if (drummer == null || drum == null || !drummer.IsAlive || (attacker != drummer && !Geometry.WithinRange(attacker.Position, drummer.Position, drum.Spec.Drum!.AuraRadius)))
+                return;
+            DrumSpec spec = drum.Spec.Drum!;
+            long now = context.Tick.Value;
+            drum.DrumStacks = System.Math.Min(drum.DrumStacks + 1, spec.MaxStacks);
+            drum.DrumStackTick = now;
+            if (now - drum.LastDrumTick < context.TickRate.TicksFor(spec.IntervalMs(drum.DrumStacks)))
+                return;
+            drum.LastDrumTick = now;
+            Fixed toHeroes = Fixed.Zero, toOthers = Fixed.Zero;
+            foreach (MatchUnit enemy in context.State.Units.Where(u => Effects.Matches(context.State, drummer, u, TargetTeam.Enemy) &&
+                                                                       Geometry.WithinRange(u.Position, drummer.Position, spec.Radius + u.BoundingRadius)).ToList())
+            {
+                Fixed dealt = Damage.Deal(context, drummer.Id, enemy, Fixed.FromInt(spec.Damage), DamageType.Magical);
+                if (enemy.Hero != null)
+                    toHeroes += dealt;
+                else
+                    toOthers += dealt;
+            }
+
+            Fixed heal = toHeroes * Fixed.FromInt(spec.HeroHealPercent) / Fixed.FromInt(100) + toOthers * Fixed.FromInt(spec.CreepHealPercent) / Fixed.FromInt(100);
+            if (heal <= Fixed.Zero)
+                return;
+            foreach (MatchUnit unit in context.State.Units.Where(u => u.IsAlive && (u == drummer || (u.Owner == drummer.Id && Geometry.WithinRange(u.Position, drummer.Position, spec.AuraRadius)))).ToList())
+                Damage.Heal(context, drummer.Id, unit, heal);
         }
 
         /// <summary>

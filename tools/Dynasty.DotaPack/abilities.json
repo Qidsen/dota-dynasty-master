@@ -15314,5 +15314,27 @@
         "period": "$pulse_interval"
       }
     ]
+  },
+  "beastmaster_drums_of_slom": {
+    "status": "simplified",
+    "note": "Aghanim's Scepter; the interval shortens evenly with the attacks counted (min_drum_hit_interval after max_stacks), one count lost every stack_decay_time without attacks; the drum's damage is magical; Primal Roar does not count",
+    "grantedBy": "scepter",
+    "targeting": "passive",
+    "targetTeam": "enemy",
+    "passive": {
+      "key": "beastmaster_drums_of_slom",
+      "dispellable": false,
+      "drum": {
+        "radius": "$radius",
+        "damage": "$base_damage",
+        "heroHealPercent": "$heal_pct",
+        "creepHealPercent": "$creep_heal_pct",
+        "minInterval": "$min_drum_hit_interval",
+        "maxInterval": "$max_drum_hit_interval",
+        "maxStacks": "$max_stacks",
+        "stackDecay": "$stack_decay_time",
+        "auraRadius": "$aura_radius"
+      }
+    }
   }
 }
