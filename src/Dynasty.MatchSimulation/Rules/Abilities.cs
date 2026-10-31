@@ -178,6 +178,9 @@ namespace Dynasty.MatchSimulation.Rules
         /// <summary>The caster goes to its own illusion nearest to the point, which is destroyed (Reality).</summary>
         Assume = 37,
 
+        /// <summary>Removes the target's modifiers <see cref="EffectDefinition.StackKey"/> (Uproar's stacks, spent by the roar).</summary>
+        Consume = 39,
+
         /// <summary>
         /// The inner effects on one random enemy the caster's team sees within <see cref="EffectDefinition.Radius"/> that has fewer than
         /// <see cref="EffectDefinition.MaxTargets"/> stacks of the marker <see cref="EffectDefinition.StackKey"/> from the caster; the
@@ -327,6 +330,19 @@ namespace Dynasty.MatchSimulation.Rules
         /// </summary>
         public string? LevelOf { get; private set; }
 
+        /// <summary>
+        /// Modifiers only: applied with as many stacks as the caster has of this modifier (Uproar's roar by its stacks); not at all with
+        /// none.
+        /// </summary>
+        public string? StacksFrom { get; private set; }
+
+        /// <summary>The modifier applied with the caster's stacks of <paramref name="modifierKey"/> (see <see cref="StacksFrom"/>).</summary>
+        public EffectDefinition StacksOf(string modifierKey)
+        {
+            StacksFrom = modifierKey;
+            return this;
+        }
+
         /// <summary>Damage only: the share of it a building takes (Exorcism: 50); 0 for the full damage.</summary>
         public int StructurePercent { get; private set; }
 
@@ -406,6 +422,9 @@ namespace Dynasty.MatchSimulation.Rules
         /// <summary>See <see cref="DamageScaling.DoublingPerStack"/>.</summary>
         public static EffectDefinition DamageByStacksDoubling(DamageType type, int doublingStacks, int extraPerStack, params int[] stackDamagePerLevel) =>
             new EffectDefinition(EffectKind.Damage, stackDamagePerLevel, type, scaling: DamageScaling.DoublingPerStack, maxTargets: doublingStacks, damagePercent: extraPerStack);
+
+        /// <summary>See <see cref="EffectKind.Consume"/>.</summary>
+        public static EffectDefinition Consume(string modifierKey) => new EffectDefinition(EffectKind.Consume, stackKey: modifierKey);
 
         /// <summary>See <see cref="EffectKind.RandomStrike"/>.</summary>
         public static EffectDefinition RandomStrike(int radius, TargetTeam team, string markerKey, int hitsPerUnit, ModifierSpec marker, params EffectDefinition[] inner) =>
@@ -647,6 +666,7 @@ namespace Dynasty.MatchSimulation.Rules
             w.WriteBool(LowestHealthFirst);
             w.WriteString(LevelOf ?? "");
             w.WriteInt64(StructurePercent);
+            w.WriteString(StacksFrom ?? "");
             foreach (IReadOnlyList<int> bound in new[] { Floor, Ceiling })
             {
                 w.WriteInt64(bound.Count);

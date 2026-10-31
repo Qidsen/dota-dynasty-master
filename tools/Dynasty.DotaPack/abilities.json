@@ -13347,5 +13347,69 @@
         ]
       }
     ]
+  },
+  "primal_beast_uproar": {
+    "status": "simplified",
+    "note": "the roar spends the stacks (the project owner); a stack for each instance of 50 or more damage from an enemy hero after reductions; no Aghanim's Scepter projectiles; the AI roars at three stacks or more",
+    "targeting": "noTarget",
+    "targetTeam": "enemy",
+    "passive": {
+      "key": "primal_beast_uproar",
+      "onHeroDamageAtLeast": "$damage_limit",
+      "onHeroDamage": [
+        {
+          "kind": "modifier",
+          "modifiers": {
+            "key": "primal_beast_uproar_stacks",
+            "duration": "$stack_duration",
+            "stacking": true,
+            "maxStacks": "$stack_limit",
+            "dispellable": false
+          }
+        }
+      ]
+    },
+    "effects": [
+      {
+        "kind": "area",
+        "radius": "$radius",
+        "center": "caster",
+        "team": "enemy",
+        "effects": [
+          {
+            "kind": "modifier",
+            "stacksFrom": "primal_beast_uproar_stacks",
+            "modifiers": {
+              "key": "primal_beast_uproar_slow",
+              "duration": "$slow_duration",
+              "stacking": true,
+              "maxStacks": "$stack_limit",
+              "moveSpeedPercent": "-$move_slow_per_stack"
+            }
+          }
+        ]
+      },
+      {
+        "kind": "onCaster",
+        "effects": [
+          {
+            "kind": "modifier",
+            "stacksFrom": "primal_beast_uproar_stacks",
+            "modifiers": {
+              "key": "primal_beast_uproar_roared",
+              "duration": "$roar_duration",
+              "stacking": true,
+              "maxStacks": "$stack_limit",
+              "damage": "$bonus_damage_per_stack",
+              "armor": "$roared_bonus_armor"
+            }
+          },
+          {
+            "kind": "consume",
+            "modifier": "primal_beast_uproar_stacks"
+          }
+        ]
+      }
+    ]
   }
 }

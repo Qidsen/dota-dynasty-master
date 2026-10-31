@@ -723,6 +723,9 @@ namespace Dynasty.Content
                 case "assume":
                     effect = EffectDefinition.Assume();
                     break;
+                case "consume":
+                    effect = EffectDefinition.Consume(e.String("modifier"));
+                    break;
                 case "release":
                     effect = EffectDefinition.Release(e.String("modifier"));
                     break;
@@ -813,6 +816,8 @@ namespace Dynasty.Content
 
             if (e.OptionalString("levelOf") is string levelOf)
                 effect.LevelledBy(levelOf);   // Eclipse's beams at Lucent Beam's level
+            if (e.OptionalString("stacksFrom") is string stacksFrom)
+                effect.StacksOf(stacksFrom);   // Uproar's roar by its stacks
             if (e.OptionalInt("structurePercent") is int structurePercent)
                 effect.WithStructurePercent(structurePercent);   // Exorcism's half to buildings
             e.RejectUnknown();
@@ -954,6 +959,7 @@ namespace Dynasty.Content
                 critHealRadius: m.OptionalInt("critHealRadius") ?? 0, critHealAlliesPercent: m.OptionalInt("critHealAlliesPercent") ?? 0,
                 critHealCreepPercent: m.OptionalInt("critHealCreepPercent") ?? 100,
                 onEnd: m.OptionalArray("onEnd").Select(ReadEffect).ToList(), healAtEndPercent: m.OptionalInt("healAtEndPercent") ?? 0,
+                onHeroDamageAtLeast: m.OptionalInt("onHeroDamageAtLeast") ?? 0, onHeroDamage: m.OptionalArray("onHeroDamage").Select(ReadEffect).ToList(),
                 cooldownSlowPercent: m.OptionalInt("cooldownSlowPercent") ?? 0, stacksPerCooldown: m.OptionalBool("stacksPerCooldown") ?? false,
                 anchorChain: m.OptionalInt("anchorChain") ?? 0, anchorDragSpeed: m.OptionalInt("anchorDragSpeed") ?? 0, redirectsSpells: m.OptionalBool("redirectsSpells") ?? false,
                 thirstMoveSpeedPercent: m.OptionalInt("thirstMoveSpeedPercent") ?? 0, thirstFromHealthPercent: m.OptionalInt("thirstFromHealthPercent") ?? 100,

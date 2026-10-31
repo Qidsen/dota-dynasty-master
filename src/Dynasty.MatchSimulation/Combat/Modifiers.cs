@@ -250,8 +250,12 @@ namespace Dynasty.MatchSimulation.Combat
             int cooldownSlowPercent = 0,
             bool stacksPerCooldown = false,
             IReadOnlyList<Rules.EffectDefinition>? onEnd = null,
-            int healAtEndPercent = 0)
+            int healAtEndPercent = 0,
+            int onHeroDamageAtLeast = 0,
+            IReadOnlyList<Rules.EffectDefinition>? onHeroDamage = null)
         {
+            OnHeroDamageAtLeast = onHeroDamageAtLeast;
+            OnHeroDamage = onHeroDamage?.ToArray() ?? System.Array.Empty<Rules.EffectDefinition>();
             HealAtEndPercent = healAtEndPercent;
             OnEnd = onEnd?.ToArray() ?? System.Array.Empty<Rules.EffectDefinition>();
             CooldownSlowPercent = cooldownSlowPercent;
@@ -761,6 +765,14 @@ namespace Dynasty.MatchSimulation.Combat
         /// </summary>
         public IReadOnlyList<Rules.EffectDefinition> OnEnd { get; }
 
+        /// <summary>
+        /// Uproar: each instance of at least this much damage (after reductions) from an enemy hero, not an illusion, runs
+        /// <see cref="OnHeroDamage"/> on the bearer, as its caster.
+        /// </summary>
+        public int OnHeroDamageAtLeast { get; }
+
+        public IReadOnlyList<Rules.EffectDefinition> OnHeroDamage { get; }
+
         /// <summary>Exorcism: when the modifier runs out the bearer heals by this share of the damage its periodic effects dealt.</summary>
         public int HealAtEndPercent { get; }
 
@@ -974,7 +986,7 @@ namespace Dynasty.MatchSimulation.Combat
             w.WriteInt64(AttackCharges);
             w.WriteBool(ExtraTargetRadiusFromAttackRange);
             w.WriteInt64(ExtraTargetChancePercent);
-            foreach (IReadOnlyList<Rules.EffectDefinition> list in new[] { OnCast, OnKill, OnDeath, OnReturn, OnProximity, OnEnd })
+            foreach (IReadOnlyList<Rules.EffectDefinition> list in new[] { OnCast, OnKill, OnDeath, OnReturn, OnProximity, OnEnd, OnHeroDamage })
             {
                 w.WriteInt64(list.Count);
                 foreach (Rules.EffectDefinition effect in list)
@@ -995,7 +1007,7 @@ namespace Dynasty.MatchSimulation.Combat
                                           BaseArmorReductionPercent, BaseMagicResistReductionPercent, AttackDamageHundredths,
                                           CritEveryAttacks, CritHealPercent, CritHealRadius, CritHealAlliesPercent, CritHealCreepPercent,
                                           ThirstMoveSpeedPercent, ThirstFromHealthPercent, ThirstFullBelowHealthPercent, RevealsBelowHealthPercent,
-                                          AnchorChain, AnchorDragSpeed, CooldownSlowPercent, HealAtEndPercent })
+                                          AnchorChain, AnchorDragSpeed, CooldownSlowPercent, HealAtEndPercent, OnHeroDamageAtLeast })
                 w.WriteInt64(value);
             w.WriteBool(ReturnsOnExpiry);
             w.WriteBool(PeriodicFromBearer);
@@ -1334,6 +1346,8 @@ namespace Dynasty.MatchSimulation.Combat
                 Heal(context, target.Id, target, healInstead);
             if (!reflected && amount > Fixed.Zero && target.Modifiers.Count > 0)
                 PassOn(context, target, amount, type);
+            if (amount > Fixed.Zero && target.IsAlive && target.Modifiers.Count > 0)
+                Tempered(context, target, attacker, amount);
             if (amount > Fixed.Zero && target.Hero != null && target.IsAlive)
                 Systems.AbilitySystem.CastBelowHealth(context, target);
             if (reflections != null)
@@ -1349,6 +1363,19 @@ namespace Dynasty.MatchSimulation.Combat
             }
 
             return amount;
+        }
+
+        /// <summary>Uproar: a big enough instance of damage from an enemy hero runs the bearer's effects for it.</summary>
+        private static void Tempered(SimulationContext<MatchState> context, MatchUnit target, EntityId attacker, Fixed amount)
+        {
+            MatchUnit? from = null;
+            foreach (ActiveModifier modifier in target.Modifiers.Where(m => m.Spec.OnHeroDamageAtLeast > 0).ToList())
+            {
+                from ??= context.State.Find(attacker);
+                if (from == null || from.Hero == null || from.Team == target.Team || amount < Fixed.FromInt(modifier.Spec.OnHeroDamageAtLeast))
+                    return;
+                Systems.Effects.Run(context, target, modifier.Spec.OnHeroDamage, 1, target, target.Position);
+            }
         }
 
         /// <summary>

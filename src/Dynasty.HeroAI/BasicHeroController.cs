@@ -1286,6 +1286,13 @@ namespace Dynasty.HeroAI
                             ? HeroOrder.CastNoTarget(def.Id) : null;
                     }
 
+                    if (StacksSpent(def) is string spent)
+                    {
+                        // Uproar: worth roaring once there are enough stacks to spend.
+                        if (_hero.Modifiers.Where(m => m.Spec.Key == spent).Sum(m => m.Stacks) < MinStacksToSpend)
+                            return null;
+                    }
+
                     if (StasisRadius(def) > 0)
                         return null;   // Song of the Siren makes enemies unhurtable: kept for getting away (StasisToGetAway)
                     if (def.Effects.Any(e => e.Kind == EffectKind.Summon))
@@ -1319,6 +1326,15 @@ namespace Dynasty.HeroAI
             bool charged = (_now - trap.SummonedTick) * 1000 >= (long)spring.DurationMs * _ticksPerMinute / 60;
             return charged || caught.Any(e => !Math.Within(e.Position, trap.Position, radius * 3 / 4));
         }
+
+        /// <summary>Uproar's stacks worth a roar (half of the six).</summary>
+        private const int MinStacksToSpend = 3;
+
+        /// <summary>The modifier whose stacks an ability's effects spend (Uproar's roar); null for other abilities.</summary>
+        private static string? StacksSpent(AbilityDefinition def) => AllEffects(def.Effects).FirstOrDefault(e => e.StacksFrom != null)?.StacksFrom;
+
+        private static IEnumerable<EffectDefinition> AllEffects(IEnumerable<EffectDefinition> effects) =>
+            effects.SelectMany(e => new[] { e }.Concat(AllEffects(e.Inner)));
 
         /// <summary>Stacks of Shadow Poison on an enemy hero worth releasing (1, 2, 4, 8 times the stack damage).</summary>
         private const int ReleaseStacks = 4;

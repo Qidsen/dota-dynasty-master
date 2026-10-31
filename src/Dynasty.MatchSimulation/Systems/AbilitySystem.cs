@@ -443,6 +443,10 @@ namespace Dynasty.MatchSimulation.Systems
                     }
 
                     break;
+                case EffectKind.Consume:
+                    foreach (ActiveModifier spent in target.Modifiers.Where(m => m.Spec.Key == effect.StackKey).ToList())
+                        Modifiers.Remove(context, target, spent, "consumed");
+                    break;
                 case EffectKind.Release:
                     foreach (MatchUnit unit in context.State.Units.Where(u => u.Modifiers.Any(m => m.Spec.Key == effect.StackKey && m.Source == caster.Id)).ToList())
                     {
@@ -471,8 +475,17 @@ namespace Dynasty.MatchSimulation.Systems
                     Damage.Heal(context, caster.Id, target, effect.Scaling == DamageScaling.Flat ? Fixed.FromInt(effect.AmountAt(level)) : ScaledAmount(context, effect, level, caster, target));
                     break;
                 case EffectKind.ApplyModifier:
+                    int byStacks = effect.StacksFrom == null ? 0 : caster.Modifiers.Where(m => m.Spec.Key == effect.StacksFrom).Sum(m => m.Stacks);
+                    if (effect.StacksFrom != null && byStacks == 0)
+                        break;   // Uproar without stacks: nothing
                     if (target.IsAlive && Modifiers.Apply(context, target, effect.ModifierAt(level), caster.Id) is ActiveModifier applied)
                     {
+                        if (byStacks > 0)
+                        {
+                            applied.Stacks = System.Math.Max(1, System.Math.Min(byStacks, applied.Spec.MaxStacks));
+                            target.Recalculate();
+                        }
+
                         int strength = applied.Spec.GrowsWithChannelMs > 0 ? ChannelStrength(context, caster, applied.Spec.GrowsWithChannelMs) : caster.ChargePercent;
                         if (strength != applied.SlowStrengthPercent)
                         {
