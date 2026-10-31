@@ -239,8 +239,16 @@ namespace Dynasty.MatchSimulation.Combat
             int critHealPercent = 0,
             int critHealRadius = 0,
             int critHealAlliesPercent = 0,
-            int critHealCreepPercent = 100)
+            int critHealCreepPercent = 100,
+            int thirstMoveSpeedPercent = 0,
+            int thirstFromHealthPercent = 100,
+            int thirstFullBelowHealthPercent = 0,
+            int revealsBelowHealthPercent = 0)
         {
+            ThirstMoveSpeedPercent = thirstMoveSpeedPercent;
+            ThirstFromHealthPercent = thirstFromHealthPercent;
+            ThirstFullBelowHealthPercent = thirstFullBelowHealthPercent;
+            RevealsBelowHealthPercent = revealsBelowHealthPercent;
             CritEveryAttacks = critEveryAttacks;
             CritHealPercent = critHealPercent;
             CritHealRadius = critHealRadius;
@@ -705,6 +713,20 @@ namespace Dynasty.MatchSimulation.Combat
 
         public int CritHealCreepPercent { get; }
 
+        /// <summary>
+        /// Thirst: movement speed percent for every living enemy hero (not an illusion) below <see cref="ThirstFromHealthPercent"/> of its
+        /// health, growing evenly to all of it at <see cref="ThirstFullBelowHealthPercent"/>; added up over the heroes, above the usual
+        /// speed limit while there is any.
+        /// </summary>
+        public int ThirstMoveSpeedPercent { get; }
+
+        public int ThirstFromHealthPercent { get; }
+
+        public int ThirstFullBelowHealthPercent { get; }
+
+        /// <summary>Thirst: enemy heroes below this share of their health are seen by the bearer's team, invisible or not.</summary>
+        public int RevealsBelowHealthPercent { get; }
+
         /// <summary>Sets the bearer's base attack time while it lasts (Lil' Shredder); 0: the unit's own.</summary>
         public int BaseAttackTimeMs { get; }
 
@@ -928,7 +950,8 @@ namespace Dynasty.MatchSimulation.Combat
                                           ShareDamagePercent, SpreadDamagePercent, SpreadRadius, BreakDistance, HealSharePercent, ManaSharePercent,
                                           CastDamage, CastDamageManaPercent, ProximityRadius, ProximityDelayMs, BaseAttackTimeMs, GrowsWithChannelMs,
                                           BaseArmorReductionPercent, BaseMagicResistReductionPercent, AttackDamageHundredths,
-                                          CritEveryAttacks, CritHealPercent, CritHealRadius, CritHealAlliesPercent, CritHealCreepPercent })
+                                          CritEveryAttacks, CritHealPercent, CritHealRadius, CritHealAlliesPercent, CritHealCreepPercent,
+                                          ThirstMoveSpeedPercent, ThirstFromHealthPercent, ThirstFullBelowHealthPercent, RevealsBelowHealthPercent })
                 w.WriteInt64(value);
             w.WriteBool(ReturnsOnExpiry);
             w.WriteBool(PeriodicFromBearer);

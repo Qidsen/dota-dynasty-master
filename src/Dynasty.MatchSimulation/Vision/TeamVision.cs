@@ -101,12 +101,22 @@ namespace Dynasty.MatchSimulation.Vision
                 _observers.Add(new Observer(at, Square(night ? watchers.NightVision : watchers.DayVision), Fixed.Zero, state.ElevationAt(at)));
             }
 
+            // Thirst: enemy heroes below the share of their health are seen, invisible or not.
+            int reveals = 0;
+            foreach (MatchUnit unit in state.Heroes)
+            {
+                if (unit.Team == knowledge.Team && unit.IsAlive)
+                    foreach (ActiveModifier modifier in unit.Modifiers)
+                        reveals = System.Math.Max(reveals, modifier.Spec.RevealsBelowHealthPercent);
+            }
+
             knowledge.Reset();
             foreach (MatchUnit unit in state.Units)
             {
                 if (unit.Team == knowledge.Team || !unit.IsAlive)
                     continue;
-                if (IsSeen(state.SightGrid, unit, state.ElevationAt(unit.Position)))
+                bool revealed = reveals > 0 && unit.Hero != null && unit.Hp * Fixed.FromInt(100) < Fixed.FromInt(unit.MaxHp * reveals);
+                if (revealed || IsSeen(state.SightGrid, unit, state.ElevationAt(unit.Position)))
                     knowledge.MarkVisible(unit, now);
             }
         }

@@ -12787,5 +12787,18 @@
         ]
       }
     ]
+  },
+  "bloodseeker_thirst": {
+    "status": "simplified",
+    "note": "the bonus does not linger for 4 s after the enemy hero dies; the speed limit is lifted only while Thirst gives anything",
+    "targeting": "passive",
+    "targetTeam": "ally",
+    "passive": {
+      "key": "bloodseeker_thirst",
+      "thirstMoveSpeedPercent": "$bonus_movement_speed",
+      "thirstFromHealthPercent": "$min_bonus_pct",
+      "thirstFullBelowHealthPercent": "$max_bonus_pct",
+      "revealsBelowHealthPercent": "$visibility_threshold_pct"
+    }
   }
 }

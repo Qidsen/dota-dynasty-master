@@ -252,6 +252,9 @@ namespace Dynasty.MatchSimulation
         /// <summary>A summon bound to one target (Tombstone's zombies): it attacks only that unit and dies when it is dead or unseen.</summary>
         public EntityId LockedTarget { get; internal set; }
 
+        /// <summary>Thirst's movement speed now, in hundredths of a percent (worked out every tick by the thirst system).</summary>
+        internal int ThirstHundredths { get; set; }
+
         /// <summary>The tick a summon was summoned (a Psionic Trap's charge).</summary>
         public long SummonedTick { get; internal set; }
 
@@ -593,7 +596,9 @@ namespace Dynasty.MatchSimulation
             IllusionDamageTakenPercent = illusionTaken;
 
             // Dota: flat bonuses first, then percentages; at least 100 (or the base, if lower), at most 550.
-            int speed = Math.Min((Stats.MoveSpeed + moveFlat) * (10000 + movePercent) / 10000, MaxMoveSpeed);   // movePercent in hundredths
+            movePercent += ThirstHundredths;
+            // Thirst lifts the speed limit while it gives anything.
+            int speed = Math.Min((Stats.MoveSpeed + moveFlat) * (10000 + movePercent) / 10000, ThirstHundredths > 0 ? int.MaxValue : MaxMoveSpeed);   // movePercent in hundredths
             MoveSpeed = Stats.MoveSpeed == 0 ? 0 : fixedSpeed > 0 ? fixedSpeed : Math.Max(speed, Math.Min(100, Stats.MoveSpeed));
             AttackRange = Stats.AttackRange + attackRangeBonus;
             IncomingDamageHundredths = Math.Max(incomingDamage, -10000);
