@@ -259,8 +259,12 @@ namespace Dynasty.MatchSimulation.Combat
             string? trampleMarker = null,
             IReadOnlyList<Rules.EffectDefinition>? onTrample = null,
             IReadOnlyList<int>? multicastHundredths = null,
-            int multicastStrengthPerPercent = 0)
+            int multicastStrengthPerPercent = 0,
+            bool extraTargetHeroesFirst = false,
+            bool extraTargetElseSame = false)
         {
+            ExtraTargetHeroesFirst = extraTargetHeroesFirst;
+            ExtraTargetElseSame = extraTargetElseSame;
             MulticastHundredths = (multicastHundredths ?? System.Array.Empty<int>()).ToArray();
             MulticastStrengthPerPercent = multicastStrengthPerPercent;
             TrampleRadius = trampleRadius;
@@ -805,6 +809,12 @@ namespace Dynasty.MatchSimulation.Combat
 
         public IReadOnlyList<Rules.EffectDefinition> OnTrample { get; }
 
+        /// <summary>Gunslinger: the extra shots take heroes first, then other units (by distance within each).</summary>
+        public bool ExtraTargetHeroesFirst { get; }
+
+        /// <summary>Gunslinger: with no other unit in range the extra shots hit the attack's target.</summary>
+        public bool ExtraTargetElseSame { get; }
+
         /// <summary>
         /// Multicast: the chances, in hundredths of a percent, that a unit-targeted ability or item is cast two, three and four times;
         /// each chance that is not zero grows by a percent for every <see cref="MulticastStrengthPerPercent"/> strength.
@@ -1054,6 +1064,8 @@ namespace Dynasty.MatchSimulation.Combat
             w.WriteBool(PeriodicFromBearer);
             w.WriteBool(RedirectsSpells);
             w.WriteBool(StacksPerCooldown);
+            w.WriteBool(ExtraTargetHeroesFirst);
+            w.WriteBool(ExtraTargetElseSame);
             w.WriteBool(DelaysHealth);
             w.WriteString(TrampleMarker ?? "");
             w.WriteInt64(MulticastHundredths.Count);

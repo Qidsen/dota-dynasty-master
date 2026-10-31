@@ -13622,5 +13622,19 @@
       ],
       "multicastStrengthPerPercent": "$strength_for_one_pct"
     }
+  },
+  "muerta_gunslinger": {
+    "status": "simplified",
+    "note": "always on (Dota lets it be toggled off); no buildings for the second shot",
+    "targeting": "passive",
+    "targetTeam": "ally",
+    "passive": {
+      "key": "muerta_gunslinger",
+      "extraTargetChance": "$double_shot_chance",
+      "extraTargetRadius": "$target_search_bonus_range",
+      "extraTargetRadiusFromAttackRange": true,
+      "extraTargetHeroesFirst": true,
+      "extraTargetElseSame": true
+    }
   }
 }

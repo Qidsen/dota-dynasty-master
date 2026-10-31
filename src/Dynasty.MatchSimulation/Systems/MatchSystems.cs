@@ -848,8 +848,11 @@ namespace Dynasty.MatchSimulation.Systems
                 List<MatchUnit> others = state.Units
                     .Where(u => u != target && Effects.Matches(state, unit, u, TargetTeam.Enemy) && state.CanAttack(unit, u) && state.IsVisibleTo(unit.Team, u) &&
                                 Geometry.WithinRange(unit.Position, u.Position, radius + u.BoundingRadius))
-                    .OrderBy(u => FixedVector2.Distance(unit.Position, u.Position)).ThenBy(u => u.Id.Value)
+                    .OrderBy(u => spec.ExtraTargetHeroesFirst && u.Hero == null ? 1 : 0)   // Gunslinger: heroes first
+                    .ThenBy(u => FixedVector2.Distance(unit.Position, u.Position)).ThenBy(u => u.Id.Value)
                     .Take(spec.ExtraTargets).ToList();
+                if (others.Count == 0 && spec.ExtraTargetElseSame && target.IsAlive)
+                    others.Add(target);   // Gunslinger: both guns at the target
                 foreach (MatchUnit other in others)
                     Strike(context, unit, other, spec.ExtraTargetDamagePercent, spendsCharges: false);
             }
