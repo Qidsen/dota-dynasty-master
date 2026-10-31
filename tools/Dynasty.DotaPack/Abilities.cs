@@ -410,6 +410,11 @@ static class Abilities
 
         if (entry["targetsStructures"] is JsonNode structures)
             ability["targetsStructures"] = structures.DeepClone();
+        foreach (string flag in new[] { "nightOnly", "targetsCreepsOnly" })
+        {
+            if (entry[flag] is JsonNode set)
+                ability[flag] = set.DeepClone();   // Midnight Feast: at night, on creeps
+        }
         ability["effects"] = new JsonArray((entry["effects"] as JsonArray ?? new JsonArray()).Select(e => (JsonNode)ResolveEffect(e!.AsObject(), values, levels)).ToArray());
         if (entry["passive"] is JsonObject passive)
             ability["passive"] = Modifiers(passive, values, levels);

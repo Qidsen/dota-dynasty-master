@@ -13037,5 +13037,37 @@
         "durations": "$shard_duration"
       }
     ]
+  },
+  "night_stalker_midnight_feast": {
+    "status": "simplified",
+    "note": "the lifesteal is not lessened against non-heroes (as other lifesteal in the engine: the project owner); ancient creeps can be eaten too; it has no cast range of its own (next to the creep)",
+    "targeting": "unit",
+    "targetTeam": "enemy",
+    "nightOnly": true,
+    "targetsCreepsOnly": true,
+    "passive": {
+      "key": "night_stalker_midnight_feast",
+      "lifesteal": "$attack_heal"
+    },
+    "effects": [
+      {
+        "kind": "kill"
+      },
+      {
+        "kind": "onCaster",
+        "effects": [
+          {
+            "kind": "heal",
+            "scaling": "targetMaxHealthPercent",
+            "amounts": "$hp_restore"
+          },
+          {
+            "kind": "restoreMana",
+            "scaling": "targetMaxManaPercent",
+            "amounts": "$mp_restore"
+          }
+        ]
+      }
+    ]
   }
 }

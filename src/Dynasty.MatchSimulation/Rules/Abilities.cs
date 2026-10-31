@@ -162,6 +162,9 @@ namespace Dynasty.MatchSimulation.Rules
         /// either receives is cast on the other too. With no ally near, the target alone gets the modifier.
         /// </summary>
         Bind = 33,
+
+        /// <summary>Kills the target outright (Midnight Feast's creep).</summary>
+        Kill = 34,
     }
 
     /// <summary>What a damage effect's amounts mean: flat damage, or a percent of the target's health or mana.</summary>
@@ -350,6 +353,17 @@ namespace Dynasty.MatchSimulation.Rules
         /// <summary>Scaled damage kept between a floor and a ceiling per level (Glimpse).</summary>
         public static EffectDefinition BoundedScaledDamage(DamageType type, DamageScaling scaling, int[] floor, int[] ceiling, params int[] percentPerLevel) =>
             new EffectDefinition(EffectKind.Damage, percentPerLevel, type, scaling: scaling, floor: floor, ceiling: ceiling);
+
+        /// <summary>See <see cref="EffectKind.Kill"/>.</summary>
+        public static EffectDefinition Kill() => new EffectDefinition(EffectKind.Kill);
+
+        /// <summary>Healing by a scaling (hundredths of a percent): the target's max health (Midnight Feast on the caster).</summary>
+        public static EffectDefinition ScaledHeal(DamageScaling scaling, params int[] hundredthsPerLevel) =>
+            new EffectDefinition(EffectKind.Heal, hundredthsPerLevel, scaling: scaling);
+
+        /// <summary>Mana restored by a scaling (hundredths of a percent): the target's max mana (Midnight Feast on the caster).</summary>
+        public static EffectDefinition ScaledRestoreMana(DamageScaling scaling, params int[] hundredthsPerLevel) =>
+            new EffectDefinition(EffectKind.RestoreMana, hundredthsPerLevel, scaling: scaling);
 
         /// <summary>See <see cref="EffectKind.Bind"/>.</summary>
         public static EffectDefinition Bind(int radius, int leashPercent, int leashBuffer, params ModifierSpec[] perLevel) =>
@@ -649,8 +663,12 @@ namespace Dynasty.MatchSimulation.Rules
             IReadOnlyList<ModifierSpec>? toggle = null,
             string? levelsWith = null,
             int autoCastBelowHealth = 0,
-            string? grantedBy = null)
+            string? grantedBy = null,
+            bool nightOnly = false,
+            bool targetsCreepsOnly = false)
         {
+            NightOnly = nightOnly;
+            TargetsCreepsOnly = targetsCreepsOnly;
             GrantedBy = grantedBy;
             AutoCastBelowHealth = autoCastBelowHealth;
             LevelsWith = levelsWith;
@@ -727,6 +745,12 @@ namespace Dynasty.MatchSimulation.Rules
         /// </summary>
         public string? GrantedBy { get; }
 
+        /// <summary>Castable only at night (Midnight Feast).</summary>
+        public bool NightOnly { get; }
+
+        /// <summary>A unit-targeted ability that takes creeps and summons only, not heroes nor illusions (Midnight Feast).</summary>
+        public bool TargetsCreepsOnly { get; }
+
         /// <summary>Upgraded versions (talents, Aghanim's Scepter and Shard); the ability itself is the version without upgrades.</summary>
         public IReadOnlyList<AbilityVariant> Variants { get; }
 
@@ -796,6 +820,8 @@ namespace Dynasty.MatchSimulation.Rules
                 modifier.WriteCanonical(w);
             w.WriteString(LevelsWith ?? "");
             w.WriteString(GrantedBy ?? "");
+            w.WriteBool(NightOnly);
+            w.WriteBool(TargetsCreepsOnly);
             w.WriteInt64(AutoCastBelowHealth);
             w.WriteInt64(Variants.Count);
             foreach (AbilityVariant variant in Variants)

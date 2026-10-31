@@ -618,7 +618,8 @@ namespace Dynasty.Content
                 a.OptionalInts("charges"), a.Has("charges") ? a.Seconds("chargeRestore") : null,
                 a.OptionalArray("variants").Select(v => new AbilityVariant(v.Strings("upgrades"), ReadAbility(v))).ToList(),
                 a.OptionalObject("channel") is Reader c ? ReadChannel(c) : null, a.OptionalArray("toggle").Select(ReadModifier).ToList(),
-                a.OptionalString("levelsWith"), a.OptionalInt("autoCastBelowHealth") ?? 0, a.OptionalString("grantedBy"));
+                a.OptionalString("levelsWith"), a.OptionalInt("autoCastBelowHealth") ?? 0, a.OptionalString("grantedBy"), a.OptionalBool("nightOnly") ?? false,
+                a.OptionalBool("targetsCreepsOnly") ?? false);
             a.RejectUnknown();
             return ability;
         }
@@ -666,12 +667,14 @@ namespace Dynasty.Content
                     effect = EffectDefinition.ManaBurn(e.OptionalInt("damagePercent") ?? 0, ReadDamageType(e, "damageType"), e.Ints("amounts").ToArray());
                     break;
                 case "heal":
-                    effect = e.Has("scaling") && ReadScaling(e, "scaling") == DamageScaling.PerUnitAround
+                    effect = !e.Has("scaling") ? EffectDefinition.Heal(e.Ints("amounts").ToArray())
+                        : ReadScaling(e, "scaling") == DamageScaling.PerUnitAround
                         ? EffectDefinition.PerUnitAround(EffectKind.Heal, DamageType.Magical, e.Int("radius"), e.Int("maxUnits"), e.Ints("amounts").ToArray())
-                        : EffectDefinition.Heal(e.Ints("amounts").ToArray());
+                        : EffectDefinition.ScaledHeal(ReadScaling(e, "scaling"), e.Hundredths("amounts").ToArray());
                     break;
                 case "restoreMana":
-                    effect = EffectDefinition.RestoreMana(e.Ints("amounts").ToArray());
+                    effect = e.Has("scaling") ? EffectDefinition.ScaledRestoreMana(ReadScaling(e, "scaling"), e.Hundredths("amounts").ToArray())
+                        : EffectDefinition.RestoreMana(e.Ints("amounts").ToArray());
                     break;
                 case "modifier":
                     effect = EffectDefinition.Modifier(e.Array("modifiers").Select(ReadModifier).ToArray());
@@ -704,6 +707,9 @@ namespace Dynasty.Content
                     break;
                 case "lineArea":
                     effect = EffectDefinition.LineArea(e.OptionalInt("width") ?? 0, ReadTeam(e, "team"), e.Array("effects").Select(ReadEffect).ToArray());
+                    break;
+                case "kill":
+                    effect = EffectDefinition.Kill();
                     break;
                 case "experience":
                     effect = EffectDefinition.Experience(e.Ints("amounts").ToArray());

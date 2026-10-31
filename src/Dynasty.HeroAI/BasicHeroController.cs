@@ -511,6 +511,8 @@ namespace Dynasty.HeroAI
                 return;
             if (Decided(LapseBackWhenHurt(), "LapseBackWhenHurt"))
                 return;
+            if (Decided(FeastWhenHurt(), "FeastWhenHurt"))
+                return;
             if (_memory.Retreating)
             {
                 Trace("Retreat");
@@ -1241,6 +1243,9 @@ namespace Dynasty.HeroAI
                     MatchUnit? hurt = allies.Where(a => Math.HpPercent(a) < 60 && Math.Within(_hero.Position, a.Position, reach)).OrderBy(a => a.Hp).FirstOrDefault();
                     return hurt != null ? HeroOrder.Cast(def.Id, hurt.Id) : null;
 
+                case AbilityTargeting.Unit when def.TargetsCreepsOnly:
+                    return null;   // Midnight Feast is for sustain (FeastWhenHurt)
+
                 case AbilityTargeting.Unit when def.Effects.Any(e => e.Kind == EffectKind.SwapHealthPercent):
                     return null;   // Sunder is kept for when the hero is low (SwapHealthWhenLow)
 
@@ -1295,6 +1300,37 @@ namespace Dynasty.HeroAI
                 return false;
             bool charged = (_now - trap.SummonedTick) * 1000 >= (long)spring.DurationMs * _ticksPerMinute / 60;
             return charged || caught.Any(e => !Math.Within(e.Position, trap.Position, radius * 3 / 4));
+        }
+
+        /// <summary>Midnight Feast when hurt or low on mana, before retreating.</summary>
+        private bool FeastWhenHurt()
+        {
+            if ((_hero.Flags & ModifierFlags.Silenced) != 0)
+                return false;
+            foreach (AbilityState ability in ReadyAbilities().Where(a => a.Definition.TargetsCreepsOnly && a.Definition.Targeting == AbilityTargeting.Unit))
+            {
+                HeroOrder? order = FeastOn(ability.Definition, ability.Definition.CastRange + 200);
+                if (order == null)
+                    continue;
+                Issue(order);
+                return true;
+            }
+
+            return false;
+        }
+
+        /// <summary>Midnight Feast: at night, when hurt or low on mana, on the nearest creep the hero sees within reach.</summary>
+        private HeroOrder? FeastOn(AbilityDefinition def, int reach)
+        {
+            if ((def.NightOnly && !_state.IsNight(_now)) || (Math.HpPercent(_hero) >= 70 && (_h.MaxMana == 0 || _h.Mana * Fixed.FromInt(2) >= Fixed.FromInt(_h.MaxMana))))
+                return null;
+            HeroDecision self = this;
+            MatchUnit? creep = _state.Units
+                .Where(u => u.IsAlive && u.Team != self._hero.Team && (u.Kind == UnitKind.Creep || u.Kind == UnitKind.Summon) && !u.IllusionOf.IsValid &&
+                            self.Sees(u) && Math.Within(self._hero.Position, u.Position, reach))
+                .OrderBy(u => (u.Position - self._hero.Position).LengthSquared).ThenBy(u => u.Id.Value)
+                .FirstOrDefault();
+            return creep != null ? HeroOrder.Cast(def.Id, creep.Id) : null;
         }
 
         /// <summary>Kills an isolated visible enemy hero a little further away when the odds are clearly good.</summary>

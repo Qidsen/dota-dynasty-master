@@ -94,16 +94,21 @@ namespace Dynasty.MatchSimulation.Systems
                 return "cooldown";
             if (hero.Mana < ManaCost(caster, ability))
                 return "mana";
+            if (ability.Definition.NightOnly && !state.IsNight(now))
+                return "day";
             if (ability.Definition.Targeting == AbilityTargeting.Unit)
             {
                 MatchUnit? target = state.Find(order.Target);
                 if (target == null || !Effects.Matches(state, caster, target, ability.Definition.TargetTeam, ability.Definition.TargetsStructures) ||
-                    !state.IsVisibleTo(caster.Team, target))
+                    !state.IsVisibleTo(caster.Team, target) || (ability.Definition.TargetsCreepsOnly && !IsCreep(target)))
                     return "invalid_target";
             }
 
             return null;
         }
+
+        /// <summary>A creep or a summon, not a hero nor an illusion (Midnight Feast's targets).</summary>
+        internal static bool IsCreep(MatchUnit unit) => (unit.Kind == UnitKind.Creep || unit.Kind == UnitKind.Summon) && !unit.IllusionOf.IsValid;
 
         internal static bool InCastRange(MatchUnit caster, AbilityDefinition ability, HeroOrder order, MatchState state)
         {
@@ -380,7 +385,11 @@ namespace Dynasty.MatchSimulation.Systems
 
                     break;
                 case EffectKind.RestoreMana:
-                    Damage.RestoreMana(context, target, Fixed.FromInt(effect.AmountAt(level)));
+                    Damage.RestoreMana(context, target, effect.Scaling == DamageScaling.Flat ? Fixed.FromInt(effect.AmountAt(level)) : ScaledAmount(context, effect, level, caster, target));
+                    break;
+                case EffectKind.Kill:
+                    if (target.IsAlive)
+                        Damage.Execute(context, caster.Id, target);
                     break;
                 case EffectKind.LineArea:
                     // To the target unit (Tether), or to the point for a point ability (Ice Shards' ball).

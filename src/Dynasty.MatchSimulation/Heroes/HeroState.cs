@@ -399,7 +399,7 @@ namespace Dynasty.MatchSimulation.Heroes
             {
                 innate.Level = 1;   // free, at level one, never levelled further
                 innate.GainLevelCharges(0);
-                if (innate.Definition.Targeting == AbilityTargeting.Passive)
+                if (innate.Definition.PassiveModifiers.Count > 0)
                     Combat.Modifiers.Apply(context, hero, innate.Definition.PassiveModifiers[0], hero.Id);
                 context.Emit(new AbilityLearned(hero.Id, innate.Definition.Id, 1));
             }
@@ -432,7 +432,7 @@ namespace Dynasty.MatchSimulation.Heroes
 
                 next.Level++;
                 next.GainLevelCharges(next.Level - 1);
-                if (next.Definition.Targeting == AbilityTargeting.Passive)
+                if (next.Definition.PassiveModifiers.Count > 0)
                     Combat.Modifiers.Apply(context, hero, next.Definition.PassiveModifiers[next.Level - 1], hero.Id);
                 context.Emit(new AbilityLearned(hero.Id, next.Definition.Id, next.Level));
                 foreach (AbilityState follower in state.Abilities.Where(a => a.Definition.LevelsWith == next.Definition.Id && a.Level < next.Level && a.Level < a.Definition.MaxLevel &&
@@ -441,7 +441,7 @@ namespace Dynasty.MatchSimulation.Heroes
                     // Levelled together, for one skill point (Morphling's two Attribute Shifts; Lightning Hands with the Shard).
                     follower.Level = System.Math.Min(next.Level, follower.Definition.MaxLevel);
                     follower.GainLevelCharges(follower.Level - 1);
-                    if (follower.Definition.Targeting == AbilityTargeting.Passive && follower.Definition.PassiveModifiers.Count > 0)
+                    if (follower.Definition.PassiveModifiers.Count > 0)
                         Combat.Modifiers.Apply(context, hero, follower.Definition.PassiveModifiers[System.Math.Min(follower.Level, follower.Definition.PassiveModifiers.Count) - 1], hero.Id);
                     context.Emit(new AbilityLearned(hero.Id, follower.Definition.Id, follower.Level));
                 }
@@ -482,7 +482,7 @@ namespace Dynasty.MatchSimulation.Heroes
                 if (ReferenceEquals(variant, ability.Definition))
                     continue;
                 ability.Definition = variant;
-                if (variant.Targeting == AbilityTargeting.Passive && ability.Level > 0)
+                if (variant.PassiveModifiers.Count > 0 && ability.Level > 0)
                     Combat.Modifiers.Apply(context, hero, variant.PassiveModifiers[System.Math.Min(ability.Level, variant.PassiveModifiers.Count) - 1], hero.Id);
             }
         }
@@ -497,7 +497,7 @@ namespace Dynasty.MatchSimulation.Heroes
             AbilityState? leader = definition.LevelsWith != null ? state.Abilities.FirstOrDefault(a => a.Definition.Id == definition.LevelsWith) : null;
             ability.Granted = granted;
             ability.Level = !granted ? 0 : leader != null ? System.Math.Min(leader.Level, definition.MaxLevel) : 1;
-            if (definition.Targeting == AbilityTargeting.Passive && definition.PassiveModifiers.Count > 0)
+            if (definition.PassiveModifiers.Count > 0)
             {
                 foreach (Combat.ActiveModifier modifier in hero.Modifiers.Where(m => definition.PassiveModifiers.Any(p => p.Key == m.Spec.Key)).ToList())
                     Combat.Modifiers.Remove(context, hero, modifier, "upgrade_lost");
