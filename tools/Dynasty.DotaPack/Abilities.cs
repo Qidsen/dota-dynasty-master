@@ -144,7 +144,9 @@ static class Abilities
                                // Eye of the Storm: "each blast targets the lowest health enemy unit" (Valve's note) - one a strike.
                                (key == "razor_eye_of_the_storm" && path.EndsWith(".maxTargets") && number == 1) ||
                                // Exorcism: "deals 50% damage to buildings" is only in Valve's description, not in the data.
-                               (key == "death_prophet_exorcism" && path.EndsWith(".structurePercent") && number == 50);
+                               (key == "death_prophet_exorcism" && path.EndsWith(".structurePercent") && number == 50) ||
+                               // Stampede: "at max speed" - Dota's movement speed limit, 550 (not in the ability's data).
+                               ((key == "centaur_stampede" || key == "centaur_work_horse") && path.EndsWith(".fixedMoveSpeed") && number == 550);
                 if (!allowed)
                     throw new InvalidDataException($"abilities.json: {key}{path} = {number} is typed by hand; refer to the data (\"$key\")");
                 break;

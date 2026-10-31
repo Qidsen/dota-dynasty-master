@@ -254,8 +254,14 @@ namespace Dynasty.MatchSimulation.Combat
             int onHeroDamageAtLeast = 0,
             IReadOnlyList<Rules.EffectDefinition>? onHeroDamage = null,
             bool delaysHealth = false,
-            int delayedHealAmpPercent = 0)
+            int delayedHealAmpPercent = 0,
+            int trampleRadius = 0,
+            string? trampleMarker = null,
+            IReadOnlyList<Rules.EffectDefinition>? onTrample = null)
         {
+            TrampleRadius = trampleRadius;
+            TrampleMarker = trampleMarker;
+            OnTrample = onTrample?.ToArray() ?? System.Array.Empty<Rules.EffectDefinition>();
             DelaysHealth = delaysHealth;
             DelayedHealAmpPercent = delayedHealAmpPercent;
             OnHeroDamageAtLeast = onHeroDamageAtLeast;
@@ -785,6 +791,16 @@ namespace Dynasty.MatchSimulation.Combat
 
         public int DelayedHealAmpPercent { get; }
 
+        /// <summary>
+        /// Stampede: an enemy within this radius of the bearer gets <see cref="OnTrample"/> from the modifier's caster, unless it has the
+        /// caster's <see cref="TrampleMarker"/> (which the effects give it: once a cast).
+        /// </summary>
+        public int TrampleRadius { get; }
+
+        public string? TrampleMarker { get; }
+
+        public IReadOnlyList<Rules.EffectDefinition> OnTrample { get; }
+
         /// <summary>Exorcism: when the modifier runs out the bearer heals by this share of the damage its periodic effects dealt.</summary>
         public int HealAtEndPercent { get; }
 
@@ -998,7 +1014,7 @@ namespace Dynasty.MatchSimulation.Combat
             w.WriteInt64(AttackCharges);
             w.WriteBool(ExtraTargetRadiusFromAttackRange);
             w.WriteInt64(ExtraTargetChancePercent);
-            foreach (IReadOnlyList<Rules.EffectDefinition> list in new[] { OnCast, OnKill, OnDeath, OnReturn, OnProximity, OnEnd, OnHeroDamage })
+            foreach (IReadOnlyList<Rules.EffectDefinition> list in new[] { OnCast, OnKill, OnDeath, OnReturn, OnProximity, OnEnd, OnHeroDamage, OnTrample })
             {
                 w.WriteInt64(list.Count);
                 foreach (Rules.EffectDefinition effect in list)
@@ -1019,13 +1035,14 @@ namespace Dynasty.MatchSimulation.Combat
                                           BaseArmorReductionPercent, BaseMagicResistReductionPercent, AttackDamageHundredths,
                                           CritEveryAttacks, CritHealPercent, CritHealRadius, CritHealAlliesPercent, CritHealCreepPercent,
                                           ThirstMoveSpeedPercent, ThirstFromHealthPercent, ThirstFullBelowHealthPercent, RevealsBelowHealthPercent,
-                                          AnchorChain, AnchorDragSpeed, CooldownSlowPercent, HealAtEndPercent, OnHeroDamageAtLeast, DelayedHealAmpPercent })
+                                          AnchorChain, AnchorDragSpeed, CooldownSlowPercent, HealAtEndPercent, OnHeroDamageAtLeast, DelayedHealAmpPercent, TrampleRadius })
                 w.WriteInt64(value);
             w.WriteBool(ReturnsOnExpiry);
             w.WriteBool(PeriodicFromBearer);
             w.WriteBool(RedirectsSpells);
             w.WriteBool(StacksPerCooldown);
             w.WriteBool(DelaysHealth);
+            w.WriteString(TrampleMarker ?? "");
             w.WriteInt64(PeriodicEffects.Count);
             foreach (Rules.EffectDefinition effect in PeriodicEffects)
                 effect.WriteCanonical(w);

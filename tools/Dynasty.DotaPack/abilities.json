@@ -13472,5 +13472,108 @@
         ]
       }
     ]
+  },
+  "centaur_stampede": {
+    "status": "simplified",
+    "note": "allied heroes run at 550, Dota's top speed (the project owner), but still bump into units; each enemy is trampled once a cast",
+    "targeting": "noTarget",
+    "targetTeam": "ally",
+    "effects": [
+      {
+        "kind": "area",
+        "radius": 30000,
+        "center": "caster",
+        "team": "ally",
+        "heroesOnly": true,
+        "effects": [
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "centaur_stampede",
+              "duration": "$duration",
+          "fixedMoveSpeed": 550,
+          "trampleRadius": "$radius",
+          "trampleMarker": "centaur_stampede_trampled",
+          "onTrample": [
+            {
+              "kind": "damage",
+              "damageType": "magical",
+              "scaling": "casterStrengthPercent",
+              "amounts": "$strength_damage*100"
+            },
+            {
+              "kind": "modifier",
+              "modifiers": {
+                "key": "centaur_stampede_slow",
+                "duration": "$slow_duration",
+                "moveSpeedPercent": "-$slow_movement_speed"
+              }
+            },
+            {
+              "kind": "modifier",
+              "modifiers": {
+                "key": "centaur_stampede_trampled",
+                "duration": "$duration",
+                "dispellable": false
+              }
+            }
+          ]
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "centaur_work_horse": {
+    "status": "simplified",
+    "note": "Aghanim's Scepter; Stampede of its current level on Centaur alone; no cart for an ally (Hitch a Ride)",
+    "grantedBy": "scepter",
+    "levelsWith": "centaur_stampede",
+    "targeting": "noTarget",
+    "targetTeam": "ally",
+    "valuesFrom": {
+      "st_": "centaur_stampede"
+    },
+    "effects": [
+      {
+        "kind": "onCaster",
+        "effects": [
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "centaur_work_horse",
+              "duration": "$duration",
+          "fixedMoveSpeed": 550,
+          "trampleRadius": "$st_radius",
+          "trampleMarker": "centaur_stampede_trampled",
+          "onTrample": [
+            {
+              "kind": "damage",
+              "damageType": "magical",
+              "scaling": "casterStrengthPercent",
+              "amounts": "$st_strength_damage*100"
+            },
+            {
+              "kind": "modifier",
+              "modifiers": {
+                "key": "centaur_stampede_slow",
+                "duration": "$st_slow_duration",
+                "moveSpeedPercent": "-$st_slow_movement_speed"
+              }
+            },
+            {
+              "kind": "modifier",
+              "modifiers": {
+                "key": "centaur_stampede_trampled",
+                "duration": "$duration",
+                "dispellable": false
+              }
+            }
+          ]
+            }
+          }
+        ]
+      }
+    ]
   }
 }

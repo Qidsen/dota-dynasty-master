@@ -82,6 +82,7 @@ namespace Dynasty.MatchSimulation
             // After every move of the tick (walking, pushes, separation): nobody blocked has crossed a wall.
             kernel.AddSystem(new WallSystem());
             kernel.AddSystem(new LeashSystem());
+            kernel.AddSystem(new TrampleSystem());
             kernel.AddSystem(new ProximitySystem());
             kernel.AddSystem(new CleanupSystem());
             return kernel;
