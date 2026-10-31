@@ -283,8 +283,16 @@ namespace Dynasty.MatchSimulation.Combat
             bool noAttackSpeedLimit = false,
             int castRangeBonus = 0,
             bool travelsToPoint = false,
-            int travelDistance = 0)
+            int travelDistance = 0,
+            int nearbyHeroDamageAbove = 0,
+            int nearbyHeroDamageBelow = 0,
+            int nearbyRadius = 0,
+            IReadOnlyList<Rules.EffectDefinition>? onNearbyHeroDamage = null)
         {
+            NearbyHeroDamageAbove = nearbyHeroDamageAbove;
+            NearbyHeroDamageBelow = nearbyHeroDamageBelow;
+            NearbyRadius = nearbyRadius;
+            OnNearbyHeroDamage = onNearbyHeroDamage?.ToArray() ?? System.Array.Empty<Rules.EffectDefinition>();
             TravelDistance = travelDistance;
             TravelsToPoint = travelsToPoint;
             CastRangeBonus = castRangeBonus;
@@ -877,6 +885,19 @@ namespace Dynasty.MatchSimulation.Combat
         /// <summary>Unleash: effects of the attack that spends the last charge, run on its target.</summary>
         public IReadOnlyList<Rules.EffectDefinition> OnLastCharge { get; }
 
+        /// <summary>
+        /// Soul Assumption: <see cref="OnNearbyHeroDamage"/> run on the bearer each time a hero within <see cref="NearbyRadius"/> of it takes
+        /// more than this much damage at once (and less than <see cref="NearbyHeroDamageBelow"/>, when set) from a player's unit or the boss,
+        /// not its own.
+        /// </summary>
+        public int NearbyHeroDamageAbove { get; }
+
+        public int NearbyHeroDamageBelow { get; }
+
+        public int NearbyRadius { get; }
+
+        public IReadOnlyList<Rules.EffectDefinition> OnNearbyHeroDamage { get; }
+
         /// <summary>Illusory Orb: the bearer flies at its speed to the point of the effect that applied it, and is gone there.</summary>
         public bool TravelsToPoint { get; }
 
@@ -1133,7 +1154,7 @@ namespace Dynasty.MatchSimulation.Combat
             w.WriteInt64(AttackCharges);
             w.WriteBool(ExtraTargetRadiusFromAttackRange);
             w.WriteInt64(ExtraTargetChancePercent);
-            foreach (IReadOnlyList<Rules.EffectDefinition> list in new[] { OnCast, OnKill, OnDeath, OnReturn, OnProximity, OnEnd, OnHeroDamage, OnTrample, OnDistance, OnStacks, OnLastCharge })
+            foreach (IReadOnlyList<Rules.EffectDefinition> list in new[] { OnCast, OnKill, OnDeath, OnReturn, OnProximity, OnEnd, OnHeroDamage, OnTrample, OnDistance, OnStacks, OnLastCharge, OnNearbyHeroDamage })
             {
                 w.WriteInt64(list.Count);
                 foreach (Rules.EffectDefinition effect in list)
@@ -1155,7 +1176,8 @@ namespace Dynasty.MatchSimulation.Combat
                                           CritEveryAttacks, CritHealPercent, CritHealRadius, CritHealAlliesPercent, CritHealCreepPercent,
                                           ThirstMoveSpeedPercent, ThirstFromHealthPercent, ThirstFullBelowHealthPercent, RevealsBelowHealthPercent,
                                           AnchorChain, AnchorDragSpeed, CooldownSlowPercent, HealAtEndPercent, OnHeroDamageAtLeast, DelayedHealAmpPercent, TrampleRadius,
-                                          MulticastStrengthPerPercent, EveryDistance, HeroAttacksToBreak, BeamLength, BeamTurnPerSecond, TriggerAtStacks, RechargeMs, CastRangeBonus, TravelDistance })
+                                          MulticastStrengthPerPercent, EveryDistance, HeroAttacksToBreak, BeamLength, BeamTurnPerSecond, TriggerAtStacks, RechargeMs, CastRangeBonus, TravelDistance,
+                                          NearbyHeroDamageAbove, NearbyHeroDamageBelow, NearbyRadius })
                 w.WriteInt64(value);
             w.WriteBool(ReturnsOnExpiry);
             w.WriteBool(PeriodicFromBearer);
@@ -1548,6 +1570,9 @@ namespace Dynasty.MatchSimulation.Combat
                 PassOn(context, target, amount, type);
             if (amount > Fixed.Zero && target.IsAlive && target.Modifiers.Count > 0)
                 Tempered(context, target, attacker, amount);
+            if (amount > Fixed.Zero && target.Hero != null && from != null && from != target &&
+                (from.Kind == UnitKind.Hero || from.Kind == UnitKind.Summon || from.Kind == UnitKind.Boss || from.IllusionOf.IsValid))
+                Gathered(context, target, amount);
             if (amount > Fixed.Zero && target.Hero != null && target.IsAlive)
                 Systems.AbilitySystem.CastBelowHealth(context, target);
             if (reflections != null)
@@ -1606,6 +1631,24 @@ namespace Dynasty.MatchSimulation.Combat
                 Heal(context, target.Id, target, promise.HeldHealing * Fixed.FromInt(100 + promise.Spec.DelayedHealAmpPercent) / Fixed.FromInt(100));
             foreach (var (attacker, raw, type) in promise.HeldDamage)
                 Deal(context, attacker, target, raw, type);
+        }
+
+        /// <summary>Soul Assumption: a big enough instance of damage on a hero runs the effects of the bearers near it.</summary>
+        private static void Gathered(SimulationContext<MatchState> context, MatchUnit hurt, Fixed amount)
+        {
+            foreach (MatchUnit bearer in context.State.Heroes)
+            {
+                if (!bearer.IsAlive || bearer.Modifiers.Count == 0)
+                    continue;
+                foreach (ActiveModifier gathering in bearer.Modifiers.Where(m => m.Spec.NearbyHeroDamageAbove > 0).ToList())
+                {
+                    ModifierSpec spec = gathering.Spec;
+                    if (amount <= Fixed.FromInt(spec.NearbyHeroDamageAbove) || (spec.NearbyHeroDamageBelow > 0 && amount >= Fixed.FromInt(spec.NearbyHeroDamageBelow)) ||
+                        !Systems.Geometry.WithinRange(bearer.Position, hurt.Position, spec.NearbyRadius))
+                        continue;
+                    Systems.Effects.Run(context, bearer, spec.OnNearbyHeroDamage, 1, bearer, bearer.Position);
+                }
+            }
         }
 
         /// <summary>Uproar: a big enough instance of damage from an enemy hero runs the bearer's effects for it.</summary>

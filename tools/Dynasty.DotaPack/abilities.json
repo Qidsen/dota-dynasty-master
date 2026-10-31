@@ -14310,5 +14310,52 @@
         "unitType": "puck_illusory_orb_unit"
       }
     ]
+  },
+  "visage_soul_assumption": {
+    "status": "simplified",
+    "note": "a charge for each instance of more than damage_limit (and less than damage_max) damage from a player's unit or the boss on a hero within the radius, not self-damage; Soul Assumption's own damage counts too; the bolt hits at once (no flight); one target (no Aghanim's Scepter); the AI releases with three charges or more",
+    "targeting": "unit",
+    "targetTeam": "enemy",
+    "passive": {
+      "key": "visage_soul_assumption",
+      "nearbyHeroDamageAbove": "$damage_limit",
+      "nearbyHeroDamageBelow": "$damage_max",
+      "nearbyRadius": "$radius",
+      "onNearbyHeroDamage": [
+        {
+          "kind": "modifier",
+          "modifiers": {
+            "key": "visage_soul_assumption_charge",
+            "duration": "$stack_duration",
+            "stacking": true,
+            "maxStacks": "$stack_limit",
+            "dispellable": false
+          }
+        }
+      ]
+    },
+    "effects": [
+      {
+        "kind": "damage",
+        "damageType": "magical",
+        "amounts": "$soul_base_damage"
+      },
+      {
+        "kind": "damage",
+        "damageType": "magical",
+        "scaling": "perCasterStack",
+        "stacksFrom": "visage_soul_assumption_charge",
+        "amounts": "$soul_charge_damage"
+      },
+      {
+        "kind": "onCaster",
+        "effects": [
+          {
+            "kind": "consume",
+            "modifier": "visage_soul_assumption_charge"
+          }
+        ]
+      }
+    ]
   }
 }

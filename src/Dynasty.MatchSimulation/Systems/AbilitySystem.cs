@@ -339,6 +339,8 @@ namespace Dynasty.MatchSimulation.Systems
                     return caster.Intelligence * percent;
                 case DamageScaling.PerTargetStack:
                     return amount * Fixed.FromInt(target.FindModifier(effect.StackKey!, caster.Id)?.Stacks ?? 0);
+                case DamageScaling.PerCasterStack:
+                    return amount * Fixed.FromInt(caster.Modifiers.Where(m => m.Spec.Key == effect.StacksFrom).Sum(m => m.Stacks));
                 case DamageScaling.RewoundDistancePercent:
                     return target.LastRewindDistance * percent;
                 case DamageScaling.CasterCurrentManaPercent:

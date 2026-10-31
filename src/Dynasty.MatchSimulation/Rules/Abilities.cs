@@ -254,6 +254,9 @@ namespace Dynasty.MatchSimulation.Rules
         /// <summary>A flat amount in hundredths, for a fraction of a whole (Sun Ray's heal every 0.2 s: 7 a second, 1.4 a pulse).</summary>
         FlatHundredths = 19,
 
+        /// <summary>Flat damage for each stack the caster has of the modifier <see cref="EffectDefinition.StacksFrom"/> (Soul Assumption's charges).</summary>
+        PerCasterStack = 20,
+
         /// <summary>
         /// Amounts for every unit within <see cref="EffectDefinition.Radius"/> of the caster that its team sees, up to
         /// <see cref="EffectDefinition.MaxTargets"/>: heroes, creeps and summons of both teams, not the caster, not invulnerable ones nor
@@ -355,8 +358,8 @@ namespace Dynasty.MatchSimulation.Rules
         public string? LevelOf { get; private set; }
 
         /// <summary>
-        /// Modifiers only: applied with as many stacks as the caster has of this modifier (Uproar's roar by its stacks); not at all with
-        /// none.
+        /// Modifiers: applied with as many stacks as the caster has of this modifier (Uproar's roar by its stacks); not at all with none.
+        /// Damage of <see cref="DamageScaling.PerCasterStack"/>: the modifier whose stacks it counts.
         /// </summary>
         public string? StacksFrom { get; private set; }
 
@@ -563,6 +566,10 @@ namespace Dynasty.MatchSimulation.Rules
             new EffectDefinition(EffectKind.ManaBurn, manaPerLevel, type, damagePercent: damagePercent);
 
         /// <summary>Damage for each stack of the caster's modifier <paramref name="stackKey"/> on the target (Fury Swipes).</summary>
+        /// <summary>See <see cref="DamageScaling.PerCasterStack"/>.</summary>
+        public static EffectDefinition DamagePerCasterStack(DamageType type, string stackKey, params int[] perStackPerLevel) =>
+            new EffectDefinition(EffectKind.Damage, perStackPerLevel, type, scaling: DamageScaling.PerCasterStack).StacksOf(stackKey);
+
         public static EffectDefinition DamagePerStack(DamageType type, string stackKey, params int[] perStackPerLevel) =>
             new EffectDefinition(EffectKind.Damage, perStackPerLevel, type, scaling: DamageScaling.PerTargetStack, stackKey: stackKey);
 

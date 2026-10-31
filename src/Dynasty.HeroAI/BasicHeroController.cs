@@ -1263,6 +1263,9 @@ namespace Dynasty.HeroAI
                 case AbilityTargeting.Unit when def.Effects.Any(e => e.Kind == EffectKind.SwapHealthPercent):
                     return null;   // Sunder is kept for when the hero is low (SwapHealthWhenLow)
 
+                case AbilityTargeting.Unit when StacksSpent(def) is string charges && _hero.Modifiers.Where(m => m.Spec.Key == charges).Sum(m => m.Stacks) < MinStacksToSpend:
+                    return null;   // Soul Assumption: worth releasing with enough charges
+
                 case AbilityTargeting.Unit:
                     // A dispel on an enemy is only worth it when there is a buff to strip.
                     if (def.Effects.Any(e => e.Kind == EffectKind.Dispel) && !focus.Modifiers.Any(m => !m.Spec.IsPermanent && m.Spec.Dispellable && !m.Spec.IsDebuff))

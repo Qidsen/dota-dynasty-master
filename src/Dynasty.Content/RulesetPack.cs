@@ -649,6 +649,8 @@ namespace Dynasty.Content
                     DamageScaling scaling = e.Has("scaling") ? ReadScaling(e, "scaling") : DamageScaling.Flat;
                     effect = scaling == DamageScaling.Flat
                         ? EffectDefinition.Damage(ReadDamageType(e, "damageType"), e.Ints("amounts").ToArray())
+                        : scaling == DamageScaling.PerCasterStack
+                        ? EffectDefinition.DamagePerCasterStack(ReadDamageType(e, "damageType"), e.String("stacksFrom"), e.Ints("amounts").ToArray())
                         : scaling == DamageScaling.PerTargetStack
                         ? EffectDefinition.DamagePerStack(ReadDamageType(e, "damageType"), e.String("stackKey"), e.Ints("amounts").ToArray())
                         : scaling == DamageScaling.DoublingPerStack
@@ -878,8 +880,9 @@ namespace Dynasty.Content
             "perUnitAround" => DamageScaling.PerUnitAround,
             "doublingPerStack" => DamageScaling.DoublingPerStack,
             "flatHundredths" => DamageScaling.FlatHundredths,
+            "perCasterStack" => DamageScaling.PerCasterStack,
             _ => throw r.Error(field, "expected flat, targetMaxHealthPercent, targetMissingHealthPercent, targetCurrentHealthPercent, targetMaxManaPercent, " +
-                                      "targetMissingManaPercent, casterAttackDamagePercent, casterStrengthPercent, casterAgilityPercent, casterIntelligencePercent, perTargetStack, casterCurrentManaPercent, distanceToTargetPercent, rewoundDistancePercent, distanceFalloff, fullChargeOnly, perChannelSecond, perUnitAround, doublingPerStack or flatHundredths"),
+                                      "targetMissingManaPercent, casterAttackDamagePercent, casterStrengthPercent, casterAgilityPercent, casterIntelligencePercent, perTargetStack, casterCurrentManaPercent, distanceToTargetPercent, rewoundDistancePercent, distanceFalloff, fullChargeOnly, perChannelSecond, perUnitAround, doublingPerStack, flatHundredths or perCasterStack"),
         };
 
         private static ModifierFlags ReadFlag(Reader r, string flag) => flag switch
@@ -984,6 +987,8 @@ namespace Dynasty.Content
                 rechargeMs: m.OptionalMilliseconds("recharge") ?? 0, onLastCharge: m.OptionalArray("onLastCharge").Select(ReadEffect).ToList(),
                 noAttackSpeedLimit: m.OptionalBool("noAttackSpeedLimit") ?? false, castRangeBonus: m.OptionalInt("castRangeBonus") ?? 0,
                 travelsToPoint: m.OptionalBool("travelsToPoint") ?? false, travelDistance: m.OptionalInt("travelDistance") ?? 0,
+                nearbyHeroDamageAbove: m.OptionalInt("nearbyHeroDamageAbove") ?? 0, nearbyHeroDamageBelow: m.OptionalInt("nearbyHeroDamageBelow") ?? 0,
+                nearbyRadius: m.OptionalInt("nearbyRadius") ?? 0, onNearbyHeroDamage: m.OptionalArray("onNearbyHeroDamage").Select(ReadEffect).ToList(),
                 beamLength: m.OptionalInt("beamLength") ?? 0, beamTurnPerSecond: m.OptionalInt("beamTurnPerSecond") ?? 0,
                 endsWhenStunnedOrSilenced: m.OptionalBool("endsWhenStunnedOrSilenced") ?? false,
                 attacksMagical: m.OptionalBool("attacksMagical") ?? false, attacksMagicalOnEthereal: m.OptionalBool("attacksMagicalOnEthereal") ?? false,
