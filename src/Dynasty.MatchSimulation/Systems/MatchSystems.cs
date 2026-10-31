@@ -355,6 +355,12 @@ namespace Dynasty.MatchSimulation.Systems
                 foreach (ActiveModifier modifier in _scratch)
                 {
                     ModifierSpec spec = modifier.Spec;
+                    if (modifier.Recharging && now >= modifier.RechargedTick)
+                    {
+                        modifier.RechargedTick = -1;   // Unleash: the next Fury combo
+                        unit.Recalculate();
+                    }
+
                     if (spec.EndsWhenStunnedOrSilenced && (unit.Flags & (ModifierFlags.Stunned | ModifierFlags.Silenced)) != 0)
                     {
                         Modifiers.Remove(context, unit, modifier, "interrupted");
@@ -1124,7 +1130,16 @@ namespace Dynasty.MatchSimulation.Systems
                 Modifiers.Remove(context, attacker, used, "consumed");
             foreach (ActiveModifier buff in charged ?? Enumerable.Empty<ActiveModifier>())
             {
-                if (attacker.Modifiers.Contains(buff) && ++buff.AttacksLanded >= buff.Spec.AttackCharges)
+                if (!attacker.Modifiers.Contains(buff) || buff.Recharging || ++buff.AttacksLanded < buff.Spec.AttackCharges)
+                    continue;
+                Effects.Run(context, attacker, buff.Spec.OnLastCharge, 1, target, target.Position);   // Unleash's pulse
+                if (buff.Spec.RechargeMs > 0)
+                {
+                    buff.RechargedTick = context.Tick.Value + context.TickRate.TicksFor(buff.Spec.RechargeMs);
+                    buff.AttacksLanded = 0;
+                    attacker.Recalculate();
+                }
+                else
                     Modifiers.Remove(context, attacker, buff, "consumed");
             }
         }

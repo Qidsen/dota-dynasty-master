@@ -277,8 +277,14 @@ namespace Dynasty.MatchSimulation.Combat
             bool endsWhenStunnedOrSilenced = false,
             int triggerAtStacks = 0,
             IReadOnlyList<Rules.EffectDefinition>? onStacks = null,
-            string? noStacksWhile = null)
+            string? noStacksWhile = null,
+            int rechargeMs = 0,
+            IReadOnlyList<Rules.EffectDefinition>? onLastCharge = null,
+            bool noAttackSpeedLimit = false)
         {
+            RechargeMs = rechargeMs;
+            OnLastCharge = onLastCharge?.ToArray() ?? System.Array.Empty<Rules.EffectDefinition>();
+            NoAttackSpeedLimit = noAttackSpeedLimit;
             TriggerAtStacks = triggerAtStacks;
             OnStacks = onStacks?.ToArray() ?? System.Array.Empty<Rules.EffectDefinition>();
             NoStacksWhile = noStacksWhile;
@@ -856,6 +862,18 @@ namespace Dynasty.MatchSimulation.Combat
 
         public IReadOnlyList<Rules.EffectDefinition> OnStacks { get; }
 
+        /// <summary>
+        /// Unleash: when its <see cref="AttackCharges"/> are spent the modifier is not removed but recharges this long - the bearer
+        /// cannot attack and its attack speed bonus is off - and then its charges are back.
+        /// </summary>
+        public int RechargeMs { get; }
+
+        /// <summary>Unleash: effects of the attack that spends the last charge, run on its target.</summary>
+        public IReadOnlyList<Rules.EffectDefinition> OnLastCharge { get; }
+
+        /// <summary>Unleash: the bearer's attack speed is not held to the ruleset's limit.</summary>
+        public bool NoAttackSpeedLimit { get; }
+
         /// <summary>Entangle: not applied (no stack gained) while the bearer has a modifier of this key.</summary>
         public string? NoStacksWhile { get; }
 
@@ -1100,7 +1118,7 @@ namespace Dynasty.MatchSimulation.Combat
             w.WriteInt64(AttackCharges);
             w.WriteBool(ExtraTargetRadiusFromAttackRange);
             w.WriteInt64(ExtraTargetChancePercent);
-            foreach (IReadOnlyList<Rules.EffectDefinition> list in new[] { OnCast, OnKill, OnDeath, OnReturn, OnProximity, OnEnd, OnHeroDamage, OnTrample, OnDistance, OnStacks })
+            foreach (IReadOnlyList<Rules.EffectDefinition> list in new[] { OnCast, OnKill, OnDeath, OnReturn, OnProximity, OnEnd, OnHeroDamage, OnTrample, OnDistance, OnStacks, OnLastCharge })
             {
                 w.WriteInt64(list.Count);
                 foreach (Rules.EffectDefinition effect in list)
@@ -1122,7 +1140,7 @@ namespace Dynasty.MatchSimulation.Combat
                                           CritEveryAttacks, CritHealPercent, CritHealRadius, CritHealAlliesPercent, CritHealCreepPercent,
                                           ThirstMoveSpeedPercent, ThirstFromHealthPercent, ThirstFullBelowHealthPercent, RevealsBelowHealthPercent,
                                           AnchorChain, AnchorDragSpeed, CooldownSlowPercent, HealAtEndPercent, OnHeroDamageAtLeast, DelayedHealAmpPercent, TrampleRadius,
-                                          MulticastStrengthPerPercent, EveryDistance, HeroAttacksToBreak, BeamLength, BeamTurnPerSecond, TriggerAtStacks })
+                                          MulticastStrengthPerPercent, EveryDistance, HeroAttacksToBreak, BeamLength, BeamTurnPerSecond, TriggerAtStacks, RechargeMs })
                 w.WriteInt64(value);
             w.WriteBool(ReturnsOnExpiry);
             w.WriteBool(PeriodicFromBearer);
@@ -1134,6 +1152,7 @@ namespace Dynasty.MatchSimulation.Combat
             w.WriteBool(AttacksMagicalOnEthereal);
             w.WriteBool(DelaysHealth);
             w.WriteBool(EndsWhenStunnedOrSilenced);
+            w.WriteBool(NoAttackSpeedLimit);
             w.WriteString(TrampleMarker ?? "");
             w.WriteString(NoStacksWhile ?? "");
             w.WriteInt64(MulticastHundredths.Count);
@@ -1186,6 +1205,11 @@ namespace Dynasty.MatchSimulation.Combat
 
         /// <summary>Damage the bearer's periodic effects of this modifier dealt (Exorcism's heal at the end).</summary>
         internal Fixed Drained { get; set; }
+
+        /// <summary>Unleash: the tick its charges are back (<see cref="ModifierSpec.RechargeMs"/>); -1 when it is not recharging.</summary>
+        internal long RechargedTick { get; set; } = -1;
+
+        internal bool Recharging => RechargedTick >= 0;
 
         /// <summary>Sun Ray: where the beam points from the bearer (<see cref="ModifierSpec.BeamLength"/>).</summary>
         internal FixedVector2 Aim { get; set; }

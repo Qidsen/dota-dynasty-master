@@ -444,6 +444,7 @@ namespace Dynasty.MatchSimulation
             int moveSlow = 0, illusionTaken = 0, baseDamagePercent = 0, spellAmp = 0, fixedSpeed = 0;
             long cooldownLeft = 10000, manaCostLeft = 10000;   // Dota: the parts of cooldowns and mana costs left, every source multiplied
             Fixed regenStrengthPercent = Fixed.Zero;
+            bool noAttackSpeedLimit = false;
             SpellBlocker = null;
             foreach (ActiveModifier modifier in _modifiers)
             {
@@ -474,7 +475,10 @@ namespace Dynasty.MatchSimulation
                 if (!dota)
                     magicResist += (Fixed.FromInt(spec.MagicResistBonus * n) * share).ToIntFloor();
                 damageBonus += spec.DamageBonus * n;
-                attackSpeed += (Fixed.FromInt(spec.AttackSpeedBonus * n) * share).ToIntFloor();
+                if (!modifier.Recharging)
+                    attackSpeed += (Fixed.FromInt(spec.AttackSpeedBonus * n) * share).ToIntFloor();
+                if (spec.NoAttackSpeedLimit && !modifier.Recharging)
+                    noAttackSpeedLimit = true;
                 if (spec.MoveSpeedHundredths < 0)
                     moveSlow += spec.MoveSpeedHundredths * n * modifier.SlowStrengthPercent / 100;
                 else
@@ -514,6 +518,8 @@ namespace Dynasty.MatchSimulation
                     baseAttackTime = spec.BaseAttackTimeMs;
                 manaRegenBonus += spec.ManaRegenBonus * Fixed.FromInt(n);
                 flags |= spec.Flags;
+                if (modifier.Recharging)
+                    flags |= ModifierFlags.Disarmed;   // Unleash: no attacks between Fury combos
             }
 
             // A feared unit neither attacks nor casts; a taunted one attacks only (the forced-action system picks its target).
@@ -590,7 +596,7 @@ namespace Dynasty.MatchSimulation
             CooldownLeftHundredths = (int)cooldownLeft;
             ManaCostLeftHundredths = (int)manaCostLeft;
             AttackSpeedBonus = Math.Max(attackSpeed, -80);
-            if (Combat != null && Combat.MaxAttackSpeed > 0)
+            if (Combat != null && Combat.MaxAttackSpeed > 0 && !noAttackSpeedLimit)
                 AttackSpeedBonus = Math.Min(AttackSpeedBonus, Combat.MaxAttackSpeed - 100);
             Flags = flags;
             CritChanceHundredths = Math.Min(critChance, 10000);

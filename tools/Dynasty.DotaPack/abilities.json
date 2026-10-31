@@ -14117,5 +14117,55 @@
         ]
       }
     ]
+  },
+  "marci_unleash": {
+    "status": "simplified",
+    "note": "Fury combos of charges_per_flurry strikes above the attack speed limit, the last one pulsing damage and the slow around its target, then time_between_flurries without attacks; a combo does not expire when a strike comes later than 1 s; no Aghanim's Scepter pulses or silence",
+    "targeting": "noTarget",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "onCaster",
+        "effects": [
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "marci_unleash",
+              "duration": "$duration",
+              "dispellable": false,
+              "moveSpeedPercent": "$bonus_movespeed",
+              "attackSpeed": "$flurry_bonus_attack_speed",
+              "noAttackSpeedLimit": true,
+              "attackCharges": "$charges_per_flurry",
+              "recharge": "$time_between_flurries",
+              "onLastCharge": [
+                {
+                  "kind": "area",
+                  "radius": "$pulse_radius",
+                  "center": "target",
+                  "team": "enemy",
+                  "effects": [
+                    {
+                      "kind": "damage",
+                      "damageType": "magical",
+                      "amounts": "$pulse_damage"
+                    },
+                    {
+                      "kind": "modifier",
+                      "modifiers": {
+                        "key": "marci_unleash_flurry_pulse_debuff",
+                        "duration": "$pulse_debuff_duration",
+                        "moveSpeedPercent": "-$pulse_move_slow_pct",
+                        "attackSpeed": "-$pulse_attack_slow_pct"
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        ]
+      }
+    ]
   }
 }

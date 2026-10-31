@@ -978,6 +978,8 @@ namespace Dynasty.Content
                 heroAttacksToBreak: m.OptionalInt("heroAttacksToBreak") ?? 0,
                 triggerAtStacks: m.OptionalInt("triggerAtStacks") ?? 0, onStacks: m.OptionalArray("onStacks").Select(ReadEffect).ToList(),
                 noStacksWhile: m.OptionalString("noStacksWhile"),
+                rechargeMs: m.OptionalMilliseconds("recharge") ?? 0, onLastCharge: m.OptionalArray("onLastCharge").Select(ReadEffect).ToList(),
+                noAttackSpeedLimit: m.OptionalBool("noAttackSpeedLimit") ?? false,
                 beamLength: m.OptionalInt("beamLength") ?? 0, beamTurnPerSecond: m.OptionalInt("beamTurnPerSecond") ?? 0,
                 endsWhenStunnedOrSilenced: m.OptionalBool("endsWhenStunnedOrSilenced") ?? false,
                 attacksMagical: m.OptionalBool("attacksMagical") ?? false, attacksMagicalOnEthereal: m.OptionalBool("attacksMagicalOnEthereal") ?? false,
