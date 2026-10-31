@@ -1004,7 +1004,7 @@ namespace Dynasty.Content
         private static AuraSpec ReadAura(Reader a)
         {
             var aura = new AuraSpec(a.Int("radius"), ReadTeam(a, "team"), a.OptionalBool("heroesOnly") ?? false, ReadModifier(a.OptionalObject("modifier") ?? throw a.Error("modifier", "missing")),
-                a.OptionalBool("creepsOnly") ?? false);
+                a.OptionalBool("creepsOnly") ?? false, a.OptionalBool("ownerOnly") ?? false);
             a.RejectUnknown();
             return aura;
         }

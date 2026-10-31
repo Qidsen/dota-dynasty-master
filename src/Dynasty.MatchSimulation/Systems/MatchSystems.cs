@@ -172,7 +172,8 @@ namespace Dynasty.MatchSimulation.Systems
                     for (int j = 0; j < count; j++)
                     {
                         MatchUnit unit = units[j];
-                        if ((aura.HeroesOnly && unit.Kind != UnitKind.Hero) || (aura.CreepsOnly && unit.Kind != UnitKind.Creep) || !Effects.Matches(state, bearer, unit, aura.Team) ||
+                        if ((aura.HeroesOnly && unit.Kind != UnitKind.Hero) || (aura.CreepsOnly && unit.Kind != UnitKind.Creep) ||
+                            (aura.OwnerOnly && unit.Id != bearer.Owner && unit.Owner != bearer.Owner) || !Effects.Matches(state, bearer, unit, aura.Team) ||
                             !Geometry.WithinRange(unit.Position, bearer.Position, aura.Radius))
                             continue;
                         Modifiers.Apply(context, unit, aura.Modifier, bearer.Id);

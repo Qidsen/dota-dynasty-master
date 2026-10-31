@@ -14069,5 +14069,53 @@
         ]
       }
     ]
+  },
+  "broodmother_spin_web": {
+    "status": "simplified",
+    "note": "a web can be spun anywhere in the cast range (not only touching another web); within its own webs Broodmother (and her own units) moves faster, no free movement through trees and cliffs, no turn rate; webs cannot be attacked or destroyed by hand; the AI spins one under itself when it stands on none",
+    "targeting": "point",
+    "targetTeam": "enemy",
+    "charges": "$max_charges",
+    "chargeRestore": "$abilitychargerestoretime",
+    "unitTypes": [
+      {
+        "id": "broodmother_spin_web_unit",
+        "gameUnit": "npc_dota_broodmother_web"
+      }
+    ],
+    "effects": [
+      {
+        "kind": "summon",
+        "unitType": "broodmother_spin_web_unit",
+        "counts": [
+          1
+        ],
+        "maxAlive": "$count",
+        "atPoint": true,
+        "effects": [
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "broodmother_spin_web_unit",
+              "flags": [
+                "invulnerable"
+              ],
+              "dispellable": false,
+              "aura": {
+                "radius": "$radius",
+                "team": "ally",
+                "ownerOnly": true,
+                "modifier": {
+                  "key": "broodmother_spin_web",
+                  "duration": 1,
+                  "moveSpeedPercent": "$bonus_movespeed",
+                  "unique": true
+                }
+              }
+            }
+          }
+        ]
+      }
+    ]
   }
 }

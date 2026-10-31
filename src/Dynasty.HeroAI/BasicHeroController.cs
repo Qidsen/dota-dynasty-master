@@ -515,6 +515,8 @@ namespace Dynasty.HeroAI
                 return;
             if (Decided(SunWhenDying(hpPercent), "SunWhenDying"))
                 return;
+            if (Decided(WebUnderfoot(), "WebUnderfoot"))
+                return;
             if (_memory.Retreating && Decided(StasisToGetAway(), "StasisToGetAway"))
                 return;
             if (_memory.Retreating)
@@ -1360,6 +1362,32 @@ namespace Dynasty.HeroAI
                 if (radius == 0 || VisibleEnemyHeroes(_hero.Position, radius).Count == 0)
                     continue;
                 Issue(HeroOrder.CastNoTarget(ability.Definition.Id));
+                return true;
+            }
+
+            return false;
+        }
+
+        /// <summary>The aura only the summoner gets from the units the ability summons (Spin Web); null for other abilities.</summary>
+        private static AuraSpec? WebAura(AbilityDefinition def) =>
+            AllEffects(def.Effects.Where(e => e.Kind == EffectKind.Summon)).Where(e => e.Kind == EffectKind.ApplyModifier)
+                .SelectMany(e => e.Modifiers).Select(m => m.Aura).FirstOrDefault(a => a != null && a.OwnerOnly);
+
+        /// <summary>Spin Web under the hero when it stands on none of its own webs and has half its mana or more for its other spells.</summary>
+        private bool WebUnderfoot()
+        {
+            if ((_hero.Flags & ModifierFlags.Silenced) != 0 || _h.Mana * Fixed.FromInt(2) < Fixed.FromInt(_h.MaxMana))
+                return false;
+            foreach (AbilityState ability in ReadyAbilities().Where(a => a.Definition.Targeting == AbilityTargeting.Point))
+            {
+                AuraSpec? aura = WebAura(ability.Definition);
+                if (aura == null)
+                    continue;
+                string? web = ability.Definition.Effects.First(e => e.Kind == EffectKind.Summon).SummonTypeId;
+                HeroDecision self = this;
+                if (_state.Units.Any(u => u.IsAlive && u.Owner == self._hero.Id && u.TypeId == web && Math.Within(u.Position, self._hero.Position, aura.Radius)))
+                    continue;
+                Issue(HeroOrder.CastAtPoint(ability.Definition.Id, _hero.Position));
                 return true;
             }
 
