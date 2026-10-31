@@ -168,6 +168,15 @@ namespace Dynasty.MatchSimulation.Rules
 
         /// <summary>Ends now every modifier <see cref="EffectDefinition.StackKey"/> the caster put on any unit, as if it ran out (Shadow Poison Release).</summary>
         Release = 35,
+
+        /// <summary>
+        /// An illusion of the caster next to the target, bound to it (it attacks only that unit and goes with it), carrying the level's
+        /// modifier (damage dealt and taken), for <see cref="EffectDefinition.DurationMs"/> (Shadow Step, Haunt).
+        /// </summary>
+        Haunt = 36,
+
+        /// <summary>The caster goes to its own illusion nearest to the point, which is destroyed (Reality).</summary>
+        Assume = 37,
     }
 
     /// <summary>What a damage effect's amounts mean: flat damage, or a percent of the target's health or mana.</summary>
@@ -366,6 +375,13 @@ namespace Dynasty.MatchSimulation.Rules
         /// <summary>See <see cref="DamageScaling.DoublingPerStack"/>.</summary>
         public static EffectDefinition DamageByStacksDoubling(DamageType type, int doublingStacks, int extraPerStack, params int[] stackDamagePerLevel) =>
             new EffectDefinition(EffectKind.Damage, stackDamagePerLevel, type, scaling: DamageScaling.DoublingPerStack, maxTargets: doublingStacks, damagePercent: extraPerStack);
+
+        /// <summary>See <see cref="EffectKind.Haunt"/>.</summary>
+        public static EffectDefinition Haunt(int durationMs, ModifierSpec[] modifierPerLevel) =>
+            new EffectDefinition(EffectKind.Haunt, modifiers: modifierPerLevel, durationMs: durationMs);
+
+        /// <summary>See <see cref="EffectKind.Assume"/>.</summary>
+        public static EffectDefinition Assume() => new EffectDefinition(EffectKind.Assume);
 
         /// <summary>See <see cref="EffectKind.Release"/>.</summary>
         public static EffectDefinition Release(string modifierKey) => new EffectDefinition(EffectKind.Release, stackKey: modifierKey);

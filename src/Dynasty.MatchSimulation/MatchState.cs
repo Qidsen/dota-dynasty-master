@@ -252,6 +252,9 @@ namespace Dynasty.MatchSimulation
         /// <summary>A summon bound to one target (Tombstone's zombies): it attacks only that unit and dies when it is dead or unseen.</summary>
         public EntityId LockedTarget { get; internal set; }
 
+        /// <summary>A bound summon that dies as soon as its target is unseen (Tombstone's zombies; not Haunt's images, which go only with it dead).</summary>
+        internal bool LockedNeedsSight { get; set; }
+
         /// <summary>Thirst's movement speed now, in hundredths of a percent (worked out every tick by the thirst system).</summary>
         internal int ThirstHundredths { get; set; }
 

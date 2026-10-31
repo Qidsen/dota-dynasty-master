@@ -1257,6 +1257,12 @@ namespace Dynasty.HeroAI
                         return null;
                     return Math.Within(_hero.Position, focus.Position, reach) ? HeroOrder.Cast(def.Id, focus.Id) : null;
 
+                case AbilityTargeting.Point when def.Effects.Any(e => e.Kind == EffectKind.Assume):
+                    // Reality: to an image of its own at the enemy it fights; none, no cast.
+                    HeroDecision owner = this;
+                    MatchUnit? image = _state.Units.FirstOrDefault(u => u.IsAlive && u.IllusionOf == owner._hero.Id && Math.Within(u.Position, focus.Position, 400));
+                    return image != null ? HeroOrder.CastAtPoint(def.Id, image.Position) : null;
+
                 case AbilityTargeting.Point:
                     int radius = Math.AreaRadius(def);
                     FixedVector2 point = focus.Position;

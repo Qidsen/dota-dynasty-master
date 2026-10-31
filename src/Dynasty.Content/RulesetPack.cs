@@ -710,6 +710,12 @@ namespace Dynasty.Content
                 case "lineArea":
                     effect = EffectDefinition.LineArea(e.OptionalInt("width") ?? 0, ReadTeam(e, "team"), e.Array("effects").Select(ReadEffect).ToArray());
                     break;
+                case "haunt":
+                    effect = EffectDefinition.Haunt(e.Milliseconds("duration"), e.Array("modifiers").Select(ReadModifier).ToArray());
+                    break;
+                case "assume":
+                    effect = EffectDefinition.Assume();
+                    break;
                 case "release":
                     effect = EffectDefinition.Release(e.String("modifier"));
                     break;

@@ -393,6 +393,42 @@ namespace Dynasty.MatchSimulation.Systems
                 case EffectKind.RestoreMana:
                     Damage.RestoreMana(context, target, effect.Scaling == DamageScaling.Flat ? Fixed.FromInt(effect.AmountAt(level)) : ScaledAmount(context, effect, level, caster, target));
                     break;
+                case EffectKind.Haunt:
+                    if (target.IsAlive && target.Team != caster.Team)
+                    {
+                        long now = context.Tick.Value;
+                        long expires = now + context.TickRate.TicksFor(effect.DurationMs);
+                        MatchUnit original = context.State.Find(caster.IllusionOf) ?? caster;
+                        MatchUnit image = context.State.SpawnIllusion(context.Ids.Allocate(), caster, original, now, expires);
+                        image.Position = FixedVector2.MoveTowards(target.Position, caster.Position, Fixed.FromInt(target.BoundingRadius + image.BoundingRadius));
+                        image.StartPosition = image.Position;
+                        image.LockedTarget = target.Id;
+                        image.TargetId = target.Id;
+                        Modifiers.AddInstance(context, image, effect.ModifierAt(level), caster.Id);
+                        context.Emit(new UnitSummoned(image.Id, caster.Id, image.TypeId, expires));
+                    }
+
+                    break;
+                case EffectKind.Assume:
+                    MatchUnit? assumed = null;
+                    foreach (MatchUnit unit in context.State.Units)
+                    {
+                        if (unit.IsAlive && unit.IllusionOf == caster.Id && unit.ExpiresTick != context.Tick.Value &&
+                            (assumed == null || (unit.Position - point).LengthSquared < (assumed.Position - point).LengthSquared))
+                            assumed = unit;
+                    }
+
+                    if (assumed != null)
+                    {
+                        caster.Position = assumed.Position;
+                        caster.StartPosition = assumed.Position;
+                        if (caster.Hero != null)
+                            caster.Hero.Path = null;
+                        DisjointProjectiles(context, caster);
+                        assumed.ExpiresTick = context.Tick.Value;
+                    }
+
+                    break;
                 case EffectKind.Release:
                     foreach (MatchUnit unit in context.State.Units.Where(u => u.Modifiers.Any(m => m.Spec.Key == effect.StackKey && m.Source == caster.Id)).ToList())
                     {
@@ -917,6 +953,7 @@ namespace Dynasty.MatchSimulation.Systems
                 unit.Position = at;
                 unit.StartPosition = at;
                 unit.LockedTarget = target.Id;
+                unit.LockedNeedsSight = true;
                 unit.TargetId = target.Id;
                 context.Emit(new UnitSummoned(unit.Id, owner.Id, type.Id, expires));
                 foreach (EffectDefinition inner in effect.Inner)

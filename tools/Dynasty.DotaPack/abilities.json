@@ -13180,5 +13180,61 @@
         ]
       }
     ]
+  },
+  "spectre_shadow_step": {
+    "status": "simplified",
+    "note": "the illusion moves at Spectre's speed (900 in Dota)",
+    "targeting": "unit",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "haunt",
+        "duration": "$duration",
+        "modifiers": {
+          "key": "spectre_shadow_step_illusion",
+          "attackDamagePercent": "$illusion_outgoing_damage+-100",
+          "incomingDamagePercent": "$illusion_damage_incoming"
+        }
+      }
+    ]
+  },
+  "spectre_haunt": {
+    "status": "simplified",
+    "note": "the illusions do not ignore terrain; no Aghanim's Scepter fear",
+    "targeting": "noTarget",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "area",
+        "radius": 30000,
+        "center": "caster",
+        "team": "enemy",
+        "heroesOnly": true,
+        "effects": [
+          {
+            "kind": "haunt",
+            "duration": "$duration",
+            "modifiers": {
+              "key": "spectre_haunt_illusion",
+              "attackDamagePercent": "$illusion_damage_outgoing",
+              "incomingDamagePercent": "$illusion_damage_incoming"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "spectre_reality": {
+    "status": "simplified",
+    "note": "learned with Shadow Step; no Aghanim's Shard dagger",
+    "targeting": "point",
+    "targetTeam": "enemy",
+    "levelsWith": "spectre_shadow_step",
+    "castRange": 30000,
+    "effects": [
+      {
+        "kind": "assume"
+      }
+    ]
   }
 }

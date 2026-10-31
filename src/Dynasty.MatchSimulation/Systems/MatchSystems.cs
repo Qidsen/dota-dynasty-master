@@ -486,9 +486,9 @@ namespace Dynasty.MatchSimulation.Systems
 
                 if (unit.LockedTarget.IsValid)
                 {
-                    // Tombstone's zombies: only their target; it dead or out of sight, they die (the official note).
+                    // Bound summons attack only their target and die with it (Tombstone's zombies also when it is out of sight: the official note).
                     MatchUnit? locked = state.Find(unit.LockedTarget);
-                    if (locked == null || !locked.IsAlive || !state.IsVisibleTo(unit.Team, locked))
+                    if (locked == null || !locked.IsAlive || (unit.LockedNeedsSight && !state.IsVisibleTo(unit.Team, locked)))
                     {
                         unit.TargetId = EntityId.None;
                         unit.ExpiresTick = context.Tick.Value;
