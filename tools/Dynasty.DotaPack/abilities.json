@@ -13575,5 +13575,36 @@
         ]
       }
     ]
+  },
+  "rattletrap_power_cogs": {
+    "status": "simplified",
+    "note": "a ring holding everyone but Clockwerk; an enemy outside coming within the trigger distance of it is shocked once a cast (the project owner); the cogs cannot be broken or pushed",
+    "targeting": "noTarget",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "cogs",
+        "radius": "$cogs_radius",
+        "shockReach": "$trigger_distance",
+        "durations": "$duration",
+        "shock": [
+          {
+            "kind": "damage",
+            "damageType": "magical",
+            "amounts": "$damage"
+          },
+          {
+            "kind": "manaBurn",
+            "damageType": "magical",
+            "damagePercent": "$mana_burn_as_damage_pct",
+            "amounts": "$mana_burn"
+          },
+          {
+            "kind": "knockback",
+            "amounts": "$push_length"
+          }
+        ]
+      }
+    ]
   }
 }

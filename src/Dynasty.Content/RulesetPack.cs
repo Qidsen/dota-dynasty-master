@@ -703,6 +703,9 @@ namespace Dynasty.Content
                     effect = EffectDefinition.SummonNear(e.String("unitType"), e.OptionalMilliseconds("duration") ?? -1, e.Ints("counts").ToArray(),
                         e.OptionalArray("effects").Select(ReadEffect).ToArray());
                     break;
+                case "cogs":
+                    effect = EffectDefinition.Cogs(e.Int("radius"), e.Int("shockReach"), e.Seconds("durations").ToArray(), e.Array("shock").Select(ReadEffect).ToArray());
+                    break;
                 case "wall":
                     effect = EffectDefinition.Wall(e.Int("radius"), ReadCenter(e, "center"), ReadTeam(e, "team"), e.OptionalMilliseconds("formation") ?? 0,
                         e.OptionalInt("arc") ?? 0, e.OptionalBool("blocksImmune") ?? false, e.Seconds("durations").ToArray());

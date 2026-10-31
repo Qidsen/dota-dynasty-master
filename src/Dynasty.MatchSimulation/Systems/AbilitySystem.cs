@@ -592,7 +592,7 @@ namespace Dynasty.MatchSimulation.Systems
                     long forms = context.Tick.Value + context.TickRate.TicksFor(effect.DurationMs);
                     FixedVector2 wallAt = effect.Center == AreaCenter.Caster ? caster.Position : effect.Center == AreaCenter.Target ? target.Position : point;
                     context.State.AddWall(new GroundWall(wallAt, effect.Radius, caster.Team, effect.Team, forms, forms + context.TickRate.TicksFor(effect.AmountAt(level)),
-                        effect.MaxDistance, caster.Position - wallAt, effect.Strong));
+                        effect.MaxDistance, caster.Position - wallAt, effect.Strong, effect.HeroesOnly ? caster.Id : EntityId.None, effect.MinDistance, effect.Inner, level));
                     break;
                 case EffectKind.Pull:
                     Pull(context.State, caster, target, effect.Center == AreaCenter.Point ? point : caster.Position,

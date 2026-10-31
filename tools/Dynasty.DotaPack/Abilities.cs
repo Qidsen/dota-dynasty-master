@@ -457,7 +457,7 @@ static class Abilities
                 "amounts" or "counts" or "floor" or "ceiling" or "durations" or "maxAlive" or "strikes" => PerLevel(node, values, levels, fallback: null),
                 "modifiers" => node is JsonObject single ? Modifiers(single, values, levels) : node!.DeepClone(),
                 "markerModifier" => ResolveAt(node, values, levels - 1),   // one marker for every level (Eclipse's hits on a unit)
-                "effects" => new JsonArray(node!.AsArray().Select(e => (JsonNode)ResolveEffect(e!.AsObject(), values, levels)).ToArray()),
+                "effects" or "shock" => new JsonArray(node!.AsArray().Select(e => (JsonNode)ResolveEffect(e!.AsObject(), values, levels)).ToArray()),
                 _ => node is JsonValue v && v.TryGetValue(out string? s) && IsReference(s) ? Scalar(node, values, levels, fallback: null) : node?.DeepClone(),
             };
         }

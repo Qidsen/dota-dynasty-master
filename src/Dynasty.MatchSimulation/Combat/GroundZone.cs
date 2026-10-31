@@ -40,7 +40,17 @@ namespace Dynasty.MatchSimulation.Combat
     {
         internal GroundWall(FixedVector2 position, int radius, Team team, TargetTeam blocks, long formsTick, long expiresTick, int arcDegrees = 0,
             FixedVector2 opening = default, bool blocksImmune = false)
+            : this(position, radius, team, blocks, formsTick, expiresTick, arcDegrees, opening, blocksImmune, EntityId.None, 0, null, 0)
         {
+        }
+
+        internal GroundWall(FixedVector2 position, int radius, Team team, TargetTeam blocks, long formsTick, long expiresTick, int arcDegrees,
+            FixedVector2 opening, bool blocksImmune, EntityId casterPasses, int shockReach, IReadOnlyList<EffectDefinition>? shock, int level)
+        {
+            CasterPasses = casterPasses;
+            ShockReach = shockReach;
+            Shock = shock ?? System.Array.Empty<EffectDefinition>();
+            Level = level;
             ArcDegrees = arcDegrees;
             Opening = opening;
             BlocksImmune = blocksImmune;
@@ -68,6 +78,19 @@ namespace Dynasty.MatchSimulation.Combat
 
         /// <summary>A barrier of ice: the debuff-immune do not pass either.</summary>
         public bool BlocksImmune { get; }
+
+        /// <summary>The unit that walks through the wall (Clockwerk through his cogs); none for other walls.</summary>
+        public EntityId CasterPasses { get; }
+
+        /// <summary>Power Cogs: how near the wall an enemy outside gets <see cref="Shock"/>, once.</summary>
+        internal int ShockReach { get; }
+
+        internal IReadOnlyList<EffectDefinition> Shock { get; }
+
+        internal int Level { get; }
+
+        /// <summary>The enemies already shocked.</summary>
+        internal HashSet<EntityId> Shocked { get; } = new HashSet<EntityId>();
         public long ExpiresTick { get; }
 
         /// <summary>The units inside when the wall formed or when they first came under it, by id; kept on their side while it stands.</summary>

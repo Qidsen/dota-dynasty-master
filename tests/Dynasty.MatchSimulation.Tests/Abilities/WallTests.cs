@@ -1,6 +1,7 @@
 using Dynasty.Core.Kernel;
 using Dynasty.Core.Mathematics;
 using Dynasty.MatchSimulation.Combat;
+using Dynasty.MatchSimulation.Events;
 using Dynasty.MatchSimulation.Heroes;
 using Dynasty.MatchSimulation.Rules;
 using Dynasty.MatchSimulation.Systems;
@@ -198,5 +199,48 @@ public class WallTests
         kernel.RunTicks(3);
 
         Assert.Equal(75, (Fixed.FromInt(2000) - H(kernel.State, "beta").Hp).ToDouble(), 0);
+    }
+
+    /// <summary>
+    /// Power Cogs (the project owner: a wall and one shock): a ring around Clockwerk holding everyone but him; an enemy outside coming
+    /// within the shock reach of it is shocked once (damage, mana burnt, pushed away).
+    /// </summary>
+    private static void Cogs(SimulationKernel<MatchState> kernel, long tick) =>
+        At(kernel, tick, ctx => Effects.Run(ctx, H(ctx.State, "alpha"), new[]
+        {
+            EffectDefinition.Cogs(Radius, 185, 10000,
+                EffectDefinition.Damage(DamageType.Pure, 100), EffectDefinition.ManaBurn(50, DamageType.Pure, 80), EffectDefinition.Knockback(300)),
+        }, 1, H(ctx.State, "alpha"), H(ctx.State, "alpha").Position));
+
+    [Fact]
+    public void Cogs_HoldEveryoneInside_ButClockwerk()
+    {
+        var kernel = Arena(Center + FixedVector2.FromInts(100, 0), P(5000, 8000));
+        At(kernel, 1, ctx => H(ctx.State, "alpha").Position = Center);
+        Cogs(kernel, 2);
+        At(kernel, 3, ctx => HeroOrders.Issue(H(ctx.State, "alpha"), HeroOrder.Move(P(5000, 2000))));
+
+        kernel.RunTicks(4 * 30);
+
+        Assert.True(FromCenter(H(kernel.State, "beta")) < Fixed.FromInt(Radius));         // the enemy stays in
+        Assert.True(FromCenter(H(kernel.State, "gamma")) < Fixed.FromInt(Radius));        // an ally too
+        Assert.True(FromCenter(H(kernel.State, "alpha")) > Fixed.FromInt(Radius + 500));  // Clockwerk walks out
+    }
+
+    [Fact]
+    public void Cogs_ShockAnEnemyOutsideOnce()
+    {
+        var kernel = Arena(P(5000, 6000), P(5000, 5000));   // beta outside, walking to the centre
+        At(kernel, 1, ctx => H(ctx.State, "alpha").Position = Center);
+        Cogs(kernel, 2);
+
+        kernel.RunTicks(5 * 30);
+
+        MatchUnit beta = H(kernel.State, "beta");
+        List<DamageDealt> hits = kernel.EventsOf<DamageDealt>().Where(d => d.Target == beta.Id && d.Attacker == H(kernel.State, "alpha").Id).ToList();
+        Assert.Equal(2, hits.Count);   // the shock and its mana burn, once
+        Assert.Equal(500 - 80, beta.Hero!.Mana.ToDouble(), 0);
+        Assert.True(FromCenter(beta) > Fixed.FromInt(Radius));
+        Assert.DoesNotContain(kernel.EventsOf<DamageDealt>(), d => d.Target == H(kernel.State, "gamma").Id);   // the ally coming along is not shocked
     }
 }

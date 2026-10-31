@@ -39,6 +39,17 @@ namespace Dynasty.MatchSimulation.Systems
                         continue;
                     FixedVector2 offset = unit.Position - wall.Position;
                     bool inside = offset.LengthSquared < radius * radius;
+                    if (wall.Shock.Count > 0 && !inside && unit.Team != wall.Team && unit.Id != wall.CasterPasses && !wall.Shocked.Contains(unit.Id) &&
+                        offset.LengthSquared <= (radius + Fixed.FromInt(wall.ShockReach)) * (radius + Fixed.FromInt(wall.ShockReach)) &&
+                        state.Find(wall.CasterPasses) is MatchUnit cogs)
+                    {
+                        // Power Cogs: a cog shocks an enemy outside coming near, once.
+                        wall.Shocked.Add(unit.Id);
+                        Effects.Run(context, cogs, wall.Shock, wall.Level, unit, unit.Position);
+                        offset = unit.Position - wall.Position;
+                        inside = offset.LengthSquared < radius * radius;
+                    }
+
                     if (!wall.Known.Contains(unit.Id) || !Blocks(wall, unit) || unit.TeleportedTick == now)
                     {
                         wall.Known.Add(unit.Id);
@@ -84,6 +95,8 @@ namespace Dynasty.MatchSimulation.Systems
 
         private static bool Blocks(GroundWall wall, MatchUnit unit)
         {
+            if (unit.Id == wall.CasterPasses)
+                return false;   // Clockwerk walks through his cogs
             if ((unit.Flags & ModifierFlags.DebuffImmune) != 0 && !wall.BlocksImmune)
                 return false;
             switch (wall.Blocks)
