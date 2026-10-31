@@ -977,6 +977,11 @@ namespace Dynasty.MatchSimulation.Systems
         {
             // Charged buffs count the attacks that land while they are on: not the hit that grants one, not the extra targets' hits.
             List<ActiveModifier>? charged = spendsCharges ? attacker.Modifiers.Where(m => m.Spec.AttackCharges > 0).ToList() : null;
+            if (Damage.Sun(target) is ActiveModifier sun)
+            {
+                Damage.StrikeSun(context, attacker, target, sun);
+                return;
+            }
             // Draw only when there is a chance to roll, so matches without evasion or chance procs keep their random streams.
             if (target.EvasionHundredths > 0 &&
                 (context.State.Ruleset.Combat.DotaStacking ? PseudoRandom.Roll(context, target.EvasionHundredths, ref target.EvasionTries) : Draw(context, target.EvasionHundredths)))

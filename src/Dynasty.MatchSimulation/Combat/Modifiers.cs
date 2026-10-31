@@ -265,8 +265,10 @@ namespace Dynasty.MatchSimulation.Combat
             bool attacksMagical = false,
             bool attacksMagicalOnEthereal = false,
             int everyDistance = 0,
-            IReadOnlyList<Rules.EffectDefinition>? onDistance = null)
+            IReadOnlyList<Rules.EffectDefinition>? onDistance = null,
+            int heroAttacksToBreak = 0)
         {
+            HeroAttacksToBreak = heroAttacksToBreak;
             EveryDistance = everyDistance;
             OnDistance = onDistance?.ToArray() ?? System.Array.Empty<Rules.EffectDefinition>();
             AttacksMagical = attacksMagical;
@@ -817,6 +819,11 @@ namespace Dynasty.MatchSimulation.Combat
 
         public IReadOnlyList<Rules.EffectDefinition> OnTrample { get; }
 
+        /// <summary>
+        /// Supernova: no damage gets through to the bearer, but this many attacks from enemy heroes kill it (the last attacker gets the kill).
+        /// </summary>
+        public int HeroAttacksToBreak { get; }
+
         /// <summary>Trample: <see cref="OnDistance"/> runs from the bearer (its caster) for every this many units it travels.</summary>
         public int EveryDistance { get; }
 
@@ -1077,7 +1084,7 @@ namespace Dynasty.MatchSimulation.Combat
                                           CritEveryAttacks, CritHealPercent, CritHealRadius, CritHealAlliesPercent, CritHealCreepPercent,
                                           ThirstMoveSpeedPercent, ThirstFromHealthPercent, ThirstFullBelowHealthPercent, RevealsBelowHealthPercent,
                                           AnchorChain, AnchorDragSpeed, CooldownSlowPercent, HealAtEndPercent, OnHeroDamageAtLeast, DelayedHealAmpPercent, TrampleRadius,
-                                          MulticastStrengthPerPercent, EveryDistance })
+                                          MulticastStrengthPerPercent, EveryDistance, HeroAttacksToBreak })
                 w.WriteInt64(value);
             w.WriteBool(ReturnsOnExpiry);
             w.WriteBool(PeriodicFromBearer);
@@ -1139,6 +1146,9 @@ namespace Dynasty.MatchSimulation.Combat
 
         /// <summary>Damage the bearer's periodic effects of this modifier dealt (Exorcism's heal at the end).</summary>
         internal Fixed Drained { get; set; }
+
+        /// <summary>Supernova: enemy heroes' attacks taken (<see cref="ModifierSpec.HeroAttacksToBreak"/>).</summary>
+        internal int HeroAttacksTaken { get; set; }
 
         /// <summary>Trample: the distance travelled since the last step's effects.</summary>
         internal Fixed Travelled { get; set; }
@@ -1351,6 +1361,8 @@ namespace Dynasty.MatchSimulation.Combat
                 promise.HeldDamage.Add((attacker, rawAmount, type));   // False Promise: it comes at the end
                 return Fixed.Zero;
             }
+            if (Sun(target) != null)
+                return Fixed.Zero;   // Supernova: only enemy heroes' attacks count, and they do no damage
 
             MatchUnit? from = attacker.IsValid ? context.State.Find(attacker) : null;
             List<(MatchUnit Unit, Fixed Amount)>? reflections = reflected ? null : Reflections(context.State, target, ref rawAmount);
@@ -1469,6 +1481,28 @@ namespace Dynasty.MatchSimulation.Combat
             }
 
             return null;
+        }
+
+        /// <summary>The Supernova the unit is, if any.</summary>
+        internal static ActiveModifier? Sun(MatchUnit target)
+        {
+            foreach (ActiveModifier modifier in target.Modifiers)
+            {
+                if (modifier.Spec.HeroAttacksToBreak > 0)
+                    return modifier;
+            }
+
+            return null;
+        }
+
+        /// <summary>Supernova: an enemy hero's attack counts; the last one it takes kills it.</summary>
+        internal static void StrikeSun(SimulationContext<MatchState> context, MatchUnit attacker, MatchUnit target, ActiveModifier sun)
+        {
+            if (attacker.Hero == null)
+                return;
+            sun.HeroAttacksTaken++;
+            if (sun.HeroAttacksTaken >= sun.Spec.HeroAttacksToBreak)
+                Execute(context, attacker.Id, target);
         }
 
         /// <summary>False Promise ends: the healing held off, amplified, then the damage held off as the bearer stands now.</summary>

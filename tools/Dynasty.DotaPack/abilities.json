@@ -13782,5 +13782,85 @@
         ]
       }
     ]
+  },
+  "phoenix_supernova": {
+    "status": "simplified",
+    "note": "Phoenix itself is the sun (the project owner): it takes no damage and stands still, burning enemies around; enemy heroes' attacks are counted and the last of them kills it; surviving, it stuns enemies around and comes back with full health and mana and its abilities ready; no Aghanim's Scepter ally in the sun; the AI goes supernova below 35% health with enemy heroes close",
+    "targeting": "noTarget",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "onCaster",
+        "effects": [
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "phoenix_supernova",
+              "duration": "$abilityduration",
+              "flags": [
+                "busy"
+              ],
+              "dispellable": false,
+              "heroAttacksToBreak": "$max_hero_attacks",
+              "period": "$tick_interval",
+              "periodicFromBearer": true,
+              "periodicEffects": [
+                {
+                  "kind": "area",
+                  "radius": "$aura_radius",
+                  "center": "caster",
+                  "team": "enemy",
+                  "effects": [
+                    {
+                      "kind": "damage",
+                      "damageType": "magical",
+                      "amounts": "$damage_per_sec*$tick_interval"
+                    }
+                  ]
+                }
+              ],
+              "onEnd": [
+                {
+                  "kind": "area",
+                  "radius": "$aura_radius",
+                  "center": "caster",
+                  "team": "enemy",
+                  "effects": [
+                    {
+                      "kind": "modifier",
+                      "modifiers": {
+                        "key": "phoenix_supernova_stun",
+                        "duration": "$stun_duration",
+                        "flags": [
+                          "stunned"
+                        ]
+                      }
+                    }
+                  ]
+                },
+                {
+                  "kind": "heal",
+                  "scaling": "targetMaxHealthPercent",
+                  "amounts": [
+                    100
+                  ]
+                },
+                {
+                  "kind": "restoreMana",
+                  "scaling": "targetMaxManaPercent",
+                  "amounts": [
+                    100
+                  ]
+                },
+                {
+                  "kind": "refreshCooldowns",
+                  "abilitiesOnly": true
+                }
+              ]
+            }
+          }
+        ]
+      }
+    ]
   }
 }

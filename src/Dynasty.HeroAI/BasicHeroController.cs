@@ -513,6 +513,8 @@ namespace Dynasty.HeroAI
                 return;
             if (Decided(FeastWhenHurt(), "FeastWhenHurt"))
                 return;
+            if (Decided(SunWhenDying(hpPercent), "SunWhenDying"))
+                return;
             if (_memory.Retreating && Decided(StasisToGetAway(), "StasisToGetAway"))
                 return;
             if (_memory.Retreating)
@@ -1295,6 +1297,8 @@ namespace Dynasty.HeroAI
 
                     if (StasisRadius(def) > 0)
                         return null;   // Song of the Siren makes enemies unhurtable: kept for getting away (StasisToGetAway)
+                    if (MakesSun(def))
+                        return null;   // Supernova is kept for when the hero is about to die (SunWhenDying)
                     if (def.Effects.Any(e => e.Kind == EffectKind.Summon))
                         return HeroOrder.CastNoTarget(def.Id);
                     EffectDefinition? area = def.Effects.FirstOrDefault(e => e.Kind == EffectKind.Area);
@@ -1360,6 +1364,28 @@ namespace Dynasty.HeroAI
             }
 
             return false;
+        }
+
+        /// <summary>Health below which a hero with enemy heroes close goes supernova.</summary>
+        private const int SunHpPercent = 35;
+
+        /// <summary>How close the enemy heroes must be for a dying hero to go supernova.</summary>
+        private const int SunEnemyRange = 900;
+
+        /// <summary>Whether the ability turns the hero into a sun only enemy heroes' attacks can break (Supernova).</summary>
+        private static bool MakesSun(AbilityDefinition def) =>
+            AllEffects(def.Effects).Any(e => e.Kind == EffectKind.ApplyModifier && e.Modifiers.Any(m => m.HeroAttacksToBreak > 0));
+
+        /// <summary>Supernova when low with enemy heroes it sees close: instead of dying, a chance to come back whole.</summary>
+        private bool SunWhenDying(int hpPercent)
+        {
+            if (hpPercent >= SunHpPercent || (_hero.Flags & ModifierFlags.Silenced) != 0 || VisibleEnemyHeroes(_hero.Position, SunEnemyRange).Count == 0)
+                return false;
+            AbilityState? sun = ReadyAbilities().FirstOrDefault(a => a.Definition.Targeting == AbilityTargeting.NoTarget && MakesSun(a.Definition));
+            if (sun == null)
+                return false;
+            Issue(HeroOrder.CastNoTarget(sun.Definition.Id));
+            return true;
         }
 
         /// <summary>Midnight Feast when hurt or low on mana, before retreating.</summary>

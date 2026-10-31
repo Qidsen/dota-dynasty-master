@@ -146,7 +146,9 @@ static class Abilities
                                // Exorcism: "deals 50% damage to buildings" is only in Valve's description, not in the data.
                                (key == "death_prophet_exorcism" && path.EndsWith(".structurePercent") && number == 50) ||
                                // Stampede: "at max speed" - Dota's movement speed limit, 550 (not in the ability's data).
-                               ((key == "centaur_stampede" || key == "centaur_work_horse") && path.EndsWith(".fixedMoveSpeed") && number == 550);
+                               ((key == "centaur_stampede" || key == "centaur_work_horse") && path.EndsWith(".fixedMoveSpeed") && number == 550) ||
+                               // Supernova: "restoring Phoenix to full health and mana" (Valve's description) - all of the max.
+                               (key == "phoenix_supernova" && path.EndsWith(".amounts[0]") && number == 100);
                 if (!allowed)
                     throw new InvalidDataException($"abilities.json: {key}{path} = {number} is typed by hand; refer to the data (\"$key\")");
                 break;
