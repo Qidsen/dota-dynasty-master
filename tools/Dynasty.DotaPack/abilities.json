@@ -13862,5 +13862,83 @@
         ]
       }
     ]
+  },
+  "phoenix_sun_ray": {
+    "status": "simplified",
+    "note": "the beam starts towards the cast point and turns towards the target Phoenix attacks at the turn rate (the project owner); Phoenix stands and does not attack meanwhile (no forward movement toggle, no stop ability); every 0.2 s enemies on the beam take base damage plus a share of their max health, allies are healed, Phoenix pays a share of its current health; a stun or silence ends it",
+    "targeting": "point",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "onCaster",
+        "effects": [
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "phoenix_sun_ray",
+              "duration": "$abilityduration",
+              "flags": [
+                "rooted",
+                "disarmed"
+              ],
+              "dispellable": false,
+              "endsWhenStunnedOrSilenced": true,
+              "beamLength": "$abilitycastrange",
+              "beamTurnPerSecond": "$turn_rate",
+              "period": "$tick_interval",
+              "periodicFromBearer": true,
+              "periodicEffects": [
+                {
+                  "kind": "lineArea",
+                  "width": "$radius",
+                  "team": "enemy",
+                  "effects": [
+                    {
+                      "kind": "damage",
+                      "damageType": "magical",
+                      "amounts": "$base_damage*$tick_interval"
+                    },
+                    {
+                      "kind": "damage",
+                      "damageType": "magical",
+                      "scaling": "targetMaxHealthPercent",
+                      "amounts": "$hp_perc_damage*$tick_interval"
+                    }
+                  ]
+                },
+                {
+                  "kind": "lineArea",
+                  "width": "$radius",
+                  "team": "ally",
+                  "effects": [
+                    {
+                      "kind": "heal",
+                      "scaling": "flatHundredths",
+                      "amounts": "$base_heal*$tick_interval"
+                    },
+                    {
+                      "kind": "heal",
+                      "scaling": "targetMaxHealthPercent",
+                      "amounts": "$hp_perc_heal*$tick_interval"
+                    }
+                  ]
+                },
+                {
+                  "kind": "onCaster",
+                  "effects": [
+                    {
+                      "kind": "damage",
+                      "damageType": "pure",
+                      "scaling": "targetCurrentHealthPercent",
+                      "amounts": "$hp_cost_perc_per_second*$tick_interval"
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        ]
+      }
+    ]
   }
 }

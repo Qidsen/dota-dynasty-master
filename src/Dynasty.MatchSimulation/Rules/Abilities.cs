@@ -245,6 +245,9 @@ namespace Dynasty.MatchSimulation.Rules
         /// </summary>
         DoublingPerStack = 18,
 
+        /// <summary>A flat amount in hundredths, for a fraction of a whole (Sun Ray's heal every 0.2 s: 7 a second, 1.4 a pulse).</summary>
+        FlatHundredths = 19,
+
         /// <summary>
         /// Amounts for every unit within <see cref="EffectDefinition.Radius"/> of the caster that its team sees, up to
         /// <see cref="EffectDefinition.MaxTargets"/>: heroes, creeps and summons of both teams, not the caster, not invulnerable ones nor

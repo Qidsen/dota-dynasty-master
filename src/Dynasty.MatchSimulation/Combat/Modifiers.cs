@@ -266,8 +266,14 @@ namespace Dynasty.MatchSimulation.Combat
             bool attacksMagicalOnEthereal = false,
             int everyDistance = 0,
             IReadOnlyList<Rules.EffectDefinition>? onDistance = null,
-            int heroAttacksToBreak = 0)
+            int heroAttacksToBreak = 0,
+            int beamLength = 0,
+            int beamTurnPerSecond = 0,
+            bool endsWhenStunnedOrSilenced = false)
         {
+            BeamLength = beamLength;
+            BeamTurnPerSecond = beamTurnPerSecond;
+            EndsWhenStunnedOrSilenced = endsWhenStunnedOrSilenced;
             HeroAttacksToBreak = heroAttacksToBreak;
             EveryDistance = everyDistance;
             OnDistance = onDistance?.ToArray() ?? System.Array.Empty<Rules.EffectDefinition>();
@@ -824,6 +830,17 @@ namespace Dynasty.MatchSimulation.Combat
         /// </summary>
         public int HeroAttacksToBreak { get; }
 
+        /// <summary>
+        /// Sun Ray: the periodic effects run towards a point this far from the bearer along its aim, which starts towards the cast point
+        /// and turns towards the target the bearer attacks at most <see cref="BeamTurnPerSecond"/> degrees a second.
+        /// </summary>
+        public int BeamLength { get; }
+
+        public int BeamTurnPerSecond { get; }
+
+        /// <summary>Sun Ray: a stun or silence on the bearer ends it.</summary>
+        public bool EndsWhenStunnedOrSilenced { get; }
+
         /// <summary>Trample: <see cref="OnDistance"/> runs from the bearer (its caster) for every this many units it travels.</summary>
         public int EveryDistance { get; }
 
@@ -1084,7 +1101,7 @@ namespace Dynasty.MatchSimulation.Combat
                                           CritEveryAttacks, CritHealPercent, CritHealRadius, CritHealAlliesPercent, CritHealCreepPercent,
                                           ThirstMoveSpeedPercent, ThirstFromHealthPercent, ThirstFullBelowHealthPercent, RevealsBelowHealthPercent,
                                           AnchorChain, AnchorDragSpeed, CooldownSlowPercent, HealAtEndPercent, OnHeroDamageAtLeast, DelayedHealAmpPercent, TrampleRadius,
-                                          MulticastStrengthPerPercent, EveryDistance, HeroAttacksToBreak })
+                                          MulticastStrengthPerPercent, EveryDistance, HeroAttacksToBreak, BeamLength, BeamTurnPerSecond })
                 w.WriteInt64(value);
             w.WriteBool(ReturnsOnExpiry);
             w.WriteBool(PeriodicFromBearer);
@@ -1095,6 +1112,7 @@ namespace Dynasty.MatchSimulation.Combat
             w.WriteBool(AttacksMagical);
             w.WriteBool(AttacksMagicalOnEthereal);
             w.WriteBool(DelaysHealth);
+            w.WriteBool(EndsWhenStunnedOrSilenced);
             w.WriteString(TrampleMarker ?? "");
             w.WriteInt64(MulticastHundredths.Count);
             foreach (int chance in MulticastHundredths)
@@ -1146,6 +1164,9 @@ namespace Dynasty.MatchSimulation.Combat
 
         /// <summary>Damage the bearer's periodic effects of this modifier dealt (Exorcism's heal at the end).</summary>
         internal Fixed Drained { get; set; }
+
+        /// <summary>Sun Ray: where the beam points from the bearer (<see cref="ModifierSpec.BeamLength"/>).</summary>
+        internal FixedVector2 Aim { get; set; }
 
         /// <summary>Supernova: enemy heroes' attacks taken (<see cref="ModifierSpec.HeroAttacksToBreak"/>).</summary>
         internal int HeroAttacksTaken { get; set; }

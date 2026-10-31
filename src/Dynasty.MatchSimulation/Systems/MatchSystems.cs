@@ -354,6 +354,12 @@ namespace Dynasty.MatchSimulation.Systems
                 foreach (ActiveModifier modifier in _scratch)
                 {
                     ModifierSpec spec = modifier.Spec;
+                    if (spec.EndsWhenStunnedOrSilenced && (unit.Flags & (ModifierFlags.Stunned | ModifierFlags.Silenced)) != 0)
+                    {
+                        Modifiers.Remove(context, unit, modifier, "interrupted");
+                        continue;
+                    }
+
                     if (spec.IsPeriodic && now >= modifier.NextPeriodTick)
                     {
                         Fixed periodFraction = Fixed.FromRatio(spec.PeriodMs, 1000) * Fixed.FromInt(modifier.Stacks);
@@ -373,7 +379,7 @@ namespace Dynasty.MatchSimulation.Systems
                         if (spec.PeriodicEffects.Count > 0 && spec.PeriodicFromBearer)
                         {
                             unit.Draining = spec.HealAtEndPercent > 0 ? modifier : null;
-                            Effects.RunSpell(context, unit, spec.PeriodicEffects, 1, unit, unit.Position);
+                            Effects.RunSpell(context, unit, spec.PeriodicEffects, 1, unit, spec.BeamLength > 0 ? Beam(context.State, unit, modifier) : unit.Position);
                             unit.Draining = null;
                         }
                         else if (spec.PeriodicEffects.Count > 0 && context.State.Find(modifier.Source) is MatchUnit linker && linker.IsAlive)
@@ -419,6 +425,45 @@ namespace Dynasty.MatchSimulation.Systems
                         Modifiers.Remove(context, unit, modifier, "broken");
                 }
             }
+        }
+
+        /// <summary>
+        /// Sun Ray: turns the aim towards the target the bearer attacks, at most the turn rate for a period, and gives the beam's end.
+        /// </summary>
+        private static FixedVector2 Beam(MatchState state, MatchUnit unit, ActiveModifier beam)
+        {
+            ModifierSpec spec = beam.Spec;
+            EntityId targetId = unit.Hero != null && unit.Hero.Order.Kind == Heroes.HeroOrderKind.Attack ? unit.Hero.Order.Target : unit.TargetId;
+            if (beam.Aim == FixedVector2.Zero)
+                beam.Aim = unit.Facing == FixedVector2.Zero ? new FixedVector2(Fixed.One, Fixed.Zero) : unit.Facing;
+            beam.Aim = Unit(beam.Aim);
+            if (targetId.IsValid && state.Find(targetId) is MatchUnit target && target.IsAlive && target.Position != unit.Position)
+            {
+                FixedVector2 wanted = Unit(target.Position - unit.Position);
+                int step = System.Math.Min(180, spec.BeamTurnPerSecond * spec.PeriodMs / 1000);
+                Fixed dot = beam.Aim.X * wanted.X + beam.Aim.Y * wanted.Y;
+                if (dot * Fixed.FromInt(10000) >= Fixed.FromInt(Damage.CosTenThousandths[step]))
+                    beam.Aim = wanted;   // within a period's turn
+                else
+                {
+                    Fixed cos = Fixed.FromInt(Damage.CosTenThousandths[step]) / Fixed.FromInt(10000);
+                    Fixed sin = Fixed.FromInt(Damage.CosTenThousandths[90 - System.Math.Min(90, step)]) / Fixed.FromInt(10000);
+                    if (beam.Aim.X * wanted.Y - beam.Aim.Y * wanted.X < Fixed.Zero)
+                        sin = -sin;   // clockwise
+                    beam.Aim = new FixedVector2(beam.Aim.X * cos - beam.Aim.Y * sin, beam.Aim.X * sin + beam.Aim.Y * cos);
+                }
+            }
+
+            return unit.Position + beam.Aim * Fixed.FromInt(spec.BeamLength);
+        }
+
+        /// <summary>The direction as a vector of length one (a long one is shortened first, so the square does not overflow).</summary>
+        private static FixedVector2 Unit(FixedVector2 direction)
+        {
+            while (Fixed.Abs(direction.X) > Fixed.FromInt(10000) || Fixed.Abs(direction.Y) > Fixed.FromInt(10000))
+                direction = new FixedVector2(direction.X / Fixed.FromInt(16), direction.Y / Fixed.FromInt(16));
+            Fixed length = direction.Length;
+            return length == Fixed.Zero ? new FixedVector2(Fixed.One, Fixed.Zero) : new FixedVector2(direction.X / length, direction.Y / length);
         }
 
         /// <summary>An enemy hero or attacking structure within the radius (positions from the end of the previous tick).</summary>

@@ -871,8 +871,9 @@ namespace Dynasty.Content
             "perChannelSecond" => DamageScaling.PerChannelSecond,
             "perUnitAround" => DamageScaling.PerUnitAround,
             "doublingPerStack" => DamageScaling.DoublingPerStack,
+            "flatHundredths" => DamageScaling.FlatHundredths,
             _ => throw r.Error(field, "expected flat, targetMaxHealthPercent, targetMissingHealthPercent, targetCurrentHealthPercent, targetMaxManaPercent, " +
-                                      "targetMissingManaPercent, casterAttackDamagePercent, casterStrengthPercent, casterAgilityPercent, casterIntelligencePercent, perTargetStack, casterCurrentManaPercent, distanceToTargetPercent, rewoundDistancePercent, distanceFalloff, fullChargeOnly, perChannelSecond, perUnitAround or doublingPerStack"),
+                                      "targetMissingManaPercent, casterAttackDamagePercent, casterStrengthPercent, casterAgilityPercent, casterIntelligencePercent, perTargetStack, casterCurrentManaPercent, distanceToTargetPercent, rewoundDistancePercent, distanceFalloff, fullChargeOnly, perChannelSecond, perUnitAround, doublingPerStack or flatHundredths"),
         };
 
         private static ModifierFlags ReadFlag(Reader r, string flag) => flag switch
@@ -972,6 +973,8 @@ namespace Dynasty.Content
                 multicastHundredths: m.Has("multicast") ? m.Hundredths("multicast") : null,
                 everyDistance: m.OptionalInt("everyDistance") ?? 0, onDistance: m.OptionalArray("onDistance").Select(ReadEffect).ToList(),
                 heroAttacksToBreak: m.OptionalInt("heroAttacksToBreak") ?? 0,
+                beamLength: m.OptionalInt("beamLength") ?? 0, beamTurnPerSecond: m.OptionalInt("beamTurnPerSecond") ?? 0,
+                endsWhenStunnedOrSilenced: m.OptionalBool("endsWhenStunnedOrSilenced") ?? false,
                 attacksMagical: m.OptionalBool("attacksMagical") ?? false, attacksMagicalOnEthereal: m.OptionalBool("attacksMagicalOnEthereal") ?? false,
                 extraTargetHeroesFirst: m.OptionalBool("extraTargetHeroesFirst") ?? false, extraTargetElseSame: m.OptionalBool("extraTargetElseSame") ?? false, multicastStrengthPerPercent: m.OptionalInt("multicastStrengthPerPercent") ?? 0,
                 trampleRadius: m.OptionalInt("trampleRadius") ?? 0, trampleMarker: m.OptionalString("trampleMarker"),

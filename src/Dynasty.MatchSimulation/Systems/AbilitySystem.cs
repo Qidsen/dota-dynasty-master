@@ -364,6 +364,8 @@ namespace Dynasty.MatchSimulation.Systems
                     Fixed span = Fixed.FromInt(System.Math.Max(1, effect.Radius - effect.MinDistance));
                     Fixed lost = Fixed.FromInt(100 - effect.DamagePercent) * Fixed.Min(beyond, span) / span;
                     return amount * (Fixed.FromInt(100) - lost) / Fixed.FromInt(100);
+                case DamageScaling.FlatHundredths:
+                    return amount / Fixed.FromInt(100);
                 default:
                     return amount;
             }
@@ -516,7 +518,7 @@ namespace Dynasty.MatchSimulation.Systems
                     // To the target unit (Tether), or to the point for a point ability (Ice Shards' ball).
                     FixedVector2 lineEnd = target == caster ? point : target.Position;
                     foreach (MatchUnit unit in context.State.Units
-                                 .Where(u => Matches(context.State, caster, u, effect.Team) && NearSegment(u.Position, caster.Position, lineEnd, effect.Radius + u.BoundingRadius))
+                                 .Where(u => u != caster && Matches(context.State, caster, u, effect.Team) && NearSegment(u.Position, caster.Position, lineEnd, effect.Radius + u.BoundingRadius))
                                  .ToList())
                     {
                         foreach (EffectDefinition inner in effect.Inner)
@@ -539,6 +541,8 @@ namespace Dynasty.MatchSimulation.Systems
                             target.Recalculate();
                         }
 
+                        if (applied.Spec.BeamLength > 0)
+                            applied.Aim = point - target.Position;   // Sun Ray: first towards the cast point
                         int strength = applied.Spec.GrowsWithChannelMs > 0 ? ChannelStrength(context, caster, applied.Spec.GrowsWithChannelMs) : caster.ChargePercent;
                         if (strength != applied.SlowStrengthPercent)
                         {
