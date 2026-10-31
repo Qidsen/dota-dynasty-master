@@ -726,6 +726,10 @@ namespace Dynasty.Content
                 case "assume":
                     effect = EffectDefinition.Assume();
                     break;
+                case "persuade":
+                    effect = EffectDefinition.Persuade(e.String("marker"), e.Ints("unitLimit").ToArray(), e.Ints("bountyPercent").ToArray(),
+                        e.Array("effects").Select(ReadEffect).ToArray());
+                    break;
                 case "manaTravel":
                     effect = EffectDefinition.ManaTravel(e.OptionalHundredth("startPercentOfMaxMana") ?? 0, e.Int("perHundredUnits"), e.OptionalHundredth("perHundredUnitsPercentOfMaxMana") ?? 0);
                     break;

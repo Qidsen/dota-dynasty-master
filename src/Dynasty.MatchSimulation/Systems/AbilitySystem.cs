@@ -493,6 +493,9 @@ namespace Dynasty.MatchSimulation.Systems
                     if (caster.Hero != null)
                         ManaTravel(caster, caster.Hero, effect, level, point);
                     break;
+                case EffectKind.Persuade:
+                    Persuade(context, caster, effect, level, target, point);
+                    break;
                 case EffectKind.Consume:
                     foreach (ActiveModifier spent in target.Modifiers.Where(m => m.Spec.Key == effect.StackKey).ToList())
                         Modifiers.Remove(context, target, spent, "consumed");
@@ -760,6 +763,33 @@ namespace Dynasty.MatchSimulation.Systems
             bool immune = target.Team != caster.Team && (target.Flags & ModifierFlags.DebuffImmune) != 0;
             if (!immune)
                 target.Hp = Fixed.FromInt(target.MaxHp) * Fixed.Max(minimum, casterShare);
+        }
+
+        /// <summary>Holy Persuasion: the creep changes sides and follows the caster; the caster's oldest such creep over the limit goes.</summary>
+        private static void Persuade(SimulationContext<MatchState> context, MatchUnit caster, EffectDefinition effect, int level, MatchUnit target, FixedVector2 point)
+        {
+            if (!target.IsAlive || !AbilitySystem.IsCreep(target) || target.Team == caster.Team)
+                return;
+            if (caster.Hero != null && context.State.Ruleset.FindCreepType(target.TypeId) is CreepType type && effect.Ceiling.Count > 0)
+            {
+                int gold = (type.Bounty.GoldMin + type.Bounty.GoldMax) / 2 * EffectDefinition.ValueAt(effect.Ceiling, level) / 100;
+                if (gold > 0)
+                    HeroProgression.GrantGold(context, caster, gold, "persuasion");
+            }
+
+            target.Team = caster.Team;
+            target.Owner = caster.Id;
+            target.Lane = null;
+            target.TargetId = EntityId.None;
+            foreach (EffectDefinition inner in effect.Inner)
+                RunOne(context, caster, inner, level, target, point);
+
+            List<MatchUnit> held = context.State.Units
+                .Where(u => u.IsAlive && u.Owner == caster.Id && u.FindModifier(effect.StackKey!, caster.Id) != null)
+                .OrderBy(u => u.FindModifier(effect.StackKey!, caster.Id)!.AppliedTick).ThenBy(u => u.Id.Value)
+                .ToList();
+            for (int i = 0; i < held.Count - effect.AmountAt(level); i++)
+                Damage.Execute(context, EntityId.None, held[i]);   // the oldest persuaded creep dies
         }
 
         /// <summary>Ball Lightning: the start cost, then as far towards the point as the mana pays for.</summary>

@@ -1379,11 +1379,26 @@ namespace Dynasty.HeroAI
             return false;
         }
 
+        /// <summary>Whether the hero holds as many persuaded creeps as the ability's level allows.</summary>
+        private bool PersuadedAtLimit(AbilityDefinition def)
+        {
+            EffectDefinition persuade = def.Effects.First(e => e.Kind == EffectKind.Persuade);
+            int level = _h.Abilities.FirstOrDefault(a => a.Definition.Id == def.Id)?.Level ?? 1;
+            HeroDecision self = this;
+            int held = _state.Units.Count(u => u.IsAlive && u.Owner == self._hero.Id && u.Modifiers.Any(m => m.Spec.Key == persuade.StackKey));
+            return held >= persuade.AmountAt(level);
+        }
+
         /// <summary>Midnight Feast: at night, when hurt or low on mana, on the nearest creep the hero sees within reach.</summary>
         private HeroOrder? FeastOn(AbilityDefinition def, int reach)
         {
-            if ((def.NightOnly && !_state.IsNight(_now)) || (Math.HpPercent(_hero) >= 70 && (_h.MaxMana == 0 || _h.Mana * Fixed.FromInt(2) >= Fixed.FromInt(_h.MaxMana))))
+            // Holy Persuasion whenever it can; Midnight Feast and Death Pact for sustain.
+            bool persuades = def.Effects.Any(e => e.Kind == EffectKind.Persuade);
+            if ((def.NightOnly && !_state.IsNight(_now)) ||
+                (!persuades && Math.HpPercent(_hero) >= 70 && (_h.MaxMana == 0 || _h.Mana * Fixed.FromInt(2) >= Fixed.FromInt(_h.MaxMana))))
                 return null;
+            if (persuades && PersuadedAtLimit(def))
+                return null;   // another would kill the oldest
             HeroDecision self = this;
             MatchUnit? creep = _state.Units
                 .Where(u => u.IsAlive && u.Team != self._hero.Team && (u.Kind == UnitKind.Creep || u.Kind == UnitKind.Summon) && !u.IllusionOf.IsValid &&

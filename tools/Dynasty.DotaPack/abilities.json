@@ -13725,5 +13725,31 @@
         "perHundredUnitsPercentOfMaxMana": "$ball_lightning_travel_cost_percent"
       }
     ]
+  },
+  "chen_holy_persuasion": {
+    "status": "simplified",
+    "note": "the creep keeps its own max health (Dota raises it to at least 400); no creep level limit and ancient creeps can be taken too; no unsummon; the AI persuades whenever it can",
+    "targeting": "unit",
+    "targetTeam": "enemy",
+    "targetsCreepsOnly": true,
+    "effects": [
+      {
+        "kind": "persuade",
+        "marker": "chen_holy_persuasion",
+        "unitLimit": "$max_units",
+        "bountyPercent": "$gold_pct",
+        "effects": [
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "chen_holy_persuasion",
+              "dispellable": false,
+              "moveSpeed": "$movement_speed_bonus",
+              "attackDamagePercent": "$damage_bonus"
+            }
+          }
+        ]
+      }
+    ]
   }
 }

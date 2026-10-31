@@ -190,6 +190,13 @@ namespace Dynasty.MatchSimulation.Rules
         ManaTravel = 40,
 
         /// <summary>
+        /// The target creep joins the caster (Holy Persuasion): its team, following it; the caster gets <see cref="EffectDefinition.Ceiling"/>
+        /// percent of its bounty; the inner effects run on it (one of them the marker <see cref="EffectDefinition.StackKey"/>); over
+        /// <see cref="EffectDefinition.Amounts"/> such creeps the oldest one goes.
+        /// </summary>
+        Persuade = 41,
+
+        /// <summary>
         /// The inner effects on one random enemy the caster's team sees within <see cref="EffectDefinition.Radius"/> that has fewer than
         /// <see cref="EffectDefinition.MaxTargets"/> stacks of the marker <see cref="EffectDefinition.StackKey"/> from the caster; the
         /// marker (the level's modifier) gets a stack (Eclipse's beams). Without a marker: <see cref="EffectDefinition.Amounts"/> strikes
@@ -430,6 +437,10 @@ namespace Dynasty.MatchSimulation.Rules
         /// <summary>See <see cref="DamageScaling.DoublingPerStack"/>.</summary>
         public static EffectDefinition DamageByStacksDoubling(DamageType type, int doublingStacks, int extraPerStack, params int[] stackDamagePerLevel) =>
             new EffectDefinition(EffectKind.Damage, stackDamagePerLevel, type, scaling: DamageScaling.DoublingPerStack, maxTargets: doublingStacks, damagePercent: extraPerStack);
+
+        /// <summary>See <see cref="EffectKind.Persuade"/>.</summary>
+        public static EffectDefinition Persuade(string markerKey, int[] maxUnitsPerLevel, int[] bountyPercentPerLevel, params EffectDefinition[] onCreep) =>
+            new EffectDefinition(EffectKind.Persuade, maxUnitsPerLevel, stackKey: markerKey, ceiling: bountyPercentPerLevel, inner: onCreep);
 
         /// <summary>See <see cref="EffectKind.ManaTravel"/>.</summary>
         public static EffectDefinition ManaTravel(int startHundredthsOfMax, int flatPerHundred, int perHundredHundredthsOfMax) =>

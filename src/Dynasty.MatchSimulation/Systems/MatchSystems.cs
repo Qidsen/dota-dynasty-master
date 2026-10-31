@@ -619,7 +619,7 @@ namespace Dynasty.MatchSimulation.Systems
                     if (FollowLane(unit))
                         unit.LastActiveTick = now;
                 }
-                else if (unit.Kind == UnitKind.Summon && FollowOwner(state, unit))
+                else if ((unit.Kind == UnitKind.Summon || unit.Owner.IsValid) && FollowOwner(state, unit))   // a persuaded creep follows Chen too
                 {
                     unit.LastActiveTick = now;
                 }
