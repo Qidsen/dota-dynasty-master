@@ -13751,5 +13751,36 @@
         ]
       }
     ]
+  },
+  "tinker_march_of_the_machines": {
+    "status": "simplified",
+    "note": "no robots walking: every enemy in the area around Tinker gets the robots crossing its lane, a hit every radius / (collision radius x robots a second) = 0.75 s, splashing around it (the project owner)",
+    "targeting": "point",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "zone",
+        "radius": "$radius",
+        "center": "caster",
+        "team": "enemy",
+        "duration": "$duration",
+        "period": "$radius/$collision_radius/$machines_per_sec",
+        "effects": [
+          {
+            "kind": "area",
+            "radius": "$splash_radius",
+            "center": "target",
+            "team": "enemy",
+            "effects": [
+              {
+                "kind": "damage",
+                "damageType": "magical",
+                "amounts": "$damage"
+              }
+            ]
+          }
+        ]
+      }
+    ]
   }
 }
