@@ -301,6 +301,9 @@ namespace Dynasty.HeroAI
         public EntityId GaveUpOn { get; set; }
         public long GaveUpUntil { get; set; }
 
+        /// <summary>When the hero last strummed a song (Amphibian Rhapsody: one a beat).</summary>
+        public long LastSongTick { get; set; } = -1000000;
+
     }
 
     /// <summary>
@@ -506,6 +509,8 @@ namespace Dynasty.HeroAI
                 _memory.Retreating = true;
             // Before retreating: a hurt Morphling shifts into strength on the way, a hurt Terrorblade sunders.
             if (Decided(ManageToggles(), "ManageToggles"))
+                return;
+            if (Decided(SingOnBeat(), "SingOnBeat"))
                 return;
             if (Decided(SwapHealthWhenLow(hpPercent), "SwapHealthWhenLow"))
                 return;
@@ -1332,6 +1337,8 @@ namespace Dynasty.HeroAI
                         return null;   // Song of the Siren makes enemies unhurtable: kept for getting away (StasisToGetAway)
                     if (JauntsTo(def) != null)
                         return null;   // Ethereal Jaunt is kept for getting away (JauntToGetAway)
+                    if (SongMode(def) != null)
+                        return null;   // a song is strummed on the beat (SingOnBeat)
                     if (MakesSun(def))
                         return null;   // Supernova is kept for when the hero is about to die (SunWhenDying)
                     if (def.Effects.Any(e => e.Kind == EffectKind.Summon))
@@ -1469,6 +1476,47 @@ namespace Dynasty.HeroAI
             }
 
             return false;
+        }
+
+        /// <summary>Amphibian Rhapsody's beat (Valve's rhythm_interval): one song a second.</summary>
+        private const int SongBeatMs = 1000;
+
+        /// <summary>A hurt ally hero a healing song is for.</summary>
+        private const int SongHealHpPercent = 60;
+
+        /// <summary>The song mode an ability is a song of (all its effects only work while the caster has it); null for other abilities.</summary>
+        private static string? SongMode(AbilityDefinition def) =>
+            def.Effects.Count > 0 && def.Effects.All(e => e.Kind == EffectKind.IfCasterHas) ? def.Effects[0].StackKey : null;
+
+        /// <summary>
+        /// Amphibian Rhapsody: in song mode, a song every beat (always on it): the speed song when getting away, the healing one for a hurt
+        /// ally hero in its area, the fighting one otherwise.
+        /// </summary>
+        private bool SingOnBeat()
+        {
+            if ((_hero.Flags & ModifierFlags.Silenced) != 0 || (_now - _memory.LastSongTick) * 60000 < (long)SongBeatMs * _ticksPerMinute)
+                return false;
+            HeroDecision self = this;
+            List<AbilityDefinition> songs = ReadyAbilities().Select(a => a.Definition)
+                .Where(d => d.Targeting == AbilityTargeting.NoTarget && SongMode(d) is string mode && self._hero.Modifiers.Any(m => m.Spec.Key == mode))
+                .ToList();
+            if (songs.Count == 0)
+                return false;
+            AbilityDefinition? heal = songs.FirstOrDefault(d => AllEffects(d.Effects).Any(e => e.Kind == EffectKind.Heal));
+            AbilityDefinition? speed = songs.FirstOrDefault(d => AllEffects(d.Effects).Any(e => e.Kind == EffectKind.ApplyModifier && e.Modifiers.Any(m => m.MoveSpeedHundredths > 0)));
+            AbilityDefinition? fight = songs.FirstOrDefault(d => AllEffects(d.Effects).Any(e => e.Kind == EffectKind.Area && e.Team == TargetTeam.Enemy));
+            int reach = songs.SelectMany(d => AllEffects(d.Effects)).Where(e => e.Kind == EffectKind.Area).Select(e => e.Radius).DefaultIfEmpty(800).Max();
+            bool allyHurt = _state.Heroes.Any(h => h.Team == self._hero.Team && h.IsAlive && h != self._hero && Math.HpPercent(h) < SongHealHpPercent &&
+                                                   Math.Within(h.Position, self._hero.Position, reach));
+            AbilityDefinition? song = _memory.Retreating ? speed ?? heal
+                : allyHurt ? heal ?? fight
+                : VisibleEnemyHeroes(_hero.Position, reach).Count > 0 ? fight ?? speed
+                : speed;
+            if (song == null)
+                return false;
+            _memory.LastSongTick = _now;
+            Issue(HeroOrder.CastNoTarget(song.Id));
+            return true;
         }
 
         /// <summary>Closer than this an enemy is not worth reeling in.</summary>

@@ -14809,5 +14809,195 @@
         "kind": "dash"
       }
     ]
+  },
+  "largo_amphibian_rhapsody": {
+    "status": "simplified",
+    "note": "song mode as a toggle: Largo is disarmed and his songs work; always on the beat - the AI strums one song a second, picking it for the moment (the project owner); no song cost reduction by Groovin' stacks, no stack lost for a missed beat",
+    "targeting": "noTarget",
+    "targetTeam": "enemy",
+    "toggle": {
+      "key": "largo_amphibian_rhapsody",
+      "flags": [
+        "disarmed"
+      ],
+      "dispellable": false
+    }
+  },
+  "largo_song_fight_song": {
+    "status": "simplified",
+    "note": "works only in song mode; a stack of Groovin' per strum",
+    "targeting": "noTarget",
+    "targetTeam": "enemy",
+    "levelsWith": "largo_amphibian_rhapsody",
+    "valuesFrom": {
+      "rhapsody_": "largo_amphibian_rhapsody"
+    },
+    "effects": [
+      {
+        "kind": "ifCasterHas",
+        "modifier": "largo_amphibian_rhapsody",
+        "effects": [
+          {
+            "kind": "area",
+            "radius": "$radius",
+            "center": "caster",
+            "team": "enemy",
+            "effects": [
+              {
+                "kind": "damage",
+                "damageType": "magical",
+                "amounts": "$burst_damage"
+              }
+            ]
+          },
+          {
+            "kind": "area",
+            "radius": "$radius",
+            "center": "caster",
+            "team": "ally",
+            "heroesOnly": true,
+            "effects": [
+              {
+                "kind": "modifier",
+                "modifiers": {
+                  "key": "largo_fight_song",
+                  "duration": "$battle_burst_duration",
+                  "spellAmplification": "$spell_amp_bonus",
+                  "onHit": [
+                    {
+                      "kind": "damage",
+                      "damageType": "magical",
+                      "scaling": "casterAttackDamagePercent",
+                      "amounts": "$magic_damage_bonus"
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "kind": "onCaster",
+            "effects": [
+              {
+                "kind": "modifier",
+                "modifiers": {
+                  "key": "largo_groovin",
+                  "duration": "$rhapsody_stack_duration",
+                  "stacking": true,
+                  "maxStacks": "$rhapsody_max_stacks",
+                  "armor": "$rhapsody_armor_per_stack",
+                  "dispellable": false
+                }
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "largo_song_double_time": {
+    "status": "simplified",
+    "note": "works only in song mode; a stack of Groovin' per strum",
+    "targeting": "noTarget",
+    "targetTeam": "enemy",
+    "levelsWith": "largo_amphibian_rhapsody",
+    "valuesFrom": {
+      "rhapsody_": "largo_amphibian_rhapsody"
+    },
+    "effects": [
+      {
+        "kind": "ifCasterHas",
+        "modifier": "largo_amphibian_rhapsody",
+        "effects": [
+          {
+            "kind": "area",
+            "radius": "$radius",
+            "center": "caster",
+            "team": "ally",
+            "effects": [
+              {
+                "kind": "modifier",
+                "modifiers": {
+                  "key": "largo_double_time",
+                  "duration": "$movement_burst_duration",
+                  "moveSpeedPercent": "$movespeed_bonus_burst"
+                }
+              },
+              {
+                "kind": "modifier",
+                "modifiers": {
+                  "key": "largo_double_time_resistance",
+                  "duration": "$slow_resistance_burst_duration",
+                  "slowResistance": "$slow_resistance"
+                }
+              }
+            ]
+          },
+          {
+            "kind": "onCaster",
+            "effects": [
+              {
+                "kind": "modifier",
+                "modifiers": {
+                  "key": "largo_groovin",
+                  "duration": "$rhapsody_stack_duration",
+                  "stacking": true,
+                  "maxStacks": "$rhapsody_max_stacks",
+                  "armor": "$rhapsody_armor_per_stack",
+                  "dispellable": false
+                }
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "largo_song_good_vibrations": {
+    "status": "simplified",
+    "note": "works only in song mode; a stack of Groovin' per strum",
+    "targeting": "noTarget",
+    "targetTeam": "enemy",
+    "levelsWith": "largo_amphibian_rhapsody",
+    "valuesFrom": {
+      "rhapsody_": "largo_amphibian_rhapsody"
+    },
+    "effects": [
+      {
+        "kind": "ifCasterHas",
+        "modifier": "largo_amphibian_rhapsody",
+        "effects": [
+          {
+            "kind": "area",
+            "radius": "$radius",
+            "center": "caster",
+            "team": "ally",
+            "heroesOnly": true,
+            "effects": [
+              {
+                "kind": "heal",
+                "amounts": "$heal_burst"
+              }
+            ]
+          },
+          {
+            "kind": "onCaster",
+            "effects": [
+              {
+                "kind": "modifier",
+                "modifiers": {
+                  "key": "largo_groovin",
+                  "duration": "$rhapsody_stack_duration",
+                  "stacking": true,
+                  "maxStacks": "$rhapsody_max_stacks",
+                  "armor": "$rhapsody_armor_per_stack",
+                  "dispellable": false
+                }
+              }
+            ]
+          }
+        ]
+      }
+    ]
   }
 }

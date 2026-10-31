@@ -94,6 +94,19 @@ static class Abilities
                     simplified.Add(key + " (" + entry["note"]?.GetValue<string>() + ")");
             }
 
+            // Hidden sub-abilities with a template that follows another ability's levels (Largo's songs): carried over, not counted.
+            foreach (string key in node["abilities"]!.AsArray().Select(a => a!.GetValue<string>())
+                         .Where(a => a != "generic_hidden" && data[a] is JsonObject d && Behaviors(d).Contains("Hidden") && map[a] is JsonObject e && e["levelsWith"] != null))
+            {
+                JsonObject entry = map[key]!.AsObject();
+                JsonObject source = WithValuesFrom(data[key]!.AsObject(), entry, data);
+                JsonObject built = Build(key, source, entry, ultimate: false);
+                abilities.Add(built);
+                list.Add(key);
+                if (entry["status"]?.GetValue<string>() == "simplified")
+                    simplified.Add(key + " (" + entry["note"]?.GetValue<string>() + ")");
+            }
+
             byHero[hero] = list;
             var talentsNotCarried = heroTalents(node).Where(t => t.Contains("_unique_") && !upgraded.Contains(t)).ToList();
             if (talentsNotCarried.Count > 0)
