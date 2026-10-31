@@ -669,7 +669,7 @@ namespace Dynasty.MatchSimulation.Systems
                     break;
                 case EffectKind.Pull:
                     Pull(context.State, caster, target, effect.Center == AreaCenter.Point ? point : caster.Position,
-                        effect.Center == AreaCenter.Point ? 0 : caster.BoundingRadius + target.BoundingRadius, effect.AmountAt(level));
+                        effect.Center == AreaCenter.Point ? 0 : System.Math.Max(caster.BoundingRadius + target.BoundingRadius, effect.MinDistance), effect.AmountAt(level));
                     break;
                 case EffectKind.Illusion:
                     if (target.Hero != null || target.IllusionOf.IsValid)
@@ -688,6 +688,14 @@ namespace Dynasty.MatchSimulation.Systems
                 case EffectKind.IfMelee:
                 case EffectKind.IfRanged:
                     if ((target.Stats.ProjectileSpeed == 0) == (effect.Kind == EffectKind.IfMelee))
+                    {
+                        foreach (EffectDefinition inner in effect.Inner)
+                            RunOne(context, caster, inner, level, target, point);
+                    }
+
+                    break;
+                case EffectKind.IfTargetHas:
+                    if (target.FindModifier(effect.StackKey!, caster.Id) != null)
                     {
                         foreach (EffectDefinition inner in effect.Inner)
                             RunOne(context, caster, inner, level, target, point);

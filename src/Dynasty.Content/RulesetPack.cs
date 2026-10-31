@@ -800,13 +800,18 @@ namespace Dynasty.Content
                     AreaCenter toward = e.Has("toward") ? ReadCenter(e, "toward") : AreaCenter.Caster;
                     if (toward == AreaCenter.Target)
                         throw e.Error("toward", "expected caster or point");
-                    effect = EffectDefinition.Pull(toward, e.Ints("amounts").ToArray());
+                    effect = e.OptionalInt("minDistance") is int stopShort && toward == AreaCenter.Caster
+                        ? EffectDefinition.PullUpTo(stopShort, e.Ints("amounts").ToArray())
+                        : EffectDefinition.Pull(toward, e.Ints("amounts").ToArray());
                     break;
                 case "illusion":
                     effect = EffectDefinition.Illusion(e.Milliseconds("duration"), e.Array("modifiers").Select(ReadModifier).ToArray(), e.Ints("counts").ToArray());
                     break;
                 case "ifHero":
                     effect = EffectDefinition.IfHero(e.Array("effects").Select(ReadEffect).ToArray());
+                    break;
+                case "ifTargetHas":
+                    effect = EffectDefinition.IfTargetHas(e.String("modifier"), e.Array("effects").Select(ReadEffect).ToArray());
                     break;
                 case "onOwnUnit":
                     effect = EffectDefinition.OnOwnUnit(e.String("unitType"), e.Array("effects").Select(ReadEffect).ToArray());

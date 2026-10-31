@@ -208,6 +208,9 @@ namespace Dynasty.MatchSimulation.Rules
         /// </summary>
         OnOwnUnit = 44,
 
+        /// <summary>Runs the inner effects only on a unit that has the caster's modifier of key <see cref="EffectDefinition.StackKey"/> (Reel In on the Ensnared).</summary>
+        IfTargetHas = 45,
+
         /// <summary>
         /// The inner effects on one random enemy the caster's team sees within <see cref="EffectDefinition.Radius"/> that has fewer than
         /// <see cref="EffectDefinition.MaxTargets"/> stacks of the marker <see cref="EffectDefinition.StackKey"/> from the caster; the
@@ -597,6 +600,10 @@ namespace Dynasty.MatchSimulation.Rules
         public static EffectDefinition Pull(AreaCenter toward, params int[] distancePerLevel) =>
             new EffectDefinition(EffectKind.Pull, distancePerLevel, center: toward);
 
+        /// <summary>A pull towards the caster that stops this far from it, centre to centre (Reel In: 100).</summary>
+        public static EffectDefinition PullUpTo(int stopShort, params int[] distancePerLevel) =>
+            new EffectDefinition(EffectKind.Pull, distancePerLevel, center: AreaCenter.Caster, minDistance: stopShort);
+
         /// <summary>Illusions of the effect's unit (counts per level) that last <paramref name="durationMs"/> and carry the level's modifier.</summary>
         public static EffectDefinition Illusion(int durationMs, ModifierSpec[] modifierPerLevel, params int[] countPerLevel) =>
             new EffectDefinition(EffectKind.Illusion, countPerLevel, modifiers: modifierPerLevel, durationMs: durationMs);
@@ -604,6 +611,10 @@ namespace Dynasty.MatchSimulation.Rules
         public static EffectDefinition IfHero(params EffectDefinition[] inner) => new EffectDefinition(EffectKind.IfHero, inner: inner);
 
         public static EffectDefinition IfNotHero(params EffectDefinition[] inner) => new EffectDefinition(EffectKind.IfNotHero, inner: inner);
+
+        /// <summary>See <see cref="EffectKind.IfTargetHas"/>.</summary>
+        public static EffectDefinition IfTargetHas(string modifierKey, params EffectDefinition[] inner) =>
+            new EffectDefinition(EffectKind.IfTargetHas, stackKey: modifierKey, inner: inner);
 
         /// <summary>See <see cref="EffectKind.OnOwnUnit"/>.</summary>
         public static EffectDefinition OnOwnUnit(string unitTypeId, params EffectDefinition[] inner) =>

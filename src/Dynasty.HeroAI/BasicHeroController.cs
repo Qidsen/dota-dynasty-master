@@ -1308,6 +1308,16 @@ namespace Dynasty.HeroAI
                             return null;
                     }
 
+                    if (def.Channel != null && AllEffects(def.Channel.Pulse).FirstOrDefault(e => e.Kind == EffectKind.IfTargetHas) is EffectDefinition reel)
+                    {
+                        // Reel In: worth it on an enemy it sees with its mark, within the channel's area and not yet close.
+                        int reelRadius = def.Channel.Pulse.Where(e => e.Kind == EffectKind.Area).Select(e => e.Radius).DefaultIfEmpty(1000).First();
+                        HeroDecision naga = this;
+                        return enemies.Any(e => e.Modifiers.Any(m => m.Spec.Key == reel.StackKey && m.Source == naga._hero.Id) && Math.Within(e.Position, naga._hero.Position, reelRadius) &&
+                                                !Math.Within(e.Position, naga._hero.Position, ReelWorthRange))
+                            ? HeroOrder.CastNoTarget(def.Id) : null;
+                    }
+
                     if (def.Effects.FirstOrDefault(e => e.Kind == EffectKind.OnOwnUnit) is EffectDefinition onOwn)
                     {
                         // Stone Form: on the Familiar closest to the hero, worth it with an enemy within its smash.
@@ -1460,6 +1470,9 @@ namespace Dynasty.HeroAI
 
             return false;
         }
+
+        /// <summary>Closer than this an enemy is not worth reeling in.</summary>
+        private const int ReelWorthRange = 300;
 
         /// <summary>The radius of the area a unit's modifiers strike when they end (Stone Form's smash); 300 when there is none.</summary>
         private static int SmashRadius(EffectDefinition onOwn) =>

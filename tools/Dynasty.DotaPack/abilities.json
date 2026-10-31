@@ -14543,5 +14543,35 @@
         ]
       }
     ]
+  },
+  "naga_siren_reel_in": {
+    "status": "simplified",
+    "note": "the Ensnared within the radius are pulled min_pull_distance every min_pull_distance / pull_strength s (pull_strength a second), up to min_pull_distance from Naga; the channel does not end when they get there; the AI reels in an enemy it has netted farther than 300",
+    "targeting": "noTarget",
+    "targetTeam": "enemy",
+    "channel": {
+      "period": "$min_pull_distance/$pull_strength",
+      "pulse": [
+        {
+          "kind": "area",
+          "radius": "$radius",
+          "center": "caster",
+          "team": "enemy",
+          "effects": [
+            {
+              "kind": "ifTargetHas",
+              "modifier": "naga_siren_ensnare",
+              "effects": [
+                {
+                  "kind": "pull",
+                  "minDistance": "$min_pull_distance",
+                  "amounts": "$min_pull_distance"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
   }
 }
