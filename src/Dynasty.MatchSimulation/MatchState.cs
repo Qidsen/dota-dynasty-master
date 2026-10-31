@@ -179,7 +179,10 @@ namespace Dynasty.MatchSimulation
         public int IncomingDamageHundredths { get; private set; }
 
         public int IncomingDamagePercent => IncomingDamageHundredths / 100;
-        public int AttackDamagePercent { get; private set; }
+        public int AttackDamagePercent => AttackDamageHundredths / 100;
+
+        /// <summary>Attack damage change in hundredths of a percent (Corrosive Weaponry's −2.5% a stack).</summary>
+        public int AttackDamageHundredths { get; private set; }
         /// <summary>Chance that an attack on the unit misses, in hundredths of a percent.</summary>
         public int EvasionHundredths { get; private set; }
 
@@ -401,6 +404,9 @@ namespace Dynasty.MatchSimulation
         {
             Fixed armor = Stats.Armor;
             int magicResist = Stats.MagicResistPercent;
+            Fixed baseArmor = Stats.Armor;                 // Natural Order removes a share of these
+            int baseMagicResist = Stats.MagicResistPercent;
+            int baseArmorCut = 0, baseMagicResistCut = 0;
             int damageBonus = 0;
             int attackSpeed = Hero != null ? Hero.Definition.AttackSpeedPerLevel * (Hero.Level - 1) : 0;
             int movePercent = 0;
@@ -478,7 +484,9 @@ namespace Dynasty.MatchSimulation
                     SpellBlocker = modifier;
                 moveFlat += spec.MoveSpeedBonus * n;
                 incomingDamage += spec.IncomingDamageHundredths * n;
-                attackDamagePercent += spec.AttackDamagePercent * n;
+                attackDamagePercent += spec.AttackDamageHundredths * n;   // hundredths of a percent
+                baseArmorCut = Math.Max(baseArmorCut, spec.BaseArmorReductionPercent);
+                baseMagicResistCut = Math.Max(baseMagicResistCut, spec.BaseMagicResistReductionPercent);
                 evasion += spec.EvasionHundredths * n;
                 if (dota)
                 {
@@ -521,6 +529,7 @@ namespace Dynasty.MatchSimulation
                 hpRegen += Strength * perPoint.HealthRegenPerStrength;
                 hpRegen += Strength * regenStrengthPercent / Fixed.FromInt(100);
                 armor += Agility * perPoint.ArmorPerAgility;
+                baseArmor += Agility * perPoint.ArmorPerAgility;
                 attackSpeed += attributes.BaseAttackSpeed - 100 + agility100 * perPoint.AttackSpeedPerAgility / 100;
                 maxManaBonus += intelligence100 * perPoint.ManaPerIntelligence / 100;
                 manaRegen += Intelligence * perPoint.ManaRegenPerIntelligence;
@@ -547,6 +556,8 @@ namespace Dynasty.MatchSimulation
                     Hero.Mana = Fixed.FromInt(Hero.MaxMana);
             }
 
+            armor -= baseArmor * Fixed.FromInt(baseArmorCut) / Fixed.FromInt(100);
+            magicResist -= baseMagicResist * baseMagicResistCut / 100;
             Armor = armor;
             if (dota)
             {
@@ -586,7 +597,7 @@ namespace Dynasty.MatchSimulation
             MoveSpeed = Stats.MoveSpeed == 0 ? 0 : fixedSpeed > 0 ? fixedSpeed : Math.Max(speed, Math.Min(100, Stats.MoveSpeed));
             AttackRange = Stats.AttackRange + attackRangeBonus;
             IncomingDamageHundredths = Math.Max(incomingDamage, -10000);
-            AttackDamagePercent = Math.Max(attackDamagePercent, -100);
+            AttackDamageHundredths = Math.Max(attackDamagePercent, -10000);
             EvasionHundredths = dota ? (int)(10000 - evasionLeft) : Math.Min(evasion, 10000);
             StepPerTick = Fixed.FromRatio(MoveSpeed, _rate.TicksPerSecond);
             AttackIntervalTicks = Math.Max(1, _rate.TicksFor((baseAttackTime > 0 ? baseAttackTime : Stats.AttackIntervalMs) * 100 / (100 + AttackSpeedBonus)));

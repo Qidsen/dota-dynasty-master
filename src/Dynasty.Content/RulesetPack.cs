@@ -675,7 +675,7 @@ namespace Dynasty.Content
                 case "area":
                     AreaCenter center = ReadCenter(e, "center");
                     effect = e.OptionalInt("maxTargets") is int most
-                        ? EffectDefinition.Area(e.Int("radius"), center, ReadTeam(e, "team"), most, e.Array("effects").Select(ReadEffect).ToArray())
+                        ? EffectDefinition.Area(e.Int("radius"), center, ReadTeam(e, "team"), most, e.OptionalBool("lowestHealthFirst") ?? false, e.Array("effects").Select(ReadEffect).ToArray())
                         : EffectDefinition.Area(e.Int("radius"), center, ReadTeam(e, "team"), e.OptionalBool("heroesOnly") ?? false, e.Array("effects").Select(ReadEffect).ToArray());
                     break;
                 case "dash":
@@ -860,7 +860,7 @@ namespace Dynasty.Content
                 breakOnAction: m.OptionalBool("breakOnAction") ?? false, breakRadius: m.OptionalInt("breakRadius") ?? 0, dispellable: m.OptionalBool("dispellable") ?? true,
                 strengthBonus: m.OptionalInt("strength") ?? 0, agilityBonus: m.OptionalInt("agility") ?? 0, intelligenceBonus: m.OptionalInt("intelligence") ?? 0,
                 manaRegenBonus: m.OptionalFixed("manaRegen") ?? Fixed.Zero, moveSpeedBonus: m.OptionalInt("moveSpeed") ?? 0, attackRangeBonus: m.OptionalInt("attackRange") ?? 0,
-                incomingDamageHundredths: m.OptionalHundredth("incomingDamagePercent") ?? 0, attackDamagePercent: m.OptionalInt("attackDamagePercent") ?? 0,
+                incomingDamageHundredths: m.OptionalHundredth("incomingDamagePercent") ?? 0, attackDamageHundredths: m.OptionalHundredth("attackDamagePercent") ?? 0,
                 evasionHundredths: m.OptionalHundredth("evasion") ?? 0, onHit: m.OptionalArray("onHit").Select(ReadEffect).ToList(),
                 onHitChancePercent: 0, onHitChanceHundredths: m.OptionalHundredth("onHitChance") ?? 10000, aura: m.OptionalObject("aura") is Reader a ? ReadAura(a) : null,
                 cleavePercent: m.OptionalInt("cleavePercent") ?? 0, cleaveRadius: m.OptionalInt("cleaveRadius") ?? 0,
@@ -913,6 +913,7 @@ namespace Dynasty.Content
                 castDamage: m.OptionalInt("castDamage") ?? 0, castDamageManaPercent: m.OptionalInt("castDamageManaPercent") ?? 0,
                 proximityRadius: m.OptionalInt("proximityRadius") ?? 0, proximityDelayMs: m.OptionalMilliseconds("proximityDelay") ?? 0,
                 onProximity: m.OptionalArray("onProximity").Select(ReadEffect).ToList(), periodicFromBearer: m.OptionalBool("periodicFromBearer") ?? false,
+                baseArmorReductionPercent: m.OptionalInt("baseArmorReductionPercent") ?? 0, baseMagicResistReductionPercent: m.OptionalInt("baseMagicResistReductionPercent") ?? 0,
                 baseAttackTimeMs: m.OptionalMilliseconds("baseAttackTime") ?? 0, growsWithChannelMs: m.OptionalMilliseconds("growsWithChannel") ?? 0,
                 attributeShift: m.OptionalString("attributeShift") switch
                 {

@@ -859,8 +859,8 @@ namespace Dynasty.MatchSimulation.Systems
                 if (critical)
                     damage = damage * Fixed.FromInt(unit.CritMultiplierPercent) / Fixed.FromInt(100);
             }
-            if (unit.AttackDamagePercent != 0)
-                damage = damage * Fixed.FromInt(100 + unit.AttackDamagePercent) / Fixed.FromInt(100);
+            if (unit.AttackDamageHundredths != 0)
+                damage = damage * Fixed.FromInt(10000 + unit.AttackDamageHundredths) / Fixed.FromInt(10000);
             CombatRules combat = context.State.Ruleset.Combat;
             int classPercent = target.Kind == UnitKind.Structure && unit.IllusionOf.IsValid && combat.IllusionBuildingPercent > 0 ? combat.IllusionBuildingPercent
                 : target.Kind == UnitKind.Structure && unit.Kind == UnitKind.Summon && !unit.IllusionOf.IsValid && combat.SummonBuildingPercent > 0 ? combat.SummonBuildingPercent

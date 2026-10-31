@@ -131,7 +131,9 @@ static class Abilities
                 bool allowed = ((path.EndsWith(".aura.modifier.duration") || (inContinuousZone && path.EndsWith(".modifiers.duration"))) && number == 1) ||
                                number >= 20000 || path.Contains(".counts[") || (path.EndsWith(".critChance") && number == 100) ||
                                // Time Lapse's five seconds are only in Valve's description (abilities_english.txt), not in the data.
-                               (key == "weaver_time_lapse" && path.EndsWith(".back") && number == 5);
+                               (key == "weaver_time_lapse" && path.EndsWith(".back") && number == 5) ||
+                               // Eye of the Storm: "each blast targets the lowest health enemy unit" (Valve's note) - one a strike.
+                               (key == "razor_eye_of_the_storm" && path.EndsWith(".maxTargets") && number == 1);
                 if (!allowed)
                     throw new InvalidDataException($"abilities.json: {key}{path} = {number} is typed by hand; refer to the data (\"$key\")");
                 break;

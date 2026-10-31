@@ -12641,5 +12641,101 @@
         }
       }
     ]
+  },
+  "alchemist_corrosive_weaponry": {
+    "status": "simplified",
+    "note": "an attack applies two stacks (stacks_per_attack); the reduction is of the whole attack damage, not only the base; Unstable Concoction adds no stacks",
+    "targeting": "passive",
+    "targetTeam": "ally",
+    "passive": {
+      "key": "alchemist_corrosive_weaponry",
+      "onHit": [
+        {
+          "kind": "modifier",
+          "modifiers": {
+            "key": "alchemist_corrosive_weaponry_debuff",
+            "duration": "$debuff_duration",
+            "stacking": true,
+            "maxStacks": "$max_stacks",
+            "moveSpeedPercent": "-$slow_per_stack",
+            "attackDamagePercent": "-$attack_dmg_per_stack"
+          }
+        },
+        {
+          "kind": "modifier",
+          "modifiers": {
+            "key": "alchemist_corrosive_weaponry_debuff",
+            "duration": "$debuff_duration",
+            "stacking": true,
+            "maxStacks": "$max_stacks",
+            "moveSpeedPercent": "-$slow_per_stack",
+            "attackDamagePercent": "-$attack_dmg_per_stack"
+          }
+        }
+      ]
+    }
+  },
+  "elder_titan_natural_order": {
+    "status": "simplified",
+    "note": "both reductions are centred on Elder Titan (Dota centres the magic one on the Astral Spirit when it is out); the magic resistance taken is the hero's own base, without intelligence's part (B-173)",
+    "targeting": "passive",
+    "targetTeam": "ally",
+    "passive": {
+      "key": "elder_titan_natural_order",
+      "aura": {
+        "radius": "$radius",
+        "team": "enemy",
+        "modifier": {
+          "key": "elder_titan_natural_order_debuff",
+          "duration": 1,
+          "baseArmorReductionPercent": "$armor_reduction_pct",
+          "baseMagicResistReductionPercent": "$magic_resistance_pct"
+        }
+      }
+    }
+  },
+  "razor_eye_of_the_storm": {
+    "status": "simplified",
+    "note": "a second cast refreshes the storm instead of adding another; no priority for Static Linked heroes",
+    "targeting": "noTarget",
+    "targetTeam": "ally",
+    "effects": [
+      {
+        "kind": "modifier",
+        "modifiers": {
+          "key": "razor_eye_of_the_storm",
+          "duration": "$duration",
+          "dispellable": false,
+          "period": "$strike_interval",
+          "periodicFromBearer": true,
+          "periodicEffects": [
+            {
+              "kind": "area",
+              "radius": "$radius",
+              "center": "caster",
+              "team": "enemy",
+              "maxTargets": 1,
+              "lowestHealthFirst": true,
+              "effects": [
+                {
+                  "kind": "damage",
+                  "damageType": "physical",
+                  "amounts": "$damage"
+                },
+                {
+                  "kind": "modifier",
+                  "modifiers": {
+                    "key": "razor_eye_of_the_storm_armor",
+                    "duration": "$duration",
+                    "stacking": true,
+                    "armor": "-$armor_reduction"
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      }
+    ]
   }
 }

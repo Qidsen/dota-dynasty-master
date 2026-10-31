@@ -658,7 +658,8 @@ namespace Dynasty.MatchSimulation.Systems
                             Geometry.WithinRange(center, u.Position, effect.Radius + u.BoundingRadius))
                 .ToList();
             if (effect.MaxTargets > 0 && affected.Count > effect.MaxTargets)
-                affected = affected.OrderBy(u => FixedVector2.DistanceSquared(center, u.Position)).ThenBy(u => u.Id.Value).Take(effect.MaxTargets).ToList();
+                affected = (effect.LowestHealthFirst ? affected.OrderBy(u => u.Hp) : affected.OrderBy(u => FixedVector2.DistanceSquared(center, u.Position)))
+                    .ThenBy(u => u.Id.Value).Take(effect.MaxTargets).ToList();
             foreach (MatchUnit unit in affected)
             {
                 foreach (EffectDefinition inner in effect.Inner)

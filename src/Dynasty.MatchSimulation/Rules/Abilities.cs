@@ -240,8 +240,10 @@ namespace Dynasty.MatchSimulation.Rules
             bool abilitiesOnly = false,
             int maxTargets = 0,
             int[]? floor = null,
-            int[]? ceiling = null)
+            int[]? ceiling = null,
+            bool lowestHealthFirst = false)
         {
+            LowestHealthFirst = lowestHealthFirst;
             Floor = floor ?? Array.Empty<int>();
             Ceiling = ceiling ?? Array.Empty<int>();
             MaxTargets = maxTargets;
@@ -277,6 +279,9 @@ namespace Dynasty.MatchSimulation.Rules
 
         /// <summary>Areas only: at most this many units, the nearest to the centre first (Fatal Bonds); 0: all of them.</summary>
         public int MaxTargets { get; }
+
+        /// <summary>Areas with <see cref="MaxTargets"/>: the units with the least health first (Eye of the Storm), not the nearest.</summary>
+        public bool LowestHealthFirst { get; }
 
         /// <summary>Cooldown refreshes only: the hero's abilities, not its items (Dota's Rearm in 7.41).</summary>
         public bool AbilitiesOnly { get; }
@@ -432,6 +437,10 @@ namespace Dynasty.MatchSimulation.Rules
         public static EffectDefinition Area(int radius, AreaCenter center, TargetTeam team, int maxTargets, params EffectDefinition[] inner) =>
             new EffectDefinition(EffectKind.Area, radius: radius, center: center, team: team, inner: inner, maxTargets: maxTargets);
 
+        /// <summary>An area taking at most <paramref name="maxTargets"/> units, the weakest first when <paramref name="lowestHealthFirst"/>.</summary>
+        public static EffectDefinition Area(int radius, AreaCenter center, TargetTeam team, int maxTargets, bool lowestHealthFirst, params EffectDefinition[] inner) =>
+            new EffectDefinition(EffectKind.Area, radius: radius, center: center, team: team, inner: inner, maxTargets: maxTargets, lowestHealthFirst: lowestHealthFirst);
+
         public static EffectDefinition LineArea(int width, TargetTeam team, params EffectDefinition[] inner) =>
             new EffectDefinition(EffectKind.LineArea, radius: width, team: team, inner: inner);
 
@@ -529,6 +538,7 @@ namespace Dynasty.MatchSimulation.Rules
             w.WriteInt64(MaxDistance);
             w.WriteBool(AbilitiesOnly);
             w.WriteInt64(MaxTargets);
+            w.WriteBool(LowestHealthFirst);
             foreach (IReadOnlyList<int> bound in new[] { Floor, Ceiling })
             {
                 w.WriteInt64(bound.Count);

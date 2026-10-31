@@ -231,8 +231,14 @@ namespace Dynasty.MatchSimulation.Combat
             IReadOnlyList<Rules.EffectDefinition>? onProximity = null,
             bool periodicFromBearer = false,
             int baseAttackTimeMs = 0,
-            int growsWithChannelMs = 0)
+            int growsWithChannelMs = 0,
+            int baseArmorReductionPercent = 0,
+            int baseMagicResistReductionPercent = 0,
+            int attackDamageHundredths = 0)
         {
+            BaseArmorReductionPercent = baseArmorReductionPercent;
+            BaseMagicResistReductionPercent = baseMagicResistReductionPercent;
+            AttackDamageHundredths = attackDamagePercent * 100 + attackDamageHundredths;
             BaseAttackTimeMs = baseAttackTimeMs;
             GrowsWithChannelMs = growsWithChannelMs;
             PeriodicFromBearer = periodicFromBearer;
@@ -334,7 +340,6 @@ namespace Dynasty.MatchSimulation.Combat
             CleavePercent = cleavePercent;
             CleaveRadius = cleaveRadius;
             Barrier = barrier;
-            AttackDamagePercent = attackDamagePercent;
             OnHit = onHit?.ToArray() ?? System.Array.Empty<Rules.EffectDefinition>();
             Aura = aura;
             ManaRegenBonus = manaRegenBonus;
@@ -393,7 +398,7 @@ namespace Dynasty.MatchSimulation.Combat
         public int IncomingDamageHundredths { get; }
 
         /// <summary>Percent added to the unit's attack damage (negative: e.g. Breathe Fire's reduction).</summary>
-        public int AttackDamagePercent { get; }
+        public int AttackDamagePercent => AttackDamageHundredths / 100;
 
         /// <summary>Chance that an attack on the unit misses, in hundredths of a percent.</summary>
         public int EvasionHundredths { get; }
@@ -662,6 +667,18 @@ namespace Dynasty.MatchSimulation.Combat
         /// <summary>The bearer itself runs <see cref="PeriodicEffects"/>, whether its caster lives or not (Tombstone raising zombies).</summary>
         public bool PeriodicFromBearer { get; }
 
+        /// <summary>
+        /// Natural Order: this share of the bearer's base armor (its own and from agility) is gone, bonuses stay; the strongest of
+        /// such modifiers counts.
+        /// </summary>
+        public int BaseArmorReductionPercent { get; }
+
+        /// <summary>Natural Order: this share of the bearer's own base magic resistance is gone (whether intelligence's part counts is not confirmed: B-173).</summary>
+        public int BaseMagicResistReductionPercent { get; }
+
+        /// <summary>Attack damage change in hundredths of a percent (Corrosive Weaponry: −2.5% a stack is −250).</summary>
+        public int AttackDamageHundredths { get; }
+
         /// <summary>Sets the bearer's base attack time while it lasts (Lil' Shredder); 0: the unit's own.</summary>
         public int BaseAttackTimeMs { get; }
 
@@ -883,7 +900,8 @@ namespace Dynasty.MatchSimulation.Combat
             w.WriteBool(DamageHeals);
             foreach (int value in new[] { CritMultiplierMaxPercent, CritLifestealPercent, OnHitManaCost, OnHitManaCostPercent, FullBelowHealthPercent, InvisibleAfterIdleMs,
                                           ShareDamagePercent, SpreadDamagePercent, SpreadRadius, BreakDistance, HealSharePercent, ManaSharePercent,
-                                          CastDamage, CastDamageManaPercent, ProximityRadius, ProximityDelayMs, BaseAttackTimeMs, GrowsWithChannelMs })
+                                          CastDamage, CastDamageManaPercent, ProximityRadius, ProximityDelayMs, BaseAttackTimeMs, GrowsWithChannelMs,
+                                          BaseArmorReductionPercent, BaseMagicResistReductionPercent, AttackDamageHundredths })
                 w.WriteInt64(value);
             w.WriteBool(ReturnsOnExpiry);
             w.WriteBool(PeriodicFromBearer);
