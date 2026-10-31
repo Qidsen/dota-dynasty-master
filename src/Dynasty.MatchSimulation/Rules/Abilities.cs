@@ -165,6 +165,9 @@ namespace Dynasty.MatchSimulation.Rules
 
         /// <summary>Kills the target outright (Midnight Feast's creep).</summary>
         Kill = 34,
+
+        /// <summary>Ends now every modifier <see cref="EffectDefinition.StackKey"/> the caster put on any unit, as if it ran out (Shadow Poison Release).</summary>
+        Release = 35,
     }
 
     /// <summary>What a damage effect's amounts mean: flat damage, or a percent of the target's health or mana.</summary>
@@ -200,6 +203,12 @@ namespace Dynasty.MatchSimulation.Rules
 
         /// <summary>Amounts for every second the caster has been channelling, at most <see cref="EffectDefinition.Ceiling"/> (Upheaval).</summary>
         PerChannelSecond = 16,
+
+        /// <summary>
+        /// Shadow Poison's deferred damage: the amounts times 1, 2, 4… by the ending modifier's stacks up to <see cref="EffectDefinition.MaxTargets"/>
+        /// stacks, and <see cref="EffectDefinition.DamagePercent"/> more for each stack beyond.
+        /// </summary>
+        DoublingPerStack = 18,
 
         /// <summary>
         /// Amounts for every unit within <see cref="EffectDefinition.Radius"/> of the caster that its team sees, up to
@@ -353,6 +362,13 @@ namespace Dynasty.MatchSimulation.Rules
         /// <summary>Scaled damage kept between a floor and a ceiling per level (Glimpse).</summary>
         public static EffectDefinition BoundedScaledDamage(DamageType type, DamageScaling scaling, int[] floor, int[] ceiling, params int[] percentPerLevel) =>
             new EffectDefinition(EffectKind.Damage, percentPerLevel, type, scaling: scaling, floor: floor, ceiling: ceiling);
+
+        /// <summary>See <see cref="DamageScaling.DoublingPerStack"/>.</summary>
+        public static EffectDefinition DamageByStacksDoubling(DamageType type, int doublingStacks, int extraPerStack, params int[] stackDamagePerLevel) =>
+            new EffectDefinition(EffectKind.Damage, stackDamagePerLevel, type, scaling: DamageScaling.DoublingPerStack, maxTargets: doublingStacks, damagePercent: extraPerStack);
+
+        /// <summary>See <see cref="EffectKind.Release"/>.</summary>
+        public static EffectDefinition Release(string modifierKey) => new EffectDefinition(EffectKind.Release, stackKey: modifierKey);
 
         /// <summary>See <see cref="EffectKind.Kill"/>.</summary>
         public static EffectDefinition Kill() => new EffectDefinition(EffectKind.Kill);

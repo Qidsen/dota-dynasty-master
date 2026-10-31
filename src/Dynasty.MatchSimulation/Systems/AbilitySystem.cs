@@ -300,6 +300,12 @@ namespace Dynasty.MatchSimulation.Systems
                 case DamageScaling.DistanceToTargetPercent:
                     Fixed distance = FixedVector2.Distance(caster.Position, target.Position);
                     return (effect.Radius > 0 ? Fixed.Min(distance, Fixed.FromInt(effect.Radius)) : distance) * percent;
+                case DamageScaling.DoublingPerStack:
+                    int stacks = target.EndingStacks;
+                    if (stacks <= 0)
+                        return Fixed.Zero;
+                    int doubled = System.Math.Min(stacks, effect.MaxTargets);
+                    return amount * Fixed.FromInt(1 << (doubled - 1)) + Fixed.FromInt(System.Math.Max(0, stacks - effect.MaxTargets) * effect.DamagePercent);
                 case DamageScaling.PerUnitAround:
                     return amount * Fixed.FromInt(System.Math.Min(effect.MaxTargets, UnitsAround(context.State, caster, effect.Radius)));
                 case DamageScaling.PerChannelSecond:
@@ -386,6 +392,14 @@ namespace Dynasty.MatchSimulation.Systems
                     break;
                 case EffectKind.RestoreMana:
                     Damage.RestoreMana(context, target, effect.Scaling == DamageScaling.Flat ? Fixed.FromInt(effect.AmountAt(level)) : ScaledAmount(context, effect, level, caster, target));
+                    break;
+                case EffectKind.Release:
+                    foreach (MatchUnit unit in context.State.Units.Where(u => u.Modifiers.Any(m => m.Spec.Key == effect.StackKey && m.Source == caster.Id)).ToList())
+                    {
+                        foreach (ActiveModifier poison in unit.Modifiers.Where(m => m.Spec.Key == effect.StackKey && m.Source == caster.Id).ToList())
+                            Modifiers.Remove(context, unit, poison, "released");
+                    }
+
                     break;
                 case EffectKind.Kill:
                     if (target.IsAlive)

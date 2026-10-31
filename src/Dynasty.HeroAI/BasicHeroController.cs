@@ -513,6 +513,8 @@ namespace Dynasty.HeroAI
                 return;
             if (Decided(FeastWhenHurt(), "FeastWhenHurt"))
                 return;
+            if (_memory.Retreating && Decided(StasisToGetAway(), "StasisToGetAway"))
+                return;
             if (_memory.Retreating)
             {
                 Trace("Retreat");
@@ -1270,6 +1272,16 @@ namespace Dynasty.HeroAI
                         return null;   // Time Lapse is kept for when the hero has lost much health (LapseBackWhenHurt)
                     if (def.Effects.FirstOrDefault(e => e.Kind == EffectKind.Spring) is EffectDefinition spring)
                         return SpringWorthIt(spring, enemies) ? HeroOrder.CastNoTarget(def.Id) : null;
+                    if (def.Effects.FirstOrDefault(e => e.Kind == EffectKind.Release) is EffectDefinition release)
+                    {
+                        // Shadow Poison's release: once an enemy hero it sees carries enough stacks for the doubling to pay.
+                        HeroDecision me = this;
+                        return enemies.Any(e => e.Hero != null && e.Modifiers.Any(m => m.Spec.Key == release.StackKey && m.Source == me._hero.Id && m.Stacks >= ReleaseStacks))
+                            ? HeroOrder.CastNoTarget(def.Id) : null;
+                    }
+
+                    if (StasisRadius(def) > 0)
+                        return null;   // Song of the Siren makes enemies unhurtable: kept for getting away (StasisToGetAway)
                     if (def.Effects.Any(e => e.Kind == EffectKind.Summon))
                         return HeroOrder.CastNoTarget(def.Id);
                     EffectDefinition? area = def.Effects.FirstOrDefault(e => e.Kind == EffectKind.Area);
@@ -1300,6 +1312,32 @@ namespace Dynasty.HeroAI
                 return false;
             bool charged = (_now - trap.SummonedTick) * 1000 >= (long)spring.DurationMs * _ticksPerMinute / 60;
             return charged || caught.Any(e => !Math.Within(e.Position, trap.Position, radius * 3 / 4));
+        }
+
+        /// <summary>Stacks of Shadow Poison on an enemy hero worth releasing (1, 2, 4, 8 times the stack damage).</summary>
+        private const int ReleaseStacks = 4;
+
+        /// <summary>The radius of an area that puts enemies in stasis, unhurtable (Song of the Siren); 0 for other abilities.</summary>
+        private static int StasisRadius(AbilityDefinition def) =>
+            def.Effects.Where(e => e.Kind == EffectKind.Area && e.Team == TargetTeam.Enemy &&
+                                   e.Inner.Any(i => i.Kind == EffectKind.ApplyModifier && i.Modifiers.Any(m => (m.Flags & ModifierFlags.Invulnerable) != 0)))
+                .Select(e => e.Radius).DefaultIfEmpty(0).First();
+
+        /// <summary>Song of the Siren when retreating with enemy heroes it sees close: they sleep while the hero gets away.</summary>
+        private bool StasisToGetAway()
+        {
+            if ((_hero.Flags & ModifierFlags.Silenced) != 0)
+                return false;
+            foreach (AbilityState ability in ReadyAbilities().Where(a => a.Definition.Targeting == AbilityTargeting.NoTarget))
+            {
+                int radius = StasisRadius(ability.Definition);
+                if (radius == 0 || VisibleEnemyHeroes(_hero.Position, radius).Count == 0)
+                    continue;
+                Issue(HeroOrder.CastNoTarget(ability.Definition.Id));
+                return true;
+            }
+
+            return false;
         }
 
         /// <summary>Midnight Feast when hurt or low on mana, before retreating.</summary>

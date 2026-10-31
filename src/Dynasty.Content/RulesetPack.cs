@@ -651,6 +651,8 @@ namespace Dynasty.Content
                         ? EffectDefinition.Damage(ReadDamageType(e, "damageType"), e.Ints("amounts").ToArray())
                         : scaling == DamageScaling.PerTargetStack
                         ? EffectDefinition.DamagePerStack(ReadDamageType(e, "damageType"), e.String("stackKey"), e.Ints("amounts").ToArray())
+                        : scaling == DamageScaling.DoublingPerStack
+                        ? EffectDefinition.DamageByStacksDoubling(ReadDamageType(e, "damageType"), e.Int("doublingStacks"), e.Int("extraPerStack"), e.Ints("amounts").ToArray())
                         : scaling == DamageScaling.PerUnitAround
                         ? EffectDefinition.PerUnitAround(EffectKind.Damage, ReadDamageType(e, "damageType"), e.Int("radius"), e.Int("maxUnits"), e.Ints("amounts").ToArray())
                         : scaling == DamageScaling.PerChannelSecond
@@ -707,6 +709,9 @@ namespace Dynasty.Content
                     break;
                 case "lineArea":
                     effect = EffectDefinition.LineArea(e.OptionalInt("width") ?? 0, ReadTeam(e, "team"), e.Array("effects").Select(ReadEffect).ToArray());
+                    break;
+                case "release":
+                    effect = EffectDefinition.Release(e.String("modifier"));
                     break;
                 case "kill":
                     effect = EffectDefinition.Kill();
@@ -833,8 +838,9 @@ namespace Dynasty.Content
             "fullChargeOnly" => DamageScaling.FullChargeOnly,
             "perChannelSecond" => DamageScaling.PerChannelSecond,
             "perUnitAround" => DamageScaling.PerUnitAround,
+            "doublingPerStack" => DamageScaling.DoublingPerStack,
             _ => throw r.Error(field, "expected flat, targetMaxHealthPercent, targetMissingHealthPercent, targetCurrentHealthPercent, targetMaxManaPercent, " +
-                                      "targetMissingManaPercent, casterAttackDamagePercent, casterStrengthPercent, casterAgilityPercent, casterIntelligencePercent, perTargetStack, casterCurrentManaPercent, distanceToTargetPercent, rewoundDistancePercent, distanceFalloff, fullChargeOnly, perChannelSecond or perUnitAround"),
+                                      "targetMissingManaPercent, casterAttackDamagePercent, casterStrengthPercent, casterAgilityPercent, casterIntelligencePercent, perTargetStack, casterCurrentManaPercent, distanceToTargetPercent, rewoundDistancePercent, distanceFalloff, fullChargeOnly, perChannelSecond, perUnitAround or doublingPerStack"),
         };
 
         private static ModifierFlags ReadFlag(Reader r, string flag) => flag switch
@@ -930,6 +936,7 @@ namespace Dynasty.Content
                 critEveryAttacks: m.OptionalInt("critEveryAttacks") ?? 0, critHealPercent: m.OptionalInt("critHealPercent") ?? 0,
                 critHealRadius: m.OptionalInt("critHealRadius") ?? 0, critHealAlliesPercent: m.OptionalInt("critHealAlliesPercent") ?? 0,
                 critHealCreepPercent: m.OptionalInt("critHealCreepPercent") ?? 100,
+                onEnd: m.OptionalArray("onEnd").Select(ReadEffect).ToList(),
                 cooldownSlowPercent: m.OptionalInt("cooldownSlowPercent") ?? 0, stacksPerCooldown: m.OptionalBool("stacksPerCooldown") ?? false,
                 anchorChain: m.OptionalInt("anchorChain") ?? 0, anchorDragSpeed: m.OptionalInt("anchorDragSpeed") ?? 0, redirectsSpells: m.OptionalBool("redirectsSpells") ?? false,
                 thirstMoveSpeedPercent: m.OptionalInt("thirstMoveSpeedPercent") ?? 0, thirstFromHealthPercent: m.OptionalInt("thirstFromHealthPercent") ?? 100,

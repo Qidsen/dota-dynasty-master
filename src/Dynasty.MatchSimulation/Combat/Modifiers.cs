@@ -248,8 +248,10 @@ namespace Dynasty.MatchSimulation.Combat
             int anchorDragSpeed = 0,
             bool redirectsSpells = false,
             int cooldownSlowPercent = 0,
-            bool stacksPerCooldown = false)
+            bool stacksPerCooldown = false,
+            IReadOnlyList<Rules.EffectDefinition>? onEnd = null)
         {
+            OnEnd = onEnd?.ToArray() ?? System.Array.Empty<Rules.EffectDefinition>();
             CooldownSlowPercent = cooldownSlowPercent;
             StacksPerCooldown = stacksPerCooldown;
             AnchorChain = anchorChain;
@@ -751,6 +753,12 @@ namespace Dynasty.MatchSimulation.Combat
         /// </summary>
         public bool RedirectsSpells { get; }
 
+        /// <summary>
+        /// Effects run when the modifier runs out or is released (Shadow Poison's deferred damage), not when dispelled, with its caster
+        /// as the caster and the bearer as the target; the stacks it had count (<see cref="Rules.DamageScaling.DoublingPerStack"/>).
+        /// </summary>
+        public IReadOnlyList<Rules.EffectDefinition> OnEnd { get; }
+
         /// <summary>Time Dilation: the bearer's ability cooldowns (not items') run this much slower.</summary>
         public int CooldownSlowPercent { get; }
 
@@ -961,7 +969,7 @@ namespace Dynasty.MatchSimulation.Combat
             w.WriteInt64(AttackCharges);
             w.WriteBool(ExtraTargetRadiusFromAttackRange);
             w.WriteInt64(ExtraTargetChancePercent);
-            foreach (IReadOnlyList<Rules.EffectDefinition> list in new[] { OnCast, OnKill, OnDeath, OnReturn, OnProximity })
+            foreach (IReadOnlyList<Rules.EffectDefinition> list in new[] { OnCast, OnKill, OnDeath, OnReturn, OnProximity, OnEnd })
             {
                 w.WriteInt64(list.Count);
                 foreach (Rules.EffectDefinition effect in list)
@@ -1168,6 +1176,15 @@ namespace Dynasty.MatchSimulation.Combat
         internal static void Remove(SimulationContext<MatchState> context, MatchUnit target, ActiveModifier modifier, string reason)
         {
             target.RemoveModifier(modifier);
+            if (modifier.Spec.OnEnd.Count > 0 && (reason == "expired" || reason == "released") && target.IsAlive)
+            {
+                // Shadow Poison: the deferred damage, by the stacks the poison had.
+                MatchUnit caster = context.State.Find(modifier.Source) ?? target;
+                target.EndingStacks = modifier.Stacks;
+                Systems.Effects.Run(context, caster, modifier.Spec.OnEnd, 1, target, target.Position);
+                target.EndingStacks = 0;
+            }
+
             if (modifier.Spec.ReturnsOnExpiry && reason == "expired" && target.IsAlive)
             {
                 // X Marks the Spot: back to the mark; a channel there is interrupted (the official note).

@@ -13069,5 +13069,116 @@
         ]
       }
     ]
+  },
+  "shadow_demon_shadow_poison": {
+    "status": "simplified",
+    "note": "the poison hits along the line to the point at once (no projectile flying on beyond it)",
+    "targeting": "point",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "lineArea",
+        "width": "$radius",
+        "team": "enemy",
+        "effects": [
+          {
+            "kind": "damage",
+            "damageType": "magical",
+            "amounts": "$hit_damage"
+          },
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "shadow_demon_shadow_poison",
+              "duration": "$abilityduration",
+              "stacking": true,
+              "dispellable": false,
+              "onEnd": [
+                {
+                  "kind": "damage",
+                  "damageType": "magical",
+                  "scaling": "doublingPerStack",
+                  "doublingStacks": "$max_multiply_stacks",
+                  "extraPerStack": "$bonus_stack_damage",
+                  "amounts": "$stack_damage"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "shadow_demon_shadow_poison_release": {
+    "status": "full",
+    "targeting": "noTarget",
+    "targetTeam": "enemy",
+    "levelsWith": "shadow_demon_shadow_poison",
+    "effects": [
+      {
+        "kind": "release",
+        "modifier": "shadow_demon_shadow_poison"
+      }
+    ]
+  },
+  "naga_siren_song_of_the_siren": {
+    "status": "simplified",
+    "note": "casting again does not end it early; no Aghanim's Shard healing; the AI sings to get away only",
+    "targeting": "noTarget",
+    "targetTeam": "enemy",
+    "effects": [
+      {
+        "kind": "area",
+        "radius": "$radius",
+        "center": "caster",
+        "team": "enemy",
+        "effects": [
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "naga_siren_song_of_the_siren",
+              "duration": "$duration",
+              "flags": [
+                "stunned",
+                "invulnerable"
+              ],
+              "dispellable": false,
+              "breakDistance": "$radius"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "clinkz_death_pact": {
+    "status": "simplified",
+    "note": "enemy creeps only (not his own Skeleton Archers); no creep level limit; the AI consumes when hurt",
+    "targeting": "unit",
+    "targetTeam": "enemy",
+    "targetsCreepsOnly": true,
+    "charges": "$abilitycharges",
+    "chargeRestore": "$abilitychargerestoretime",
+    "effects": [
+      {
+        "kind": "kill"
+      },
+      {
+        "kind": "onCaster",
+        "effects": [
+          {
+            "kind": "modifier",
+            "modifiers": {
+              "key": "clinkz_death_pact",
+              "duration": "$duration",
+              "maxHealth": "$health_gain"
+            }
+          },
+          {
+            "kind": "heal",
+            "amounts": "$health_gain"
+          }
+        ]
+      }
+    ]
   }
 }
